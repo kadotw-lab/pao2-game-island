@@ -674,7 +674,7 @@ DATA.forEach((isl, i) => {
 
 /* 依世界大小調整鏡頭、霧、陰影 */
 HOME_POS.set(0, WORLD_R * (isMobile ? 1.9 : 1.2), WORLD_R * (isMobile ? 2.2 : 1.5));
-scene.fog.near = WORLD_R * 3.4; scene.fog.far = WORLD_R * 8;
+scene.fog.near = WORLD_R * 2.2; scene.fog.far = WORLD_R * 6.5;
 controls.maxDistance = WORLD_R * 6;
 { const sc = WORLD_R + 4; Object.assign(sun.shadow.camera, { left: -sc, right: sc, top: sc, bottom: -sc, far: WORLD_R * 8 }); sun.shadow.camera.updateProjectionMatrix(); }
 const LABEL_FADE = Math.max(40, WORLD_R * 1.4);
@@ -1022,6 +1022,68 @@ for (let i = 0; i < 5; i++){ const b = new THREE.Group(); const wl = new THREE.M
   const wr = wl.clone(); wr.position.x = 0.1; b.add(wl, wr); b.scale.setScalar(1 + WORLD_R / 40); b.userData = { wl, wr, off: i*1.3 }; scene.add(b); birds.push(b); }
 
 /* =========================================================
+   海洋：空島下方會起伏的低多邊形海面＋帆船、小沙洲、燈塔
+   ========================================================= */
+const OCEAN_Y = -16;
+const oceanU = { uTime: { value: 0 } };
+const oceanMat = new THREE.MeshStandardMaterial({ color: 0x4cb6d2, roughness: 0.3, metalness: 0.05, flatShading: true });
+oceanMat.onBeforeCompile = sh => {
+  sh.uniforms.uTime = oceanU.uTime;
+  sh.vertexShader = 'uniform float uTime;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+    float w = sin(position.x * 0.16 + uTime * 0.7) * 0.45 + cos(position.y * 0.2 + uTime * 0.55) * 0.4
+            + sin((position.x + position.y) * 0.37 + uTime * 1.2) * 0.15;
+    transformed.z += w;`);
+};
+const OCEAN_S = Math.max(400, WORLD_R * 12);
+const ocean = new THREE.Mesh(new THREE.PlaneGeometry(OCEAN_S, OCEAN_S, 180, 180), oceanMat);
+ocean.rotation.x = -Math.PI / 2; ocean.position.y = OCEAN_Y; ocean.receiveShadow = true;
+scene.add(ocean);
+// 較淺的近海色帶（主城正下方）
+const shallow = new THREE.Mesh(new THREE.CircleGeometry(WORLD_R * 0.9, 48), new THREE.MeshBasicMaterial({ color: 0x7fd6e3, transparent: true, opacity: 0.18, depthWrite: false }));
+shallow.rotation.x = -Math.PI / 2; shallow.position.y = OCEAN_Y + 0.9; // 保留但不加入場景
+
+// 小沙洲（有椰子樹，其中一座有燈塔）
+const isletRnd = mulberry(888);
+let lighthouseLamp = null;
+for (let k = 0; k < 7; k++){
+  const a = isletRnd() * Math.PI * 2, rr = WORLD_R * (0.5 + isletRnd() * 0.9), s = 0.8 + isletRnd() * 0.8;
+  const g = new THREE.Group(); g.position.set(Math.cos(a)*rr, OCEAN_Y, Math.sin(a)*rr); g.scale.setScalar(s); scene.add(g);
+  put(g, G.cyl, M(0xf3dfb0, {flat:true}), 0, 0.15, 0, 1.4, 0.6, 1.4);
+  put(g, G.cyl, M(0x9fd17a, {flat:true}), 0, 0.5, 0, 0.9, 0.2, 0.9);
+  for (let q = 0; q < 3; q++){ const b = isletRnd() * 6.28, d = 0.3 + isletRnd() * 0.5, px = Math.cos(b)*d, pz = Math.sin(b)*d;
+    put(g, G.cyl, M(0x9a6b45), px, 1.0, pz, 0.05, 1.0, 0.05, 0, 0, 0.15);
+    for (let l = 0; l < 5; l++) put(g, G.box, M(0x4f9e6a), px + 0.1, 1.5, pz, 0.55, 0.04, 0.16, l / 5 * Math.PI * 2, 0, -0.35); }
+  if (k === 0){
+    for (let q = 0; q < 5; q++) put(g, G.cyl, M(q % 2 ? 0xef6f53 : 0xfff8ec), -0.5, 0.75 + q * 0.4, 0.4, 0.22 - q*0.015, 0.4, 0.22 - q*0.015);
+    put(g, G.cyl, M(0x3b3550), -0.5, 2.85, 0.4, 0.2, 0.1, 0.2);
+    lighthouseLamp = put(g, G.ball, lampMat, -0.5, 3.05, 0.4, 0.16);
+    put(g, G.cone, M(0xef6f53), -0.5, 3.35, 0.4, 0.22, 0.3);
+  }
+  g.traverse(m => { if (m.isMesh){ m.castShadow = true; m.receiveShadow = true; } });
+}
+// 帆船
+const boats = [];
+for (let k = 0; k < 8; k++){
+  const g = new THREE.Group(), r = mulberry(500 + k);
+  put(g, G.box, M([0xfff8ec, 0xef6f53, 0x6fb7e0][k % 3]), 0, 0.2, 0, 0.6, 0.3, 1.6);
+  put(g, G.box, M(0x9a6b45), 0, 0.38, 0, 0.5, 0.06, 1.4);
+  put(g, G.cyl, M(0x8a5a3c), 0, 1.3, 0.1, 0.035, 1.9, 0.035);
+  put(g, G.cone4, M(0xfff8ec, {flat:true}), 0, 1.3, -0.25, 0.04, 1.6, 0.6, 0, 0, 0).scale.set(0.04, 1.6, 0.6);
+  put(g, G.box, M(TOY[k % 7]), 0, 2.3, 0.1, 0.02, 0.2, 0.3);
+  g.scale.setScalar(1.1);
+  g.userData = { R: WORLD_R * (0.35 + r() * 1.1), w: (r() > 0.5 ? 1 : -1) * (0.012 + r() * 0.02), a: r() * 6.28, ph: r() * 6.28 };
+  g.traverse(m => { if (m.isMesh) m.castShadow = true; });
+  scene.add(g); boats.push(g);
+}
+function updateOcean(t, dt){
+  oceanU.uTime.value = t;
+  boats.forEach(b => { const u = b.userData; u.a += u.w * dt;
+    const x = Math.cos(u.a) * u.R, z = Math.sin(u.a) * u.R;
+    const w = Math.sin(x * 0.16 + t * 0.7) * 0.45 + Math.cos(-z * 0.2 + t * 0.55) * 0.4;
+    b.position.set(x, OCEAN_Y + w + 0.05, z); b.rotation.y = -u.a + (u.w > 0 ? Math.PI : 0); b.rotation.z = Math.sin(t * 1.3 + u.ph) * 0.08; });
+}
+
+/* =========================================================
    飛行器交通：小飛機、直升機、飛艇、熱氣球，在島嶼之間隨機往返
    ========================================================= */
 function makePlane(col){
@@ -1062,6 +1124,33 @@ function makeBlimp(col){
   put(b, G.ball, neonMats[3], 0, 0.32, 0, 0.03);
   g.userData = { spin: prop, axis: 'z', body: b }; return g;
 }
+function makeUFO(col){
+  const g = new THREE.Group(), b = new THREE.Group(); g.add(b);
+  put(b, G.ball, M(0xd8dde6, {extra:{metalness:0.4, roughness:0.35}}), 0, 0, 0, 0.55, 0.12, 0.55);
+  put(b, G.torus, M(col), 0, 0, 0, 0.5, 0.5, 0.5, 0, Math.PI/2);
+  put(b, G.ball, M(0x9fe3ff, {extra:{roughness:0.1, emissive:0x6fd6ff, emissiveIntensity:0.25}}), 0, 0.1, 0, 0.24, 0.2, 0.24);
+  put(b, G.cyl, M(0x8a8aa0), 0, -0.12, 0, 0.18, 0.06, 0.18);
+  const ring = new THREE.Group(); b.add(ring);
+  for (let q = 0; q < 8; q++){ const a = q/8*Math.PI*2; put(ring, G.ball, neonMats[q % 4], Math.cos(a)*0.44, -0.03, Math.sin(a)*0.44, 0.035); }
+  g.userData = { spin: ring, axis: 'y', body: b }; return g;
+}
+function makeSkyBus(col){
+  const g = new THREE.Group(), b = new THREE.Group(); g.add(b);
+  put(b, G.box, M(col), 0, 0, 0, 0.42, 0.28, 0.85);
+  put(b, G.box, M(0xfff8ec), 0, 0.16, 0, 0.4, 0.05, 0.8);
+  put(b, G.box, winMat, 0.212, 0.04, 0, 0.01, 0.1, 0.7); put(b, G.box, winMat, -0.212, 0.04, 0, 0.01, 0.1, 0.7);
+  put(b, G.box, winMat, 0, 0.04, 0.426, 0.34, 0.12, 0.01);
+  put(b, G.box, M(0x3b3550), 0, -0.15, 0, 0.36, 0.03, 0.75);
+  put(b, G.ball, lampMat, 0.13, -0.05, 0.43, 0.03); put(b, G.ball, lampMat, -0.13, -0.05, 0.43, 0.03);
+  const rotors = [];
+  for (const [x, z] of [[-0.3,-0.36],[0.3,-0.36],[-0.3,0.36],[0.3,0.36]]){
+    put(b, G.box, M(0x3b3550), x*0.7, 0.2, z, 0.2, 0.025, 0.025);
+    put(b, G.cyl, M(0x3b3550), x, 0.24, z, 0.02, 0.08, 0.02);
+    const r = new THREE.Group(); r.position.set(x, 0.29, z); b.add(r);
+    put(r, G.box, M(0xfff8ec), 0, 0, 0, 0.36, 0.01, 0.04); put(r, G.box, M(0xfff8ec), 0, 0, 0, 0.04, 0.01, 0.36);
+    rotors.push(r); }
+  g.userData = { spin: rotors, axis: 'y', body: b }; return g;
+}
 function makeBalloonV(col, col2){
   const g = new THREE.Group(), b = new THREE.Group(); g.add(b);
   put(b, G.ball, M(col), 0, 0.55, 0, 0.42, 0.5, 0.42); put(b, G.cyl, M(col2), 0, 0.5, 0, 0.43, 0.1, 0.43);
@@ -1070,7 +1159,8 @@ function makeBalloonV(col, col2){
   g.userData = { body: b, upright: true }; return g;
 }
 const AIR_TYPES = {
-  plane:   { make: () => makePlane(TOY[(Math.random()*7)|0]),   speed: 3.4, h: [6, 9], n: 7, scale: 1.5 },
+  ufo:     { make: () => makeUFO(TOY[(Math.random()*7)|0]),     speed: 2.8, h: [6.5, 9.5], n: 4, scale: 1.5 },
+  bus:     { make: () => makeSkyBus([0xf4c35a, 0x7cc3a0, 0x6fb7e0][(Math.random()*3)|0]), speed: 1.9, h: [5, 7.5], n: 3, scale: 1.6 },
   heli:    { make: () => makeHeli(TOY[(Math.random()*7)|0]),    speed: 2.3, h: [5, 7], n: 5, scale: 1.4 },
   blimp:   { make: () => makeBlimp(TOY[(Math.random()*7)|0]),   speed: 1.2, h: [8.5, 11], n: 3, scale: 1.8 },
   balloon: { make: () => makeBalloonV(TOY[(Math.random()*7)|0], TOY[(Math.random()*7)|0]), speed: 0.8, h: [6, 9], n: 4, scale: 1.5 },
@@ -1118,7 +1208,7 @@ function updateVehicles(dt, t){
     const T = AIR_TYPES[v.type], u = v.obj.userData;
     if (v.at){                                             // 停靠中
       v.wait -= dt;
-      if (u.spin) u.spin.rotation[u.axis] += dt * (v.type === 'heli' ? 6 : 3);
+      if (u.spin) [].concat(u.spin).forEach(sp => sp.rotation[u.axis] += dt * (v.type === 'heli' ? 6 : 3));
       if (v.wait <= 0){ v.node = v.dest; planTrip(v); }
       continue;
     }
@@ -1133,7 +1223,7 @@ function updateVehicles(dt, t){
     } else {
       v.obj.position.y += Math.sin(t * 0.8 + v.phase) * 0.08;
     }
-    if (u.spin) u.spin.rotation[u.axis] += dt * (v.type === 'blimp' ? 8 : 30);
+    if (u.spin) [].concat(u.spin).forEach(sp => sp.rotation[u.axis] += dt * (v.type === 'blimp' ? 8 : v.type === 'ufo' ? 4 : 30));
   }
 }
 
@@ -1521,6 +1611,7 @@ function frame(){
   parkAnims.forEach(f => f(t, dt));
   if (signMesh) signMesh.rotation.y = Math.atan2(camera.position.x, camera.position.z);
   updateVehicles(dt, t);
+  updateOcean(t, dt);
   clouds.forEach(c => { c.position.x += c.userData.speed * dt; if (c.position.x > WORLD_R * 1.4) c.position.x = -WORLD_R * 1.4; });
   balloon.position.set(Math.cos(t * 0.05) * WORLD_R * 0.8, 6 + Math.sin(t * 0.4) * 0.4, Math.sin(t * 0.05) * WORLD_R * 0.7);
   birds.forEach((b, k) => { const a = t * 0.18 + b.userData.off; b.position.set(Math.cos(a) * (WORLD_R * 0.55 + k), 5.5 + Math.sin(t + k) * 0.5, Math.sin(a) * (WORLD_R * 0.5 + k));
