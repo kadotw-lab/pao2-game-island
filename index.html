@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>跑二遊戲群島</title>
-<meta name="description" content="國二跑班資訊科技・個人遊戲作品展：由六角空中島拼成的 3D 玩具城市，點島嶼就能直接玩。">
+<meta name="description" content="國一・國二跑班資訊科技・個人遊戲作品展：由六角空中島拼成的 3D 玩具城市，點島嶼就能直接玩。">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Noto+Sans+TC:wght@500;700;900&display=swap" rel="stylesheet">
@@ -103,6 +103,7 @@ body.night .hint{color:#e9e4ff;background:rgba(30,30,60,.5)}
 .item .n{font-size:14px;font-weight:900;display:flex;gap:6px;align-items:center}
 .item .n small{font-family:var(--round);font-size:11px;font-weight:600;color:var(--ink-2)}
 .item .g{font-size:12px;color:var(--ink-2);font-weight:700;margin-top:2px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.item .n .cchip{font-style:normal;font-size:10px;color:#fff;border-radius:6px;padding:1px 5px;font-weight:700}
 .item .ok{margin-left:auto;font-size:11px;font-weight:700;color:var(--mint-d);flex:none}
 .empty{padding:20px;text-align:center;color:var(--ink-2);font-size:13px;font-weight:700}
 
@@ -181,7 +182,7 @@ body.night .hint{color:#e9e4ff;background:rgba(30,30,60,.5)}
   </svg>
   <div>
     <h1>跑二<em>遊戲群島</em></h1>
-    <p>國二跑班資訊科技・個人遊戲作品展</p>
+    <p id="brandSub">國一・國二跑班資訊科技・個人遊戲作品展</p>
   </div>
 </header>
 
@@ -214,6 +215,7 @@ body.night .hint{color:#e9e4ff;background:rgba(30,30,60,.5)}
   <h2>島嶼目錄 <button class="chip" id="closeList">收起 ✕</button></h2>
   <label class="search"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6b6480" stroke-width="2.6" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
     <input id="q" placeholder="搜尋同學、遊戲名稱、學號…" autocomplete="off"></label>
+  <div class="filters" id="clsFilters"></div>
   <div class="filters" id="filters"></div>
   <div class="list" id="list"></div>
 </section>
@@ -279,7 +281,10 @@ window.__booted = true;
 /* =========================================================
    資料
    ========================================================= */
-const DATA = (window.ISLANDS || []).slice().sort((a,b)=>a.id.localeCompare(b.id));
+const CLASSES = (window.CLASSES && window.CLASSES.length) ? window.CLASSES : [{ key: 'pao2', name: '跑二', course: '國二跑班資訊科技', color: '#3b3550' }];
+const CLS = Object.fromEntries(CLASSES.map((c, i) => [c.key, { ...c, i }]));
+const DATA = (window.ISLANDS || []).map(d => ({ ...d, cls: CLS[d.cls] ? d.cls : CLASSES[0].key }))
+  .sort((a, b) => (CLS[a.cls].i - CLS[b.cls].i) || a.id.localeCompare(b.id));
 const $ = s => document.querySelector(s);
 const enc = p => /^https?:/i.test(p) ? p : p.split('/').map(encodeURIComponent).join('/');
 const store = {
@@ -572,8 +577,20 @@ const specs = DATA.map((isl, i) => {
 
 /* ---------- 排列：自然散布（有近有遠） ---------- */
 const HUB_R = 10;   // 主城半徑：約一般島的 10 倍
-const P = specs.map((s, i) => { const a = i * 2.39996 + 0.5, d = HUB_R + 1.8 * GAP_X + 1.75 * GAP_X * 0.75 * Math.sqrt(i + 0.5);
-  return new THREE.Vector2(Math.cos(a) * d, Math.sin(a) * d); });
+// 每個班級一個群島：跑二在左、跑六在右（班級多時平均分布在主城四周）
+const CLUSTER = CLASSES.map((c, ci) => {
+  const idx = DATA.map((d, i) => d.cls === c.key ? i : -1).filter(i => i >= 0);
+  const area = idx.reduce((a, i) => a + Math.pow(specs[i].R + specs[i].gap * 0.5, 2), 0);
+  const rad = Math.sqrt(area) * 1.15;
+  const ang = Math.PI + ci * Math.PI * 2 / CLASSES.length;
+  const dist = HUB_R + 2.5 * GAP_X + rad;
+  return { idx, rad, c: new THREE.Vector2(Math.cos(ang) * dist, Math.sin(ang) * dist) };
+});
+const clusterOf = new Array(DATA.length);
+CLUSTER.forEach((cl, ci) => cl.idx.forEach(i => clusterOf[i] = ci));
+const P = specs.map((s, i) => { const cl = CLUSTER[clusterOf[i]], j = cl.idx.indexOf(i);
+  const a = j * 2.39996 + 0.5, d = 1.75 * GAP_X * 0.75 * Math.sqrt(j + 0.5);
+  return cl.c.clone().add(new THREE.Vector2(Math.cos(a) * d, Math.sin(a) * d)); });
 function relax(iter, gravity){
   for (let it = 0; it < iter; it++){
     for (let i = 0; i < P.length; i++){
@@ -584,7 +601,7 @@ function relax(iter, gravity){
         const want = specs[i].R + specs[j].R + (specs[i].gap + specs[j].gap) * 0.5;
         if (dd < want){ v.multiplyScalar((want - dd) / dd * 0.5); P[i].sub(v); P[j].add(v); }
       }
-      if (gravity) P[i].multiplyScalar(gravity);
+      if (gravity){ const c = CLUSTER[clusterOf[i]].c; P[i].sub(c).multiplyScalar(gravity).add(c); }
     }
   }
 }
@@ -666,18 +683,45 @@ DATA.forEach((isl, i) => {
   hit.position.y = 1.0; hit.userData.idx = i; group.add(hit); pickables.push(hit);
 
   const lbl = document.createElement('div'); lbl.className = 'lbl';
-  lbl.innerHTML = `<span class="no">${isl.id.slice(-3)}</span>${isl.name}`;
+  lbl.innerHTML = `<span class="no" style="background:${CLS[isl.cls].color}">${CLS[isl.cls].name}</span>${isl.name}`;
   $('#labels').appendChild(lbl);
 
   islands.push({ data: isl, group, board, baseY, phase: rnd()*6.28, lift: 0, hover: 0, lbl, genre, groundY, R: sp.R, topY: groundY + postLen + bh + 0.15 });
 });
 
 /* 依世界大小調整鏡頭、霧、陰影 */
-HOME_POS.set(0, WORLD_R * (isMobile ? 1.9 : 1.2), WORLD_R * (isMobile ? 2.2 : 1.5));
+HOME_POS.set(0, WORLD_R * (isMobile ? 1.7 : 1.0), WORLD_R * (isMobile ? 2.0 : 1.25));
 scene.fog.near = WORLD_R * 2.2; scene.fog.far = WORLD_R * 6.5;
 controls.maxDistance = WORLD_R * 6;
 { const sc = WORLD_R + 4; Object.assign(sun.shadow.camera, { left: -sc, right: sc, top: sc, bottom: -sc, far: WORLD_R * 8 }); sun.shadow.camera.updateProjectionMatrix(); }
 const LABEL_FADE = Math.max(40, WORLD_R * 1.4);
+/* 班級旗幟：每個群島上空一面 */
+const classBanners = [];
+function makeClassBanner(c, count){
+  const cv = document.createElement('canvas'); cv.width = 768; cv.height = 260; const x = cv.getContext('2d');
+  x.fillStyle = '#fff8ec'; roundRect(x, 8, 8, 752, 244, 60); x.fill();
+  x.fillStyle = c.color; roundRect(x, 8, 8, 230, 244, 60); x.fill(); x.fillRect(180, 8, 58, 244);
+  x.fillStyle = '#fff'; x.font = '900 104px "Noto Sans TC","Microsoft JhengHei",sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.fillText(c.name, 123, 134);
+  x.fillStyle = '#3b3550'; x.font = '900 60px "Noto Sans TC","Microsoft JhengHei",sans-serif'; x.textAlign = 'left';
+  x.fillText(c.name + '群島', 270, 96);
+  x.font = '700 36px "Noto Sans TC","Microsoft JhengHei",sans-serif'; x.fillStyle = '#6b6480';
+  x.fillText(`${c.course}・${count} 座島`, 270, 178);
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t;
+}
+async function addClassBanners(){
+  if (CLASSES.length < 2) return;
+  try { await document.fonts.load('900 64px "Noto Sans TC"'); } catch(e){}
+  CLUSTER.forEach((cl, ci) => {
+    const c = CLASSES[ci];
+    const g = new THREE.Group(); const bs = Math.max(1.4, WORLD_R / 42); g.scale.setScalar(bs); g.position.set(cl.c.x, 9 + bs * 2.5, cl.c.y); scene.add(g);
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(8.6, 2.9), new THREE.MeshBasicMaterial({ map: makeClassBanner(c, cl.idx.length), transparent: true, toneMapped: false, side: THREE.DoubleSide }));
+    g.add(m);
+    for (const s of [-1, 1]){ const b = new THREE.Mesh(G.ball, M(TOY[(ci*2 + (s>0?1:0)) % 7])); b.scale.set(0.6, 0.75, 0.6); b.position.set(4.6*s, 1.9, -0.1); g.add(b);
+      const str = new THREE.Mesh(G.box, M(0x3b3550)); str.scale.set(0.02, 1.0, 0.02); str.position.set(4.6*s, 0.95, -0.1); g.add(str); }
+    classBanners.push({ g, ph: ci * 1.7, y: g.position.y });
+  });
+}
 sky.scale.setScalar(Math.max(1, WORLD_R * 6 / 200)); starPts.scale.copy(sky.scale);
 
 /* ---------- 中央主城：跑二遊戲群島遊樂園（一般島的 10 倍大） ---------- */
@@ -999,6 +1043,7 @@ async function addSign(){
   const p1 = new THREE.Mesh(G.cyl, M(0x3b3550)); p1.scale.set(0.06, 2.4, 0.06); p1.position.set(0, HUB_TOP + 5.0, 0); hubSign.add(p1);
 }
 addSign();
+addClassBanners();
 
 /* ---------- 雲朵、熱氣球、鳥 ---------- */
 const clouds = [];
@@ -1455,7 +1500,14 @@ function feedRotate(){
   el.style.transition = 'opacity .3s'; el.textContent = lines[0];
 }
 
-let filter = 'all';
+let filter = 'all', clsFilter = 'all';
+function buildClsFilters(){
+  if (CLASSES.length < 2){ $('#clsFilters').style.display = 'none'; return; }
+  const counts = DATA.reduce((m, d) => (m[d.cls] = (m[d.cls]||0) + 1, m), {});
+  $('#clsFilters').innerHTML = `<button data-c="all" class="${clsFilter==='all'?'on':''}">全部班級</button>` +
+    CLASSES.map(c => `<button data-c="${c.key}" class="${clsFilter===c.key?'on':''}" style="${clsFilter===c.key?`background:${c.color}`:''}">${c.name} ${counts[c.key]||0}</button>`).join('');
+  $('#clsFilters').onclick = e => { const b = e.target.closest('button'); if (!b) return; clsFilter = b.dataset.c; buildClsFilters(); renderList(); };
+}
 function buildFilters(){
   const counts = islands.reduce((m, o) => (m[o.genre] = (m[o.genre]||0) + 1, m), {});
   const keys = ['all', ...Object.keys(counts).sort((a,b) => counts[b]-counts[a])];
@@ -1465,6 +1517,7 @@ function buildFilters(){
 function renderList(){
   const q = $('#q').value.trim().toLowerCase();
   const rows = islands.map((o, i) => ({ o, i })).filter(({ o }) => {
+    if (clsFilter !== 'all' && o.data.cls !== clsFilter) return false;
     if (filter === 'new' && played.has(o.data.id)) return false;
     if (filter !== 'all' && filter !== 'new' && o.genre !== filter) return false;
     if (!q) return true;
@@ -1473,7 +1526,7 @@ function renderList(){
   $('#list').innerHTML = rows.length ? rows.map(({ o, i }) => {
     const c = coverOf(o.data, o.data.games[0]);
     return `<button class="item" data-i="${i}">${c ? `<img loading="lazy" src="${enc(c)}" alt="">` : '<span class="ph">🏝️</span>'}
-      <span style="min-width:0"><span class="n">${o.data.name}<small>${o.data.id}</small></span>
+      <span style="min-width:0"><span class="n"><i class="cchip" style="background:${CLS[o.data.cls].color}">${CLS[o.data.cls].name}</i>${o.data.name}<small>${o.data.id}</small></span>
       <span class="g">${o.data.games.length ? o.data.games.map(g => g.title).join('、') : '遊戲施工中'}</span></span>
       ${played.has(o.data.id) ? '<span class="ok">✓ 玩過</span>' : ''}</button>`;
   }).join('') : '<div class="empty">找不到符合的島嶼</div>';
@@ -1514,7 +1567,7 @@ function showTip(i){
   const c = coverOf(d, g);
   tip.innerHTML = `${c ? `<img src="${enc(c)}" alt="">` : ''}<div><div class="t">${g ? g.title : '遊戲施工中'}</div>
     <div class="s">${g && g.sub ? g.sub : GENRE_NAME[islands[i].genre]}</div>
-    <div class="a">🧑‍🎨 ${d.name}・${d.id}${d.games.length > 1 ? `<br>🎮 共 ${d.games.length} 款遊戲` : ''}</div>
+    <div class="a">🧑‍🎨 ${CLS[d.cls].name}・${d.name}・${d.id}${d.games.length > 1 ? `<br>🎮 共 ${d.games.length} 款遊戲` : ''}</div>
     <span class="go">${d.games.length ? (played.has(d.id) ? '再玩一次 ▶' : '點一下開玩 ▶') : '查看封面'}</span></div>`;
   tip.classList.add('show');
 }
@@ -1554,7 +1607,7 @@ function openGame(i, gi){
   const c = coverOf(d, g);
   $('#mThumb').src = c ? enc(c) : ''; $('#mThumb').style.display = c ? '' : 'none';
   $('#mTitle').textContent = g ? g.title : `${d.name} 的島`;
-  $('#mSub').textContent = `${d.name}・${d.id}${g && g.sub ? '・' + g.sub : ''}`;
+  $('#mSub').textContent = `${CLS[d.cls].name}・${d.name}・${d.id}${g && g.sub ? '・' + g.sub : ''}`;
   const stage = $('#stage'), frame = $('#mFrame');
   if (!g || g.external){
     stage.classList.add('external'); frame.src = 'about:blank';
@@ -1757,6 +1810,7 @@ function frame(){
   hubSign.position.y = HUB_Y; if (ferris){ ferris.userData.wheel.rotation.z = t * 0.12; ferris.userData.cabins.forEach(c => c.rotation.z = -t * 0.12); }
   parkAnims.forEach(f => f(t, dt));
   if (signMesh) signMesh.rotation.y = Math.atan2(camera.position.x, camera.position.z);
+  classBanners.forEach(b => { b.g.rotation.y = Math.atan2(camera.position.x - b.g.position.x, camera.position.z - b.g.position.z); b.g.position.y = b.y + Math.sin(t * 0.7 + b.ph) * 0.4; });
   updateVehicles(dt, t);
   updateOcean(t, dt);
   clouds.forEach(c => { c.position.x += c.userData.speed * dt; if (c.position.x > WORLD_R * 1.4) c.position.x = -WORLD_R * 1.4; });
@@ -1787,8 +1841,9 @@ function onResize(){
   renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight); setTilt();
 }
 addEventListener('resize', onResize);
+$('#brandSub').textContent = CLASSES.map(c => c.course.replace('跑班資訊科技', '')).join('・') + '跑班資訊科技・個人遊戲作品展';
 countUp($('#sIsland'), DATA.length); countUp($('#sGame'), gameCount);
-refreshStats(); buildFilters(); renderList(); feedRotate();
+refreshStats(); buildClsFilters(); buildFilters(); renderList(); feedRotate();
 applySky(taipeiHour());
 frame();
 setTimeout(() => {

@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>賽博霓虹拼圖 - Neon Cyber Puzzle</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@500;700&display=swap');
+
+        body {
+            margin: 0;
+            background-color: #050512;
+            font-family: 'Orbitron', 'Rajdhani', sans-serif;
+            color: #ffffff;
+            user-select: none;
+            touch-action: none; /* 防止行動裝置滑動干擾拖曳 */
+            overflow-x: hidden;
+        }
+
+        /* 霓虹特效類別 */
+        .neon-text-cyan {
+            text-shadow: 0 0 8px #00ffff, 0 0 20px #00ffff;
+            color: #e0ffff;
+        }
+        .neon-text-pink {
+            text-shadow: 0 0 8px #ff007f, 0 0 20px #ff007f;
+            color: #ffe0f0;
+        }
+        .neon-text-yellow {
+            text-shadow: 0 0 8px #ffff00, 0 0 20px #ffff00;
+            color: #ffffdd;
+        }
+
+        /* 霓虹按鈕 */
+        .neon-btn {
+            background: rgba(0, 255, 255, 0.08);
+            border: 1px solid #00ffff;
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.2);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .neon-btn:hover {
+            background: rgba(0, 255, 255, 0.25);
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.7);
+            transform: translateY(-2px);
+        }
+        .neon-btn.active {
+            background: rgba(0, 255, 255, 0.4);
+            box-shadow: 0 0 25px rgba(0, 255, 255, 0.9);
+            color: #ffffff;
+        }
+
+        .neon-btn-pink {
+            background: rgba(255, 0, 127, 0.08);
+            border: 1px solid #ff007f;
+            box-shadow: 0 0 10px rgba(255, 0, 127, 0.2);
+            transition: all 0.2s ease;
+        }
+        .neon-btn-pink:hover {
+            background: rgba(255, 0, 127, 0.25);
+            box-shadow: 0 0 20px rgba(255, 0, 127, 0.7);
+            transform: translateY(-2px);
+        }
+
+        /* 拼圖板與碎片樣式 */
+        #puzzleWrapper {
+            position: relative;
+            background: rgba(10, 10, 25, 0.85);
+            border: 2px solid #00ffff;
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.3), inset 0 0 20px rgba(0, 255, 255, 0.1);
+            box-sizing: content-box;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .puzzle-slot {
+            position: absolute;
+            border: 1px dashed rgba(0, 255, 255, 0.15);
+            box-sizing: border-box;
+            pointer-events: none;
+        }
+
+        .puzzle-piece {
+            position: absolute;
+            cursor: grab;
+            box-sizing: border-box;
+            border: 1px solid rgba(0, 255, 255, 0.4);
+            border-radius: 4px;
+            background-repeat: no-repeat;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.8);
+            /* 平滑移動與吸附特效 */
+            transition: left 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), 
+                        top 0.25s cubic-bezier(0.2, 0.8, 0.2, 1),
+                        box-shadow 0.2s, border-color 0.2s;
+        }
+
+        /* 拖曳中的狀態 */
+        .puzzle-piece.dragging {
+            cursor: grabbing;
+            transition: none !important; /* 拖曳時取消 transition 以防延遲 */
+            z-index: 100 !important;
+            box-shadow: 0 10px 30px rgba(0, 255, 255, 0.6);
+            border-color: #ffffff;
+            transform: scale(1.05);
+        }
+
+        /* 已歸位的狀態 */
+        .puzzle-piece.correct {
+            border-color: rgba(0, 255, 255, 0.1);
+            box-shadow: none;
+            z-index: 1;
+        }
+
+        /* 完成拼圖時的特效 */
+        .puzzle-piece.completed {
+            border: none !important;
+            border-radius: 0;
+            transition: all 0.5s ease;
+        }
+
+        .cyber-bg {
+            background: radial-gradient(circle at 50% 50%, #0a0a1f 0%, #020206 100%);
+            background-attachment: fixed;
+        }
+
+        /* 動態流光效果 */
+        @keyframes shimmer {
+            0% { transform: translateX(-100%) skewX(-15deg); }
+            100% { transform: translateX(200%) skewX(-15deg); }
+        }
+        .shimmer-effect::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 50%; height: 100%;
+            background: linear-gradient(to right, transparent, rgba(255,255,255,0.3), transparent);
+            transform: translateX(-100%) skewX(-15deg);
+            animation: shimmer 2s infinite;
+            pointer-events: none;
+            display: none;
+        }
+        .completed-glow .shimmer-effect::after {
+            display: block;
+        }
+        
+        /* 隱藏捲軸 */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #050512; }
+        ::-webkit-scrollbar-thumb { background: #00ffff; border-radius: 3px; }
+    </style>
+</head>
+<body class="cyber-bg min-h-screen flex flex-col items-center justify-start py-4 px-3 sm:px-6">
+
+    <header class="w-full max-w-5xl flex flex-col md:flex-row items-center justify-between gap-4 mb-6">
+        <div class="text-center md:text-left">
+            <h1 class="text-3xl sm:text-4xl md:text-5xl font-black tracking-widest neon-text-cyan flex items-center justify-center md:justify-start gap-3">
+                <span>NEON PUZZLE</span>
+                <span class="text-[10px] text-pink-400 border border-pink-500/50 px-1.5 py-0.5 rounded bg-pink-500/10 font-mono tracking-normal">SYS_V2</span>
+            </h1>
+            <p class="text-[10px] sm:text-xs text-cyan-500 font-mono tracking-[0.2em] mt-1">DATA DECRYPTION PROTOCOL</p>
+        </div>
+
+        <div class="flex items-center gap-3 sm:gap-6 bg-gray-900/60 px-4 sm:px-6 py-2 sm:py-3 rounded-xl border border-cyan-500/30 backdrop-blur-md shadow-[0_0_15px_rgba(0,255,255,0.1)]">
+            <div class="text-center">
+                <span class="text-[9px] text-gray-400 block tracking-widest mb-0.5">TIME</span>
+                <span id="timeDisplay" class="text-xl sm:text-2xl font-bold font-mono text-cyan-300">00:00</span>
+            </div>
+            <div class="h-8 w-px bg-cyan-500/30"></div>
+            <div class="text-center">
+                <span class="text-[9px] text-gray-400 block tracking-widest mb-0.5">MOVES</span>
+                <span id="movesDisplay" class="text-xl sm:text-2xl font-bold font-mono text-pink-400">0</span>
+            </div>
+            <div class="h-8 w-px bg-cyan-500/30"></div>
+            <div class="text-center">
+                <span class="text-[9px] text-gray-400 block tracking-widest mb-0.5">GRID</span>
+                <span id="gridDisplay" class="text-xl sm:text-2xl font-bold font-mono text-yellow-300">3x3</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="w-full max-w-6xl flex flex-col lg:flex-row items-center lg:items-start justify-center gap-6 lg:gap-10">
+        
+        <!-- 左側控制面板 -->
+        <aside class="w-full max-w-sm lg:w-72 flex flex-col gap-5 bg-gray-950/80 p-5 rounded-2xl border border-cyan-500/40 backdrop-blur-lg shadow-xl shrink-0">
+            
+            <div class="flex items-center justify-between border-b border-cyan-500/30 pb-2">
+                <h2 class="text-sm font-bold tracking-wider text-cyan-400 font-mono">[ CONTROL PANEL ]</h2>
+                <span id="progressDisplay" class="text-sm font-bold text-pink-400 font-mono neon-text-pink">0%</span>
+            </div>
+
+            <!-- 難度選擇 -->
+            <div class="space-y-2">
+                <label class="text-[11px] text-gray-400 block font-mono">GRID COMPLEXITY (難度)</label>
+                <div class="grid grid-cols-3 gap-2">
+                    <button class="diff-btn neon-btn py-2 rounded text-xs font-bold active" data-size="3">3x3 (EASY)</button>
+                    <button class="diff-btn neon-btn py-2 rounded text-xs font-bold" data-size="4">4x4 (NORM)</button>
+                    <button class="diff-btn neon-btn py-2 rounded text-xs font-bold" data-size="5">5x5 (HARD)</button>
+                </div>
+            </div>
+
+            <!-- 影像來源選擇 -->
+            <div class="space-y-2">
+                <label class="text-[11px] text-gray-400 block font-mono">DATA SOURCE (影像來源)</label>
+                <select id="imageSource" class="w-full bg-gray-900 text-cyan-200 text-sm border border-cyan-500/50 rounded-lg p-2.5 outline-none font-mono cursor-pointer hover:border-cyan-400 transition-colors">
+                    <option value="preset1">PROTOCOL: Cyber City</option>
+                    <option value="preset2">PROTOCOL: Core Matrix</option>
+                    <option value="preset3">PROTOCOL: Neon Grid</option>
+                    <option value="upload">UPLOAD CUSTOM DATA...</option>
+                </select>
+                <input type="file" id="fileInput" accept="image/*" class="hidden">
+            </div>
+
+            <!-- 輔助與控制按鈕 -->
+            <div class="pt-2 space-y-3">
+                <button id="previewBtn" class="w-full neon-btn py-3 rounded-lg text-sm font-bold text-cyan-100 flex justify-center items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                    VIEW ORIGINAL
+                </button>
+                <button id="shuffleBtn" class="w-full neon-btn-pink py-3 rounded-lg text-sm font-bold text-pink-100 flex justify-center items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                    REBOOT SYSTEM (SHUFFLE)
+                </button>
+            </div>
+
+            <!-- 迷你預覽圖 (電腦版顯示) -->
+            <div class="hidden lg:block mt-auto border border-cyan-500/20 p-2 rounded-lg bg-black/40">
+                <div class="text-[9px] text-center text-cyan-600 font-mono mb-1">TARGET PREVIEW</div>
+                <img id="miniPreview" src="" alt="Mini Preview" class="w-full aspect-square object-cover rounded opacity-80 border border-cyan-900">
+            </div>
+        </aside>
+
+        <div class="flex-1 flex justify-center items-center w-full max-w-2xl relative">
+            <!-- 拼圖主要容器 -->
+            <div id="puzzleWrapper" class="shimmer-effect relative">
+                <!-- JavaScript 將在這裡動態生成網格和拼圖碎片 -->
+            </div>
+            
+            <!-- 煙火/粒子特效畫布 (疊加在上方) -->
+            <canvas id="particleCanvas" class="absolute inset-0 pointer-events-none z-50 w-full h-full"></canvas>
+        </div>
+    </main>
+
+    <!-- 原始圖片預覽 Modal -->
+    <div id="previewModal" class="fixed inset-0 bg-black/85 backdrop-blur-sm z-[100] flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-300">
+        <div class="bg-gray-900 border border-cyan-500 rounded-xl p-2 max-w-2xl w-full shadow-[0_0_40px_rgba(0,255,255,0.3)] transform scale-95 transition-transform duration-300 relative" id="previewModalContent">
+            <button id="closePreviewBtn" class="absolute -top-4 -right-4 w-10 h-10 bg-pink-600 text-white rounded-full font-bold shadow-lg border-2 border-black hover:bg-pink-500 z-10 flex items-center justify-center text-xl">✕</button>
+            <div class="text-center p-2">
+                <h3 class="text-cyan-300 font-mono text-sm tracking-widest mb-3">ORIGINAL DATA PREVIEW</h3>
+                <img id="fullPreviewImg" src="" alt="Full Preview" class="w-full h-auto max-h-[70vh] object-contain rounded border border-cyan-500/30">
+            </div>
+        </div>
+    </div>
+
+    <!-- 勝利通關 Modal -->
+    <div id="victoryModal" class="fixed inset-0 bg-black/90 backdrop-blur-md z-[100] flex flex-col items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-500">
+        <div class="text-center max-w-md w-full bg-gray-950/90 border-2 border-cyan-400 p-8 rounded-2xl shadow-[0_0_60px_rgba(0,255,255,0.4)] transform translate-y-10 transition-transform duration-500" id="victoryModalContent">
+            <h2 class="text-4xl md:text-5xl font-black text-cyan-300 neon-text-cyan tracking-wider mb-2">SYSTEM DECODED</h2>
+            <p class="text-pink-400 text-xs md:text-sm font-mono tracking-widest mb-6">拼圖數據解鎖成功！</p>
+
+            <div class="bg-black/60 p-5 rounded-xl border border-cyan-500/30 text-left space-y-3 mb-8 font-mono text-sm shadow-inner">
+                <div class="flex justify-between items-center border-b border-gray-800 pb-2">
+                    <span class="text-gray-400">解鎖耗時 (TIME):</span>
+                    <span id="finalTime" class="text-cyan-300 font-bold text-lg">00:00</span>
+                </div>
+                <div class="flex justify-between items-center border-b border-gray-800 pb-2">
+                    <span class="text-gray-400">移動步數 (MOVES):</span>
+                    <span id="finalMoves" class="text-pink-400 font-bold text-lg">0</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-400">網格難度 (GRID):</span>
+                    <span id="finalGrid" class="text-yellow-300 font-bold text-lg">3x3</span>
+                </div>
+            </div>
+
+            <button id="playAgainBtn" class="neon-btn-pink px-8 py-4 rounded-xl text-lg font-bold text-pink-100 w-full tracking-widest">
+                NEXT MISSION (再來一局)
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // DOM 元素綁定
+        const ui = {
+            wrapper: document.getElementById('puzzleWrapper'),
+            time: document.getElementById('timeDisplay'),
+            moves: document.getElementById('movesDisplay'),
+            grid: document.getElementById('gridDisplay'),
+            progress: document.getElementById('progressDisplay'),
+            diffBtns: document.querySelectorAll('.diff-btn'),
+            sourceSelect: document.getElementById('imageSource'),
+            fileInput: document.getElementById('fileInput'),
+            previewBtn: document.getElementById('previewBtn'),
+            shuffleBtn: document.getElementById('shuffleBtn'),
+            miniPreview: document.getElementById('miniPreview'),
+            fullPreviewImg: document.getElementById('fullPreviewImg'),
+            previewModal: document.getElementById('previewModal'),
+            previewModalContent: document.getElementById('previewModalContent'),
+            closePreviewBtn: document.getElementById('closePreviewBtn'),
+            victoryModal: document.getElementById('victoryModal'),
+            victoryModalContent: document.getElementById('victoryModalContent'),
+            finalTime: document.getElementById('finalTime'),
+            finalMoves: document.getElementById('finalMoves'),
+            finalGrid: document.getElementById('finalGrid'),
+            playAgainBtn: document.getElementById('playAgainBtn'),
+            particleCanvas: document.getElementById('particleCanvas')
+        };
+
+        // 遊戲狀態變數
+        let state = {
+            gridSize: 3,
+            boardSize: 0,
+            pieceSize: 0,
+            imageSrc: '',
+            pieces: [],
+            moves: 0,
+            timer: 0,
+            interval: null,
+            isPlaying: false,
+            isCompleted: false,
+            draggedPiece: null,
+            dragStartX: 0,
+            dragStartY: 0,
+            initialLeft: 0,
+            initialTop: 0
+        };
+
+        // 內建 Canvas 程序化生成賽博風格圖片，避免外部圖床跨域問題
+        const Generators = {
+            createCanvas() {
+                const c = document.createElement('canvas');
+                c.width = 600; c.height = 600;
+                return { c, ctx: c.getContext('2d') };
+            },
+            cyberCity() {
+                const { c, ctx } = this.createCanvas();
+                // 放射漸層背景
+                const grad = ctx.createRadialGradient(300, 600, 50, 300, 300, 500);
+                grad.addColorStop(0, '#ff007f');
+                grad.addColorStop(0.5, '#1e004a');
+                grad.addColorStop(1, '#050512');
+                ctx.fillStyle = grad;
+                ctx.fillRect(0, 0, 600, 600);
+                
+                // 霓虹網格地板
+                ctx.strokeStyle = 'rgba(0, 255, 255, 0.4)';
+                ctx.lineWidth = 2;
+                for(let i = -600; i <= 1200; i += 60) {
+                    ctx.beginPath();
+                    ctx.moveTo(i, 600); ctx.lineTo(300, 250);
+                    ctx.stroke();
+                }
+                for(let y = 300; y <= 600; y += Math.pow((y-280)/10, 1.5)) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, y); ctx.lineTo(600, y);
+                    ctx.stroke();
+                }
+
+                // 城市剪影
+                ctx.fillStyle = '#020205';
+                ctx.shadowColor = '#00ffff'; ctx.shadowBlur = 15;
+                const buildings = [100, 250, 150, 350, 200, 120, 280, 180];
+                let bx = 0;
+                buildings.forEach(h => {
+                    ctx.fillRect(bx, 600-h, 600/buildings.length, h);
+                    ctx.strokeStyle = '#ff007f'; ctx.lineWidth=1;
+                    ctx.strokeRect(bx, 600-h, 600/buildings.length, h);
+                    bx += 600/buildings.length;
+                });
+                ctx.shadowBlur = 0;
+                return c.toDataURL('image/jpeg', 0.9);
+            },
+            coreMatrix() {
+                const { c, ctx } = this.createCanvas();
+                ctx.fillStyle = '#010f0a'; ctx.fillRect(0, 0, 600, 600);
+                
+                // 數位雨條紋
+                ctx.fillStyle = 'rgba(0, 255, 102, 0.1)';
+                for(let i=0; i<30; i++) {
+                    let w = Math.random()*15+5;
+                    let x = Math.random()*600;
+                    ctx.fillRect(x, 0, w, 600);
+                }
+
+                // 中心核心圓環
+                ctx.translate(300, 300);
+                for(let r=50; r<=250; r+=30) {
+                    ctx.beginPath();
+                    ctx.arc(0, 0, r, 0, Math.PI*2);
+                    ctx.strokeStyle = (r%60===0) ? '#00ffff' : '#ff007f';
+                    ctx.lineWidth = (r%60===0) ? 4 : 1;
+                    ctx.shadowColor = ctx.strokeStyle;
+                    ctx.shadowBlur = 10;
+                    ctx.setLineDash([Math.random()*20+5, Math.random()*15+5]);
+                    ctx.stroke();
+                }
+                ctx.shadowBlur = 0;
+                ctx.setLineDash([]);
+                return c.toDataURL('image/jpeg', 0.9);
+            },
+            neonGrid() {
+                const { c, ctx } = this.createCanvas();
+                const grad = ctx.createLinearGradient(0, 0, 600, 600);
+                grad.addColorStop(0, '#2d004d');
+                grad.addColorStop(1, '#001a33');
+                ctx.fillStyle = grad; ctx.fillRect(0, 0, 600, 600);
+
+                ctx.shadowBlur = 8;
+                for(let x=30; x<600; x+=60) {
+                    for(let y=30; y<600; y+=60) {
+                        ctx.strokeStyle = (Math.random()>0.8) ? '#ff007f' : '#00ffff';
+                        ctx.lineWidth = Math.random()>0.9 ? 4 : 1.5;
+                        ctx.shadowColor = ctx.strokeStyle;
+                        
+                        if(Math.random()>0.5) {
+                            ctx.beginPath();
+                            ctx.moveTo(x, y); ctx.lineTo(x+40, y+40);
+                            ctx.stroke();
+                        } else {
+                            ctx.strokeRect(x, y, 40, 40);
+                        }
+                    }
+                }
+                return c.toDataURL('image/jpeg', 0.9);
+            }
+        };
+
+        function calculateBoardSize() {
+            // RWD: 根據螢幕寬度動態決定拼圖板大小
+            const containerWidth = ui.wrapper.parentElement.clientWidth;
+            const maxBoardSize = Math.min(600, window.innerHeight - 200); // 避免超出視窗高度
+            // 預留一點 padding
+            let size = Math.min(containerWidth - 10, maxBoardSize); 
+            
+            // 確保 size 是 gridsize 的倍數，避免像素小數點誤差導致邊緣白線
+            size = Math.floor(size / state.gridSize) * state.gridSize;
+            
+            state.boardSize = size;
+            state.pieceSize = size / state.gridSize;
+            
+            ui.wrapper.style.width = `${state.boardSize}px`;
+            ui.wrapper.style.height = `${state.boardSize}px`;
+        }
+
+        async function loadImage(src) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => resolve(img);
+                img.src = src;
+            });
+        }
+
+        async function initGame(isShuffleOnly = false) {
+            if(!isShuffleOnly) {
+                // 如果不是單純洗牌，表示更換了圖片或難度，需要重新設定圖片
+                let src = '';
+                const val = ui.sourceSelect.value;
+                if(val === 'preset1') src = Generators.cyberCity();
+                else if(val === 'preset2') src = Generators.coreMatrix();
+                else if(val === 'preset3') src = Generators.neonGrid();
+                else if(val === 'upload' && state.imageSrc) src = state.imageSrc; // 保留使用者上傳的圖
+                else src = Generators.cyberCity(); // 預設
+
+                state.imageSrc = src;
+                ui.miniPreview.src = src;
+                ui.fullPreviewImg.src = src;
+            }
+
+            calculateBoardSize();
+            ui.wrapper.innerHTML = '';
+            ui.wrapper.classList.remove('completed-glow');
+            state.pieces = [];
+            state.moves = 0;
+            state.isCompleted = false;
+            updateHUD();
+            stopTimer();
+            state.timer = 0;
+            ui.time.innerText = '00:00';
+
+            // 建立背景參考網格 (虛線框)
+            for(let r=0; r<state.gridSize; r++) {
+                for(let c=0; c<state.gridSize; c++) {
+                    const slot = document.createElement('div');
+                    slot.className = 'puzzle-slot';
+                    slot.style.width = `${state.pieceSize}px`;
+                    slot.style.height = `${state.pieceSize}px`;
+                    slot.style.left = `${c * state.pieceSize}px`;
+                    slot.style.top = `${r * state.pieceSize}px`;
+                    ui.wrapper.appendChild(slot);
+                }
+            }
+
+            // 產生隨機初始位置陣列 (保證打亂)
+            let positions = [];
+            for(let i=0; i<state.gridSize * state.gridSize; i++) {
+                positions.push({r: Math.floor(i/state.gridSize), c: i%state.gridSize});
+            }
+            positions.sort(() => Math.random() - 0.5);
+
+            // 確保初始狀態不是已完成狀態
+            let isAllCorrect = positions.every((pos, i) => pos.r === Math.floor(i/state.gridSize) && pos.c === i%state.gridSize);
+            if (isAllCorrect && positions.length > 1) {
+                // 強制交換前兩個
+                let temp = positions[0];
+                positions[0] = positions[1];
+                positions[1] = temp;
+            }
+
+            // 建立拼圖碎片
+            let index = 0;
+            for(let r=0; r<state.gridSize; r++) {
+                for(let c=0; c<state.gridSize; c++) {
+                    const piece = document.createElement('div');
+                    piece.className = 'puzzle-piece';
+                    piece.style.width = `${state.pieceSize}px`;
+                    piece.style.height = `${state.pieceSize}px`;
+                    
+                    // 利用 background 技巧切割圖片
+                    piece.style.backgroundImage = `url(${state.imageSrc})`;
+                    piece.style.backgroundSize = `${state.boardSize}px ${state.boardSize}px`;
+                    piece.style.backgroundPosition = `-${c * state.pieceSize}px -${r * state.pieceSize}px`;
+
+                    const currentPos = positions[index];
+                    
+                    const pieceObj = {
+                        el: piece,
+                        id: index,
+                        correctR: r, correctC: c,
+                        currR: currentPos.r, currC: currentPos.c
+                    };
+
+                    updatePieceDOMPosition(pieceObj);
+                    bindDragEvents(pieceObj);
+                    
+                    state.pieces.push(pieceObj);
+                    ui.wrapper.appendChild(piece);
+                    index++;
+                }
+            }
+
+            updateProgress();
+            state.isPlaying = true;
+            startTimer();
+        }
+
+        function updatePieceDOMPosition(pieceObj) {
+            pieceObj.el.style.left = `${pieceObj.currC * state.pieceSize}px`;
+            pieceObj.el.style.top = `${pieceObj.currR * state.pieceSize}px`;
+            
+            // 檢查是否在正確位置並加上樣式
+            if(pieceObj.currR === pieceObj.correctR && pieceObj.currC === pieceObj.correctC) {
+                pieceObj.el.classList.add('correct');
+            } else {
+                pieceObj.el.classList.remove('correct');
+            }
+        }
+
+        function bindDragEvents(pieceObj) {
+            const el = pieceObj.el;
+
+            const onDragStart = (e) => {
+                if(state.isCompleted) return;
+                e.preventDefault(); // 防止預設行為 (包含某些瀏覽器的拖曳圖片或觸控滾動)
+
+                state.draggedPiece = pieceObj;
+                
+                // 支援 Touch 與 Mouse
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                
+                state.dragStartX = clientX;
+                state.dragStartY = clientY;
+                
+                // 取得當前 CSS 的 left/top 值
+                state.initialLeft = parseFloat(el.style.left) || 0;
+                state.initialTop = parseFloat(el.style.top) || 0;
+
+                el.classList.add('dragging');
+                
+                // 綁定全域移動與釋放事件
+                document.addEventListener('mousemove', onDragMove, {passive: false});
+                document.addEventListener('touchmove', onDragMove, {passive: false});
+                document.addEventListener('mouseup', onDragEnd);
+                document.addEventListener('touchend', onDragEnd);
+            };
+
+            el.addEventListener('mousedown', onDragStart);
+            el.addEventListener('touchstart', onDragStart, {passive: false});
+        }
+
+        function onDragMove(e) {
+            if(!state.draggedPiece) return;
+            e.preventDefault(); // 阻擋觸控螢幕滾動
+
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+            const dx = clientX - state.dragStartX;
+            const dy = clientY - state.dragStartY;
+
+            const el = state.draggedPiece.el;
+            el.style.left = `${state.initialLeft + dx}px`;
+            el.style.top = `${state.initialTop + dy}px`;
+        }
+
+        function onDragEnd(e) {
+            if(!state.draggedPiece) return;
+
+            const piece = state.draggedPiece;
+            const el = piece.el;
+            
+            // 移除全域事件與狀態
+            document.removeEventListener('mousemove', onDragMove);
+            document.removeEventListener('touchmove', onDragMove);
+            document.removeEventListener('mouseup', onDragEnd);
+            document.removeEventListener('touchend', onDragEnd);
+            
+            el.classList.remove('dragging');
+            state.draggedPiece = null;
+
+            // 計算釋放時最接近的網格座標
+            const currentLeft = parseFloat(el.style.left) + (state.pieceSize / 2);
+            const currentTop = parseFloat(el.style.top) + (state.pieceSize / 2);
+
+            let targetC = Math.floor(currentLeft / state.pieceSize);
+            let targetR = Math.floor(currentTop / state.pieceSize);
+
+            // 邊界限制 (Clamp)
+            targetC = Math.max(0, Math.min(state.gridSize - 1, targetC));
+            targetR = Math.max(0, Math.min(state.gridSize - 1, targetR));
+
+            // 尋找目標位置原本的碎片
+            const targetPiece = state.pieces.find(p => p.currR === targetR && p.currC === targetC);
+
+            if(targetPiece && targetPiece !== piece) {
+                // 交換座標
+                targetPiece.currR = piece.currR;
+                targetPiece.currC = piece.currC;
+                updatePieceDOMPosition(targetPiece);
+                
+                // 增加步數
+                state.moves++;
+                updateHUD();
+            }
+
+            // 更新自己座標
+            piece.currR = targetR;
+            piece.currC = targetC;
+            updatePieceDOMPosition(piece);
+
+            // 如果沒有發生交換但也計算為一次釋放，視情況要不要算步數，這裡只要放開就算一步
+            if(!targetPiece || targetPiece === piece) {
+               // 只是微調回原位，不增加步數
+               updatePieceDOMPosition(piece); // 確保吸附回格子
+            }
+
+            checkWinCondition();
+        }
+
+        function updateHUD() {
+            ui.moves.innerText = state.moves;
+            ui.grid.innerText = `${state.gridSize}x${state.gridSize}`;
+        }
+
+        function updateProgress() {
+            let correctCount = state.pieces.filter(p => p.currR === p.correctR && p.currC === p.correctC).length;
+            let percent = Math.floor((correctCount / state.pieces.length) * 100);
+            ui.progress.innerText = `${percent}%`;
+            return percent;
+        }
+
+        function startTimer() {
+            if(state.interval) clearInterval(state.interval);
+            state.interval = setInterval(() => {
+                state.timer++;
+                let m = String(Math.floor(state.timer / 60)).padStart(2, '0');
+                let s = String(state.timer % 60).padStart(2, '0');
+                ui.time.innerText = `${m}:${s}`;
+            }, 1000);
+        }
+
+        function stopTimer() {
+            if(state.interval) {
+                clearInterval(state.interval);
+                state.interval = null;
+            }
+        }
+
+        function checkWinCondition() {
+            const percent = updateProgress();
+            
+            if(percent === 100 && !state.isCompleted) {
+                state.isCompleted = true;
+                stopTimer();
+                
+                // 觸發勝利動畫
+                ui.wrapper.classList.add('completed-glow');
+                state.pieces.forEach(p => p.el.classList.add('completed'));
+                
+                createVictoryParticles();
+
+                // 延遲顯示 Modal
+                setTimeout(() => {
+                    ui.finalTime.innerText = ui.time.innerText;
+                    ui.finalMoves.innerText = state.moves;
+                    ui.finalGrid.innerText = `${state.gridSize}x${state.gridSize}`;
+                    
+                    ui.victoryModal.classList.remove('opacity-0', 'pointer-events-none');
+                    ui.victoryModalContent.classList.remove('translate-y-10');
+                }, 1200);
+            }
+        }
+
+        function createVictoryParticles() {
+            const ctx = ui.particleCanvas.getContext('2d');
+            const cw = ui.particleCanvas.width = ui.wrapper.clientWidth;
+            const ch = ui.particleCanvas.height = ui.wrapper.clientHeight;
+            
+            let particles = [];
+            const colors = ['#00ffff', '#ff007f', '#ffff00', '#ffffff'];
+
+            for(let i=0; i<80; i++) {
+                particles.push({
+                    x: cw / 2,
+                    y: ch / 2,
+                    vx: (Math.random() - 0.5) * 15,
+                    vy: (Math.random() - 0.5) * 15,
+                    r: Math.random() * 4 + 1,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    alpha: 1,
+                    decay: Math.random() * 0.02 + 0.01
+                });
+            }
+
+            function animate() {
+                if(particles.length === 0) return;
+                ctx.clearRect(0, 0, cw, ch);
+                
+                for(let i=particles.length-1; i>=0; i--) {
+                    let p = particles[i];
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.alpha -= p.decay;
+                    
+                    if(p.alpha <= 0) {
+                        particles.splice(i, 1);
+                        continue;
+                    }
+                    
+                    ctx.save();
+                    ctx.globalAlpha = p.alpha;
+                    ctx.fillStyle = p.color;
+                    ctx.shadowBlur = 10;
+                    ctx.shadowColor = p.color;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+                    ctx.fill();
+                    ctx.restore();
+                }
+                requestAnimationFrame(animate);
+            }
+            animate();
+        }
+
+        ui.diffBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                if(state.isPlaying && !confirm("切換難度將會重新開始遊戲，確定嗎？")) return;
+                
+                ui.diffBtns.forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                state.gridSize = parseInt(e.target.dataset.size);
+                initGame(true); // 洗牌並重置
+            });
+        });
+
+        ui.sourceSelect.addEventListener('change', (e) => {
+            if(e.target.value === 'upload') {
+                ui.fileInput.click();
+            } else {
+                if(state.isPlaying && !confirm("切換圖片將會重新開始遊戲，確定嗎？")) {
+                    // 回復舊選項邏輯略顯複雜，為簡化直接重啟
+                }
+                initGame();
+            }
+        });
+
+        ui.fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if(!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                state.imageSrc = event.target.result;
+                ui.sourceSelect.options[ui.sourceSelect.selectedIndex].text = `UPLOADED: ${file.name.substring(0,10)}...`;
+                initGame(true); // 重新洗牌並使用新圖
+            };
+            reader.readAsDataURL(file);
+        });
+
+        ui.previewBtn.addEventListener('click', () => {
+            ui.previewModal.classList.remove('opacity-0', 'pointer-events-none');
+            ui.previewModalContent.classList.remove('scale-95');
+        });
+
+        ui.closePreviewBtn.addEventListener('click', () => {
+            ui.previewModal.classList.add('opacity-0', 'pointer-events-none');
+            ui.previewModalContent.classList.add('scale-95');
+        });
+
+        ui.shuffleBtn.addEventListener('click', () => {
+            if(confirm("確定要重新打亂拼圖嗎？")) {
+                initGame(true);
+            }
+        });
+
+        ui.playAgainBtn.addEventListener('click', () => {
+            ui.victoryModal.classList.add('opacity-0', 'pointer-events-none');
+            ui.victoryModalContent.classList.add('translate-y-10');
+            setTimeout(() => {
+                initGame(true); // 再玩一次，重新洗牌
+            }, 300);
+        });
+
+        // 視窗縮放時重新計算版面
+        let resizeTimer;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => {
+                if(!state.isCompleted) {
+                    calculateBoardSize();
+                    // 更新所有碎片的尺寸與位置
+                    state.pieces.forEach(p => {
+                        p.el.style.width = `${state.pieceSize}px`;
+                        p.el.style.height = `${state.pieceSize}px`;
+                        p.el.style.backgroundSize = `${state.boardSize}px ${state.boardSize}px`;
+                        p.el.style.backgroundPosition = `-${p.correctC * state.pieceSize}px -${p.correctR * state.pieceSize}px`;
+                        updatePieceDOMPosition(p);
+                    });
+                    
+                    // 更新底圖 slot 尺寸
+                    const slots = document.querySelectorAll('.puzzle-slot');
+                    slots.forEach((s, i) => {
+                        let r = Math.floor(i / state.gridSize);
+                        let c = i % state.gridSize;
+                        s.style.width = `${state.pieceSize}px`;
+                        s.style.height = `${state.pieceSize}px`;
+                        s.style.left = `${c * state.pieceSize}px`;
+                        s.style.top = `${r * state.pieceSize}px`;
+                    });
+                }
+            }, 200);
+        });
+
+        // 啟動遊戲
+        window.onload = () => {
+            initGame();
+        };
+
+    </script>
+</body>
+</html>

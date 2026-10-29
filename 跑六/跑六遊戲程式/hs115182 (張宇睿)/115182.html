@@ -1,0 +1,1441 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>荒野大亂鬥 Mini - 4v4v4v4 團戰大亂鬥</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Noto+Sans+TC:wght@700;900&display=swap');
+        
+        body {
+            font-family: 'Fredoka One', 'Noto Sans TC', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+            background-color: #0b0f19;
+            overflow: hidden;
+        }
+
+        .brawl-btn {
+            background: linear-gradient(180deg, #ffca28 0%, #ff8f00 100%);
+            border: 4px solid #fff;
+            box-shadow: 0 6px 0 #b26a00, 0 10px 10px rgba(0,0,0,0.5);
+            text-shadow: 2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000;
+            transition: all 0.1s ease;
+        }
+
+        .brawl-btn:active {
+            transform: translateY(4px);
+            box-shadow: 0 2px 0 #b26a00, 0 4px 6px rgba(0,0,0,0.5);
+        }
+
+        .brawl-card {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            border: 4px solid #38bdf8;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.6);
+        }
+
+        .brawl-card.selected {
+            border-color: #f59e0b;
+            transform: scale(1.05);
+            box-shadow: 0 0 20px #f59e0b;
+        }
+
+        .text-stroke {
+            -webkit-text-stroke: 1.5px #000;
+            text-shadow: 2px 2px 0 #000;
+        }
+
+        .text-stroke-lg {
+            -webkit-text-stroke: 3px #000;
+            text-shadow: 4px 4px 0 #000;
+        }
+
+        .joystick-zone {
+            position: absolute;
+            bottom: 20px;
+            width: 140px;
+            height: 140px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: auto;
+        }
+
+        .joystick-handle {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #38bdf8 0%, #0284c7 100%);
+            border: 3px solid #fff;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            position: absolute;
+        }
+    </style>
+</head>
+<body class="w-screen h-screen flex flex-col justify-center items-center relative text-white">
+
+    <!-- Canvas Game Viewport -->
+    <div id="game-container" class="relative w-full h-full max-w-[1280px] max-h-[720px] bg-slate-900 overflow-hidden md:rounded-2xl shadow-2xl border-4 border-slate-700">
+        <canvas id="gameCanvas" class="w-full h-full block cursor-crosshair"></canvas>
+
+        <!-- In-Game HUD -->
+        <div id="hud" class="absolute top-0 left-0 w-full h-full pointer-events-none flex flex-col justify-between p-4 hidden">
+            <!-- Top Bar: Player Stats & Teams Leaderboard -->
+            <div class="flex justify-between items-start">
+                <!-- Player Info Header -->
+                <div class="flex items-center space-x-3 bg-slate-900/85 p-2 px-4 rounded-2xl border-2 border-slate-700 backdrop-blur-md">
+                    <div id="hud-avatar" class="w-12 h-12 rounded-xl bg-blue-500 border-2 border-white flex justify-center items-center text-2xl shadow-md">
+                        🤠
+                    </div>
+                    <div>
+                        <div id="hud-name" class="font-extrabold text-blue-400 text-lg tracking-wide text-stroke">SHELLY (隊伍 1)</div>
+                        <div class="flex items-center space-x-2 text-xs font-black">
+                            <span class="text-green-400">🟩 水晶: <span id="hud-cubes" class="text-white text-sm">0</span></span>
+                            <span class="text-red-400 ml-2">💀 擊殺: <span id="hud-kills" class="text-white text-sm">0</span></span>
+                        </div>
+                        <div class="text-[11px] font-bold text-amber-300">
+                            ❤️ 生命: <span id="hud-hp-display">10,000 / 10,000</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Live Teams Overview (4 Teams x 3 Brawlers) -->
+                <div class="bg-slate-900/85 p-3 rounded-2xl border-2 border-slate-700 backdrop-blur-md flex flex-col space-y-1">
+                    <div class="text-[10px] text-slate-400 uppercase font-bold text-center tracking-wider">陣營生還狀況 (4 隊 x 3 人)</div>
+                    <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs font-extrabold">
+                        <div id="team-status-0" class="flex items-center justify-between text-blue-400">
+                            <span>🔵 藍隊 (我方):</span>
+                            <span class="ml-2 bg-blue-950 px-2 py-0.5 rounded border border-blue-600 text-white">3/3</span>
+                        </div>
+                        <div id="team-status-1" class="flex items-center justify-between text-red-400">
+                            <span>🔴 紅隊:</span>
+                            <span class="ml-2 bg-red-950 px-2 py-0.5 rounded border border-red-600 text-white">3/3</span>
+                        </div>
+                        <div id="team-status-2" class="flex items-center justify-between text-green-400">
+                            <span>🟢 綠隊:</span>
+                            <span class="ml-2 bg-green-950 px-2 py-0.5 rounded border border-green-600 text-white">3/3</span>
+                        </div>
+                        <div id="team-status-3" class="flex items-center justify-between text-yellow-400">
+                            <span>🟡 黃隊:</span>
+                            <span class="ml-2 bg-yellow-950 px-2 py-0.5 rounded border border-yellow-600 text-white">3/3</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Poison Warning Indicator -->
+            <div id="poison-warning" class="self-center bg-red-600/90 text-white px-6 py-1.5 rounded-full font-black text-sm tracking-widest animate-pulse border-2 border-white hidden shadow-lg">
+                ⚠️ 毒霧正在擴散 ⚠️
+            </div>
+
+            <!-- Respawn Notice Banner -->
+            <div id="respawn-notice" class="self-center bg-sky-600/90 text-white px-6 py-2 rounded-2xl font-black text-base border-2 border-white hidden shadow-2xl animate-pulse">
+                💀 陣亡！15 秒後在隊友身邊復活...
+            </div>
+
+            <!-- Bottom Control Zone (Virtual Joy + Super) -->
+            <div class="flex justify-between items-end pb-2">
+                <!-- Center Controls Reminder for Desktop -->
+                <div class="hidden md:block bg-slate-900/80 px-4 py-2 rounded-xl text-xs text-slate-300 backdrop-blur-sm border border-slate-700">
+                    <span class="text-amber-400 font-bold">[WASD / 方向鍵]</span> 移動 | 
+                    <span class="text-amber-400 font-bold">[滑鼠左鍵]</span> 攻擊 (威力 2000) | 
+                    <span class="text-amber-400 font-bold">[E / 右鍵]</span> 發動超級大招
+                </div>
+
+                <!-- Super Button & Attack Indicator Right -->
+                <div class="flex items-center space-x-4 pointer-events-auto">
+                    <!-- Super Skill Button -->
+                    <button id="btn-super" class="w-20 h-20 rounded-full bg-slate-800 border-4 border-slate-600 flex flex-col justify-center items-center shadow-2xl transition transform active:scale-95 relative overflow-hidden">
+                        <div id="super-fill" class="absolute bottom-0 left-0 w-full bg-amber-500 transition-all duration-200 opacity-80" style="height: 0%;"></div>
+                        <i class="fa-solid fa-bolt text-3xl z-10 text-white drop-shadow"></i>
+                        <span class="text-[10px] font-black z-10 text-white tracking-widest text-stroke mt-1">SUPER</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Start / Character Selection Screen -->
+        <div id="screen-select" class="absolute inset-0 bg-slate-950/95 flex flex-col justify-between p-6 z-20 backdrop-blur-md overflow-y-auto">
+            <div class="text-center mt-2">
+                <h1 class="text-3xl md:text-5xl font-black italic text-amber-400 tracking-wider text-stroke-lg transform -rotate-1">
+                    荒野大亂鬥 <span class="text-sky-400">4隊3人 團戰大亂鬥</span>
+                </h1>
+                <p class="text-slate-300 text-xs md:text-sm mt-2 font-bold">
+                    ⚔️️ 4 支隊伍 (藍/紅/綠/黃) 共 12 人對戰！生命值：<span class="text-green-400">10,000</span> | 攻擊力：<span class="text-red-400">2000</span>
+                </p>
+            </div>
+
+            <!-- Brawler Cards Grid -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto w-full my-auto">
+                <!-- Shelly -->
+                <div class="brawl-card selected rounded-2xl p-4 flex flex-col items-center cursor-pointer transition transform hover:-translate-y-1" onclick="selectBrawler('shelly', this)">
+                    <div class="w-20 h-20 rounded-2xl bg-purple-600 border-2 border-white flex justify-center items-center text-4xl shadow-inner mb-3">
+                        🤠
+                    </div>
+                    <div class="text-xl font-black text-amber-400 text-stroke">雪莉 (Shelly)</div>
+                    <div class="text-xs text-sky-300 font-bold mt-1">散彈槍手</div>
+                    <div class="text-[11px] text-slate-400 mt-2 text-center leading-relaxed">
+                        近距離多發散射，大招破壞牆壁與強力擊退！
+                    </div>
+                </div>
+
+                <!-- Colt -->
+                <div class="brawl-card rounded-2xl p-4 flex flex-col items-center cursor-pointer transition transform hover:-translate-y-1" onclick="selectBrawler('colt', this)">
+                    <div class="w-20 h-20 rounded-2xl bg-sky-600 border-2 border-white flex justify-center items-center text-4xl shadow-inner mb-3">
+                        🕵️‍♂️
+                    </div>
+                    <div class="text-xl font-black text-amber-400 text-stroke">柯爾特 (Colt)</div>
+                    <div class="text-xs text-sky-300 font-bold mt-1">神槍手</div>
+                    <div class="text-[11px] text-slate-400 mt-2 text-center leading-relaxed">
+                        高速直線雙槍連發，大招發射超遠程穿透巨彈！
+                    </div>
+                </div>
+
+                <!-- El Primo -->
+                <div class="brawl-card rounded-2xl p-4 flex flex-col items-center cursor-pointer transition transform hover:-translate-y-1" onclick="selectBrawler('elprimo', this)">
+                    <div class="w-20 h-20 rounded-2xl bg-red-600 border-2 border-white flex justify-center items-center text-4xl shadow-inner mb-3">
+                        🤼
+                    </div>
+                    <div class="text-xl font-black text-amber-400 text-stroke">普里莫 (Primo)</div>
+                    <div class="text-xs text-sky-300 font-bold mt-1">重裝坦克</div>
+                    <div class="text-[11px] text-slate-400 mt-2 text-center leading-relaxed">
+                        近戰拳擊，超級飛天扣殺躍向敵陣！
+                    </div>
+                </div>
+
+                <!-- Poco -->
+                <div class="brawl-card rounded-2xl p-4 flex flex-col items-center cursor-pointer transition transform hover:-translate-y-1" onclick="selectBrawler('poco', this)">
+                    <div class="w-20 h-20 rounded-2xl bg-emerald-600 border-2 border-white flex justify-center items-center text-4xl shadow-inner mb-3">
+                        💀
+                    </div>
+                    <div class="text-xl font-black text-amber-400 text-stroke">波可 (Poco)</div>
+                    <div class="text-xs text-sky-300 font-bold mt-1">輔助琴師</div>
+                    <div class="text-[11px] text-slate-400 mt-2 text-center leading-relaxed">
+                        超大範圍聲波廣域攻擊，超級大招迅速為全隊治療！
+                    </div>
+                </div>
+            </div>
+
+            <!-- Start Game Button -->
+            <div class="flex flex-col items-center mb-2">
+                <button id="btn-start" class="brawl-btn px-12 py-4 rounded-2xl text-2xl font-black tracking-widest text-white uppercase hover:scale-105 active:scale-95 transition">
+                    開啟團戰大亂鬥！
+                </button>
+            </div>
+        </div>
+
+        <!-- Game Over / Victory Overlay -->
+        <div id="screen-gameover" class="absolute inset-0 bg-slate-950/90 flex flex-col justify-center items-center z-30 hidden backdrop-blur-md">
+            <div id="gameover-title" class="text-5xl md:text-7xl font-black tracking-wider text-amber-400 text-stroke-lg mb-2 transform -rotate-2">
+                #1 藍隊獲得最終勝利！
+            </div>
+            <p id="gameover-desc" class="text-slate-300 text-lg mb-6 font-bold">成功殲滅所有敵對隊伍！</p>
+            
+            <div class="bg-slate-900 border-2 border-slate-700 p-6 rounded-2xl flex space-x-8 mb-8 text-center shadow-xl">
+                <div>
+                    <div class="text-xs text-slate-400 uppercase font-bold">隊伍排名</div>
+                    <div id="res-rank" class="text-3xl font-black text-amber-400">#1</div>
+                </div>
+                <div>
+                    <div class="text-xs text-slate-400 uppercase font-bold">個人擊殺</div>
+                    <div id="res-kills" class="text-3xl font-black text-red-500">0</div>
+                </div>
+                <div>
+                    <div class="text-xs text-slate-400 uppercase font-bold">能量水晶</div>
+                    <div id="res-cubes" class="text-3xl font-black text-green-400">0</div>
+                </div>
+            </div>
+
+            <button id="btn-restart" class="brawl-btn px-10 py-3 rounded-xl text-xl font-black text-white hover:scale-105 active:scale-95 transition">
+                再次開戰
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Synthesized Web Audio API sound generator module
+        const sfx = {
+            ctx: null,
+            init() {
+                if (!this.ctx) {
+                    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                    if (AudioContextClass) {
+                        this.ctx = new AudioContextClass();
+                    }
+                }
+                if (this.ctx && this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            },
+            playShoot() {
+                if (!this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(400, this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(80, this.ctx.currentTime + 0.1);
+                    gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.1);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.1);
+                } catch (e) {}
+            },
+            playHit() {
+                if (!this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(160, this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(40, this.ctx.currentTime + 0.08);
+                    gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.08);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.08);
+                } catch (e) {}
+            },
+            playCube() {
+                if (!this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(523.25, this.ctx.currentTime);
+                    osc.frequency.setValueAtTime(659.25, this.ctx.currentTime + 0.08);
+                    gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.2);
+                } catch (e) {}
+            },
+            playSuper() {
+                if (!this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(220, this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(784, this.ctx.currentTime + 0.3);
+                    gain.gain.setValueAtTime(0.25, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.3);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.3);
+                } catch (e) {}
+            }
+        };
+
+        function formatBigNumber(val) {
+            return Math.max(0, Math.round(val)).toLocaleString();
+        }
+
+        // Team configurations (4 Teams, 3 Brawlers per team)
+        const TEAMS = [
+            { id: 0, name: '藍隊 (我方)', color: '#3b82f6', badge: '🔵' },
+            { id: 1, name: '紅隊', color: '#ef4444', badge: '🔴' },
+            { id: 2, name: '綠隊', color: '#10b981', badge: '🟢' },
+            { id: 3, name: '黃隊', color: '#eab308', badge: '🟡' }
+        ];
+
+        const BASE_HEALTH = 10000;
+        const BASE_DAMAGE = 2000;
+
+        const BRAWLER_TYPES = {
+            shelly: {
+                name: '雪莉',
+                emoji: '🤠',
+                hp: BASE_HEALTH,
+                speed: 3.2,
+                range: 220,
+                bulletCount: 5,
+                spread: 0.45,
+                damage: BASE_DAMAGE,
+                reloadTime: 1.5,
+                superChargeReq: 8
+            },
+            colt: {
+                name: '柯爾特',
+                emoji: '🕵️‍♂️️',
+                hp: BASE_HEALTH,
+                speed: 3.5,
+                range: 330,
+                bulletCount: 6,
+                spread: 0.08,
+                damage: BASE_DAMAGE,
+                reloadTime: 1.2,
+                superChargeReq: 12
+            },
+            elprimo: {
+                name: '普里莫',
+                emoji: '🤼',
+                hp: BASE_HEALTH,
+                speed: 3.6,
+                range: 110,
+                bulletCount: 4,
+                spread: 0.25,
+                damage: BASE_DAMAGE * 1.25,
+                reloadTime: 1.0,
+                superChargeReq: 6
+            },
+            poco: {
+                name: '波可',
+                emoji: '💀',
+                hp: BASE_HEALTH,
+                speed: 3.1,
+                range: 260,
+                bulletCount: 3,
+                spread: 0.65,
+                damage: BASE_DAMAGE,
+                reloadTime: 1.6,
+                superChargeReq: 5
+            }
+        };
+
+        // Canvas Setup
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        function resizeCanvas() {
+            const container = document.getElementById('game-container');
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Game State Variables
+        let selectedType = 'shelly';
+        let gameRunning = false;
+        let player = null;
+        let brawlers = [];
+        let bullets = [];
+        let particles = [];
+        let mapElements = [];
+        let powerCubes = [];
+        let floatingTexts = [];
+        let camera = { x: 0, y: 0 };
+        
+        // Poison Zone Logic
+        let poisonZone = {
+            radius: 1200,
+            x: 800,
+            y: 800,
+            shrinkSpeed: 0.25
+        };
+
+        // Inputs
+        const keys = {};
+        const mouse = { x: 0, y: 0, isDown: false };
+
+        window.addEventListener('keydown', e => { keys[e.code] = true; });
+        window.addEventListener('keyup', e => { keys[e.code] = false; });
+        
+        canvas.addEventListener('mousemove', e => {
+            const rect = canvas.getBoundingClientRect();
+            mouse.x = e.clientX - rect.left;
+            mouse.y = e.clientY - rect.top;
+        });
+
+        canvas.addEventListener('mousedown', e => {
+            sfx.init();
+            if (e.button === 0) mouse.isDown = true;
+            if (e.button === 2) {
+                e.preventDefault();
+                triggerSuperSkill(player);
+            }
+        });
+
+        canvas.addEventListener('mouseup', e => {
+            if (e.button === 0) mouse.isDown = false;
+        });
+
+        canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+        // Map Generator
+        function generateMap() {
+            mapElements = [];
+            powerCubes = [];
+            const mapSize = 1600;
+
+            const spawnZones = [
+                { x: 200, y: 200 },
+                { x: 1400, y: 200 },
+                { x: 200, y: 1400 },
+                { x: 1400, y: 1400 }
+            ];
+
+            for (let i = 0; i < 65; i++) {
+                const bx = Math.floor(Math.random() * (mapSize / 80 - 4) + 2) * 80;
+                const by = Math.floor(Math.random() * (mapSize / 80 - 4) + 2) * 80;
+                
+                // 確保障礙物不會生成在出生點周圍區域
+                let nearSpawn = false;
+                for (let sp of spawnZones) {
+                    if (Math.hypot(bx + 40 - sp.x, by + 40 - sp.y) < 180) {
+                        nearSpawn = true;
+                        break;
+                    }
+                }
+                if (nearSpawn) continue;
+
+                const rand = Math.random();
+                if (rand < 0.45) {
+                    mapElements.push({ type: 'wall', x: bx, y: by, w: 80, h: 80 });
+                } else if (rand < 0.8) {
+                    mapElements.push({ type: 'bush', x: bx, y: by, w: 120, h: 120 });
+                } else {
+                    mapElements.push({ type: 'barrel', x: bx + 20, y: by + 20, w: 40, h: 40, hp: 5000, maxHp: 5000 });
+                }
+            }
+
+            for (let i = 0; i < 12; i++) {
+                powerCubes.push({
+                    x: 800 + (Math.random() - 0.5) * 400,
+                    y: 800 + (Math.random() - 0.5) * 400,
+                    size: 16
+                });
+            }
+        }
+
+        // 尋找避開牆壁的安全出生/復活座標
+        function getSafeSpawnPos(targetX, targetY) {
+            let posX = Math.max(40, Math.min(1560, targetX));
+            let posY = Math.max(40, Math.min(1560, targetY));
+
+            function isColliding(x, y) {
+                const r = 25;
+                for (let el of mapElements) {
+                    if (el.type === 'wall' || el.type === 'barrel') {
+                        if (x + r > el.x && x - r < el.x + el.w &&
+                            y + r > el.y && y - r < el.y + el.h) {
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            }
+
+            if (!isColliding(posX, posY)) return { x: posX, y: posY };
+
+            // 圍繞目標點螺旋搜尋空曠位置
+            for (let dist = 30; dist <= 300; dist += 30) {
+                for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 4) {
+                    let testX = Math.max(40, Math.min(1560, posX + Math.cos(angle) * dist));
+                    let testY = Math.max(40, Math.min(1560, posY + Math.sin(angle) * dist));
+                    if (!isColliding(testX, testY)) {
+                        return { x: testX, y: testY };
+                    }
+                }
+            }
+            return { x: posX, y: posY };
+        }
+
+        // Brawler Entity Class
+        class Brawler {
+            constructor(id, teamId, name, typeKey, x, y, isAI = false) {
+                this.id = id;
+                this.teamId = teamId;
+                this.team = TEAMS[teamId];
+                this.typeKey = typeKey;
+                const config = BRAWLER_TYPES[typeKey];
+                
+                this.name = name;
+                this.emoji = config.emoji;
+                this.color = this.team.color;
+                this.maxHp = config.hp;
+                this.hp = config.hp;
+                this.speed = config.speed;
+                this.range = config.range;
+                this.bulletCount = config.bulletCount;
+                this.spread = config.spread;
+                this.damage = config.damage;
+                this.reloadTime = config.reloadTime;
+                this.superChargeReq = config.superChargeReq;
+                
+                this.x = x;
+                this.y = y;
+                this.radius = 22;
+                this.isAI = isAI;
+                
+                // Combat States
+                this.ammo = 3;
+                this.maxAmmo = 3;
+                this.reloadProgress = 0;
+                this.superCharge = 0;
+                this.cubes = 0;
+                this.kills = 0;
+                this.inBush = false;
+                this.angle = 0;
+                this.isDead = false;
+                this.respawnTimer = 0; // 15秒倒數
+                this.shieldTimer = 0;  // 復活護盾
+
+                // AI States
+                this.aiMoveTimer = 0;
+                this.aiDir = { x: 0, y: 0 };
+            }
+
+            move(dx, dy) {
+                if (this.isDead) return;
+
+                let newX = this.x + dx;
+                let newY = this.y + dy;
+
+                // Border limits
+                newX = Math.max(this.radius, Math.min(1600 - this.radius, newX));
+                newY = Math.max(this.radius, Math.min(1600 - this.radius, newY));
+
+                // Circle-AABB collision check with walls and barrels
+                for (let el of mapElements) {
+                    if (el.type === 'wall' || el.type === 'barrel') {
+                        let closestX = Math.max(el.x, Math.min(newX, el.x + el.w));
+                        let closestY = Math.max(el.y, Math.min(newY, el.y + el.h));
+                        let distX = newX - closestX;
+                        let distY = newY - closestY;
+                        let distance = Math.hypot(distX, distY);
+
+                        if (distance < this.radius) {
+                            if (distance > 0) {
+                                let overlap = this.radius - distance;
+                                newX += (distX / distance) * overlap;
+                                newY += (distY / distance) * overlap;
+                            } else {
+                                newX = this.x;
+                                newY = this.y;
+                            }
+                        }
+                    }
+                }
+
+                this.x = newX;
+                this.y = newY;
+
+                // Pickup Power Cubes
+                for (let i = powerCubes.length - 1; i >= 0; i--) {
+                    let cube = powerCubes[i];
+                    if (Math.hypot(cube.x - this.x, cube.y - this.y) < this.radius + cube.size) {
+                        powerCubes.splice(i, 1);
+                        this.cubes++;
+                        this.maxHp += 1000;
+                        this.hp = Math.min(this.maxHp, this.hp + 1000);
+                        this.damage += 200;
+                        sfx.playCube();
+                        addFloatingText(this.x, this.y - 25, '+1 能量!', '#22c55e');
+                    }
+                }
+            }
+
+            shoot(angle) {
+                if (this.isDead || this.ammo < 1) return;
+                this.ammo--;
+                this.reloadProgress = 0;
+                this.angle = angle;
+                sfx.playShoot();
+
+                const config = BRAWLER_TYPES[this.typeKey];
+                const bulletCount = config.bulletCount;
+                const spread = config.spread;
+
+                for (let i = 0; i < bulletCount; i++) {
+                    let bAngle = angle;
+                    if (bulletCount > 1) {
+                        bAngle = angle - spread / 2 + (spread / (bulletCount - 1)) * i;
+                    }
+                    bAngle += (Math.random() - 0.5) * 0.05;
+
+                    bullets.push({
+                        owner: this,
+                        x: this.x + Math.cos(angle) * (this.radius + 10),
+                        y: this.y + Math.sin(angle) * (this.radius + 10),
+                        vx: Math.cos(bAngle) * 14,
+                        vy: Math.sin(bAngle) * 14,
+                        damage: this.damage / (this.typeKey === 'colt' ? 2 : 1),
+                        range: this.range,
+                        distTraveled: 0,
+                        color: this.team.color,
+                        isSuper: false,
+                        breakWalls: false
+                    });
+                }
+            }
+
+            updateAI() {
+                if (this.isDead) return;
+
+                this.aiMoveTimer -= 1 / 60;
+
+                // Find closest alive enemy brawler
+                let closestEnemy = null;
+                let minEnemyDist = Infinity;
+
+                for (let target of brawlers) {
+                    if (target.teamId !== this.teamId && !target.isDead) {
+                        if (target.inBush) {
+                            let d = Math.hypot(target.x - this.x, target.y - this.y);
+                            if (d > 120) continue;
+                        }
+                        let d = Math.hypot(target.x - this.x, target.y - this.y);
+                        if (d < minEnemyDist) {
+                            minEnemyDist = d;
+                            closestEnemy = target;
+                        }
+                    }
+                }
+
+                // Check nearest power cube
+                let closestCube = null;
+                let minCubeDist = 250;
+                for (let cube of powerCubes) {
+                    let d = Math.hypot(cube.x - this.x, cube.y - this.y);
+                    if (d < minCubeDist) {
+                        minCubeDist = d;
+                        closestCube = cube;
+                    }
+                }
+
+                // AI Navigation
+                if (this.aiMoveTimer <= 0) {
+                    this.aiMoveTimer = 0.4 + Math.random() * 0.4;
+
+                    let moveTargetX = this.x;
+                    let moveTargetY = this.y;
+
+                    let distToPoisonCenter = Math.hypot(this.x - poisonZone.x, this.y - poisonZone.y);
+                    if (distToPoisonCenter > poisonZone.radius - 120) {
+                        moveTargetX = poisonZone.x;
+                        moveTargetY = poisonZone.y;
+                    } else if (closestCube) {
+                        moveTargetX = closestCube.x;
+                        moveTargetY = closestCube.y;
+                    } else if (closestEnemy) {
+                        if (minEnemyDist > this.range * 0.7) {
+                            moveTargetX = closestEnemy.x;
+                            moveTargetY = closestEnemy.y;
+                        } else if (minEnemyDist < this.range * 0.3) {
+                            moveTargetX = this.x - (closestEnemy.x - this.x);
+                            moveTargetY = this.y - (closestEnemy.y - this.y);
+                        } else {
+                            moveTargetX = this.x + (Math.random() - 0.5) * 200;
+                            moveTargetY = this.y + (Math.random() - 0.5) * 200;
+                        }
+                    } else {
+                        moveTargetX = 800 + (Math.random() - 0.5) * 400;
+                        moveTargetY = 800 + (Math.random() - 0.5) * 400;
+                    }
+
+                    let angle = Math.atan2(moveTargetY - this.y, moveTargetX - this.x);
+                    this.aiDir = { x: Math.cos(angle), y: Math.sin(angle) };
+                }
+
+                this.move(this.aiDir.x * this.speed * 0.85, this.aiDir.y * this.speed * 0.85);
+
+                // Attack logic
+                if (closestEnemy) {
+                    this.angle = Math.atan2(closestEnemy.y - this.y, closestEnemy.x - this.x);
+                    if (minEnemyDist <= this.range && this.ammo >= 1) {
+                        this.shoot(this.angle);
+                    }
+
+                    if (this.superCharge >= this.superChargeReq) {
+                        triggerSuperSkill(this);
+                    }
+                }
+            }
+
+            update() {
+                if (this.isDead) {
+                    // 復活倒數邏輯
+                    if (this.respawnTimer > 0) {
+                        this.respawnTimer -= 1 / 60;
+                        const livingTeammates = brawlers.filter(b => b.teamId === this.teamId && !b.isDead);
+                        
+                        // 隊伍全滅則無法復活
+                        if (livingTeammates.length === 0) {
+                            this.respawnTimer = 0;
+                            checkGameStatus();
+                            return;
+                        }
+
+                        if (this.respawnTimer <= 0) {
+                            // 尋找距離最近的存活隊友
+                            let closestTeammate = livingTeammates[0];
+                            let minDist = Math.hypot(closestTeammate.x - this.x, closestTeammate.y - this.y);
+                            for (let tm of livingTeammates) {
+                                let d = Math.hypot(tm.x - this.x, tm.y - this.y);
+                                if (d < minDist) {
+                                    minDist = d;
+                                    closestTeammate = tm;
+                                }
+                            }
+
+                            // 出生在最近隊友身旁的安全空地
+                            const offsetAngle = Math.random() * Math.PI * 2;
+                            const spawnTargetX = closestTeammate.x + Math.cos(offsetAngle) * 60;
+                            const spawnTargetY = closestTeammate.y + Math.sin(offsetAngle) * 60;
+                            const safePos = getSafeSpawnPos(spawnTargetX, spawnTargetY);
+
+                            this.x = safePos.x;
+                            this.y = safePos.y;
+                            this.hp = this.maxHp;
+                            this.ammo = this.maxAmmo;
+                            this.isDead = false;
+                            this.respawnTimer = 0;
+                            this.shieldTimer = 3; // 獲得 3 秒無敵護盾
+                            addFloatingText(this.x, this.y - 30, '⚡ 復活成功！', '#38bdf8');
+                            sfx.playSuper();
+                        }
+                    }
+                    return;
+                }
+
+                if (this.shieldTimer > 0) {
+                    this.shieldTimer -= 1 / 60;
+                }
+
+                // Reload ammo
+                if (this.ammo < this.maxAmmo) {
+                    this.reloadProgress += 1 / (60 * this.reloadTime);
+                    if (this.reloadProgress >= 1) {
+                        this.ammo++;
+                        this.reloadProgress = 0;
+                    }
+                }
+
+                // Bush Stealth
+                this.inBush = false;
+                for (let el of mapElements) {
+                    if (el.type === 'bush') {
+                        if (this.x > el.x && this.x < el.x + el.w && this.y > el.y && this.y < el.y + el.h) {
+                            this.inBush = true;
+                            break;
+                        }
+                    }
+                }
+
+                // Poison Damage
+                const distToCenter = Math.hypot(this.x - poisonZone.x, this.y - poisonZone.y);
+                if (distToCenter > poisonZone.radius) {
+                    this.takeDamage(BASE_DAMAGE * 10, null, true);
+                }
+
+                // AI Updates
+                if (this.isAI) {
+                    this.updateAI();
+                }
+            }
+
+            takeDamage(amount, attacker = null, isPoison = false) {
+                if (this.isDead || this.shieldTimer > 0) return; // 無敵狀態不扣血
+                this.hp -= amount;
+                
+                addFloatingText(this.x + (Math.random()-0.5)*20, this.y - 20, `-${formatBigNumber(amount)}`, isPoison ? '#a855f7' : '#ef4444');
+                sfx.playHit();
+
+                createHitParticles(this.x, this.y, isPoison ? '#a855f7' : '#f59e0b');
+
+                if (this.hp <= 0) {
+                    this.hp = 0;
+                    this.isDead = true;
+                    for (let i = 0; i < Math.max(2, this.cubes + 1); i++) {
+                        powerCubes.push({
+                            x: this.x + (Math.random() - 0.5) * 50,
+                            y: this.y + (Math.random() - 0.5) * 50,
+                            size: 16
+                        });
+                    }
+
+                    if (attacker) {
+                        attacker.kills++;
+                        attacker.superCharge = Math.min(attacker.superChargeReq, attacker.superCharge + 3);
+                    }
+
+                    // 檢查隊伍是否有存活隊友支援 15 秒復活
+                    const livingTeammates = brawlers.filter(b => b.teamId === this.teamId && !b.isDead);
+                    if (livingTeammates.length > 0) {
+                        this.respawnTimer = 15;
+                    } else {
+                        this.respawnTimer = 0;
+                    }
+
+                    checkGameStatus();
+                }
+            }
+        }
+
+        // Trigger Super Skills
+        function triggerSuperSkill(brawler) {
+            if (!brawler || brawler.isDead) return;
+            if (brawler.superCharge < brawler.superChargeReq) return;
+
+            brawler.superCharge = 0;
+            sfx.playSuper();
+            addFloatingText(brawler.x, brawler.y - 40, 'SUPER!', '#f59e0b');
+
+            switch (brawler.typeKey) {
+                case 'shelly':
+                    for (let i = 0; i < 9; i++) {
+                        const angle = brawler.angle - 0.5 + i * 0.125;
+                        bullets.push({
+                            owner: brawler,
+                            x: brawler.x,
+                            y: brawler.y,
+                            vx: Math.cos(angle) * 16,
+                            vy: Math.sin(angle) * 16,
+                            damage: brawler.damage * 1.5,
+                            range: 360,
+                            distTraveled: 0,
+                            color: '#f59e0b',
+                            isSuper: true,
+                            breakWalls: true
+                        });
+                    }
+                    break;
+
+                case 'colt':
+                    for (let i = 0; i < 10; i++) {
+                        setTimeout(() => {
+                            if (brawler.isDead) return;
+                            bullets.push({
+                                owner: brawler,
+                                x: brawler.x,
+                                y: brawler.y,
+                                vx: Math.cos(brawler.angle) * 18,
+                                vy: Math.sin(brawler.angle) * 18,
+                                damage: brawler.damage * 1.2,
+                                range: 480,
+                                distTraveled: 0,
+                                color: '#38bdf8',
+                                isSuper: true,
+                                breakWalls: true
+                            });
+                        }, i * 50);
+                    }
+                    break;
+
+                case 'elprimo':
+                    const leapDist = 240;
+                    brawler.x += Math.cos(brawler.angle) * leapDist;
+                    brawler.y += Math.sin(brawler.angle) * leapDist;
+                    
+                    createExplosion(brawler.x, brawler.y, 100);
+                    brawlers.forEach(b => {
+                        if (b.teamId !== brawler.teamId && !b.isDead) {
+                            if (Math.hypot(b.x - brawler.x, b.y - brawler.y) < 130) {
+                                b.takeDamage(brawler.damage * 4, brawler);
+                            }
+                        }
+                    });
+                    break;
+
+                case 'poco':
+                    // Team Healing Wave
+                    brawlers.forEach(b => {
+                        if (b.teamId === brawler.teamId && !b.isDead) {
+                            b.hp = Math.min(b.maxHp, b.hp + 3000);
+                            addFloatingText(b.x, b.y - 30, '+3,000 HP', '#10b981');
+                        }
+                    });
+                    for (let i = 0; i < 12; i++) {
+                        const angle = i * (Math.PI / 6);
+                        bullets.push({
+                            owner: brawler,
+                            x: brawler.x,
+                            y: brawler.y,
+                            vx: Math.cos(angle) * 10,
+                            vy: Math.sin(angle) * 10,
+                            damage: brawler.damage * 1.5,
+                            range: 320,
+                            distTraveled: 0,
+                            color: '#10b981',
+                            isSuper: true
+                        });
+                    }
+                    break;
+            }
+        }
+
+        function createHitParticles(x, y, color) {
+            for (let i = 0; i < 6; i++) {
+                particles.push({
+                    x, y,
+                    vx: (Math.random() - 0.5) * 6,
+                    vy: (Math.random() - 0.5) * 6,
+                    life: 1,
+                    color
+                });
+            }
+        }
+
+        function createExplosion(x, y, radius) {
+            for (let i = 0; i < 20; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 8;
+                particles.push({
+                    x, y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    life: 1,
+                    color: '#f97316'
+                });
+            }
+        }
+
+        function addFloatingText(x, y, text, color) {
+            floatingTexts.push({ x, y, text, color, alpha: 1, dy: -1.5 });
+        }
+
+        function updateGame() {
+            if (!gameRunning) return;
+
+            // Player Inputs
+            if (player && !player.isDead) {
+                let dx = 0;
+                let dy = 0;
+
+                if (keys['KeyW'] || keys['ArrowUp']) dy -= 1;
+                if (keys['KeyS'] || keys['ArrowDown']) dy += 1;
+                if (keys['KeyA'] || keys['ArrowLeft']) dx -= 1;
+                if (keys['KeyD'] || keys['ArrowRight']) dx += 1;
+
+                if (dx !== 0 && dy !== 0) {
+                    dx *= 0.7071;
+                    dy *= 0.7071;
+                }
+
+                player.move(dx * player.speed, dy * player.speed);
+
+                const worldMouseX = mouse.x + camera.x;
+                const worldMouseY = mouse.y + camera.y;
+                player.angle = Math.atan2(worldMouseY - player.y, worldMouseX - player.x);
+
+                if (mouse.isDown) {
+                    player.shoot(player.angle);
+                }
+
+                if (keys['KeyE']) {
+                    triggerSuperSkill(player);
+                    keys['KeyE'] = false;
+                }
+            }
+
+            // Update All Brawlers
+            brawlers.forEach(b => b.update());
+
+            // Poison Zone Shrink
+            if (poisonZone.radius > 200) {
+                poisonZone.radius -= poisonZone.shrinkSpeed / 60;
+            }
+
+            // Update Bullets
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                let b = bullets[i];
+                b.x += b.vx;
+                b.y += b.vy;
+                const dist = Math.hypot(b.vx, b.vy);
+                b.distTraveled += dist;
+
+                if (b.distTraveled >= b.range) {
+                    bullets.splice(i, 1);
+                    continue;
+                }
+
+                // Map Collision
+                let destroyed = false;
+                for (let j = mapElements.length - 1; j >= 0; j--) {
+                    let el = mapElements[j];
+                    if (b.x > el.x && b.x < el.x + el.w && b.y > el.y && b.y < el.y + el.h) {
+                        if (el.type === 'wall') {
+                            if (b.breakWalls) {
+                                mapElements.splice(j, 1);
+                            }
+                            bullets.splice(i, 1);
+                            destroyed = true;
+                            break;
+                        } else if (el.type === 'barrel') {
+                            el.hp -= b.damage;
+                            if (el.hp <= 0) {
+                                mapElements.splice(j, 1);
+                                powerCubes.push({ x: el.x + 20, y: el.y + 20, size: 16 });
+                            }
+                            bullets.splice(i, 1);
+                            destroyed = true;
+                            break;
+                        }
+                    }
+                }
+                if (destroyed) continue;
+
+                // Hit Enemy Team Brawler Check
+                for (let target of brawlers) {
+                    if (target.teamId !== b.owner.teamId && !target.isDead) {
+                        if (Math.hypot(b.x - target.x, b.y - target.y) < target.radius) {
+                            target.takeDamage(b.damage, b.owner);
+                            
+                            if (b.owner && b.owner.superCharge < b.owner.superChargeReq) {
+                                b.owner.superCharge += 1;
+                            }
+
+                            bullets.splice(i, 1);
+                            break;
+                        }
+                    }
+                }
+            }
+            // Camera follow (死亡時視角自動追蹤存活隊友)
+            if (player) {
+                if (!player.isDead) {
+                    camera.x = player.x - canvas.width / 2;
+                    camera.y = player.y - canvas.height / 2;
+                } else {
+                    const livingTeammate = brawlers.find(b => b.teamId === player.teamId && !b.isDead);
+                    if (livingTeammate) {
+                        camera.x = livingTeammate.x - canvas.width / 2;
+                        camera.y = livingTeammate.y - canvas.height / 2;
+                    }
+                }
+            }
+
+            updateHUD();
+        }
+
+        function renderGame() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            ctx.save();
+            ctx.translate(-camera.x, -camera.y);
+
+            // Ground Grid
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(0, 0, 1600, 1600);
+
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 2;
+            const gridSize = 80;
+            for (let x = 0; x < 1600; x += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0); ctx.lineTo(x, 1600); ctx.stroke();
+            }
+            for (let y = 0; y < 1600; y += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(0, y); ctx.lineTo(1600, y); ctx.stroke();
+            }
+
+            // Map Obstacles
+            mapElements.forEach(el => {
+                if (el.type === 'wall') {
+                    ctx.fillStyle = '#334155';
+                    ctx.fillRect(el.x, el.y, el.w, el.h);
+                    ctx.strokeStyle = '#0284c7';
+                    ctx.lineWidth = 3;
+                    ctx.strokeRect(el.x, el.y, el.w, el.h);
+                } else if (el.type === 'barrel') {
+                    ctx.fillStyle = '#d97706';
+                    ctx.beginPath();
+                    ctx.roundRect(el.x, el.y, el.w, el.h, 8);
+                    ctx.fill();
+                    ctx.strokeStyle = '#78350f';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+            });
+
+            // Power Cubes
+            powerCubes.forEach(cube => {
+                ctx.fillStyle = '#22c55e';
+                ctx.beginPath();
+                ctx.arc(cube.x, cube.y, cube.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            });
+
+            // Bullets
+            bullets.forEach(b => {
+                ctx.fillStyle = b.color;
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, b.isSuper ? 8 : 5, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            // Brawlers
+            brawlers.forEach(b => {
+                if (b.isDead) return;
+                if (b.inBush && b.teamId !== player.teamId) return; // Hide enemies in bushes
+
+                ctx.save();
+                ctx.translate(b.x, b.y);
+
+                if (b.inBush) ctx.globalAlpha = 0.55;
+
+                // Invulnerability Shield Ring
+                if (b.shieldTimer > 0) {
+                    ctx.strokeStyle = '#38bdf8';
+                    ctx.lineWidth = 5;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, b.radius + 8, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+
+                // Team Circle Ring
+                ctx.fillStyle = b.color;
+                ctx.beginPath();
+                ctx.arc(0, 0, b.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = b === player ? 4 : 2;
+                ctx.stroke();
+
+                // Direction Gun Line
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(Math.cos(b.angle) * (b.radius + 10), Math.sin(b.angle) * (b.radius + 10));
+                ctx.stroke();
+
+                // Emoji
+                ctx.font = '18px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(b.emoji, 0, 0);
+
+                // Health Bar
+                ctx.fillStyle = 'rgba(0,0,0,0.7)';
+                ctx.fillRect(-35, -b.radius - 20, 70, 9);
+                
+                const hpPercent = Math.max(0, b.hp / b.maxHp);
+                ctx.fillStyle = b.teamId === player.teamId ? '#3b82f6' : '#ef4444';
+                ctx.fillRect(-35, -b.radius - 20, 70 * hpPercent, 9);
+                
+                ctx.strokeStyle = '#000000';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(-35, -b.radius - 20, 70, 9);
+
+                // Name & Clean Health text
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 9px Fredoka One';
+                ctx.fillText(`${b.team.badge} ${formatBigNumber(b.hp)}`, 0, -b.radius - 24);
+
+                ctx.restore();
+            });
+
+            // Bushes
+            mapElements.forEach(el => {
+                if (el.type === 'bush') {
+                    ctx.fillStyle = 'rgba(22, 101, 52, 0.75)';
+                    ctx.fillRect(el.x, el.y, el.w, el.h);
+                }
+            });
+
+            // Poison Storm Mask
+            ctx.fillStyle = 'rgba(168, 85, 247, 0.22)';
+            ctx.beginPath();
+            ctx.rect(0, 0, 1600, 1600);
+            ctx.arc(poisonZone.x, poisonZone.y, poisonZone.radius, 0, Math.PI * 2, true);
+            ctx.fill();
+
+            ctx.strokeStyle = '#c084fc';
+            ctx.lineWidth = 6;
+            ctx.beginPath();
+            ctx.arc(poisonZone.x, poisonZone.y, poisonZone.radius, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Particles & Floating Damage Numbers
+            particles.forEach(p => {
+                ctx.fillStyle = p.color;
+                ctx.globalAlpha = p.life;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            ctx.globalAlpha = 1.0;
+
+            floatingTexts.forEach(ft => {
+                ctx.fillStyle = ft.color;
+                ctx.globalAlpha = ft.alpha;
+                ctx.font = 'bold 15px Fredoka One';
+                ctx.fillText(ft.text, ft.x, ft.y);
+            });
+            ctx.globalAlpha = 1.0;
+
+            ctx.restore();
+        }
+
+        function updateHUD() {
+            if (!player) return;
+
+            document.getElementById('hud-cubes').innerText = player.cubes;
+            document.getElementById('hud-kills').innerText = player.kills;
+            document.getElementById('hud-hp-display').innerText = `${formatBigNumber(Math.max(0, player.hp))} / ${formatBigNumber(player.maxHp)}`;
+
+            // 玩家陣亡提示與復活倒數 HUD
+            const respawnNotice = document.getElementById('respawn-notice');
+            if (player.isDead && player.respawnTimer > 0) {
+                respawnNotice.classList.remove('hidden');
+                respawnNotice.innerText = `💀 陣亡！ ${Math.ceil(player.respawnTimer)} 秒後在隊友身邊復活...`;
+            } else if (respawnNotice) {
+                respawnNotice.classList.add('hidden');
+            }
+
+            // Update live teams count
+            TEAMS.forEach(team => {
+                const alive = brawlers.filter(b => b.teamId === team.id && !b.isDead).length;
+                const el = document.getElementById(`team-status-${team.id}`);
+                if (el) {
+                    const span = el.querySelector('span:last-child');
+                    span.innerText = `${alive}/3`;
+                    if (alive === 0) {
+                        el.classList.add('opacity-40', 'line-through');
+                    } else {
+                        el.classList.remove('opacity-40', 'line-through');
+                    }
+                }
+            });
+
+            // Super Button State
+            const superPct = Math.min(100, (player.superCharge / player.superChargeReq) * 100);
+            const superFill = document.getElementById('super-fill');
+            superFill.style.height = `${superPct}%`;
+
+            const btnSuper = document.getElementById('btn-super');
+            if (superPct >= 100) {
+                btnSuper.classList.add('animate-bounce', 'border-amber-400');
+            } else {
+                btnSuper.classList.remove('animate-bounce', 'border-amber-400');
+            }
+        }
+
+        function checkGameStatus() {
+            // 隊伍只要有存活成員或正在倒數復活中的成員即視為存活
+            const activeTeams = new Set();
+            brawlers.forEach(b => {
+                if (!b.isDead || b.respawnTimer > 0) {
+                    activeTeams.add(b.teamId);
+                }
+            });
+
+            const playerTeamActive = activeTeams.has(player.teamId);
+
+            if (!playerTeamActive || activeTeams.size <= 1) {
+                gameRunning = false;
+                setTimeout(showGameOver, 1000);
+            }
+        }
+
+        function showGameOver() {
+            document.getElementById('hud').classList.add('hidden');
+            const gameOverScreen = document.getElementById('screen-gameover');
+            gameOverScreen.classList.remove('hidden');
+
+            const aliveTeams = Array.from(new Set(brawlers.filter(b => !b.isDead).map(b => b.teamId)));
+            const playerTeamWon = aliveTeams.length === 1 && aliveTeams[0] === player.teamId;
+
+            document.getElementById('res-rank').innerText = playerTeamWon ? '#1 冠軍' : '#戰敗';
+            document.getElementById('res-kills').innerText = player.kills;
+            document.getElementById('res-cubes').innerText = player.cubes;
+
+            const title = document.getElementById('gameover-title');
+            if (playerTeamWon) {
+                title.innerText = '🔵 藍隊 (我方) 奪得冠軍！';
+                title.className = 'text-4xl md:text-6xl font-black tracking-wider text-amber-400 text-stroke-lg mb-2 transform -rotate-2';
+            } else {
+                title.innerText = '💀 戰隊已被殲滅！';
+                title.className = 'text-4xl md:text-6xl font-black tracking-wider text-red-500 text-stroke-lg mb-2 transform -rotate-2';
+            }
+        }
+
+        function selectBrawler(type, element) {
+            selectedType = type;
+            document.querySelectorAll('.brawl-card').forEach(card => card.classList.remove('selected'));
+            element.classList.add('selected');
+        }
+
+        // Initialize 4 Teams x 3 Players (12 Brawlers)
+        function startGame() {
+            sfx.init();
+            document.getElementById('screen-select').classList.add('hidden');
+            document.getElementById('screen-gameover').classList.add('hidden');
+            document.getElementById('hud').classList.remove('hidden');
+
+            const config = BRAWLER_TYPES[selectedType];
+            document.getElementById('hud-avatar').innerText = config.emoji;
+            document.getElementById('hud-name').innerText = `${config.name} (藍隊)`;
+
+            generateMap();
+
+            brawlers = [];
+            const types = Object.keys(BRAWLER_TYPES);
+
+            // Spawn points for 4 teams in 4 corners
+            const teamSpawns = [
+                [{ x: 200, y: 200 }, { x: 280, y: 200 }, { x: 200, y: 280 }],     // Team 0 (Blue - Player)
+                [{ x: 1400, y: 200 }, { x: 1320, y: 200 }, { x: 1400, y: 280 }],   // Team 1 (Red)
+                [{ x: 200, y: 1400 }, { x: 280, y: 1400 }, { x: 200, y: 1320 }],   // Team 2 (Green)
+                [{ x: 1400, y: 1400 }, { x: 1320, y: 1400 }, { x: 1400, y: 1320 }] // Team 3 (Yellow)
+            ];
+
+            let brawlerId = 1;
+
+            // Team 0: Player + 2 AI Teammates (確保不會出生在牆壁/石頭上)
+            const p1 = getSafeSpawnPos(teamSpawns[0][0].x, teamSpawns[0][0].y);
+            player = new Brawler(brawlerId++, 0, '玩家', selectedType, p1.x, p1.y, false);
+            brawlers.push(player);
+
+            const p2 = getSafeSpawnPos(teamSpawns[0][1].x, teamSpawns[0][1].y);
+            brawlers.push(new Brawler(brawlerId++, 0, '隊友 Bot 1', types[Math.floor(Math.random() * types.length)], p2.x, p2.y, true));
+
+            const p3 = getSafeSpawnPos(teamSpawns[0][2].x, teamSpawns[0][2].y);
+            brawlers.push(new Brawler(brawlerId++, 0, '隊友 Bot 2', types[Math.floor(Math.random() * types.length)], p3.x, p3.y, true));
+
+            // Enemy Teams (1, 2, 3): 3 Bots each
+            for (let teamId = 1; teamId < 4; teamId++) {
+                for (let member = 0; member < 3; member++) {
+                    const randomType = types[Math.floor(Math.random() * types.length)];
+                    const pt = teamSpawns[teamId][member];
+                    const safePt = getSafeSpawnPos(pt.x, pt.y);
+                    const name = `${TEAMS[teamId].name.slice(0, 2)} Bot ${member + 1}`;
+                    brawlers.push(new Brawler(brawlerId++, teamId, name, randomType, safePt.x, safePt.y, true));
+                }
+            }
+
+            poisonZone.radius = 1200;
+            gameRunning = true;
+        }
+
+        function gameLoop() {
+            updateGame();
+            renderGame();
+            requestAnimationFrame(gameLoop);
+        }
+
+        document.getElementById('btn-start').addEventListener('click', startGame);
+        document.getElementById('btn-restart').addEventListener('click', () => {
+            document.getElementById('screen-gameover').classList.add('hidden');
+            document.getElementById('screen-select').classList.remove('hidden');
+        });
+
+        document.getElementById('btn-super').addEventListener('click', () => {
+            triggerSuperSkill(player);
+        });
+
+        window.onload = () => {
+            gameLoop();
+        };
+    </script>
+</body>
+</html>

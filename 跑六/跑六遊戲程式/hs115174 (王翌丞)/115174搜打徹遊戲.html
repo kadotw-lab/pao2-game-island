@@ -1,0 +1,1398 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Zone Evac: 搜打撤戰場</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #0d0f12;
+            font-family: 'Chakra Petch', 'Noto Sans TC', sans-serif;
+            color: #e2e8f0;
+        }
+        #gameCanvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+            background-color: #0b0c10;
+        }
+        .scanline {
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%);
+            background-size: 100% 4px;
+            pointer-events: none;
+        }
+        .hud-glass {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+        }
+        .damage-flash {
+            animation: flashRed 0.3s ease-out;
+        }
+        @keyframes flashRed {
+            0% { background-color: rgba(239, 68, 68, 0.35); }
+            100% { background-color: rgba(239, 68, 68, 0); }
+        }
+        .mobile-btn {
+            background: rgba(30, 41, 59, 0.8);
+            border: 2px solid rgba(148, 163, 184, 0.3);
+            border-radius: 9999px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: white;
+            touch-action: none;
+        }
+        .mobile-btn:active {
+            background: rgba(59, 130, 246, 0.6);
+        }
+    </style>
+</head>
+<body class="relative w-full h-full">
+
+    <div id="flashOverlay" class="absolute inset-0 pointer-events-none z-20"></div>
+    <div class="scanline absolute inset-0 pointer-events-none z-10"></div>
+
+    <!-- Canvas Component -->
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="hudOverlay" class="absolute inset-0 pointer-events-none z-20 hidden flex flex-col justify-between p-4 sm:p-6">
+        <!-- Top Bar -->
+        <div class="flex justify-between items-start w-full">
+            <!-- HP & Ammo -->
+            <div class="hud-glass p-3 sm:p-4 rounded-xl flex flex-col gap-2 min-w-[200px] pointer-events-auto">
+                <div class="flex items-center justify-between text-xs sm:text-sm font-bold text-slate-300">
+                    <span>生命值 (HP)</span>
+                    <span id="hpText" class="text-emerald-400">100 / 100</span>
+                </div>
+                <div class="w-full bg-slate-800 rounded-full h-3 overflow-hidden p-0.5 border border-slate-700">
+                    <div id="hpBar" class="bg-gradient-to-r from-emerald-500 to-green-400 h-full rounded-full transition-all duration-200" style="width: 100%;"></div>
+                </div>
+
+                <div class="flex items-center justify-between text-xs sm:text-sm font-bold text-slate-300 mt-1">
+                    <span>彈藥 (AMMO)</span>
+                    <span id="ammoText" class="text-amber-400">30 / 120</span>
+                </div>
+                <div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden border border-slate-700">
+                    <div id="ammoBar" class="bg-amber-500 h-full transition-all duration-200" style="width: 100%;"></div>
+                </div>
+            </div>
+
+            <!-- Timer & Evac Status -->
+            <div class="hud-glass px-5 py-3 rounded-xl flex flex-col items-center justify-center text-center">
+                <span class="text-xs uppercase tracking-widest text-slate-400">撤離剩餘時間</span>
+                <span id="timerText" class="text-2xl sm:text-4xl font-extrabold text-amber-400 tracking-wider">05:00</span>
+                <span id="evacStatus" class="text-xs text-amber-400 font-semibold mt-0.5 animate-pulse">撤離閘門：未開啟 (需拉閘)</span>
+            </div>
+
+            <!-- Inventory Value & Items -->
+            <div class="hud-glass p-3 sm:p-4 rounded-xl flex flex-col gap-2 min-w-[180px] sm:min-w-[220px] text-right pointer-events-auto">
+                <div class="text-xs uppercase text-slate-400 font-semibold">當前搜刮收益</div>
+                <div id="lootValueText" class="text-xl sm:text-2xl font-extrabold text-yellow-400">$0</div>
+                <div class="text-xs text-slate-400 mt-1">背包物品 (12格) [按 H 使用醫療品]</div>
+                <div id="inventoryGrid" class="grid grid-cols-4 gap-1.5 mt-1">
+                    <div class="inventory-slot w-7 h-7 sm:w-8 sm:h-8 bg-slate-800/80 border border-slate-700 rounded-lg flex items-center justify-center text-xs"></div>
+                    <div class="inventory-slot w-7 h-7 sm:w-8 sm:h-8 bg-slate-800/80 border border-slate-700 rounded-lg flex items-center justify-center text-xs"></div>
+                    <div class="inventory-slot w-7 h-7 sm:w-8 sm:h-8 bg-slate-800/80 border border-slate-700 rounded-lg flex items-center justify-center text-xs"></div>
+                    <div class="inventory-slot w-7 h-7 sm:w-8 sm:h-8 bg-slate-800/80 border border-slate-700 rounded-lg flex items-center justify-center text-xs"></div>
+                    <div class="inventory-slot w-7 h-7 sm:w-8 sm:h-8 bg-slate-800/80 border border-slate-700 rounded-lg flex items-center justify-center text-xs"></div>
+                    <div class="inventory-slot w-7 h-7 sm:w-8 sm:h-8 bg-slate-800/80 border border-slate-700 rounded-lg flex items-center justify-center text-xs"></div>
+                    <div class="inventory-slot w-7 h-7 sm:w-8 sm:h-8 bg-slate-800/80 border border-slate-700 rounded-lg flex items-center justify-center text-xs"></div>
+                    <div class="inventory-slot w-7 h-7 sm:w-8 sm:h-8 bg-slate-800/80 border border-slate-700 rounded-lg flex items-center justify-center text-xs"></div>
+                    <div class="inventory-slot w-7 h-7 sm:w-8 sm:h-8 bg-slate-800/80 border border-slate-700 rounded-lg flex items-center justify-center text-xs"></div>
+                    <div class="inventory-slot w-7 h-7 sm:w-8 sm:h-8 bg-slate-800/80 border border-slate-700 rounded-lg flex items-center justify-center text-xs"></div>
+                    <div class="inventory-slot w-7 h-7 sm:w-8 sm:h-8 bg-slate-800/80 border border-slate-700 rounded-lg flex items-center justify-center text-xs"></div>
+                    <div class="inventory-slot w-7 h-7 sm:w-8 sm:h-8 bg-slate-800/80 border border-slate-700 rounded-lg flex items-center justify-center text-xs"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Center Action Bar / Loot Bar -->
+        <div class="flex flex-col items-center justify-center pointer-events-none mb-4">
+            <div id="interactionContainer" class="hidden flex-col items-center gap-1 bg-slate-900/90 border border-cyan-500/50 p-3 rounded-xl shadow-lg">
+                <span id="interactionPrompt" class="text-sm font-bold text-cyan-300">按 E 搜刮戰利品箱</span>
+                <div class="w-48 bg-slate-800 h-2.5 rounded-full overflow-hidden border border-slate-700 mt-1">
+                    <div id="interactionProgress" class="bg-cyan-400 h-full w-0 transition-all"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Controls & Radar -->
+        <div class="flex justify-between items-end w-full">
+            <!-- Key Guides -->
+            <div class="hud-glass p-3 rounded-xl text-xs text-slate-300 hidden md:block">
+                <div class="font-bold text-cyan-400 mb-1">操作說明</div>
+                <div>WASD / 箭頭：移動 | Shift：加速</div>
+                <div>滑鼠左鍵：射擊 | R：補充彈藥</div>
+                <div>E / Space：搜刮 / 撤離</div>
+                <div><span class="text-emerald-400 font-bold">H</span>：使用醫療物品 (回復血量)</div>
+                <div>Esc / P：暫停</div>
+            </div>
+
+            <!-- Mini Radar -->
+            <div class="hud-glass p-2 rounded-2xl flex flex-col items-center pointer-events-auto">
+                <canvas id="radarCanvas" width="100" height="100" class="rounded-xl border border-slate-700 bg-slate-950/80"></canvas>
+                <span class="text-[10px] text-slate-400 mt-1">雷達導航</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile Controls Overlay -->
+    <div id="mobileControls" class="absolute inset-0 pointer-events-none z-30 hidden md:hidden">
+        <!-- Virtual Joystick Area Left -->
+        <div id="joystickZone" class="absolute bottom-6 left-6 w-32 h-32 bg-slate-800/30 rounded-full border border-slate-600/50 pointer-events-auto touch-none">
+            <div id="joystickKnob" class="absolute w-12 h-12 bg-cyan-500/80 rounded-full top-10 left-10 transform -translate-x-0 -translate-y-0"></div>
+        </div>
+
+        <!-- Mobile Buttons Right -->
+        <div class="absolute bottom-6 right-6 flex flex-col gap-3 pointer-events-auto">
+            <div class="flex gap-2">
+                <button id="btnHeal" class="mobile-btn w-14 h-14 text-sm bg-emerald-600/70 border-emerald-400">H(醫)</button>
+                <button id="btnReload" class="mobile-btn w-14 h-14 text-sm bg-amber-600/60 border-amber-500">R</button>
+                <button id="btnInteract" class="mobile-btn w-14 h-14 text-sm bg-cyan-600/70 border-cyan-400">E</button>
+            </div>
+            <button id="btnShoot" class="mobile-btn w-20 h-20 text-lg bg-red-600/80 border-red-400 self-end">射擊</button>
+        </div>
+    </div>
+
+    <!-- Start Screen Modal -->
+    <div id="startScreen" class="absolute inset-0 bg-slate-950/90 backdrop-blur-md z-40 flex items-center justify-center p-4">
+        <div class="max-w-md w-full hud-glass p-6 sm:p-8 rounded-2xl border border-cyan-500/30 flex flex-col items-center text-center shadow-2xl">
+            <div class="w-16 h-16 bg-gradient-to-tr from-cyan-500 to-emerald-400 rounded-2xl flex items-center justify-center mb-4 shadow-lg shadow-cyan-500/30">
+                <svg class="w-10 h-10 text-slate-950" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+            </div>
+            <h1 class="text-3xl sm:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-teal-300 to-emerald-400 tracking-wider">ZONE EVAC</h1>
+            <p class="text-slate-400 text-sm mt-1 font-bold tracking-widest uppercase">搜打撤戰場 · 生存突入 (含治療機制)</p>
+
+            <div class="w-full bg-slate-900/80 border border-slate-800 rounded-xl p-4 my-5 text-left text-xs sm:text-sm text-slate-300 space-y-2">
+                <div class="flex justify-between border-b border-slate-800 pb-2">
+                    <span class="text-slate-400">個人金庫總資產:</span>
+                    <span id="vaultText" class="font-bold text-yellow-400">$0</span>
+                </div>
+                <p class="text-slate-300 font-bold pt-1">【戰術簡報】</p>
+                <p class="text-slate-400">1. <span class="text-yellow-300 font-semibold">搜</span>：靠近寶箱按 <kbd class="bg-slate-800 px-1 rounded">E</kbd> 搜刮物資與黃金。</p>
+                <p class="text-slate-400">2. <span class="text-emerald-400 font-semibold">醫</span>：搜刮獲得繃帶或醫療包後，按 <kbd class="bg-slate-800 px-1 rounded">H</kbd> 即可即時恢復血量；脫戰 5 秒亦可緩慢自癒！</p>
+                <p class="text-slate-400">3. <span class="text-red-400 font-semibold">打</span>：衛兵攻擊力高，包含紫色重裝精英！</p>
+                <p class="text-slate-400">4. <span class="text-emerald-400 font-semibold">撤</span>：先至拉閘點按 <kbd class="bg-slate-800 px-1 rounded">E</kbd> 開啟閘門，再至綠區停留 <span class="text-emerald-300">5 秒</span> 撤離！</p>
+                <p class="text-rose-400 text-[11px] mt-2">⚠️ 警告：陣亡或 5 分鐘時間結束未撤離，將丟失本次所有戰利品！</p>
+            </div>
+
+            <button id="startBtn" class="w-full py-3.5 bg-gradient-to-r from-cyan-500 to-emerald-500 hover:from-cyan-400 hover:to-emerald-400 text-slate-950 font-extrabold text-lg rounded-xl shadow-lg shadow-cyan-500/25 transition-all transform active:scale-95">
+                開始突入 (Deploy)
+            </button>
+        </div>
+    </div>
+
+    <!-- Pause Overlay -->
+    <div id="pauseScreen" class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm z-40 hidden flex items-center justify-center">
+        <div class="hud-glass p-8 rounded-2xl max-w-xs w-full text-center flex flex-col gap-4 border border-slate-700">
+            <h2 class="text-2xl font-bold text-slate-200 tracking-wider">遊戲暫停</h2>
+            <button id="resumeBtn" class="py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-xl transition">繼續遊戲</button>
+            <button id="restartBtn" class="py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl transition">重新開始</button>
+        </div>
+    </div>
+
+    <!-- Result Screen Overlay -->
+    <div id="resultScreen" class="absolute inset-0 bg-slate-950/95 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+        <div class="max-w-md w-full hud-glass p-6 sm:p-8 rounded-2xl border flex flex-col items-center text-center shadow-2xl" id="resultModalBorder">
+            <div id="resultBadge" class="w-16 h-16 rounded-2xl flex items-center justify-center mb-3 text-2xl font-bold">
+                ✓
+            </div>
+            <h2 id="resultTitle" class="text-3xl font-black tracking-wider">成功撤離</h2>
+            <p id="resultSubtitle" class="text-slate-400 text-sm mt-1">你成功攜帶戰利品逃離戰場！</p>
+
+            <div class="w-full bg-slate-900/90 border border-slate-800 rounded-xl p-4 my-5 text-left text-sm space-y-2">
+                <div class="flex justify-between">
+                    <span class="text-slate-400">本次帶出物資總值:</span>
+                    <span id="resLootVal" class="font-bold text-yellow-400">$0</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-400">剩餘血量獎勵:</span>
+                    <span id="resHpBonus" class="font-bold text-emerald-400">+$0</span>
+                </div>
+                <div class="border-t border-slate-800 pt-2 flex justify-between font-bold text-base">
+                    <span class="text-slate-200">本次戰利總收益:</span>
+                    <span id="resTotalVal" class="text-cyan-400">$0</span>
+                </div>
+                <div class="border-t border-slate-800 pt-2 flex justify-between font-bold text-xs">
+                    <span class="text-slate-400">金庫累積總額:</span>
+                    <span id="resVaultVal" class="text-yellow-400">$0</span>
+                </div>
+
+                <div class="pt-2">
+                    <span class="text-xs text-slate-400">搜刮戰利品明細:</span>
+                    <div id="resultItemList" class="flex flex-wrap gap-1.5 mt-2"></div>
+                </div>
+            </div>
+
+            <button id="redeployBtn" class="w-full py-3.5 bg-gradient-to-r from-cyan-500 to-emerald-500 text-slate-950 font-extrabold text-lg rounded-xl shadow-lg transition transform active:scale-95">
+                再次出擊 (Re-deploy)
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Web Audio API Synthesizer
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+            }
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            }
+            playShoot() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(300, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(40, this.ctx.currentTime + 0.12);
+                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.12);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.12);
+            }
+            playEnemyShoot() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(220, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(40, this.ctx.currentTime + 0.15);
+                gain.gain.setValueAtTime(0.25, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.15);
+            }
+            playReload() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(400, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(800, this.ctx.currentTime + 0.2);
+                gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.25);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.25);
+            }
+            playHeal() {
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(523.25, now);
+                osc.frequency.exponentialRampToValueAtTime(880, now + 0.25);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.3);
+            }
+            playLoot() {
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(523.25, now);
+                osc.frequency.setValueAtTime(659.25, now + 0.08);
+                osc.frequency.setValueAtTime(783.99, now + 0.16);
+                osc.frequency.setValueAtTime(1046.50, now + 0.24);
+                gain.gain.setValueAtTime(0.25, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(now + 0.4);
+            }
+            playHurt() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(140, this.ctx.currentTime);
+                osc.frequency.linearRampToValueAtTime(30, this.ctx.currentTime + 0.2);
+                gain.gain.setValueAtTime(0.45, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.2);
+            }
+            playSwitch() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(300, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(1200, this.ctx.currentTime + 0.3);
+                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.3);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.3);
+            }
+            playSuccess() {
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                [440, 554.37, 659.25, 880].forEach((freq, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, now + idx * 0.1);
+                    gain.gain.setValueAtTime(0.2, now + idx * 0.1);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.1 + 0.5);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now + idx * 0.1);
+                    osc.stop(now + idx * 0.1 + 0.5);
+                });
+            }
+        }
+
+        const sounds = new SoundEngine();
+
+        const CANVAS_WIDTH = 2400;
+        const CANVAS_HEIGHT = 2400;
+        
+        // 新增 heal 屬性讓繃帶與急救包具備回血功能
+        const ITEM_TYPES = [
+            { name: "軍用繃帶", value: 180, rarity: "common", color: "#4ade80", icon: "🩹", weight: 22, heal: 35 },
+            { name: "急救醫療包", value: 400, rarity: "rare", color: "#34d399", icon: "💉", weight: 15, heal: 60 },
+            { name: "戰術手電筒", value: 150, rarity: "common", color: "#94a3b8", icon: "🔦", weight: 20 },
+            { name: "高級手槍彈匣", value: 450, rarity: "rare", color: "#38bdf8", icon: "🔫", weight: 15 },
+            { name: "加密硬碟", value: 900, rarity: "rare", color: "#38bdf8", icon: "💾", weight: 12 },
+            { name: "廢土金條", value: 2800, rarity: "legendary", color: "#facc15", icon: "🪙", weight: 8 },
+            { name: "高階晶片", value: 4500, rarity: "legendary", color: "#facc15", icon: "💎", weight: 5 },
+            { name: "絕密武器藍圖", value: 8800, rarity: "supreme", color: "#f43f5e", icon: "📜", weight: 2 },
+            { name: "泰坦核能核心", value: 16000, rarity: "supreme", color: "#f43f5e", icon: "☢️", weight: 1 }
+        ];
+
+        function getRandomLootItem() {
+            const totalWeight = ITEM_TYPES.reduce((sum, item) => sum + item.weight, 0);
+            let random = Math.random() * totalWeight;
+            for (let item of ITEM_TYPES) {
+                if (random < item.weight) return item;
+                random -= item.weight;
+            }
+            return ITEM_TYPES[0];
+        }
+
+        let canvas, ctx, radarCanvas, radarCtx;
+        let gameState = 'MENU';
+        let gameTime = 300;
+        let timerInterval = null;
+        let vaultValue = parseInt(localStorage.getItem('zone_evac_vault') || '0');
+
+        let camera = { x: 0, y: 0 };
+        let mousePos = { x: 0, y: 0, worldX: 0, worldY: 0 };
+        let keys = {};
+
+        let player = {
+            x: 1200,
+            y: 1200,
+            radius: 18,
+            speed: 3.6,
+            sprintSpeed: 5.3,
+            hp: 100,
+            maxHp: 100,
+            lastDamageTime: 0,
+            ammo: 30,
+            maxAmmo: 30,
+            reserveAmmo: 120,
+            isReloading: false,
+            angle: 0,
+            inventory: [],
+            isInteracting: false,
+            interactionTimer: 0,
+            targetLootBox: null
+        };
+
+        let obstacles = [];
+        let lootBoxes = [];
+        let enemies = [];
+        let bullets = [];
+        let particles = [];
+        let evacZone = { x: 2100, y: 2100, radius: 110, timer: 0, requiredTime: 5 };
+        let evacSwitch = { x: 1200, y: 450, size: 32, activated: false, timer: 0, requiredTime: 2.0 };
+
+        let joystickActive = false;
+        let joystickCenter = { x: 0, y: 0 };
+        let joystickVector = { x: 0, y: 0 };
+
+        window.addEventListener('DOMContentLoaded', () => {
+            canvas = document.getElementById('gameCanvas');
+            ctx = canvas.getContext('2d');
+            radarCanvas = document.getElementById('radarCanvas');
+            radarCtx = radarCanvas.getContext('2d');
+
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+
+            setupControls();
+            document.getElementById('vaultText').innerText = `$${vaultValue.toLocaleString()}`;
+
+            document.getElementById('startBtn').addEventListener('click', startGame);
+            document.getElementById('redeployBtn').addEventListener('click', startGame);
+            document.getElementById('resumeBtn').addEventListener('click', resumeGame);
+            document.getElementById('restartBtn').addEventListener('click', startGame);
+        });
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+
+        function setupControls() {
+            window.addEventListener('keydown', (e) => {
+                keys[e.key.toLowerCase()] = true;
+                if (e.key === 'Escape' || e.key.toLowerCase() === 'p') {
+                    togglePause();
+                }
+                if (e.key.toLowerCase() === 'r' && gameState === 'PLAYING') {
+                    reloadWeapon();
+                }
+                if (e.key.toLowerCase() === 'h' && gameState === 'PLAYING') {
+                    healPlayer();
+                }
+            });
+
+            window.addEventListener('keyup', (e) => {
+                keys[e.key.toLowerCase()] = false;
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                mousePos.x = e.clientX;
+                mousePos.y = e.clientY;
+            });
+
+            window.addEventListener('mousedown', (e) => {
+                if (gameState === 'PLAYING' && e.button === 0) {
+                    shootWeapon();
+                }
+            });
+
+            const joyZone = document.getElementById('joystickZone');
+            const joyKnob = document.getElementById('joystickKnob');
+
+            joyZone.addEventListener('touchstart', (e) => {
+                const touch = e.touches[0];
+                const rect = joyZone.getBoundingClientRect();
+                joystickCenter = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+                joystickActive = true;
+                updateJoystick(touch);
+            });
+
+            joyZone.addEventListener('touchmove', (e) => {
+                if (joystickActive) {
+                    updateJoystick(e.touches[0]);
+                }
+            });
+
+            const stopJoystick = () => {
+                joystickActive = false;
+                joystickVector = { x: 0, y: 0 };
+                joyKnob.style.transform = `translate(0px, 0px)`;
+            };
+
+            joyZone.addEventListener('touchend', stopJoystick);
+            joyZone.addEventListener('touchcancel', stopJoystick);
+
+            document.getElementById('btnShoot').addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                shootWeapon();
+            });
+            document.getElementById('btnReload').addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                reloadWeapon();
+            });
+            document.getElementById('btnHeal').addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                healPlayer();
+            });
+            document.getElementById('btnInteract').addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                keys['e'] = true;
+                setTimeout(() => { keys['e'] = false; }, 300);
+            });
+        }
+
+        function updateJoystick(touch) {
+            const dx = touch.clientX - joystickCenter.x;
+            const dy = touch.clientY - joystickCenter.y;
+            const dist = Math.hypot(dx, dy);
+            const maxDist = 45;
+            const angle = Math.atan2(dy, dx);
+            const moveDist = Math.min(dist, maxDist);
+
+            const knobX = Math.cos(angle) * moveDist;
+            const knobY = Math.sin(angle) * moveDist;
+
+            document.getElementById('joystickKnob').style.transform = `translate(${knobX}px, ${knobY}px)`;
+            joystickVector = { x: knobX / maxDist, y: knobY / maxDist };
+        }
+
+        function generateMap() {
+            obstacles = [];
+            lootBoxes = [];
+            enemies = [];
+
+            // Outer Boundary Walls
+            obstacles.push({ x: 0, y: 0, w: CANVAS_WIDTH, h: 40 });
+            obstacles.push({ x: 0, y: CANVAS_HEIGHT - 40, w: CANVAS_WIDTH, h: 40 });
+            obstacles.push({ x: 0, y: 0, w: 40, h: CANVAS_HEIGHT });
+            obstacles.push({ x: CANVAS_WIDTH - 40, y: 0, w: 40, h: CANVAS_HEIGHT });
+
+            // Covers
+            const obstacleTemplates = [
+                { x: 300, y: 300, w: 250, h: 120 },
+                { x: 700, y: 400, w: 100, h: 300 },
+                { x: 1200, y: 300, w: 350, h: 80 },
+                { x: 1600, y: 600, w: 120, h: 350 },
+                { x: 400, y: 900, w: 300, h: 150 },
+                { x: 900, y: 1000, w: 200, h: 200 },
+                { x: 1400, y: 1100, w: 180, h: 280 },
+                { x: 500, y: 1500, w: 350, h: 100 },
+                { x: 1100, y: 1600, w: 100, h: 350 },
+                { x: 1600, y: 1600, w: 300, h: 200 }
+            ];
+            obstacles.push(...obstacleTemplates);
+
+            // Generate Loot Boxes
+            const lootLocations = [
+                { x: 450, y: 250 }, { x: 750, y: 750 }, { x: 1350, y: 250 },
+                { x: 250, y: 1000 }, { x: 1000, y: 900 }, { x: 1750, y: 800 },
+                { x: 650, y: 1650 }, { x: 1250, y: 1750 }, { x: 1800, y: 1500 }
+            ];
+
+            lootLocations.forEach((loc, idx) => {
+                const item = getRandomLootItem();
+                lootBoxes.push({
+                    id: idx,
+                    x: loc.x,
+                    y: loc.y,
+                    size: 28,
+                    looted: false,
+                    item: item
+                });
+            });
+
+            // 敵人生成清單
+            const enemySpawns = [
+                { x: 500, y: 600, type: 'normal' },
+                { x: 1100, y: 500, type: 'normal' },
+                { x: 1800, y: 400, type: 'elite' },
+                { x: 600, y: 1200, type: 'normal' },
+                { x: 1300, y: 1400, type: 'elite' },
+                { x: 1700, y: 1100, type: 'normal' },
+                { x: 900, y: 1800, type: 'normal' },
+                { x: 1500, y: 1900, type: 'elite' },
+                { x: 1200, y: 800, type: 'elite' },
+                { x: 350, y: 1600, type: 'normal' },
+                { x: 2000, y: 1200, type: 'elite' }
+            ];
+
+            enemySpawns.forEach((spawn, idx) => {
+                const isElite = spawn.type === 'elite';
+                enemies.push({
+                    id: idx,
+                    x: spawn.x,
+                    y: spawn.y,
+                    type: spawn.type,
+                    radius: isElite ? 22 : 18,
+                    hp: isElite ? 150 : 90,
+                    maxHp: isElite ? 150 : 90,
+                    speed: isElite ? 2.5 : 2.8,
+                    damage: isElite ? 22 : 15,
+                    color: isElite ? '#a855f7' : '#ef4444',
+                    angle: Math.random() * Math.PI * 2,
+                    state: 'PATROL',
+                    aggroRange: isElite ? 380 : 320,
+                    attackRange: isElite ? 280 : 240,
+                    shootCooldown: 0,
+                    shootRate: isElite ? 38 : 48,
+                    patrolTarget: { x: spawn.x + (Math.random() * 200 - 100), y: spawn.y + (Math.random() * 200 - 100) },
+                    patrolTimer: 0
+                });
+            });
+
+            // Set Evac Zone & Switch
+            evacZone.x = 2150;
+            evacZone.y = 2150;
+            evacZone.timer = 0;
+
+            evacSwitch.x = 1200;
+            evacSwitch.y = 450;
+            evacSwitch.activated = false;
+            evacSwitch.timer = 0;
+        }
+
+        function startGame() {
+            sounds.init();
+            player.x = 250;
+            player.y = 250;
+            player.hp = 100;
+            player.lastDamageTime = 0;
+            player.ammo = 30;
+            player.reserveAmmo = 120;
+            player.inventory = [];
+            player.isReloading = false;
+            
+            generateMap();
+            bullets = [];
+            particles = [];
+
+            gameTime = 300;
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                if (gameState === 'PLAYING') {
+                    gameTime--;
+                    updateTimerDisplay();
+                    if (gameTime <= 0) {
+                        endGame(false, "MIA (超時未撤離)");
+                    }
+                }
+            }, 1000);
+
+            gameState = 'PLAYING';
+            document.getElementById('evacStatus').innerText = "撤離閘門：未開啟 (需拉閘)";
+            document.getElementById('evacStatus').className = "text-xs text-amber-400 font-semibold mt-0.5 animate-pulse";
+            document.getElementById('startScreen').classList.add('hidden');
+            document.getElementById('pauseScreen').classList.add('hidden');
+            document.getElementById('resultScreen').classList.add('hidden');
+            document.getElementById('hudOverlay').classList.remove('hidden');
+
+            if ('ontouchstart' in window) {
+                document.getElementById('mobileControls').classList.remove('hidden');
+            }
+
+            updateHUD();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function togglePause() {
+            if (gameState === 'PLAYING') {
+                gameState = 'PAUSED';
+                document.getElementById('pauseScreen').classList.remove('hidden');
+            } else if (gameState === 'PAUSED') {
+                resumeGame();
+            }
+        }
+
+        function resumeGame() {
+            gameState = 'PLAYING';
+            document.getElementById('pauseScreen').classList.add('hidden');
+            requestAnimationFrame(gameLoop);
+        }
+
+        function updateTimerDisplay() {
+            const mins = Math.floor(gameTime / 60).toString().padStart(2, '0');
+            const secs = (gameTime % 60).toString().padStart(2, '0');
+            const timerEl = document.getElementById('timerText');
+            timerEl.innerText = `${mins}:${secs}`;
+            if (gameTime <= 30) {
+                timerEl.classList.add('text-red-500', 'animate-ping');
+            } else {
+                timerEl.classList.remove('text-red-500', 'animate-ping');
+            }
+        }
+
+        function healPlayer() {
+            if (gameState !== 'PLAYING') return;
+
+            if (player.hp >= player.maxHp) {
+                createFloatingText(player.x, player.y, "血量已滿!", "#4ade80");
+                return;
+            }
+
+            const healIndex = player.inventory.findIndex(item => item.heal && item.heal > 0);
+            if (healIndex !== -1) {
+                const item = player.inventory.splice(healIndex, 1)[0];
+                const amount = Math.min(item.heal, player.maxHp - player.hp);
+                player.hp += amount;
+                sounds.playHeal();
+                createFloatingText(player.x, player.y, `+${amount} HP (${item.name})`, "#4ade80");
+                createSparkParticles(player.x, player.y, "#4ade80", 8);
+                updateHUD();
+            } else {
+                createFloatingText(player.x, player.y, "無醫療品! (請搜刮繃帶/醫療包)", "#f87171");
+            }
+        }
+
+        function gameLoop() {
+            if (gameState !== 'PLAYING') return;
+
+            updatePhysics();
+            renderCanvas();
+            renderRadar();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function updatePhysics() {
+            // 被動脫戰回血機制 (5秒未受傷，每幀回復微量 HP)
+            if (player.hp < player.maxHp && Date.now() - player.lastDamageTime > 5000) {
+                player.hp = Math.min(player.maxHp, player.hp + 0.05);
+                updateHUD();
+            }
+
+            // Player Movement
+            let moveX = 0;
+            let moveY = 0;
+
+            if (keys['w'] || keys['arrowup']) moveY -= 1;
+            if (keys['s'] || keys['arrowdown']) moveY += 1;
+            if (keys['a'] || keys['arrowleft']) moveX -= 1;
+            if (keys['d'] || keys['arrowright']) moveX += 1;
+
+            if (joystickActive) {
+                moveX = joystickVector.x;
+                moveY = joystickVector.y;
+            }
+
+            const currentSpeed = keys['shift'] ? player.sprintSpeed : player.speed;
+            if (moveX !== 0 || moveY !== 0) {
+                const len = Math.hypot(moveX, moveY);
+                const nextX = player.x + (moveX / (len || 1)) * currentSpeed;
+                const nextY = player.y + (moveY / (len || 1)) * currentSpeed;
+
+                if (!checkWallCollision(nextX, player.y, player.radius)) player.x = nextX;
+                if (!checkWallCollision(player.x, nextY, player.radius)) player.y = nextY;
+            }
+
+            // Mouse Aim Angle
+            camera.x = player.x - canvas.width / 2;
+            camera.y = player.y - canvas.height / 2;
+            mousePos.worldX = mousePos.x + camera.x;
+            mousePos.worldY = mousePos.y + camera.y;
+
+            if (!joystickActive) {
+                player.angle = Math.atan2(mousePos.worldY - player.y, mousePos.worldX - player.x);
+            } else if (moveX !== 0 || moveY !== 0) {
+                player.angle = Math.atan2(moveY, moveX);
+            }
+
+            checkLootBoxInteraction();
+
+            const promptContainer = document.getElementById('interactionContainer');
+            const promptText = document.getElementById('interactionPrompt');
+            const promptBar = document.getElementById('interactionProgress');
+
+            // Evac Switch Interaction
+            const distToSwitch = Math.hypot(player.x - evacSwitch.x, player.y - evacSwitch.y);
+            let interactingWithSwitch = false;
+
+            if (!evacSwitch.activated && distToSwitch < 65) {
+                interactingWithSwitch = true;
+                promptContainer.classList.remove('hidden');
+                if (keys['e']) {
+                    player.isInteracting = true;
+                    evacSwitch.timer += 1 / 60;
+                    promptText.innerText = "拉閘啟動中...";
+                    promptBar.style.width = `${(evacSwitch.timer / evacSwitch.requiredTime) * 100}%`;
+
+                    if (evacSwitch.timer >= evacSwitch.requiredTime) {
+                        evacSwitch.activated = true;
+                        sounds.playSwitch();
+                        createFloatingText(evacSwitch.x, evacSwitch.y, "⚡ 撤離閘門已開啟！", "#10b981");
+                        const statusEl = document.getElementById('evacStatus');
+                        statusEl.innerText = "撤離點已開啟";
+                        statusEl.className = "text-xs text-emerald-400 font-semibold mt-0.5 animate-pulse";
+                        player.isInteracting = false;
+                    }
+                } else {
+                    promptText.innerText = "按住 [E] / 點擊 拉閘開啟撤離點";
+                    promptBar.style.width = '0%';
+                }
+            }
+
+            // Evac Zone Check
+            const distToEvac = Math.hypot(player.x - evacZone.x, player.y - evacZone.y);
+
+            if (distToEvac < evacZone.radius) {
+                if (!evacSwitch.activated) {
+                    promptContainer.classList.remove('hidden');
+                    promptText.innerText = "⚠️ 撤離閘門未開啟！請先前往拉閘點 (黃色閘門)";
+                    promptBar.style.width = '0%';
+                    evacZone.timer = 0;
+                } else {
+                    evacZone.timer += 1 / 60;
+                    promptContainer.classList.remove('hidden');
+                    promptText.innerText = `撤離中... 請堅持 ${(evacZone.requiredTime - evacZone.timer).toFixed(1)} 秒`;
+                    promptBar.style.width = `${(evacZone.timer / evacZone.requiredTime) * 100}%`;
+
+                    if (evacZone.timer >= evacZone.requiredTime) {
+                        endGame(true, "成功撤離戰場");
+                        return;
+                    }
+                }
+            } else if (!player.isInteracting && !interactingWithSwitch) {
+                evacZone.timer = 0;
+            }
+
+            // Update Bullets
+            bullets.forEach((b, idx) => {
+                b.x += b.vx;
+                b.y += b.vy;
+                b.life--;
+
+                if (checkWallCollision(b.x, b.y, 4)) {
+                    createSparkParticles(b.x, b.y, "#cbd5e1");
+                    bullets.splice(idx, 1);
+                    return;
+                }
+
+                if (b.isPlayer) {
+                    enemies.forEach((e) => {
+                        if (e.hp > 0 && Math.hypot(b.x - e.x, b.y - e.y) < e.radius + 4) {
+                            e.hp -= b.damage;
+                            e.state = 'CHASE';
+                            createSparkParticles(b.x, b.y, "#ef4444");
+                            createFloatingText(b.x, b.y, `-${b.damage}`, "#f87171");
+                            bullets.splice(idx, 1);
+
+                            if (e.hp <= 0) {
+                                createSparkParticles(e.x, e.y, e.color, 15);
+                                createFloatingText(e.x, e.y, e.type === 'elite' ? "+擊殺重裝精英 ($1000)" : "+擊殺敵人", "#38bdf8");
+                            }
+                        }
+                    });
+                } else {
+                    if (Math.hypot(b.x - player.x, b.y - player.y) < player.radius + 4) {
+                        player.hp -= b.damage;
+                        player.lastDamageTime = Date.now(); // 記錄受傷時間以控制自癒機制
+                        sounds.playHurt();
+                        triggerDamageFlash();
+                        createSparkParticles(player.x, player.y, "#ef4444", 8);
+                        createFloatingText(player.x, player.y, `-${b.damage}`, "#ef4444");
+                        bullets.splice(idx, 1);
+                        updateHUD();
+
+                        if (player.hp <= 0) {
+                            endGame(false, "行動中陣亡 (KIA)");
+                        }
+                    }
+                }
+            });
+
+            // Update Enemies AI
+            enemies.forEach((e) => {
+                if (e.hp <= 0) return;
+
+                const distToPlayer = Math.hypot(player.x - e.x, player.y - e.y);
+
+                if (distToPlayer < e.aggroRange) {
+                    e.state = 'CHASE';
+                }
+
+                if (e.state === 'CHASE') {
+                    e.angle = Math.atan2(player.y - e.y, player.x - e.x);
+                    if (distToPlayer > e.attackRange * 0.6) {
+                        const nextX = e.x + Math.cos(e.angle) * e.speed;
+                        const nextY = e.y + Math.sin(e.angle) * e.speed;
+                        if (!checkWallCollision(nextX, e.y, e.radius)) e.x = nextX;
+                        if (!checkWallCollision(e.x, nextY, e.radius)) e.y = nextY;
+                    }
+
+                    // Shoot Player
+                    e.shootCooldown--;
+                    if (e.shootCooldown <= 0 && distToPlayer < e.attackRange) {
+                        e.shootCooldown = e.shootRate;
+                        sounds.playEnemyShoot();
+                        bullets.push({
+                            x: e.x + Math.cos(e.angle) * (e.radius + 4),
+                            y: e.y + Math.sin(e.angle) * (e.radius + 4),
+                            vx: Math.cos(e.angle) * (e.type === 'elite' ? 8.5 : 7.5),
+                            vy: Math.sin(e.angle) * (e.type === 'elite' ? 8.5 : 7.5),
+                            isPlayer: false,
+                            damage: e.damage,
+                            life: 100
+                        });
+                    }
+                } else {
+                    e.patrolTimer--;
+                    if (e.patrolTimer <= 0) {
+                        e.patrolTarget = { x: e.x + (Math.random() * 300 - 150), y: e.y + (Math.random() * 300 - 150) };
+                        e.patrolTimer = 180;
+                    }
+                    e.angle = Math.atan2(e.patrolTarget.y - e.y, e.patrolTarget.x - e.x);
+                    const nextX = e.x + Math.cos(e.angle) * (e.speed * 0.5);
+                    const nextY = e.y + Math.sin(e.angle) * (e.speed * 0.5);
+                    if (!checkWallCollision(nextX, nextY, e.radius)) {
+                        e.x = nextX;
+                        e.y = nextY;
+                    }
+                }
+            });
+
+            // Update Particles
+            particles.forEach((p, idx) => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.alpha -= 0.02;
+                if (p.alpha <= 0) particles.splice(idx, 1);
+            });
+        }
+
+        function checkLootBoxInteraction() {
+            let nearestBox = null;
+            let minDist = 60;
+
+            lootBoxes.forEach((box) => {
+                if (box.looted) return;
+                const dist = Math.hypot(player.x - box.x, player.y - box.y);
+                if (dist < minDist) {
+                    nearestBox = box;
+                }
+            });
+
+            const promptContainer = document.getElementById('interactionContainer');
+            const promptText = document.getElementById('interactionPrompt');
+            const promptBar = document.getElementById('interactionProgress');
+
+            if (nearestBox) {
+                promptContainer.classList.remove('hidden');
+                if (!player.isInteracting) {
+                    promptText.innerText = "按住 [E] / 點擊 搜刮物資箱";
+                    promptBar.style.width = '0%';
+                }
+
+                if (keys['e']) {
+                    player.isInteracting = true;
+                    player.targetLootBox = nearestBox;
+                    player.interactionTimer += 1 / 60;
+                    promptText.innerText = "搜刮中...";
+                    promptBar.style.width = `${(player.interactionTimer / 1.5) * 100}%`;
+
+                    if (player.interactionTimer >= 1.5) {
+                        if (player.inventory.length < 12) {
+                            nearestBox.looted = true;
+                            player.inventory.push(nearestBox.item);
+                            sounds.playLoot();
+                            createFloatingText(nearestBox.x, nearestBox.y, `+${nearestBox.item.name} ($${nearestBox.item.value})`, nearestBox.item.color);
+                            updateHUD();
+                        } else {
+                            createFloatingText(player.x, player.y, "背包已滿!", "#ef4444");
+                        }
+                        player.isInteracting = false;
+                        player.interactionTimer = 0;
+                    }
+                } else {
+                    player.isInteracting = false;
+                    player.interactionTimer = 0;
+                }
+            } else if (evacZone.timer === 0) {
+                promptContainer.classList.add('hidden');
+                player.isInteracting = false;
+                player.interactionTimer = 0;
+            }
+        }
+
+        function shootWeapon() {
+            if (player.isReloading || gameState !== 'PLAYING') return;
+
+            if (player.ammo <= 0) {
+                reloadWeapon();
+                return;
+            }
+
+            player.ammo--;
+            sounds.playShoot();
+            updateHUD();
+
+            const spread = (Math.random() - 0.5) * 0.1;
+            const bulletAngle = player.angle + spread;
+
+            bullets.push({
+                x: player.x + Math.cos(player.angle) * 22,
+                y: player.y + Math.sin(player.angle) * 22,
+                vx: Math.cos(bulletAngle) * 12,
+                vy: Math.sin(bulletAngle) * 12,
+                isPlayer: true,
+                damage: 25,
+                life: 90
+            });
+
+            createSparkParticles(player.x + Math.cos(player.angle) * 22, player.y + Math.sin(player.angle) * 22, "#fde047", 4);
+        }
+
+        function reloadWeapon() {
+            if (player.isReloading || player.ammo === player.maxAmmo || player.reserveAmmo <= 0) return;
+
+            player.isReloading = true;
+            sounds.playReload();
+
+            const promptContainer = document.getElementById('interactionContainer');
+            const promptText = document.getElementById('interactionPrompt');
+            promptContainer.classList.remove('hidden');
+            promptText.innerText = "裝填彈藥中...";
+
+            setTimeout(() => {
+                const needed = player.maxAmmo - player.ammo;
+                const reloaded = Math.min(needed, player.reserveAmmo);
+                player.ammo += reloaded;
+                player.reserveAmmo -= reloaded;
+                player.isReloading = false;
+                promptContainer.classList.add('hidden');
+                updateHUD();
+            }, 1200);
+        }
+
+        function checkWallCollision(x, y, radius) {
+            for (let obs of obstacles) {
+                if (x + radius > obs.x && x - radius < obs.x + obs.w &&
+                    y + radius > obs.y && y - radius < obs.y + obs.h) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function renderCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            ctx.save();
+            ctx.translate(-camera.x, -camera.y);
+
+            // Draw Map Grid
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 1;
+            const gridSize = 100;
+            for (let x = 0; x < CANVAS_WIDTH; x += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, CANVAS_HEIGHT);
+                ctx.stroke();
+            }
+            for (let y = 0; y < CANVAS_HEIGHT; y += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(CANVAS_WIDTH, y);
+                ctx.stroke();
+            }
+
+            // Draw Evac Zone
+            ctx.beginPath();
+            ctx.arc(evacZone.x, evacZone.y, evacZone.radius, 0, Math.PI * 2);
+            if (evacSwitch.activated) {
+                ctx.fillStyle = 'rgba(16, 185, 129, 0.15)';
+                ctx.strokeStyle = '#10b981';
+            } else {
+                ctx.fillStyle = 'rgba(239, 68, 68, 0.08)';
+                ctx.strokeStyle = '#f59e0b';
+            }
+            ctx.fill();
+            ctx.lineWidth = 3;
+            ctx.setLineDash([8, 8]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            ctx.fillStyle = evacSwitch.activated ? '#10b981' : '#f59e0b';
+            ctx.font = 'bold 16px Chakra Petch';
+            ctx.fillText(evacSwitch.activated ? "EVAC ZONE (可撤離)" : "EVAC ZONE (已鎖定-需拉閘)", evacZone.x - 85, evacZone.y - evacZone.radius - 10);
+
+            // Draw Evac Switch Box
+            ctx.save();
+            ctx.translate(evacSwitch.x, evacSwitch.y);
+            ctx.fillStyle = evacSwitch.activated ? '#10b981' : '#f59e0b';
+            ctx.fillRect(-evacSwitch.size / 2, -evacSwitch.size / 2, evacSwitch.size, evacSwitch.size);
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(-evacSwitch.size / 2, -evacSwitch.size / 2, evacSwitch.size, evacSwitch.size);
+
+            ctx.fillStyle = '#0f172a';
+            ctx.font = 'bold 12px Chakra Petch';
+            ctx.textAlign = 'center';
+            ctx.fillText(evacSwitch.activated ? "ON" : "OFF", 0, 4);
+
+            ctx.shadowColor = evacSwitch.activated ? '#10b981' : '#f59e0b';
+            ctx.shadowBlur = 12;
+            ctx.strokeRect(-evacSwitch.size / 2, -evacSwitch.size / 2, evacSwitch.size, evacSwitch.size);
+            ctx.shadowBlur = 0;
+
+            ctx.fillStyle = evacSwitch.activated ? '#10b981' : '#f59e0b';
+            ctx.font = 'bold 14px Chakra Petch';
+            ctx.fillText(evacSwitch.activated ? "撤離閘門 (已開啟)" : "主控拉閘點 (按E拉閘)", 0, -evacSwitch.size / 2 - 8);
+            ctx.restore();
+
+            // Draw Obstacles
+            obstacles.forEach(obs => {
+                ctx.fillStyle = '#1e293b';
+                ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
+                ctx.strokeStyle = '#334155';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(obs.x, obs.y, obs.w, obs.h);
+            });
+
+            lootBoxes.forEach(box => {
+                if (box.looted) {
+                    ctx.fillStyle = '#334155';
+                    ctx.fillRect(box.x - box.size / 2, box.y - box.size / 2, box.size, box.size);
+                } else {
+                    ctx.fillStyle = box.item.color;
+                    ctx.fillRect(box.x - box.size / 2, box.y - box.size / 2, box.size, box.size);
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(box.x - box.size / 2, box.y - box.size / 2, box.size, box.size);
+
+                    ctx.shadowColor = box.item.color;
+                    ctx.shadowBlur = 10;
+                    ctx.strokeRect(box.x - box.size / 2, box.y - box.size / 2, box.size, box.size);
+                    ctx.shadowBlur = 0;
+                }
+            });
+
+            // Draw Enemies
+            enemies.forEach(e => {
+                if (e.hp <= 0) return;
+                ctx.save();
+                ctx.translate(e.x, e.y);
+                ctx.rotate(e.angle);
+
+                // Body
+                ctx.fillStyle = e.color;
+                ctx.beginPath();
+                ctx.arc(0, 0, e.radius, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Gun
+                ctx.fillStyle = '#0f172a';
+                ctx.fillRect(8, -3, e.type === 'elite' ? 18 : 14, 6);
+
+                ctx.restore();
+
+                // Health Bar
+                ctx.fillStyle = '#0f172a';
+                ctx.fillRect(e.x - e.radius, e.y - e.radius - 12, e.radius * 2, 5);
+                ctx.fillStyle = e.color;
+                ctx.fillRect(e.x - e.radius, e.y - e.radius - 12, (e.hp / e.maxHp) * (e.radius * 2), 5);
+            });
+
+            // Draw Bullets
+            bullets.forEach(b => {
+                ctx.fillStyle = b.isPlayer ? '#fde047' : '#f87171';
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, 4, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            // Draw Player
+            ctx.save();
+            ctx.translate(player.x, player.y);
+            ctx.rotate(player.angle);
+
+            ctx.fillStyle = '#06b6d4';
+            ctx.beginPath();
+            ctx.arc(0, 0, player.radius, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#0284c7';
+            ctx.fillRect(8, 2, 18, 5);
+
+            ctx.restore();
+
+            // Aim Line
+            ctx.strokeStyle = 'rgba(6, 182, 212, 0.3)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(player.x, player.y);
+            ctx.lineTo(player.x + Math.cos(player.angle) * 300, player.y + Math.sin(player.angle) * 300);
+            ctx.stroke();
+
+            // Particles
+            particles.forEach(p => {
+                ctx.globalAlpha = p.alpha;
+                if (p.text) {
+                    ctx.fillStyle = p.color;
+                    ctx.font = 'bold 14px Chakra Petch';
+                    ctx.fillText(p.text, p.x, p.y);
+                } else {
+                    ctx.fillStyle = p.color;
+                    ctx.fillRect(p.x, p.y, p.size, p.size);
+                }
+            });
+            ctx.globalAlpha = 1.0;
+
+            ctx.restore();
+        }
+
+        function renderRadar() {
+            radarCtx.clearRect(0, 0, 100, 100);
+            const scale = 100 / CANVAS_WIDTH;
+
+            // Player
+            radarCtx.fillStyle = '#06b6d4';
+            radarCtx.beginPath();
+            radarCtx.arc(player.x * scale, player.y * scale, 3, 0, Math.PI * 2);
+            radarCtx.fill();
+
+            // Switch
+            radarCtx.fillStyle = evacSwitch.activated ? '#10b981' : '#f59e0b';
+            radarCtx.beginPath();
+            radarCtx.arc(evacSwitch.x * scale, evacSwitch.y * scale, 4, 0, Math.PI * 2);
+            radarCtx.fill();
+
+            // Evac Zone
+            radarCtx.fillStyle = evacSwitch.activated ? '#10b981' : '#64748b';
+            radarCtx.beginPath();
+            radarCtx.arc(evacZone.x * scale, evacZone.y * scale, 4, 0, Math.PI * 2);
+            radarCtx.fill();
+
+            // Enemies
+            enemies.forEach(e => {
+                if (e.hp > 0) {
+                    radarCtx.fillStyle = e.color;
+                    radarCtx.fillRect(e.x * scale - 1.5, e.y * scale - 1.5, 3, 3);
+                }
+            });
+        }
+
+        function updateHUD() {
+            document.getElementById('hpText').innerText = `${Math.max(0, Math.floor(player.hp))} / ${player.maxHp}`;
+            document.getElementById('hpBar').style.width = `${Math.max(0, (player.hp / player.maxHp) * 100)}%`;
+
+            document.getElementById('ammoText').innerText = `${player.ammo} / ${player.reserveAmmo}`;
+            document.getElementById('ammoBar').style.width = `${(player.ammo / player.maxAmmo) * 100}%`;
+
+            const totalValue = player.inventory.reduce((sum, item) => sum + item.value, 0);
+            document.getElementById('lootValueText').innerText = `$${totalValue.toLocaleString()}`;
+
+            const slots = document.querySelectorAll('.inventory-slot');
+            slots.forEach((slot, idx) => {
+                if (player.inventory[idx]) {
+                    const item = player.inventory[idx];
+                    slot.innerHTML = item.icon;
+                    slot.style.borderColor = item.color;
+                } else {
+                    slot.innerHTML = '';
+                    slot.style.borderColor = '#334155';
+                }
+            });
+        }
+
+        function createSparkParticles(x, y, color, count = 5) {
+            for (let i = 0; i < count; i++) {
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: (Math.random() - 0.5) * 4,
+                    vy: (Math.random() - 0.5) * 4,
+                    size: Math.random() * 3 + 2,
+                    color: color,
+                    alpha: 1.0
+                });
+            }
+        }
+
+        function createFloatingText(x, y, text, color) {
+            particles.push({
+                x: x,
+                y: y,
+                vx: 0,
+                vy: -1.2,
+                text: text,
+                color: color,
+                alpha: 1.0
+            });
+        }
+
+        function triggerDamageFlash() {
+            const flash = document.getElementById('flashOverlay');
+            flash.classList.add('damage-flash');
+            setTimeout(() => flash.classList.remove('damage-flash'), 300);
+        }
+
+        function endGame(success, reason) {
+            gameState = 'GAMEOVER';
+            if (timerInterval) clearInterval(timerInterval);
+
+            const resultModal = document.getElementById('resultScreen');
+            const resultTitle = document.getElementById('resultTitle');
+            const resultSubtitle = document.getElementById('resultSubtitle');
+            const resultBadge = document.getElementById('resultBadge');
+            const resultModalBorder = document.getElementById('resultModalBorder');
+
+            const lootVal = player.inventory.reduce((sum, i) => sum + i.value, 0);
+            const hpBonus = success ? Math.floor(player.hp * 5) : 0;
+            const totalEarnings = success ? lootVal + hpBonus : 0;
+
+            if (success) {
+                sounds.playSuccess();
+                resultTitle.innerText = "成功撤離";
+                resultTitle.className = "text-3xl font-black tracking-wider text-emerald-400";
+                resultSubtitle.innerText = reason;
+                resultBadge.innerText = "✓";
+                resultBadge.className = "w-16 h-16 rounded-2xl flex items-center justify-center mb-3 text-2xl font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40";
+                resultModalBorder.className = "max-w-md w-full hud-glass p-6 sm:p-8 rounded-2xl border border-emerald-500/40 flex flex-col items-center text-center shadow-2xl";
+
+                vaultValue += totalEarnings;
+                localStorage.setItem('zone_evac_vault', vaultValue.toString());
+            } else {
+                sounds.playHurt();
+                resultTitle.innerText = "撤離失敗";
+                resultTitle.className = "text-3xl font-black tracking-wider text-rose-500";
+                resultSubtitle.innerText = reason;
+                resultBadge.innerText = "✕";
+                resultBadge.className = "w-16 h-16 rounded-2xl flex items-center justify-center mb-3 text-2xl font-bold bg-rose-500/20 text-rose-500 border border-rose-500/40";
+                resultModalBorder.className = "max-w-md w-full hud-glass p-6 sm:p-8 rounded-2xl border border-rose-500/40 flex flex-col items-center text-center shadow-2xl";
+            }
+
+            document.getElementById('resLootVal').innerText = `$${lootVal.toLocaleString()}`;
+            document.getElementById('resHpBonus').innerText = `+$${hpBonus.toLocaleString()}`;
+            document.getElementById('resTotalVal').innerText = `$${totalEarnings.toLocaleString()}`;
+            document.getElementById('resVaultVal').innerText = `$${vaultValue.toLocaleString()}`;
+
+            const itemListEl = document.getElementById('resultItemList');
+            itemListEl.innerHTML = '';
+            if (player.inventory.length === 0) {
+                itemListEl.innerHTML = '<span class="text-xs text-slate-500">無搜刮物品</span>';
+            } else {
+                player.inventory.forEach(item => {
+                    const badge = document.createElement('span');
+                    badge.className = 'px-2 py-1 rounded bg-slate-800 text-xs flex items-center gap-1 border border-slate-700';
+                    badge.style.color = item.color;
+                    badge.innerHTML = `${item.icon} ${item.name}`;
+                    itemListEl.appendChild(badge);
+                });
+            }
+
+            document.getElementById('vaultText').innerText = `$${vaultValue.toLocaleString()}`;
+            document.getElementById('hudOverlay').classList.add('hidden');
+            document.getElementById('mobileControls').classList.add('hidden');
+            resultModal.classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
+```
+
+### 更新摘要：
+1. **主動醫療功能 (<kbd>H</kbd> 鍵 / 手機 `H(醫)` 按鈕)**：搜刮到的「軍用繃帶」與「急救醫療包」現在具備恢復 HP 的效果。使用時會消耗物品、播放治癒音效，並顯示綠色浮動治療數值。
+2. **脫戰自動回血機制**：受傷後若維持 5 秒未再遭受敵方攻擊，角色會以每秒約 3 HP 的速率自動自癒。

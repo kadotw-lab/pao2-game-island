@@ -1,0 +1,1175 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>魔國城鎮：數獨考驗 (Tempest Sudoku)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        goblin: { bg: '#dcfce7', text: '#166534', border: '#86efac' },
+                        kijin: { bg: '#e0f2fe', text: '#075985', border: '#7dd3fc' },
+                        archdemon: { bg: '#ffedd5', text: '#9a3412', border: '#fdba74' },
+                        demonlord: { bg: '#ffe4e6', text: '#9f1239', border: '#fca5a5' },
+                    },
+                    keyframes: {
+                        shake: {
+                            '0%, 100%': { transform: 'translateX(0)' },
+                            '20%, 60%': { transform: 'translateX(-4px)' },
+                            '40%, 80%': { transform: 'translateX(4px)' }
+                        },
+                        pop: {
+                            '0%': { transform: 'scale(0.85)' },
+                            '50%': { transform: 'scale(1.08)' },
+                            '100%': { transform: 'scale(1)' }
+                        },
+                        magicFlash: {
+                            '0%': { backgroundColor: 'rgba(250, 204, 21, 0.9)', transform: 'scale(1.02)' },
+                            '50%': { backgroundColor: 'rgba(56, 189, 248, 0.7)' },
+                            '100%': { backgroundColor: 'transparent', transform: 'scale(1)' }
+                        },
+                        sageSpin: {
+                            '0%': { transform: 'rotate(0deg)' },
+                            '100%': { transform: 'rotate(360deg)' }
+                        },
+                        sagePulse: {
+                            '0%, 100%': { transform: 'scale(1)', opacity: '0.9' },
+                            '50%': { transform: 'scale(1.12)', opacity: '1' }
+                        }
+                    },
+                    animation: {
+                        shake: 'shake 0.25s ease-in-out',
+                        pop: 'pop 0.15s ease-out',
+                        magicFlash: 'magicFlash 0.8s ease-in-out',
+                        sageSpin: 'sageSpin 12s linear infinite',
+                        sagePulse: 'sagePulse 2.5s ease-in-out infinite'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .no-select {
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        /* Theme Preset 1: Rimuru Sky Blue (Default Light) */
+        body.theme-rimuru {
+            --bg-main: #f0f9ff;
+            --bg-card: #ffffff;
+            --text-main: #0c4a6e;
+            --border-grid: #0284c7;
+            --border-cell: #bae6fd;
+            --highlight-bg: #e0f2fe;
+            --selected-bg: #bae6fd;
+            --related-bg: #f0f9ff;
+        }
+
+        /* Theme Preset 2: Shuna Cherry Blossom (Pastel Pink) */
+        body.theme-shuna {
+            --bg-main: #fff1f2;
+            --bg-card: #ffffff;
+            --text-main: #881337;
+            --border-grid: #e11d48;
+            --border-cell: #fecdd3;
+            --highlight-bg: #ffe4e6;
+            --selected-bg: #fecdd3;
+            --related-bg: #fff1f2;
+        }
+
+        /* Theme Preset 3: Shion Shadow Demon (Dark Violet) */
+        body.theme-shion {
+            --bg-main: #0f172a;
+            --bg-card: #1e1b4b;
+            --text-main: #f3e8ff;
+            --border-grid: #a855f7;
+            --border-cell: #3b0764;
+            --highlight-bg: #311042;
+            --selected-bg: #581c87;
+            --related-bg: #1e1035;
+        }
+
+        /* Dynamic Grid Borders */
+        .cell-border-r { border-right: 1px solid var(--border-cell); }
+        .cell-border-b { border-bottom: 1px solid var(--border-cell); }
+        .thick-border-r { border-right: 3px solid var(--border-grid) !important; }
+        .thick-border-b { border-bottom: 3px solid var(--border-grid) !important; }
+
+        /* Magic Line Completion Flash Class */
+        .magic-completed {
+            animation: magicFlash 0.8s ease-in-out;
+        }
+    </style>
+</head>
+<body class="theme-rimuru h-full bg-[var(--bg-main)] text-[var(--text-main)] flex flex-col justify-between transition-colors duration-300 no-select font-sans relative overflow-x-hidden">
+
+    <!-- Victory Confetti Canvas -->
+    <canvas id="confetti-canvas" class="fixed inset-0 pointer-events-none z-50 w-full h-full"></canvas>
+
+    <!-- Top Right Great Sage (大賢者) Assistant & Active Skill Widget -->
+    <div id="great-sage-widget" class="fixed top-3 right-3 z-40 flex items-center gap-2 group cursor-pointer" onclick="triggerGreatSageMenu()">
+        <!-- Dialog Bubble Notification -->
+        <div id="sage-dialog" class="hidden max-w-[230px] bg-slate-900/95 text-amber-300 text-[11px] font-medium py-2 px-3 rounded-2xl shadow-xl border border-amber-500/40 backdrop-blur-md transition-all duration-300 animate-pop relative">
+            <span id="sage-text">《告》發動技能【思考解析】...</span>
+            <div class="absolute -right-1.5 top-3 w-3 h-3 bg-slate-900 rotate-45 border-t border-r border-amber-500/40"></div>
+        </div>
+
+        <!-- Great Sage Emblem -->
+        <div class="relative w-11 h-11 flex items-center justify-center bg-gradient-to-br from-amber-500 via-rose-500 to-indigo-600 rounded-full shadow-lg shadow-amber-500/30 hover:scale-105 active:scale-95 transition-transform duration-200">
+            <div class="absolute inset-0 rounded-full border-2 border-dashed border-amber-300/80 animate-sageSpin"></div>
+            <div class="absolute inset-1 rounded-full bg-slate-950/80 flex items-center justify-center">
+                <span class="text-xs font-black text-amber-400 tracking-tighter animate-sagePulse">告</span>
+            </div>
+            <span class="absolute -bottom-1 -right-1 bg-amber-500 text-slate-950 text-[9px] font-extrabold px-1 rounded-full border border-slate-900">大賢者</span>
+        </div>
+    </div>
+
+    <!-- Great Sage Active Skill Popover Menu -->
+    <div id="sage-skill-menu" class="hidden fixed top-16 right-3 z-50 bg-slate-900/95 text-white rounded-2xl p-3 shadow-2xl border border-amber-500/40 w-60 backdrop-blur-md animate-pop">
+        <div class="flex items-center justify-between pb-2 mb-2 border-b border-amber-500/30">
+            <span class="text-xs font-bold text-amber-400 flex items-center gap-1">
+                <i data-lucide="sparkles" class="w-3.5 h-3.5"></i> 大賢者技能選單
+            </span>
+            <button onclick="toggleSageSkillMenu(false)" class="text-slate-400 hover:text-white text-xs">✕</button>
+        </div>
+        <div class="space-y-1.5 text-xs">
+            <button onclick="executeSageAnalyze()" class="w-full text-left p-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 flex items-center gap-2 text-amber-200 transition">
+                <i data-lucide="scan-search" class="w-4 h-4 text-amber-400"></i>
+                <div>
+                    <div class="font-bold">【解析鑑定】</div>
+                    <div class="text-[10px] text-amber-300/70">檢查全盤衝突與當前選格答案</div>
+                </div>
+            </button>
+            <button onclick="executeSageAutoNotes()" class="w-full text-left p-2 rounded-xl bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 flex items-center gap-2 text-sky-200 transition">
+                <i data-lucide="file-spellcheck" class="w-4 h-4 text-sky-400"></i>
+                <div>
+                    <div class="font-bold">【智慧筆記生成】</div>
+                    <div class="text-[10px] text-sky-300/70">一鍵填充全盤空格合法候選數字</div>
+                </div>
+            </button>
+        </div>
+    </div>
+
+    <!-- Top Header Navigation -->
+    <header class="w-full max-w-md mx-auto pt-3 px-4 flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+            <div class="p-2 bg-sky-600 text-white rounded-xl shadow-md">
+                <i data-lucide="castle" class="w-6 h-6"></i>
+            </div>
+            <div>
+                <h1 class="text-xl font-bold tracking-tight">魔國城鎮：數獨</h1>
+                <p class="text-xs opacity-75">Tempest Sudoku Challenge</p>
+            </div>
+        </div>
+
+        <div class="flex items-center space-x-1.5 mr-12 sm:mr-14">
+            <!-- Theme Skin Switcher -->
+            <button id="theme-skin-btn" title="切換角色風格主題" class="p-2 rounded-xl bg-[var(--bg-card)] shadow-sm border border-slate-200/50 hover:opacity-80 transition">
+                <i data-lucide="palette" class="w-4 h-4"></i>
+            </button>
+            <!-- Audio Mute Toggle -->
+            <button id="audio-btn" class="p-2 rounded-xl bg-[var(--bg-card)] shadow-sm border border-slate-200/50 hover:opacity-80 transition">
+                <i data-lucide="volume-2" id="icon-sound-on" class="w-4 h-4"></i>
+                <i data-lucide="volume-x" id="icon-sound-off" class="w-4 h-4 hidden text-rose-500"></i>
+            </button>
+            <!-- Stats Leaderboard Modal Toggle -->
+            <button id="stats-btn" class="p-2 rounded-xl bg-[var(--bg-card)] shadow-sm border border-slate-200/50 hover:opacity-80 transition">
+                <i data-lucide="trophy" class="w-4 h-4"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Game Container -->
+    <main class="w-full max-w-md mx-auto px-4 flex-1 flex flex-col justify-center my-2">
+        
+        <!-- Status Bar & Difficulty Selector -->
+        <div class="bg-[var(--bg-card)] rounded-2xl p-3 shadow-md border border-slate-200/50 mb-3">
+            <div class="flex items-center justify-between mb-2">
+                <!-- Difficulty selector dropdown -->
+                <div class="relative inline-block text-left">
+                    <button id="diff-dropdown-btn" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border border-slate-200 transition shadow-sm">
+                        <span id="current-diff-badge" class="px-2 py-0.5 rounded-md">哥布林 (簡單)</span>
+                        <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
+                    </button>
+                    <!-- Dropdown Menu -->
+                    <div id="diff-menu" class="hidden absolute left-0 mt-2 w-44 rounded-xl shadow-xl bg-[var(--bg-card)] border border-slate-200 z-30 py-1">
+                        <button onclick="setDifficulty('goblin')" class="w-full text-left px-3 py-2 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-between">
+                            <span>哥布林 (簡單)</span>
+                            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                        </button>
+                        <button onclick="setDifficulty('kijin')" class="w-full text-left px-3 py-2 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-between">
+                            <span>鬼人 (中等)</span>
+                            <span class="w-2 h-2 rounded-full bg-sky-500"></span>
+                        </button>
+                        <button onclick="setDifficulty('archdemon')" class="w-full text-left px-3 py-2 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-between">
+                            <span>原始惡魔 (困難)</span>
+                            <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+                        </button>
+                        <button onclick="setDifficulty('demonlord')" class="w-full text-left px-3 py-2 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-between">
+                            <span>魔王 (最困難)</span>
+                            <span class="w-2 h-2 rounded-full bg-rose-500"></span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Timer & Pause -->
+                <div class="flex items-center space-x-3">
+                    <div class="flex items-center space-x-1 font-mono text-sm font-semibold">
+                        <i data-lucide="timer" class="w-4 h-4 text-sky-500"></i>
+                        <span id="timer-display">00:00</span>
+                    </div>
+                    <button id="pause-btn" class="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+                        <i data-lucide="pause" id="icon-pause" class="w-4 h-4"></i>
+                        <i data-lucide="play" id="icon-play" class="w-4 h-4 hidden"></i>
+                    </button>
+                    <button id="new-game-btn" class="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition" title="新遊戲">
+                        <i data-lucide="rotate-cw" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-between text-xs pt-1 border-t border-slate-100 dark:border-slate-800">
+                <div>得分：<span id="score-display" class="font-bold">0</span></div>
+                <div>錯誤：<span id="mistakes-display" class="font-bold text-rose-500">0</span>/3</div>
+            </div>
+        </div>
+
+        <!-- Sudoku Grid Frame -->
+        <div class="relative aspect-square w-full bg-[var(--bg-card)] rounded-2xl shadow-xl border-2 border-[var(--border-grid)] overflow-hidden flex flex-col p-0.5">
+            <div id="sudoku-grid" class="w-full h-full grid grid-cols-9 grid-rows-9"></div>
+
+            <!-- Pause Screen Overlay -->
+            <div id="pause-overlay" class="hidden absolute inset-0 bg-slate-950/80 backdrop-blur-md z-20 flex flex-col items-center justify-center text-white p-6">
+                <i data-lucide="shield" class="w-16 h-16 text-sky-400 mb-3 animate-bounce"></i>
+                <h3 class="text-xl font-bold mb-1">城鎮維護中（暫停）</h3>
+                <p class="text-xs text-slate-300 mb-6">點擊下方按鈕繼續挑戰數獨迷宮</p>
+                <button id="resume-btn" class="px-6 py-2.5 bg-sky-500 hover:bg-sky-400 text-white font-bold rounded-xl shadow-lg transition transform active:scale-95 flex items-center space-x-2">
+                    <i data-lucide="play" class="w-4 h-4"></i>
+                    <span>繼續遊戲</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Toolbar (Undo, Erase, Note Mode, Auto-Erase, Hint) -->
+        <div class="grid grid-cols-4 gap-2 my-3">
+            <button id="undo-btn" class="flex flex-col items-center justify-center py-2 bg-[var(--bg-card)] rounded-xl shadow-sm border border-slate-200/50 hover:opacity-80 transition active:scale-95">
+                <i data-lucide="undo-2" class="w-4 h-4 mb-0.5"></i>
+                <span class="text-[10px] font-medium opacity-80">復原</span>
+            </button>
+            <button id="erase-btn" class="flex flex-col items-center justify-center py-2 bg-[var(--bg-card)] rounded-xl shadow-sm border border-slate-200/50 hover:opacity-80 transition active:scale-95">
+                <i data-lucide="eraser" class="w-4 h-4 mb-0.5"></i>
+                <span class="text-[10px] font-medium opacity-80">擦除</span>
+            </button>
+            <button id="note-btn" class="relative flex flex-col items-center justify-center py-2 bg-[var(--bg-card)] rounded-xl shadow-sm border border-slate-200/50 hover:opacity-80 transition active:scale-95">
+                <i data-lucide="pencil" class="w-4 h-4 mb-0.5"></i>
+                <span class="text-[10px] font-medium opacity-80">筆記 <span id="note-status" class="font-bold text-sky-500">(關)</span></span>
+                <span id="note-badge" class="hidden absolute top-1 right-2 w-2 h-2 rounded-full bg-sky-500"></span>
+            </button>
+            <button id="hint-btn" class="flex flex-col items-center justify-center py-2 bg-[var(--bg-card)] rounded-xl shadow-sm border border-slate-200/50 hover:opacity-80 transition active:scale-95">
+                <div class="relative">
+                    <i data-lucide="lightbulb" class="w-4 h-4 text-amber-500 mb-0.5"></i>
+                    <span id="hint-count" class="absolute -top-1 -right-2 bg-amber-500 text-white text-[9px] w-3.5 h-3.5 rounded-full flex items-center justify-center font-bold">3</span>
+                </div>
+                <span class="text-[10px] font-medium opacity-80">提示</span>
+            </button>
+        </div>
+
+        <!-- Virtual Keypad 1-9 -->
+        <div class="grid grid-cols-9 gap-1 sm:gap-1.5">
+            <button onclick="inputNumber(1)" class="num-key h-12 bg-[var(--bg-card)] rounded-xl shadow-sm border border-slate-200/50 text-lg font-bold hover:bg-sky-100/80 active:scale-90 transition flex items-center justify-center">1</button>
+            <button onclick="inputNumber(2)" class="num-key h-12 bg-[var(--bg-card)] rounded-xl shadow-sm border border-slate-200/50 text-lg font-bold hover:bg-sky-100/80 active:scale-90 transition flex items-center justify-center">2</button>
+            <button onclick="inputNumber(3)" class="num-key h-12 bg-[var(--bg-card)] rounded-xl shadow-sm border border-slate-200/50 text-lg font-bold hover:bg-sky-100/80 active:scale-90 transition flex items-center justify-center">3</button>
+            <button onclick="inputNumber(4)" class="num-key h-12 bg-[var(--bg-card)] rounded-xl shadow-sm border border-slate-200/50 text-lg font-bold hover:bg-sky-100/80 active:scale-90 transition flex items-center justify-center">4</button>
+            <button onclick="inputNumber(5)" class="num-key h-12 bg-[var(--bg-card)] rounded-xl shadow-sm border border-slate-200/50 text-lg font-bold hover:bg-sky-100/80 active:scale-90 transition flex items-center justify-center">5</button>
+            <button onclick="inputNumber(6)" class="num-key h-12 bg-[var(--bg-card)] rounded-xl shadow-sm border border-slate-200/50 text-lg font-bold hover:bg-sky-100/80 active:scale-90 transition flex items-center justify-center">6</button>
+            <button onclick="inputNumber(7)" class="num-key h-12 bg-[var(--bg-card)] rounded-xl shadow-sm border border-slate-200/50 text-lg font-bold hover:bg-sky-100/80 active:scale-90 transition flex items-center justify-center">7</button>
+            <button onclick="inputNumber(8)" class="num-key h-12 bg-[var(--bg-card)] rounded-xl shadow-sm border border-slate-200/50 text-lg font-bold hover:bg-sky-100/80 active:scale-90 transition flex items-center justify-center">8</button>
+            <button onclick="inputNumber(9)" class="num-key h-12 bg-[var(--bg-card)] rounded-xl shadow-sm border border-slate-200/50 text-lg font-bold hover:bg-sky-100/80 active:scale-90 transition flex items-center justify-center">9</button>
+        </div>
+    </main>
+
+    <!-- Stats & Record Modal -->
+    <div id="stats-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-[var(--bg-card)] rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-slate-200/50 animate-pop">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold flex items-center gap-2">
+                    <i data-lucide="award" class="text-amber-500"></i>
+                    魔國英雄榜 (最佳紀錄)
+                </h3>
+                <button id="close-stats-btn" class="p-1 rounded-lg hover:bg-slate-100">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div id="stats-content" class="space-y-2 text-xs"></div>
+            <button id="reset-stats-btn" class="w-full mt-4 py-2 border border-rose-200 text-rose-500 hover:bg-rose-50 rounded-xl text-xs font-semibold transition">
+                清除統計紀錄
+            </button>
+        </div>
+    </div>
+
+    <!-- Victory Celebration Modal -->
+    <div id="victory-modal" class="hidden fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-[var(--bg-card)] rounded-2xl max-w-sm w-full p-6 text-center shadow-2xl border border-slate-200/50 animate-pop">
+            <div class="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-3 text-amber-500">
+                <i data-lucide="crown" class="w-10 h-10"></i>
+            </div>
+            <h2 class="text-2xl font-black mb-1">恭喜完美通關！</h2>
+            <p class="text-xs opacity-70 mb-4">您成功守護了魔國城鎮的和平！</p>
+            
+            <div class="bg-slate-50 dark:bg-slate-800 rounded-xl p-3 mb-5 grid grid-cols-2 gap-2 text-xs">
+                <div>
+                    <span class="opacity-60 block">通關時間</span>
+                    <span id="victory-time" class="font-mono text-base font-bold text-indigo-500">00:00</span>
+                </div>
+                <div>
+                    <span class="opacity-60 block">最終得分</span>
+                    <span id="victory-score" class="font-mono text-base font-bold text-emerald-500">0</span>
+                </div>
+            </div>
+
+            <button id="victory-new-game-btn" class="w-full py-3 bg-sky-600 hover:bg-sky-500 text-white font-bold rounded-xl shadow-lg transition active:scale-95">
+                開啟新冒險
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // --- Web Audio API Synth Engine ---
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+                this.muted = false;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            }
+
+            playPop() {
+                if (this.muted) return;
+                this.init();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(400, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(800, this.ctx.currentTime + 0.05);
+                gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.05);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.05);
+            }
+
+            playCorrect() {
+                if (this.muted) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                [523.25, 659.25].forEach((freq, i) => { // C5, E5
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.frequency.value = freq;
+                    gain.gain.setValueAtTime(0.12, now + i * 0.08);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.08 + 0.2);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now + i * 0.08);
+                    osc.stop(now + i * 0.08 + 0.2);
+                });
+            }
+
+            playMagicLineComplete() {
+                if (this.muted) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => { // C5, E5, G5, C6
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.value = freq;
+                    gain.gain.setValueAtTime(0.15, now + i * 0.06);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.06 + 0.3);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now + i * 0.06);
+                    osc.stop(now + i * 0.06 + 0.3);
+                });
+            }
+
+            playError() {
+                if (this.muted) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(180, now);
+                osc.frequency.setValueAtTime(130, now + 0.08);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.25);
+            }
+
+            playVictory() {
+                if (this.muted) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                const notes = [523.25, 659.25, 783.99, 1046.50];
+                notes.forEach((freq, i) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.value = freq;
+                    gain.gain.setValueAtTime(0.2, now + i * 0.12);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.12 + 0.4);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now + i * 0.12);
+                    osc.stop(now + i * 0.12 + 0.4);
+                });
+            }
+
+            playSageVoice() {
+                if (this.muted) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(880, now);
+                osc.frequency.exponentialRampToValueAtTime(1760, now + 0.15);
+                gain.gain.setValueAtTime(0.15, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.25);
+            }
+        }
+
+        const sound = new SoundEngine();
+
+        const DIFFICULTIES = {
+            goblin: { name: '哥布林 (簡單)', clues: 40, badgeClass: 'bg-emerald-100 text-emerald-800 border-emerald-300' },
+            kijin: { name: '鬼人 (中等)', clues: 32, badgeClass: 'bg-sky-100 text-sky-800 border-sky-300' },
+            archdemon: { name: '原始惡魔 (困難)', clues: 26, badgeClass: 'bg-amber-100 text-amber-800 border-amber-300' },
+            demonlord: { name: '魔王 (最困難)', clues: 22, badgeClass: 'bg-rose-100 text-rose-800 border-rose-300' }
+        };
+
+        const THEMES = ['theme-rimuru', 'theme-shuna', 'theme-shion'];
+        let currentThemeIdx = 0;
+
+        let currentDiff = 'goblin';
+        let solutionGrid = [];
+        let puzzleGrid = [];
+        let currentGrid = [];
+        let isGivenGrid = [];
+        let notesGrid = [];
+        let history = [];
+        
+        let selectedRow = -1;
+        let selectedCol = -1;
+        let isNoteMode = false;
+        let hintsLeft = 3;
+        let mistakes = 0;
+        let score = 0;
+        let timerSeconds = 0;
+        let timerInterval = null;
+        let isPaused = false;
+        let isGameOver = false;
+
+        let sageTimeout = null;
+
+        function toggleSageSkillMenu(show) {
+            const menu = document.getElementById('sage-skill-menu');
+            if (show === undefined) menu.classList.toggle('hidden');
+            else menu.classList.toggle('hidden', !show);
+        }
+
+        function triggerGreatSageMenu() {
+            sound.playSageVoice();
+            toggleSageSkillMenu();
+        }
+
+        function executeSageAnalyze() {
+            toggleSageSkillMenu(false);
+            const dialog = document.getElementById('sage-dialog');
+            const sageText = document.getElementById('sage-text');
+
+            if (isPaused || isGameOver) {
+                sageText.textContent = "《告》當前為暫停狀態，無法進行解析。";
+            } else {
+                let emptyCount = 0;
+                let conflicts = 0;
+                for (let r = 0; r < 9; r++) {
+                    for (let c = 0; c < 9; c++) {
+                        if (currentGrid[r][c] === 0) emptyCount++;
+                        else if (!isGivenGrid[r][c] && checkConflict(r, c, currentGrid[r][c])) {
+                            conflicts++;
+                        }
+                    }
+                }
+
+                if (conflicts > 0) {
+                    sageText.textContent = `《告》偵測到盤面存在 ${conflicts} 處數字衝突，請優先修正！`;
+                } else if (selectedRow !== -1 && selectedCol !== -1) {
+                    const ans = solutionGrid[selectedRow][selectedCol];
+                    sageText.textContent = `《解》分析選取位置：第 ${selectedRow + 1} 列第 ${selectedCol + 1} 欄之解答為 [ ${ans} ]。`;
+                } else {
+                    sageText.textContent = `《告》解析完成。剩餘 ${emptyCount} 個空格，當前未發現邏輯衝突。`;
+                }
+            }
+
+            dialog.classList.remove('hidden');
+            clearTimeout(sageTimeout);
+            sageTimeout = setTimeout(() => dialog.classList.add('hidden'), 4000);
+        }
+
+        function executeSageAutoNotes() {
+            toggleSageSkillMenu(false);
+            if (isPaused || isGameOver) return;
+
+            saveHistoryState();
+            let filledCount = 0;
+
+            for (let r = 0; r < 9; r++) {
+                for (let c = 0; c < 9; c++) {
+                    if (currentGrid[r][c] === 0) {
+                        notesGrid[r][c].clear();
+                        for (let num = 1; num <= 9; num++) {
+                            if (!checkConflict(r, c, num)) {
+                                notesGrid[r][c].add(num);
+                                filledCount++;
+                            }
+                        }
+                    }
+                }
+            }
+
+            const dialog = document.getElementById('sage-dialog');
+            document.getElementById('sage-text').textContent = `《解》智慧筆記發動：已為空格自動標記 ${filledCount} 個合法候選數字！`;
+            dialog.classList.remove('hidden');
+            clearTimeout(sageTimeout);
+            sageTimeout = setTimeout(() => dialog.classList.add('hidden'), 4000);
+
+            sound.playCorrect();
+            renderGrid();
+            saveGameState();
+        }
+
+        function generateSudoku(cluesCount) {
+            let board = Array.from({ length: 9 }, () => Array(9).fill(0));
+            for (let i = 0; i < 9; i += 3) fillBox(board, i, i);
+            solveSudoku(board);
+            const solution = board.map(row => [...row]);
+
+            let puzzle = board.map(row => [...row]);
+            let removed = 81 - cluesCount;
+            let positions = [];
+            for (let r = 0; r < 9; r++) {
+                for (let c = 0; c < 9; c++) positions.push([r, c]);
+            }
+            positions.sort(() => Math.random() - 0.5);
+
+            for (let pos of positions) {
+                if (removed <= 0) break;
+                let [r, c] = pos;
+                puzzle[r][c] = 0;
+                removed--;
+            }
+
+            return { solution, puzzle };
+        }
+
+        function fillBox(board, row, col) {
+            let nums = [1,2,3,4,5,6,7,8,9].sort(() => Math.random() - 0.5);
+            let idx = 0;
+            for (let r = 0; r < 3; r++) {
+                for (let c = 0; c < 3; c++) {
+                    board[row + r][col + c] = nums[idx++];
+                }
+            }
+        }
+
+        function solveSudoku(board) {
+            for (let r = 0; r < 9; r++) {
+                for (let c = 0; c < 9; c++) {
+                    if (board[r][c] === 0) {
+                        let nums = [1,2,3,4,5,6,7,8,9].sort(() => Math.random() - 0.5);
+                        for (let num of nums) {
+                            if (isValid(board, r, c, num)) {
+                                board[r][c] = num;
+                                if (solveSudoku(board)) return true;
+                                board[r][c] = 0;
+                            }
+                        }
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+
+        function isValid(board, row, col, num) {
+            for (let i = 0; i < 9; i++) {
+                if (board[row][i] === num) return false;
+                if (board[i][col] === num) return false;
+                let boxR = 3 * Math.floor(row / 3) + Math.floor(i / 3);
+                let boxC = 3 * Math.floor(col / 3) + (i % 3);
+                if (board[boxR][boxC] === num) return false;
+            }
+            return true;
+        }
+
+        function startNewGame() {
+            const { solution, puzzle } = generateSudoku(DIFFICULTIES[currentDiff].clues);
+            solutionGrid = solution;
+            puzzleGrid = puzzle;
+            currentGrid = puzzle.map(r => [...r]);
+            isGivenGrid = puzzle.map(r => r.map(val => val !== 0));
+            notesGrid = Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => new Set()));
+            history = [];
+            
+            selectedRow = -1;
+            selectedCol = -1;
+            hintsLeft = 3;
+            mistakes = 0;
+            score = 0;
+            timerSeconds = 0;
+            isPaused = false;
+            isGameOver = false;
+
+            updateUIInfo();
+            startTimer();
+            renderGrid();
+            saveGameState();
+        }
+
+        function renderGrid() {
+            const container = document.getElementById('sudoku-grid');
+            container.innerHTML = '';
+
+            const selectedVal = (selectedRow !== -1 && selectedCol !== -1) ? currentGrid[selectedRow][selectedCol] : 0;
+
+            for (let r = 0; r < 9; r++) {
+                for (let c = 0; c < 9; c++) {
+                    const cell = document.createElement('div');
+                    cell.id = `cell-${r}-${c}`;
+                    cell.className = 'cell-item relative flex items-center justify-center cursor-pointer font-bold text-lg transition-all duration-100 select-none';
+                    
+                    if (c < 8) cell.classList.add((c + 1) % 3 === 0 ? 'thick-border-r' : 'cell-border-r');
+                    if (r < 8) cell.classList.add((r + 1) % 3 === 0 ? 'thick-border-b' : 'cell-border-b');
+
+                    const val = currentGrid[r][c];
+                    const isGiven = isGivenGrid[r][c];
+                    const isSelected = (r === selectedRow && c === selectedCol);
+
+                    let isConflict = false;
+                    if (val !== 0 && !isGiven) {
+                        isConflict = checkConflict(r, c, val);
+                    }
+
+                    // Dynamic Related Cells Background Highlights
+                    let bgStyle = '';
+                    if (isSelected) {
+                        bgStyle = 'bg-sky-200 dark:bg-sky-900 ring-2 ring-sky-500 z-10';
+                    } else if (r === selectedRow || c === selectedCol || (Math.floor(r/3) === Math.floor(selectedRow/3) && Math.floor(c/3) === Math.floor(selectedCol/3))) {
+                        bgStyle = 'bg-sky-50/80 dark:bg-slate-800/60';
+                    }
+
+                    if (val !== 0 && selectedVal !== 0 && val === selectedVal && !isSelected) {
+                        bgStyle += ' bg-amber-100/90 font-black ring-1 ring-amber-400';
+                    }
+
+                    if (isConflict) {
+                        bgStyle = 'bg-rose-100 animate-shake';
+                    }
+
+                    cell.className += ` ${bgStyle}`;
+
+                    if (val !== 0) {
+                        const numSpan = document.createElement('span');
+                        numSpan.textContent = val;
+                        if (isGiven) numSpan.className = 'font-extrabold';
+                        else if (isConflict) numSpan.className = 'text-rose-600 font-extrabold';
+                        else numSpan.className = 'text-sky-600 font-bold animate-pop';
+                        cell.appendChild(numSpan);
+                    } else {
+                        const notes = notesGrid[r][c];
+                        if (notes.size > 0) {
+                            const noteGrid = document.createElement('div');
+                            noteGrid.className = 'grid grid-cols-3 grid-rows-3 w-full h-full p-0.5 pointer-events-none';
+                            for (let i = 1; i <= 9; i++) {
+                                const noteItem = document.createElement('div');
+                                noteItem.className = 'flex items-center justify-center text-[9px] font-medium opacity-60 leading-none';
+                                noteItem.textContent = notes.has(i) ? i : '';
+                                noteGrid.appendChild(noteItem);
+                            }
+                            cell.appendChild(noteGrid);
+                        }
+                    }
+
+                    cell.onclick = () => selectCell(r, c);
+                    container.appendChild(cell);
+                }
+            }
+        }
+
+        function checkConflict(row, col, num) {
+            for (let i = 0; i < 9; i++) {
+                if (i !== col && currentGrid[row][i] === num) return true;
+                if (i !== row && currentGrid[i][col] === num) return true;
+                let boxR = 3 * Math.floor(row / 3) + Math.floor(i / 3);
+                let boxC = 3 * Math.floor(col / 3) + (i % 3);
+                if ((boxR !== row || boxC !== col) && currentGrid[boxR][boxC] === num) return true;
+            }
+            return false;
+        }
+
+        function selectCell(r, c) {
+            if (isPaused || isGameOver) return;
+            selectedRow = r;
+            selectedCol = c;
+            sound.playPop();
+            renderGrid();
+        }
+
+        function inputNumber(num) {
+            if (isPaused || isGameOver || selectedRow === -1 || selectedCol === -1) return;
+            if (isGivenGrid[selectedRow][selectedCol]) return;
+
+            saveHistoryState();
+
+            if (isNoteMode) {
+                const currentNotes = notesGrid[selectedRow][selectedCol];
+                if (currentNotes.has(num)) currentNotes.delete(num);
+                else currentNotes.add(num);
+                currentGrid[selectedRow][selectedCol] = 0;
+                sound.playPop();
+            } else {
+                notesGrid[selectedRow][selectedCol].clear();
+                const previousVal = currentGrid[selectedRow][selectedCol];
+                
+                if (previousVal === num) {
+                    currentGrid[selectedRow][selectedCol] = 0;
+                } else {
+                    currentGrid[selectedRow][selectedCol] = num;
+                    
+                    if (num !== solutionGrid[selectedRow][selectedCol]) {
+                        mistakes++;
+                        sound.playError();
+                        score = Math.max(0, score - 50);
+                    } else {
+                        sound.playCorrect();
+                        score += 100;
+                        autoEraseCandidateNotes(selectedRow, selectedCol, num);
+                        checkLineOrBoxCompletion(selectedRow, selectedCol);
+                    }
+                }
+            }
+
+            updateUIInfo();
+            renderGrid();
+            saveGameState();
+
+            if (checkWinCondition()) handleVictory();
+        }
+
+        // Smart Candidate Auto-Erase when a correct number is placed
+        function autoEraseCandidateNotes(r, c, num) {
+            for (let i = 0; i < 9; i++) {
+                notesGrid[r][i].delete(num);
+                notesGrid[i][c].delete(num);
+                let boxR = 3 * Math.floor(r / 3) + Math.floor(i / 3);
+                let boxC = 3 * Math.floor(c / 3) + (i % 3);
+                notesGrid[boxR][boxC].delete(num);
+            }
+        }
+
+        // Row/Col/Box Completion Magic Aura Flash Effects
+        function checkLineOrBoxCompletion(r, c) {
+            let rowComplete = true, colComplete = true, boxComplete = true;
+
+            for (let i = 0; i < 9; i++) {
+                if (currentGrid[r][i] !== solutionGrid[r][i]) rowComplete = false;
+                if (currentGrid[i][c] !== solutionGrid[i][c]) colComplete = false;
+                let boxR = 3 * Math.floor(r / 3) + Math.floor(i / 3);
+                let boxC = 3 * Math.floor(c / 3) + (i % 3);
+                if (currentGrid[boxR][boxC] !== solutionGrid[boxR][boxC]) boxComplete = false;
+            }
+
+            if (rowComplete || colComplete || boxComplete) {
+                sound.playMagicLineComplete();
+                for (let i = 0; i < 9; i++) {
+                    if (rowComplete) triggerCellMagicFlash(r, i);
+                    if (colComplete) triggerCellMagicFlash(i, c);
+                    if (boxComplete) {
+                        let boxR = 3 * Math.floor(r / 3) + Math.floor(i / 3);
+                        let boxC = 3 * Math.floor(c / 3) + (i % 3);
+                        triggerCellMagicFlash(boxR, boxC);
+                    }
+                }
+            }
+        }
+
+        function triggerCellMagicFlash(r, c) {
+            const el = document.getElementById(`cell-${r}-${c}`);
+            if (el) {
+                el.classList.add('magic-completed');
+                setTimeout(() => el.classList.remove('magic-completed'), 800);
+            }
+        }
+
+        function eraseCell() {
+            if (isPaused || isGameOver || selectedRow === -1 || selectedCol === -1) return;
+            if (isGivenGrid[selectedRow][selectedCol]) return;
+
+            saveHistoryState();
+            currentGrid[selectedRow][selectedCol] = 0;
+            notesGrid[selectedRow][selectedCol].clear();
+            sound.playPop();
+
+            renderGrid();
+            saveGameState();
+        }
+
+        function giveHint() {
+            if (isPaused || isGameOver || hintsLeft <= 0) return;
+
+            let targetCell = null;
+            if (selectedRow !== -1 && selectedCol !== -1 && !isGivenGrid[selectedRow][selectedCol] && currentGrid[selectedRow][selectedCol] !== solutionGrid[selectedRow][selectedCol]) {
+                targetCell = [selectedRow, selectedCol];
+            } else {
+                let candidates = [];
+                for (let r = 0; r < 9; r++) {
+                    for (let c = 0; c < 9; c++) {
+                        if (!isGivenGrid[r][c] && currentGrid[r][c] !== solutionGrid[r][c]) {
+                            candidates.push([r, c]);
+                        }
+                    }
+                }
+                if (candidates.length > 0) {
+                    targetCell = candidates[Math.floor(Math.random() * candidates.length)];
+                }
+            }
+
+            if (targetCell) {
+                saveHistoryState();
+                const [r, c] = targetCell;
+                selectedRow = r;
+                selectedCol = c;
+                currentGrid[r][c] = solutionGrid[r][c];
+                notesGrid[r][c].clear();
+                hintsLeft--;
+                score = Math.max(0, score - 100);
+
+                sound.playCorrect();
+                autoEraseCandidateNotes(r, c, solutionGrid[r][c]);
+                checkLineOrBoxCompletion(r, c);
+                updateUIInfo();
+                renderGrid();
+                saveGameState();
+
+                if (checkWinCondition()) handleVictory();
+            }
+        }
+
+        function undoLastMove() {
+            if (isPaused || isGameOver || history.length === 0) return;
+            const lastState = history.pop();
+            currentGrid = lastState.currentGrid.map(r => [...r]);
+            notesGrid = lastState.notesGrid.map(r => r.map(set => new Set(set)));
+            sound.playPop();
+            renderGrid();
+            saveGameState();
+        }
+
+        function saveHistoryState() {
+            history.push({
+                currentGrid: currentGrid.map(r => [...r]),
+                notesGrid: notesGrid.map(r => r.map(set => new Set(set)))
+            });
+            if (history.length > 20) history.shift();
+        }
+
+        function checkWinCondition() {
+            for (let r = 0; r < 9; r++) {
+                for (let c = 0; c < 9; c++) {
+                    if (currentGrid[r][c] !== solutionGrid[r][c]) return false;
+                }
+            }
+            return true;
+        }
+
+        function handleVictory() {
+            isGameOver = true;
+            stopTimer();
+            sound.playVictory();
+            triggerConfetti();
+
+            const timeBonus = Math.max(0, 1000 - timerSeconds * 2);
+            score += timeBonus;
+
+            document.getElementById('victory-time').textContent = formatTime(timerSeconds);
+            document.getElementById('victory-score').textContent = score;
+            document.getElementById('victory-modal').classList.remove('hidden');
+
+            saveBestRecord();
+        }
+
+        function startTimer() {
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                if (!isPaused && !isGameOver) {
+                    timerSeconds++;
+                    document.getElementById('timer-display').textContent = formatTime(timerSeconds);
+                }
+            }, 1000);
+        }
+
+        function stopTimer() {
+            clearInterval(timerInterval);
+        }
+
+        function formatTime(totalSeconds) {
+            const mins = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+            const secs = (totalSeconds % 60).toString().padStart(2, '0');
+            return `${mins}:${secs}`;
+        }
+
+        function togglePause() {
+            if (isGameOver) return;
+            isPaused = !isPaused;
+            const overlay = document.getElementById('pause-overlay');
+            const iconPause = document.getElementById('icon-pause');
+            const iconPlay = document.getElementById('icon-play');
+
+            if (isPaused) {
+                overlay.classList.remove('hidden');
+                iconPause.classList.add('hidden');
+                iconPlay.classList.remove('hidden');
+            } else {
+                overlay.classList.add('hidden');
+                iconPause.classList.remove('hidden');
+                iconPlay.classList.add('hidden');
+            }
+        }
+
+        function updateUIInfo() {
+            document.getElementById('hint-count').textContent = hintsLeft;
+            document.getElementById('score-display').textContent = score;
+            document.getElementById('mistakes-display').textContent = mistakes;
+
+            const badge = document.getElementById('current-diff-badge');
+            badge.textContent = DIFFICULTIES[currentDiff].name;
+            badge.className = `px-2 py-0.5 rounded-md ${DIFFICULTIES[currentDiff].badgeClass}`;
+        }
+
+        function setDifficulty(diff) {
+            currentDiff = diff;
+            document.getElementById('diff-menu').classList.add('hidden');
+            startNewGame();
+        }
+
+        function cycleThemeSkin() {
+            document.body.classList.remove(THEMES[currentThemeIdx]);
+            currentThemeIdx = (currentThemeIdx + 1) % THEMES.length;
+            document.body.classList.add(THEMES[currentThemeIdx]);
+            sound.playPop();
+        }
+
+        function saveGameState() {
+            const state = {
+                currentDiff,
+                solutionGrid,
+                puzzleGrid,
+                currentGrid,
+                isGivenGrid,
+                notesGrid: notesGrid.map(r => r.map(set => Array.from(set))),
+                hintsLeft,
+                mistakes,
+                score,
+                timerSeconds
+            };
+            localStorage.setItem('tempest_sudoku_save', JSON.stringify(state));
+        }
+
+        function loadGameState() {
+            const data = localStorage.getItem('tempest_sudoku_save');
+            if (!data) return false;
+            try {
+                const state = JSON.parse(data);
+                currentDiff = state.currentDiff || 'goblin';
+                solutionGrid = state.solutionGrid;
+                puzzleGrid = state.puzzleGrid;
+                currentGrid = state.currentGrid;
+                isGivenGrid = state.isGivenGrid;
+                notesGrid = state.notesGrid.map(r => r.map(arr => new Set(arr)));
+                hintsLeft = state.hintsLeft;
+                mistakes = state.mistakes;
+                score = state.score;
+                timerSeconds = state.timerSeconds;
+
+                updateUIInfo();
+                startTimer();
+                renderGrid();
+                return true;
+            } catch (e) {
+                return false;
+            }
+        }
+
+        function saveBestRecord() {
+            let stats = JSON.parse(localStorage.getItem('tempest_sudoku_stats') || '{}');
+            if (!stats[currentDiff]) {
+                stats[currentDiff] = { bestTime: timerSeconds, highScore: score, wins: 1 };
+            } else {
+                stats[currentDiff].bestTime = Math.min(stats[currentDiff].bestTime, timerSeconds);
+                stats[currentDiff].highScore = Math.max(stats[currentDiff].highScore, score);
+                stats[currentDiff].wins += 1;
+            }
+            localStorage.setItem('tempest_sudoku_stats', JSON.stringify(stats));
+        }
+
+        function showStats() {
+            let stats = JSON.parse(localStorage.getItem('tempest_sudoku_stats') || '{}');
+            const content = document.getElementById('stats-content');
+            content.innerHTML = '';
+
+            Object.keys(DIFFICULTIES).forEach(diffKey => {
+                const item = stats[diffKey] || { bestTime: null, highScore: 0, wins: 0 };
+                const row = document.createElement('div');
+                row.className = 'flex items-center justify-between p-2.5 bg-slate-50 dark:bg-slate-800 rounded-xl';
+                row.innerHTML = `
+                    <div class="font-bold ${DIFFICULTIES[diffKey].badgeClass} px-2 py-0.5 rounded">${DIFFICULTIES[diffKey].name}</div>
+                    <div class="text-right">
+                        <div>最佳時間: <span class="font-mono font-bold">${item.bestTime ? formatTime(item.bestTime) : '--:--'}</span></div>
+                        <div class="opacity-60">最高分: ${item.highScore} | 通關: ${item.wins} 次</div>
+                    </div>
+                `;
+                content.appendChild(row);
+            });
+
+            document.getElementById('stats-modal').classList.remove('hidden');
+        }
+
+        function triggerConfetti() {
+            const canvas = document.getElementById('confetti-canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+
+            const particles = Array.from({ length: 100 }, () => ({
+                x: canvas.width / 2,
+                y: canvas.height / 2,
+                vx: (Math.random() - 0.5) * 14,
+                vy: (Math.random() - 0.8) * 14,
+                size: Math.random() * 8 + 4,
+                color: ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#3b82f6'][Math.floor(Math.random() * 5)],
+                alpha: 1
+            }));
+
+            function draw() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                let alive = false;
+                particles.forEach(p => {
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.vy += 0.2;
+                    p.alpha -= 0.01;
+                    if (p.alpha > 0) {
+                        alive = true;
+                        ctx.globalAlpha = p.alpha;
+                        ctx.fillStyle = p.color;
+                        ctx.fillRect(p.x, p.y, p.size, p.size);
+                    }
+                });
+                if (alive) requestAnimationFrame(draw);
+            }
+            draw();
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+
+            document.getElementById('undo-btn').onclick = undoLastMove;
+            document.getElementById('erase-btn').onclick = eraseCell;
+            document.getElementById('hint-btn').onclick = giveHint;
+            document.getElementById('pause-btn').onclick = togglePause;
+            document.getElementById('resume-btn').onclick = togglePause;
+            document.getElementById('new-game-btn').onclick = startNewGame;
+            document.getElementById('victory-new-game-btn').onclick = () => {
+                document.getElementById('victory-modal').classList.add('hidden');
+                startNewGame();
+            };
+
+            document.getElementById('diff-dropdown-btn').onclick = () => {
+                document.getElementById('diff-menu').classList.toggle('hidden');
+            };
+
+            document.getElementById('stats-btn').onclick = showStats;
+            document.getElementById('close-stats-btn').onclick = () => document.getElementById('stats-modal').classList.add('hidden');
+            document.getElementById('reset-stats-btn').onclick = () => {
+                localStorage.removeItem('tempest_sudoku_stats');
+                showStats();
+            };
+
+            const noteBtn = document.getElementById('note-btn');
+            noteBtn.onclick = () => {
+                isNoteMode = !isNoteMode;
+                document.getElementById('note-status').textContent = isNoteMode ? '(開)' : '(關)';
+                document.getElementById('note-badge').classList.toggle('hidden', !isNoteMode);
+                sound.playPop();
+            };
+
+            document.getElementById('theme-skin-btn').onclick = cycleThemeSkin;
+
+            document.getElementById('audio-btn').onclick = () => {
+                sound.muted = !sound.muted;
+                document.getElementById('icon-sound-on').classList.toggle('hidden', sound.muted);
+                document.getElementById('icon-sound-off').classList.toggle('hidden', !sound.muted);
+            };
+
+            document.addEventListener('keydown', (e) => {
+                if (isPaused || isGameOver) return;
+
+                if (e.key >= '1' && e.key <= '9') {
+                    inputNumber(parseInt(e.key));
+                } else if (e.key === 'Backspace' || e.key === 'Delete') {
+                    eraseCell();
+                } else if (e.key === 'n' || e.key === 'N') {
+                    noteBtn.click();
+                } else if (e.key === 'u' || e.key === 'U') {
+                    undoLastMove();
+                } else if (e.key.startsWith('Arrow')) {
+                    if (selectedRow === -1) { selectedRow = 0; selectedCol = 0; }
+                    else {
+                        if (e.key === 'ArrowUp') selectedRow = Math.max(0, selectedRow - 1);
+                        if (e.key === 'ArrowDown') selectedRow = Math.min(8, selectedRow + 1);
+                        if (e.key === 'ArrowLeft') selectedCol = Math.max(0, selectedCol - 1);
+                        if (e.key === 'ArrowRight') selectedCol = Math.min(8, selectedCol + 1);
+                    }
+                    sound.playPop();
+                    renderGrid();
+                }
+            });
+
+            if (!loadGameState()) startNewGame();
+        });
+    </script>
+</body>
+</html>

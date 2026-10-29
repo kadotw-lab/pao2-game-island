@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>貓咪大作戰</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%; background-color: #111; overflow: hidden;
+            font-family: 'Inter', sans-serif;
+            touch-action: manipulation;
+        }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        canvas {
+            display: block; width: 100%; height: 100%; flex-grow: 1;
+        }
+        .unit-card-disabled { filter: grayscale(100%) opacity(50%); cursor: not-allowed; }
+        
+        /* 動畫效果 */
+        @keyframes pulse-fast {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        .animate-pulse-fast { animation: pulse-fast 0.5s ease-in-out infinite; }
+    </style>
+</head>
+<body class="text-white select-none">
+
+    <!-- 開始畫面 -->
+    <div id="overlay-start" class="absolute inset-0 bg-black/90 flex flex-col items-center justify-center z-50 transition-opacity duration-300">
+        <h1 class="text-5xl md:text-7xl font-black text-yellow-400 mb-6 drop-shadow-[0_0_15px_rgba(250,204,21,0.8)] tracking-widest">貓咪大作戰</h1>
+        <p class="text-gray-300 mb-8 text-lg md:text-xl text-center px-4">擊潰左側的狗狗基地，保衛貓咪王國！</p>
+        <button id="btn-start" class="bg-yellow-500 hover:bg-yellow-400 text-black font-black text-2xl py-4 px-12 rounded-full shadow-[0_5px_15px_rgba(250,204,21,0.5)] active:scale-95 transition-transform border-4 border-yellow-200">
+            進入遊戲
+        </button>
+    </div>
+
+    <!-- 關卡選擇選單 -->
+    <div id="overlay-level-select" class="absolute inset-0 bg-black/95 flex flex-col items-center justify-start py-8 z-40 transition-opacity hidden overflow-y-auto hide-scrollbar">
+        <h1 class="text-4xl md:text-6xl font-black text-yellow-400 mb-4 drop-shadow-[0_4px_4px_rgba(0,0,0,0.8)]">選擇關卡</h1>
+        <div class="flex items-center gap-4 mb-6 flex-wrap justify-center w-full px-4">
+            <div class="bg-gray-800 px-4 py-2 rounded-xl text-xl font-bold text-green-400 border border-gray-600">EXP: <span id="map-exp-display">0</span></div>
+            <div class="bg-gray-800 px-4 py-2 rounded-xl text-xl font-bold text-blue-400 border border-gray-600">轉蛋卷: <span id="map-ticket-display">0</span> 🎫</div>
+            <button id="btn-to-upgrade" class="bg-purple-600 hover:bg-purple-500 text-white font-bold py-2 px-6 rounded-xl shadow-lg active:scale-95 transition-transform border-2 border-purple-400">貓咪研究所</button>
+            <button id="btn-to-gacha" class="bg-pink-600 hover:bg-pink-500 text-white font-bold py-2 px-6 rounded-xl shadow-lg active:scale-95 transition-transform border-2 border-pink-400">轉蛋機</button>
+        </div>
+        <div class="w-11/12 max-w-5xl overflow-y-auto hide-scrollbar bg-gray-800 p-6 rounded-2xl border-4 border-gray-700 grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-4 mb-10" id="level-grid">
+            <!-- JS 動態生成 48 個關卡 -->
+        </div>
+    </div>
+
+    <!-- 升級畫面 -->
+    <div id="overlay-upgrade" class="absolute inset-0 bg-gray-900 flex flex-col items-center justify-start py-10 z-50 transition-opacity hidden overflow-y-auto hide-scrollbar">
+        <h1 class="text-4xl md:text-5xl font-black text-purple-400 mb-2 drop-shadow-md">貓咪研究所</h1>
+        <div id="upgrade-exp-display" class="text-2xl font-bold text-green-400 mb-6">目前經驗值: 0 EXP</div>
+        <div id="upgrade-grid" class="w-11/12 max-w-4xl grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-20">
+            <!-- JS 動態產生解鎖單位的升級卡片 -->
+        </div>
+        <button id="btn-upgrade-back" class="fixed bottom-6 bg-gray-700 hover:bg-gray-600 text-white font-bold text-xl px-10 py-3 rounded-full shadow-lg active:scale-95 transition-all z-50 border-2 border-gray-400">
+            返回地圖
+        </button>
+    </div>
+
+    <!-- 轉蛋畫面 -->
+    <div id="overlay-gacha" class="absolute inset-0 bg-gray-900 flex flex-col items-center justify-start py-10 z-50 transition-opacity hidden overflow-y-auto hide-scrollbar">
+        <h1 class="text-4xl md:text-5xl font-black text-pink-400 mb-2 drop-shadow-md">貓咪轉蛋機</h1>
+        <div id="gacha-ticket-display" class="text-2xl font-bold text-blue-400 mb-6">目前轉蛋卷: 0 🎫</div>
+        
+        <div class="flex gap-6 mb-10">
+            <button id="btn-gacha-1" class="bg-blue-600 hover:bg-blue-500 text-white font-bold text-xl py-3 px-8 rounded-full shadow-lg active:scale-95 transition-transform border-2 border-blue-400">
+                單抽 (1 🎫)
+            </button>
+            <button id="btn-gacha-10" class="bg-pink-600 hover:bg-pink-500 text-white font-bold text-xl py-3 px-8 rounded-full shadow-lg active:scale-95 transition-transform border-2 border-pink-400">
+                十連抽 (10 🎫)
+            </button>
+        </div>
+
+        <div id="gacha-result-grid" class="w-11/12 max-w-4xl grid grid-cols-2 sm:grid-cols-5 gap-4 mb-24">
+            <!-- JS 動態產生抽卡結果 -->
+        </div>
+
+        <button id="btn-gacha-back" class="fixed bottom-6 bg-gray-700 hover:bg-gray-600 text-white font-bold text-xl px-10 py-3 rounded-full shadow-lg active:scale-95 transition-all z-50 border-2 border-gray-400">
+            返回地圖
+        </button>
+    </div>
+
+    <!-- 遊戲主要 UI -->
+    <div id="game-container" class="w-full h-full flex flex-col hidden">
+        <!-- 上方資訊列 -->
+        <div class="h-16 bg-gray-900 flex items-center justify-between px-4 border-b-2 border-gray-700 z-10 shrink-0">
+            <!-- 敵方血量 (左側) -->
+            <div class="w-1/3 text-left">
+                <div class="text-red-400 font-bold mb-1 text-sm md:text-base">狗狗基地</div>
+                <div class="w-full bg-gray-700 h-3 md:h-4 rounded-full overflow-hidden">
+                    <div id="enemy-hp-bar" class="bg-red-500 h-full w-full transition-all duration-200"></div>
+                </div>
+            </div>
+            
+            <!-- 資源與控制 (中央) -->
+            <div class="w-1/3 flex flex-col items-center">
+                <div class="text-yellow-400 font-black text-xl md:text-2xl drop-shadow-md flex items-center gap-2">
+                    $<span id="money-display">0</span> 
+                    <span id="money-max-label" class="text-xs font-bold text-red-400 bg-red-900/50 px-1 rounded hidden">MAX</span>
+                </div>
+                <button id="btn-speed" class="mt-1 text-xs md:text-sm font-bold bg-gray-700 px-3 py-1 rounded hover:bg-gray-600 active:scale-95 transition-colors text-white border border-gray-500">
+                    ▶ 1x
+                </button>
+            </div>
+
+            <!-- 我方血量 (右側) -->
+            <div class="w-1/3 text-right flex flex-col items-end">
+                <div class="text-blue-400 font-bold mb-1 text-sm md:text-base">貓咪基地</div>
+                <div class="w-full max-w-[200px] bg-gray-700 h-3 md:h-4 rounded-full overflow-hidden">
+                    <div id="player-hp-bar" class="bg-blue-500 h-full w-full transition-all duration-200"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 遊戲畫布 -->
+        <canvas id="gameCanvas"></canvas>
+
+        <!-- 下方控制列 -->
+        <div class="h-28 md:h-32 bg-gray-900 border-t-2 border-gray-700 flex items-center shrink-0 w-full">
+            <div class="w-full h-full overflow-x-auto hide-scrollbar flex items-center px-4 gap-3 snap-x" id="panel-units">
+                <!-- JS 動態生成角色按鈕 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- 結束畫面 -->
+    <div id="overlay-gameover" class="absolute inset-0 bg-black/80 flex flex-col items-center justify-center z-40 transition-opacity hidden">
+        <h2 id="gameover-title" class="text-5xl md:text-7xl font-black mb-4 drop-shadow-lg"></h2>
+        <p id="gameover-desc" class="text-xl md:text-2xl mb-6 text-gray-300"></p>
+        <div id="gameover-rewards" class="text-2xl font-bold mb-8 flex gap-4 hidden">
+            <span class="text-green-400" id="reward-exp"></span>
+            <span class="text-blue-400" id="reward-ticket"></span>
+        </div>
+        <div class="flex gap-4">
+            <button id="btn-back-map" class="bg-gray-600 hover:bg-gray-500 text-white font-bold py-3 px-8 rounded-full shadow-lg active:scale-95 transition-transform text-xl border-2 border-gray-400">回地圖</button>
+            <button id="btn-next-level" class="bg-yellow-500 hover:bg-yellow-400 text-black font-black py-3 px-8 rounded-full shadow-lg active:scale-95 transition-transform text-xl border-2 border-yellow-200 hidden">下一關</button>
+            <button id="btn-restart" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-8 rounded-full shadow-lg active:scale-95 transition-transform text-xl border-2 border-blue-400 hidden">重新挑戰</button>
+        </div>
+    </div>
+
+    <script>
+        const TOTAL_LEVELS = 48;
+        const MAX_MONEY = 16500;
+        
+        let maxLevelUnlocked = 1;
+        let currentLevel = 1;
+        let playerExp = 0;
+        let gachaTickets = 0;
+        
+        // 預設解鎖基礎貓(1)與坦克貓(2)
+        let unlockedUnits = [1, 2]; 
+        let unitLevels = {}; 
+
+        // 12種玩家貓咪
+        const PLAYER_UNITS = [
+            { id: 1, name: '基礎貓', emoji: '🐈', cost: 100, hp: 100, maxHp: 100, dmg: 10, range: 40, speed: 2.0, cd: 60, color: '#fff' },
+            { id: 2, name: '坦克貓', emoji: '🛡️', cost: 300, hp: 400, maxHp: 400, dmg: 5,  range: 30, speed: 1.0, cd: 90, color: '#aaa' },
+            { id: 3, name: '遠程貓', emoji: '🏹', cost: 600, hp: 80,  maxHp: 80,  dmg: 25, range: 180, speed: 1.5, cd: 70, color: '#60a5fa' },
+            { id: 4, name: '跑速貓', emoji: '🐆', cost: 1000, hp: 150, maxHp: 150, dmg: 15, range: 40, speed: 4.5, cd: 40, color: '#fbbf24' },
+            { id: 5, name: '忍者貓', emoji: '🥷', cost: 1500, hp: 200, maxHp: 200, dmg: 50, range: 50, speed: 3.5, cd: 50, color: '#4b5563' },
+            { id: 6, name: '巨人貓', emoji: '👹', cost: 2500, hp: 800, maxHp: 800, dmg: 100, range: 60, speed: 0.8, cd: 120, color: '#ef4444' },
+            { id: 7, name: '飛碟貓', emoji: '🛸', cost: 3500, hp: 300, maxHp: 300, dmg: 120, range: 150, speed: 2.5, cd: 80, color: '#a78bfa' },
+            { id: 8, name: '魔法貓', emoji: '🧙', cost: 5000, hp: 400, maxHp: 400, dmg: 250, range: 250, speed: 1.2, cd: 150, color: '#c084fc' },
+            { id: 9, name: '機器貓', emoji: '🤖', cost: 7000, hp: 1500, maxHp: 1500, dmg: 300, range: 80, speed: 1.0, cd: 100, color: '#9ca3af' },
+            { id: 10, name: '英雄貓', emoji: '🦸', cost: 9500, hp: 2000, maxHp: 2000, dmg: 500, range: 70, speed: 2.0, cd: 90, color: '#f87171' },
+            { id: 11, name: '龍騎士貓', emoji: '🐉', cost: 12500, hp: 2500, maxHp: 2500, dmg: 800, range: 200, speed: 1.5, cd: 140, color: '#34d399' },
+            { id: 12, name: '國王貓', emoji: '👑', cost: 16500, hp: 5000, maxHp: 5000, dmg: 1500, range: 90, speed: 1.0, cd: 180, color: '#fbbf24' }
+        ];
+
+        // 8種敵方狗狗與怪物
+        const ENEMY_UNITS = [
+            { id: 101, name: '基礎狗', emoji: '🐕', minLevel: 1, maxLevel: 48, hp: 80, maxHp: 80, dmg: 8, range: 40, speed: 1.5, cd: 60, color: '#fff', value: 30, spawnWeight: 100 },
+            { id: 102, name: '衝鋒狗', emoji: '🐺', minLevel: 3, maxLevel: 48, hp: 120, maxHp: 120, dmg: 15, range: 40, speed: 3.5, cd: 50, color: '#ccc', value: 80, spawnWeight: 60 },
+            { id: 103, name: '猩猩', emoji: '🦍', minLevel: 8, maxLevel: 48, hp: 500, maxHp: 500, dmg: 40, range: 50, speed: 1.0, cd: 100, color: '#777', value: 250, spawnWeight: 40 },
+            { id: 104, name: '飛天狗', emoji: '🦅', minLevel: 15, maxLevel: 48, hp: 300, maxHp: 300, dmg: 80, range: 120, speed: 2.5, cd: 80, color: '#facc15', value: 500, spawnWeight: 30 },
+            { id: 105, name: '黑熊', emoji: '🐻', minLevel: 22, maxLevel: 48, hp: 1200, maxHp: 1200, dmg: 150, range: 60, speed: 2.0, cd: 120, color: '#444', value: 1200, spawnWeight: 20 },
+            { id: 106, name: '魔王狗', emoji: '👿', minLevel: 30, maxLevel: 48, hp: 3000, maxHp: 3000, dmg: 300, range: 80, speed: 1.2, cd: 100, color: '#dc2626', value: 3000, spawnWeight: 15 },
+            { id: 107, name: '異形狗', emoji: '👽', minLevel: 38, maxLevel: 48, hp: 5000, maxHp: 5000, dmg: 600, range: 250, speed: 1.5, cd: 150, color: '#10b981', value: 6000, spawnWeight: 10 },
+            { id: 108, name: '終極魔王', emoji: '☠️', minLevel: 45, maxLevel: 48, hp: 15000, maxHp: 15000, dmg: 2000, range: 100, speed: 0.8, cd: 200, color: '#000', value: 10000, spawnWeight: 5 }
+        ];
+
+        // 初始化所有單位的等級
+        PLAYER_UNITS.forEach(u => unitLevels[u.id] = 1); 
+
+        // 取得升級後的能力值
+        function getUnitStats(baseUnit) {
+            const lv = unitLevels[baseUnit.id] || 1;
+            const multiplier = 1 + (lv - 1) * 0.4; // 每級提升40%
+            return {
+                ...baseUnit,
+                hp: Math.floor(baseUnit.hp * multiplier),
+                maxHp: Math.floor(baseUnit.maxHp * multiplier),
+                dmg: Math.floor(baseUnit.dmg * multiplier),
+                level: lv
+            };
+        }
+
+        // DOM 元素
+        const overlayStart = document.getElementById('overlay-start');
+        const overlayLevelSelect = document.getElementById('overlay-level-select');
+        const overlayUpgrade = document.getElementById('overlay-upgrade');
+        const overlayGacha = document.getElementById('overlay-gacha');
+        const gameContainer = document.getElementById('game-container');
+        const overlayGameover = document.getElementById('overlay-gameover');
+        const levelGrid = document.getElementById('level-grid');
+        
+        const mapExpDisplay = document.getElementById('map-exp-display');
+        const mapTicketDisplay = document.getElementById('map-ticket-display');
+        const upgradeExpDisplay = document.getElementById('upgrade-exp-display');
+        const gachaTicketDisplay = document.getElementById('gacha-ticket-display');
+
+        const moneyDisplay = document.getElementById('money-display');
+        const moneyMaxLabel = document.getElementById('money-max-label');
+        const enemyHpBar = document.getElementById('enemy-hp-bar');
+        const playerHpBar = document.getElementById('player-hp-bar');
+        const btnSpeed = document.getElementById('btn-speed');
+        const panelUnits = document.getElementById('panel-units');
+        
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // 遊戲狀態變數
+        let gameState = 'START'; // START, MAP, PLAYING, PAUSED, GAMEOVER
+        let money = 0;
+        let gameSpeed = 1; 
+        
+        let playerBase, enemyBase;
+        let pUnits = [], eUnits = [];
+        let particles = [];
+        
+        let lastTime = 0;
+        let enemySpawnTimer = 0;
+        let animationFrameId = null;
+
+        // 簡單音效產生器
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playSound(type) {
+            if(audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            
+            if (type === 'spawn') {
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+            } else if (type === 'hit') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(100, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(10, audioCtx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+            } else if (type === 'explode') {
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(50, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(1, audioCtx.currentTime + 0.5);
+                gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.5);
+            }
+        }
+
+        // --- 介面邏輯 ---
+        function renderLevelSelect() {
+            levelGrid.innerHTML = '';
+            for (let i = 1; i <= TOTAL_LEVELS; i++) {
+                const btn = document.createElement('button');
+                btn.className = `p-4 rounded-xl font-black text-xl border-4 transition-all flex flex-col items-center justify-center h-24 ${
+                    i <= maxLevelUnlocked 
+                    ? 'bg-yellow-500 text-black border-yellow-300 hover:scale-105 active:scale-95 cursor-pointer shadow-lg' 
+                    : 'bg-gray-700 text-gray-500 border-gray-600 cursor-not-allowed'
+                }`;
+                btn.innerHTML = `<span>Lv.</span><span>${i}</span>`;
+                if (i <= maxLevelUnlocked) {
+                    btn.addEventListener('click', () => startLevel(i));
+                }
+                levelGrid.appendChild(btn);
+            }
+            mapExpDisplay.innerText = playerExp;
+            mapTicketDisplay.innerText = gachaTickets;
+        }
+
+        function renderUpgradeScreen() {
+            const grid = document.getElementById('upgrade-grid');
+            grid.innerHTML = '';
+            upgradeExpDisplay.innerText = `目前經驗值: ${playerExp} EXP`;
+
+            PLAYER_UNITS.filter(u => unlockedUnits.includes(u.id)).forEach(baseUnit => {
+                const u = getUnitStats(baseUnit);
+                const upgradeCost = baseUnit.cost * u.level * 3;
+                const canUpgrade = playerExp >= upgradeCost;
+                
+                const card = document.createElement('div');
+                card.className = `bg-gray-800 p-4 rounded-xl flex flex-col items-center border-4 ${canUpgrade ? 'border-purple-500' : 'border-gray-600'} relative`;
+                card.innerHTML = `
+                    <div class="absolute top-2 right-2 bg-yellow-500 text-black text-xs font-black px-2 py-1 rounded">Lv.${u.level}</div>
+                    <div class="text-5xl mb-2">${u.emoji}</div>
+                    <div class="font-bold text-lg mb-1">${u.name}</div>
+                    <div class="text-xs text-gray-400 mb-3 text-center">HP: ${u.hp} | DMG: ${u.dmg}</div>
+                    <button class="w-full py-2 rounded font-bold transition-all ${canUpgrade ? 'bg-purple-600 hover:bg-purple-500 text-white shadow-lg active:scale-95' : 'bg-gray-700 text-gray-400 cursor-not-allowed'}" ${!canUpgrade ? 'disabled' : ''}>
+                        升級 (-${upgradeCost} EXP)
+                    </button>
+                `;
+                
+                if (canUpgrade) {
+                    card.querySelector('button').addEventListener('click', () => {
+                        playerExp -= upgradeCost;
+                        unitLevels[u.id] += 1;
+                        playSound('spawn');
+                        renderUpgradeScreen();
+                        renderLevelSelect();
+                    });
+                }
+                grid.appendChild(card);
+            });
+        }
+
+        function performGacha(times) {
+            if (gachaTickets < times) return;
+            gachaTickets -= times;
+            gachaTicketDisplay.innerText = `目前轉蛋卷: ${gachaTickets} 🎫`;
+            mapTicketDisplay.innerText = gachaTickets;
+            
+            const gachaResultGrid = document.getElementById('gacha-result-grid');
+            gachaResultGrid.innerHTML = '';
+            playSound('spawn');
+
+            for (let i = 0; i < times; i++) {
+                let randIndex = Math.floor(Math.random() * Math.random() * PLAYER_UNITS.length); 
+                let rolledUnit = PLAYER_UNITS[randIndex];
+                
+                let isNew = false;
+                if (!unlockedUnits.includes(rolledUnit.id)) {
+                    unlockedUnits.push(rolledUnit.id);
+                    isNew = true;
+                } else {
+                    unitLevels[rolledUnit.id] += 1; 
+                }
+
+                const card = document.createElement('div');
+                card.className = 'bg-gray-800 p-2 py-4 rounded-xl flex flex-col items-center border-2 border-gray-600 shadow-lg';
+                card.innerHTML = `
+                    <div class="text-sm font-black ${isNew ? 'text-pink-400 animate-pulse' : 'text-blue-400'} mb-2">${isNew ? '✨新解鎖✨' : '等級 +1'}</div>
+                    <div class="text-5xl mb-2">${rolledUnit.emoji}</div>
+                    <div class="text-sm font-bold text-white text-center">${rolledUnit.name}</div>
+                `;
+                gachaResultGrid.appendChild(card);
+            }
+        }
+
+        // 事件綁定：主選單與覆蓋層
+        document.getElementById('btn-start').addEventListener('click', () => {
+            overlayStart.classList.add('hidden');
+            overlayLevelSelect.classList.remove('hidden');
+            renderLevelSelect();
+        });
+
+        document.getElementById('btn-to-upgrade').addEventListener('click', () => {
+            overlayLevelSelect.classList.add('hidden');
+            overlayUpgrade.classList.remove('hidden');
+            renderUpgradeScreen();
+        });
+        document.getElementById('btn-upgrade-back').addEventListener('click', () => {
+            overlayUpgrade.classList.add('hidden');
+            overlayLevelSelect.classList.remove('hidden');
+        });
+
+        document.getElementById('btn-to-gacha').addEventListener('click', () => {
+            overlayLevelSelect.classList.add('hidden');
+            overlayGacha.classList.remove('hidden');
+            gachaTicketDisplay.innerText = `目前轉蛋卷: ${gachaTickets} 🎫`;
+            document.getElementById('gacha-result-grid').innerHTML = '';
+        });
+        document.getElementById('btn-gacha-back').addEventListener('click', () => {
+            overlayGacha.classList.add('hidden');
+            overlayLevelSelect.classList.remove('hidden');
+        });
+        document.getElementById('btn-gacha-1').addEventListener('click', () => performGacha(1));
+        document.getElementById('btn-gacha-10').addEventListener('click', () => performGacha(10));
+
+        // 速度按鈕
+        btnSpeed.addEventListener('click', () => {
+            if (gameSpeed === 1) { gameSpeed = 2; btnSpeed.innerText = '▶▶ 2x'; btnSpeed.className = 'mt-1 text-xs md:text-sm font-bold px-3 py-1 rounded active:scale-95 transition-colors border border-orange-500 bg-orange-600 hover:bg-orange-500 text-white'; }
+            else if (gameSpeed === 2) { gameSpeed = 3; btnSpeed.innerText = '▶▶▶ 3x'; btnSpeed.className = 'mt-1 text-xs md:text-sm font-bold px-3 py-1 rounded active:scale-95 transition-colors border border-red-500 bg-red-600 hover:bg-red-500 text-white shadow-[0_0_10px_rgba(220,38,38,0.8)]'; }
+            else { gameSpeed = 1; btnSpeed.innerText = '▶ 1x'; btnSpeed.className = 'mt-1 text-xs md:text-sm font-bold bg-gray-700 px-3 py-1 rounded hover:bg-gray-600 active:scale-95 transition-colors text-white border border-gray-500'; }
+        });
+
+        // --- 遊戲邏輯與類別 ---
+        function resizeCanvas() {
+            canvas.width = canvas.clientWidth;
+            canvas.height = canvas.clientHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+        class Base {
+            constructor(isPlayer, maxHp) {
+                this.isPlayer = isPlayer;
+                this.maxHp = maxHp;
+                this.hp = maxHp;
+                // 我方在右邊，敵方在左邊
+                this.width = 80;
+                this.height = 120;
+                this.x = isPlayer ? canvas.width - 50 - this.width : 50; 
+                this.y = canvas.height - 150;
+                this.flashTime = 0;
+            }
+            draw(ctx) {
+                if (this.flashTime > 0) {
+                    ctx.fillStyle = '#fff';
+                    this.flashTime--;
+                } else {
+                    ctx.fillStyle = this.isPlayer ? '#3b82f6' : '#ef4444';
+                }
+                // 畫塔
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+                ctx.fillStyle = this.isPlayer ? '#1d4ed8' : '#b91c1c';
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y);
+                ctx.lineTo(this.x + this.width/2, this.y - 60);
+                ctx.lineTo(this.x + this.width, this.y);
+                ctx.fill();
+            }
+        }
+
+        class Unit {
+            constructor(data, isPlayer) {
+                this.isPlayer = isPlayer;
+                this.emoji = data.emoji;
+                this.maxHp = data.maxHp;
+                this.hp = data.hp;
+                this.dmg = data.dmg;
+                this.range = data.range;
+                this.speed = data.speed;
+                this.maxCd = data.cd;
+                this.cd = 0;
+                this.value = data.value || 0;
+                
+                this.width = 40;
+                this.height = 40;
+                
+                // 玩家從右邊出發，敵人從左邊出發
+                this.x = isPlayer ? playerBase.x - this.width : enemyBase.x + enemyBase.width;
+                this.y = canvas.height - 50 - this.height - (Math.random() * 20); // 些微Y軸錯開
+                
+                this.flashTime = 0;
+                this.attackAnim = 0;
+                this.state = 'MOVE';
+            }
+
+            draw(ctx) {
+                // 攻擊動畫位移
+                let drawX = this.x;
+                if (this.attackAnim > 0) {
+                    drawX += (this.isPlayer ? -15 : 15); // 玩家向左攻擊，敵人向右攻擊
+                    this.attackAnim--;
+                }
+                
+                ctx.font = '40px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                if (this.flashTime > 0) {
+                    ctx.globalAlpha = 0.3;
+                    this.flashTime--;
+                }
+                ctx.fillText(this.emoji, drawX + this.width/2, this.y + this.height/2);
+                ctx.globalAlpha = 1.0;
+
+                // 畫血條 (受傷時才顯示)
+                if (this.hp < this.maxHp) {
+                    const hpPercent = Math.max(0, this.hp / this.maxHp);
+                    ctx.fillStyle = '#000';
+                    ctx.fillRect(drawX, this.y - 15, this.width, 6);
+                    ctx.fillStyle = this.isPlayer ? '#3b82f6' : '#ef4444';
+                    ctx.fillRect(drawX + 1, this.y - 14, (this.width - 2) * hpPercent, 4);
+                }
+            }
+        }
+
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x; this.y = y; this.color = color;
+                this.vx = (Math.random() - 0.5) * 10;
+                this.vy = (Math.random() - 0.5) * 10;
+                this.life = 20;
+            }
+            update() { this.x += this.vx; this.y += this.vy; this.life--; }
+            draw(ctx) {
+                ctx.fillStyle = this.color;
+                ctx.globalAlpha = this.life / 20;
+                ctx.beginPath(); ctx.arc(this.x, this.y, 4, 0, Math.PI*2); ctx.fill();
+                ctx.globalAlpha = 1.0;
+            }
+        }
+
+        // --- 戰鬥與初始化邏輯 ---
+        function initUnitCards() {
+            panelUnits.innerHTML = '';
+            PLAYER_UNITS.filter(u => unlockedUnits.includes(u.id)).forEach(baseUnit => {
+                const u = getUnitStats(baseUnit);
+                const btn = document.createElement('button');
+                btn.className = `snap-start min-w-[90px] h-20 md:h-24 bg-gray-800 rounded-xl flex flex-col items-center justify-center border-2 border-gray-600 transition-transform flex-shrink-0 relative`;
+                btn.innerHTML = `
+                    <div class="absolute -top-2 -right-2 bg-yellow-500 text-black text-[10px] font-black px-1.5 py-0.5 rounded shadow">Lv.${u.level}</div>
+                    <div class="text-3xl md:text-4xl mb-1">${u.emoji}</div>
+                    <div class="text-xs font-bold text-yellow-400">$${u.cost}</div>
+                `;
+                btn.onclick = () => {
+                    if (money >= u.cost) {
+                        money -= u.cost;
+                        pUnits.push(new Unit(u, true));
+                        playSound('spawn');
+                    }
+                };
+                panelUnits.appendChild(btn);
+            });
+        }
+
+        function updateUnitCardsState() {
+            const btns = panelUnits.children;
+            const availableUnits = PLAYER_UNITS.filter(u => unlockedUnits.includes(u.id));
+            for (let i = 0; i < btns.length; i++) {
+                if (money >= availableUnits[i].cost) {
+                    btns[i].classList.remove('unit-card-disabled');
+                    btns[i].classList.add('hover:bg-gray-700', 'active:scale-95', 'cursor-pointer');
+                } else {
+                    btns[i].classList.add('unit-card-disabled');
+                    btns[i].classList.remove('hover:bg-gray-700', 'active:scale-95', 'cursor-pointer');
+                }
+            }
+        }
+
+        function startLevel(level) {
+            currentLevel = level;
+            gameState = 'PLAYING';
+            overlayLevelSelect.classList.add('hidden');
+            gameContainer.classList.remove('hidden');
+            
+            resizeCanvas();
+            initUnitCards();
+
+            money = 0;
+            pUnits = []; eUnits = []; particles = [];
+            
+            playerBase = new Base(true, 10000);
+            enemyBase = new Base(false, 2000 + (level * 800)); // 隨關卡提升敵方基地血量
+            
+            updateHpBars();
+            
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            lastTime = performance.now();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function spawnEnemy() {
+            // 隨關卡解鎖不同的敵人
+            let availableEnemies = ENEMY_UNITS.filter(e => e.minLevel <= currentLevel);
+            let totalWeight = availableEnemies.reduce((sum, e) => sum + e.spawnWeight, 0);
+            let r = Math.random() * totalWeight;
+            
+            let selectedEnemy = availableEnemies[0];
+            for (let e of availableEnemies) {
+                if (r < e.spawnWeight) { selectedEnemy = e; break; }
+                r -= e.spawnWeight;
+            }
+            
+            // 敵人的能力隨關卡微幅成長
+            const enemyData = {
+                ...selectedEnemy,
+                hp: Math.floor(selectedEnemy.hp * (1 + currentLevel * 0.1)),
+                dmg: Math.floor(selectedEnemy.dmg * (1 + currentLevel * 0.1))
+            };
+            eUnits.push(new Unit(enemyData, false));
+        }
+
+        function updateHpBars() {
+            enemyHpBar.style.width = `${Math.max(0, (enemyBase.hp / enemyBase.maxHp) * 100)}%`;
+            playerHpBar.style.width = `${Math.max(0, (playerBase.hp / playerBase.maxHp) * 100)}%`;
+        }
+
+        function gameLoop(timestamp) {
+            if (gameState !== 'PLAYING') return;
+
+            // 執行多個邏輯幀來實現加速
+            for (let i = 0; i < gameSpeed; i++) {
+                updateLogic();
+                if(gameState !== 'PLAYING') break; // 若在某個邏輯幀結束遊戲，則中斷
+            }
+
+            draw();
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+
+        function updateLogic() {
+            // 金錢隨時間增加 (每幀增加, 基準60fps=250/秒)
+            money = Math.min(MAX_MONEY, money + (250 / 60));
+            moneyDisplay.innerText = Math.floor(money);
+            
+            if (money >= MAX_MONEY) {
+                moneyMaxLabel.classList.remove('hidden');
+                moneyDisplay.classList.add('text-red-400');
+            } else {
+                moneyMaxLabel.classList.add('hidden');
+                moneyDisplay.classList.remove('text-red-400');
+            }
+
+            updateUnitCardsState();
+
+            // 生成敵人 (越後面的關卡生成越快)
+            enemySpawnTimer++;
+            let spawnRate = Math.max(60, 300 - (currentLevel * 4)); 
+            if (enemySpawnTimer > spawnRate) {
+                spawnEnemy();
+                enemySpawnTimer = 0;
+            }
+
+            // 更新單位 (我方)
+            for (let i = pUnits.length - 1; i >= 0; i--) {
+                let u = pUnits[i];
+                if (u.cd > 0) u.cd--;
+                
+                // 尋找目標 (最前面的敵人或敵方基地)
+                let target = null;
+                let minDist = u.range;
+                
+                // 對敵人判斷 (我方在右，敵方在左，檢查左邊)
+                for (let e of eUnits) {
+                    let dist = u.x - (e.x + e.width);
+                    if (dist >= 0 && dist <= minDist) {
+                        target = e; minDist = dist; break;
+                    }
+                }
+                
+                // 對基地判斷
+                let baseDist = u.x - (enemyBase.x + enemyBase.width);
+                if (!target && baseDist >= 0 && baseDist <= minDist) {
+                    target = enemyBase;
+                }
+
+                if (target) {
+                    u.state = 'ATTACK';
+                    if (u.cd === 0) {
+                        target.hp -= u.dmg;
+                        target.flashTime = 5;
+                        u.cd = u.maxCd;
+                        u.attackAnim = 10;
+                        playSound('hit');
+                        for(let k=0; k<5; k++) particles.push(new Particle(u.x, u.y + u.height/2, '#fff'));
+                        
+                        if (target.hp <= 0 && target instanceof Unit) {
+                            money = Math.min(MAX_MONEY, money + target.value);
+                            eUnits = eUnits.filter(e => e !== target);
+                        }
+                    }
+                } else {
+                    u.state = 'MOVE';
+                    u.x -= u.speed; // 我方向左移動
+                }
+
+                if (u.hp <= 0) pUnits.splice(i, 1);
+            }
+
+            // 更新單位 (敵方)
+            for (let i = eUnits.length - 1; i >= 0; i--) {
+                let u = eUnits[i];
+                if (u.cd > 0) u.cd--;
+                
+                let target = null;
+                let minDist = u.range;
+                
+                // 對我方判斷 (敵方在左，我方在右，檢查右邊)
+                for (let p of pUnits) {
+                    let dist = p.x - (u.x + u.width);
+                    if (dist >= 0 && dist <= minDist) {
+                        target = p; minDist = dist; break;
+                    }
+                }
+                
+                // 對基地判斷
+                let baseDist = playerBase.x - (u.x + u.width);
+                if (!target && baseDist >= 0 && baseDist <= minDist) {
+                    target = playerBase;
+                }
+
+                if (target) {
+                    u.state = 'ATTACK';
+                    if (u.cd === 0) {
+                        target.hp -= u.dmg;
+                        target.flashTime = 5;
+                        u.cd = u.maxCd;
+                        u.attackAnim = 10;
+                        playSound('hit');
+                        for(let k=0; k<5; k++) particles.push(new Particle(u.x + u.width, u.y + u.height/2, '#ef4444'));
+                        
+                        if (target.hp <= 0 && target instanceof Unit) {
+                            pUnits = pUnits.filter(p => p !== target);
+                        }
+                    }
+                } else {
+                    u.state = 'MOVE';
+                    u.x += u.speed; // 敵方向右移動
+                }
+
+                if (u.hp <= 0) eUnits.splice(i, 1);
+            }
+
+            // 更新粒子
+            for (let i = particles.length - 1; i >= 0; i--) {
+                particles[i].update();
+                if (particles[i].life <= 0) particles.splice(i, 1);
+            }
+
+            updateHpBars();
+
+            // 勝負判定
+            if (enemyBase.hp <= 0) gameOver(true);
+            else if (playerBase.hp <= 0) gameOver(false);
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 背景地平線
+            ctx.fillStyle = '#222';
+            ctx.fillRect(0, canvas.height - 100, canvas.width, 100);
+            
+            enemyBase.draw(ctx);
+            playerBase.draw(ctx);
+            
+            pUnits.forEach(u => u.draw(ctx));
+            eUnits.forEach(u => u.draw(ctx));
+            particles.forEach(p => p.draw(ctx));
+        }
+
+        function gameOver(isWin) {
+            gameState = 'GAMEOVER';
+            playSound('explode');
+            
+            const title = document.getElementById('gameover-title');
+            const desc = document.getElementById('gameover-desc');
+            const btnNext = document.getElementById('btn-next-level');
+            const btnRestart = document.getElementById('btn-restart');
+            const rewards = document.getElementById('gameover-rewards');
+            const rExp = document.getElementById('reward-exp');
+            const rTicket = document.getElementById('reward-ticket');
+
+            rewards.classList.add('hidden');
+            
+            if (isWin) {
+                let gainedExp = 200 + (currentLevel * 100);
+                playerExp += gainedExp;
+                gachaTickets += 10; 
+
+                title.innerText = '勝利！';
+                title.className = 'text-5xl md:text-7xl font-black mb-4 drop-shadow-lg text-yellow-400';
+                desc.innerText = `成功摧毀狗狗基地！ (Level ${currentLevel} 完成)`;
+                
+                rewards.classList.remove('hidden');
+                rExp.innerText = `+ ${gainedExp} EXP`;
+                rTicket.innerText = `+ 10 🎫`;
+
+                if (currentLevel === maxLevelUnlocked && maxLevelUnlocked < TOTAL_LEVELS) {
+                    maxLevelUnlocked++;
+                }
+                
+                if (currentLevel < TOTAL_LEVELS) {
+                    btnNext.classList.remove('hidden');
+                    btnRestart.classList.add('hidden');
+                } else {
+                    btnNext.classList.add('hidden');
+                    btnRestart.classList.add('hidden');
+                    desc.innerText = '恭喜你通關了所有的關卡！世界和平了！';
+                }
+            } else {
+                title.innerText = '失敗';
+                title.className = 'text-5xl md:text-7xl font-black mb-4 drop-shadow-lg text-red-500';
+                desc.innerText = '貓咪基地被摧毀了...請再試一次。';
+                btnNext.classList.add('hidden');
+                btnRestart.classList.remove('hidden');
+            }
+
+            overlayGameover.classList.remove('hidden');
+        }
+
+        document.getElementById('btn-back-map').addEventListener('click', () => {
+            overlayGameover.classList.add('hidden');
+            gameContainer.classList.add('hidden');
+            overlayLevelSelect.classList.remove('hidden');
+            renderLevelSelect();
+            gameSpeed = 1; btnSpeed.innerText = '▶ 1x'; btnSpeed.className = 'mt-1 text-xs md:text-sm font-bold bg-gray-700 px-3 py-1 rounded hover:bg-gray-600 active:scale-95 transition-colors text-white border border-gray-500';
+        });
+
+        document.getElementById('btn-next-level').addEventListener('click', () => {
+            overlayGameover.classList.add('hidden');
+            startLevel(currentLevel + 1);
+        });
+
+        document.getElementById('btn-restart').addEventListener('click', () => {
+            overlayGameover.classList.add('hidden');
+            startLevel(currentLevel);
+        });
+
+    </script>
+</body>
+</html>

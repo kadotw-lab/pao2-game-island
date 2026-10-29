@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>學生塔防 Student Tower Defense</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #1a202c; touch-action: none; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        #game-container { display: flex; width: 100vw; height: 100vh; flex-direction: column; }
+        @media (min-width: 768px) { #game-container { flex-direction: row; } }
+        #canvas-wrapper { flex: 1; display: flex; justify-content: center; align-items: center; background-color: #2d3748; padding: 10px; position: relative; }
+        canvas { 
+            background-color: #a3e635; /* 草地背景 */
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            border-radius: 0.5rem;
+            max-width: 100%; max-height: 100%; object-fit: contain; cursor: crosshair;
+        }
+        #ui-panel { width: 100%; height: 300px; background-color: #1e293b; color: white; padding: 1rem; display: flex; flex-direction: column; gap: 1rem; overflow-y: auto; box-shadow: -4px 0 15px rgba(0,0,0,0.5); z-index: 10; }
+        @media (min-width: 768px) { #ui-panel { width: 320px; height: 100%; } }
+        
+        .tower-btn { transition: all 0.2s; border: 2px solid transparent; }
+        .tower-btn.selected { border-color: #3b82f6; background-color: #334155; transform: scale(1.05); }
+        .tower-btn:disabled { opacity: 0.5; cursor: not-allowed; filter: grayscale(100%); transform: none; }
+        .tower-btn:not(:disabled):hover { background-color: #334155; }
+        
+        /* 隱藏/顯示的輔助 class */
+        .hidden { display: none !important; }
+        #overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.7); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 20; color: white; text-align: center; border-radius: 0.5rem;}
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="canvas-wrapper">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <div id="overlay">
+            <h1 id="overlay-title" class="text-4xl md:text-5xl font-bold mb-4 text-yellow-400 drop-shadow-lg">學生塔防</h1>
+            <p id="overlay-desc" class="text-lg mb-8 max-w-md px-4">部署學生抵擋來襲的考卷與老師！<br>保衛放學的自由！</p>
+            <div id="overlay-stats" class="hidden text-xl mb-6 text-red-400 font-bold"></div>
+            <button id="start-btn" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-8 rounded-full text-xl shadow-lg transition transform hover:scale-105 active:scale-95">開始遊戲</button>
+        </div>
+    </div>
+    
+    <div id="ui-panel">
+        <div class="flex flex-col gap-2 p-4 bg-slate-800 rounded-lg shadow-inner">
+            <h2 class="text-xl font-bold text-center text-blue-300 border-b border-slate-600 pb-2">防禦狀態</h2>
+            <div class="flex justify-between items-center text-lg mt-2">
+                <span class="text-slate-300">波數 (Wave):</span>
+                <span id="ui-wave" class="font-mono font-bold text-yellow-400">1</span>
+            </div>
+            <div class="flex justify-between items-center text-lg">
+                <span class="text-slate-300">零用錢 ($):</span>
+                <span id="ui-money" class="font-mono font-bold text-green-400">150</span>
+            </div>
+            <div class="flex justify-between items-center text-lg">
+                <span class="text-slate-300">基地血量:</span>
+                <span id="ui-lives" class="font-mono font-bold text-red-400">100</span>
+            </div>
+            <div class="flex justify-between items-center text-sm text-slate-400 mt-2">
+                <span>最高紀錄: <span id="ui-highscore">0</span> 波</span>
+            </div>
+        </div>
+
+        <div class="flex-1">
+            <h3 class="text-lg font-bold text-slate-300 mb-3 px-1">徵召單位 (選擇塔)</h3>
+            <div class="grid grid-cols-1 gap-3" id="tower-selection">
+                <!-- 塔按鈕會由 JS 動態生成 -->
+            </div>
+        </div>
+        
+        <div class="mt-auto pt-4 border-t border-slate-700 flex flex-col gap-3">
+            <p class="text-xs text-slate-400 text-center mb-1">點擊地圖空地放置，右鍵取消</p>
+            <button id="next-wave-btn" class="w-full bg-yellow-600 hover:bg-yellow-500 disabled:bg-slate-600 disabled:text-slate-400 text-white font-bold py-3 px-4 rounded shadow transition">
+                下一波來襲
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+// --- 遊戲資料與設定 ---
+const GAME_WIDTH = 800;
+const GAME_HEIGHT = 600;
+const PATH_WIDTH = 40;
+let gameState = 'MENU'; // MENU, PLAYING, GAME_OVER
+
+let money = 150;
+let lives = 100;
+let wave = 1;
+let enemies = [];
+let towers = [];
+let projectiles = [];
+let particles = [];
+let floatingTexts = [];
+let highestWave = localStorage.getItem('studentTD_highScore') || 0;
+
+// 紀錄波數敵人隊列與產生計時器
+let waveQueue = [];
+let spawnTimer = 0;
+let waveActive = false; // 當前是否有波數正在進行
+
+// 滑鼠/觸控狀態
+let mouseX = 0;
+let mouseY = 0;
+let selectedTowerType = null;
+let isMouseOnCanvas = false;
+
+// UI 元素
+const uiMoney = document.getElementById('ui-money');
+const uiLives = document.getElementById('ui-lives');
+const uiWave = document.getElementById('ui-wave');
+const uiHighScore = document.getElementById('ui-highscore');
+const nextWaveBtn = document.getElementById('next-wave-btn');
+const overlay = document.getElementById('overlay');
+const startBtn = document.getElementById('start-btn');
+const overlayTitle = document.getElementById('overlay-title');
+const overlayDesc = document.getElementById('overlay-desc');
+const overlayStats = document.getElementById('overlay-stats');
+const towerSelectionContainer = document.getElementById('tower-selection');
+
+uiHighScore.textContent = highestWave;
+
+// 地圖路徑節點
+const waypoints = [
+    { x: -50, y: 120 },
+    { x: 250, y: 120 },
+    { x: 250, y: 480 },
+    { x: 550, y: 480 },
+    { x: 550, y: 250 },
+    { x: 850, y: 250 }
+];
+
+// 計算路徑總長度與線段資訊
+const pathSegments = [];
+let totalPathLength = 0;
+for (let i = 0; i < waypoints.length - 1; i++) {
+    const p1 = waypoints[i];
+    const p2 = waypoints[i + 1];
+    const dx = p2.x - p1.x;
+    const dy = p2.y - p1.y;
+    const len = Math.hypot(dx, dy);
+    pathSegments.push({ p1, p2, len, dx: dx/len, dy: dy/len });
+    totalPathLength += len;
+}
+
+// 塔的種類資料
+const TOWER_TYPES = {
+    elephant: {
+        id: 'elephant', name: '大象', emoji: '🐘', desc: '噴水攻擊。便宜。',
+        cost: 50, range: 120, damage: 15, cooldown: 1.0, color: '#60a5fa', radius: 15, projSpeed: 300, type: 'basic'
+    },
+    nerd: {
+        id: 'nerd', name: '學霸', emoji: '🤓', desc: '發射死光。遠距、單發高傷。',
+        cost: 150, range: 250, damage: 60, cooldown: 2.0, color: '#f87171', radius: 15, projSpeed: 1000, type: 'sniper' 
+    },
+    pe: {
+        id: 'pe', name: '體育股長', emoji: '🏀', desc: '砸躲避球。範圍傷害。',
+        cost: 120, range: 100, damage: 20, cooldown: 1.5, color: '#fb923c', radius: 16, projSpeed: 250, type: 'aoe', aoeRadius: 60
+    },
+    prefect: {
+        id: 'prefect', name: '風紀股長', emoji: '👮', desc: '吹哨警告。傷害低，但能減緩敵人一半移動速度。',
+        cost: 100, range: 150, damage: 5, cooldown: 1.2, color: '#38bdf8', radius: 15, projSpeed: 400, type: 'slow'
+    },
+    art: {
+        id: 'art', name: '美術小老師', emoji: '🎨', desc: '狂潑顏料。攻速極快，單發傷害低，適合清怪。',
+        cost: 250, range: 120, damage: 8, cooldown: 0.15, color: '#d946ef', radius: 15, projSpeed: 600, type: 'basic'
+    },
+    treasurer: {
+        id: 'treasurer', name: '總務股長', emoji: '🤑', desc: '收取班費。無攻擊力，每秒自動產生 2 元。',
+        cost: 300, range: 0, damage: 0, cooldown: 1.0, color: '#fcd34d', radius: 15, projSpeed: 0, type: 'income', income: 2
+    }
+};
+
+// 敵人的種類資料
+const ENEMY_TYPES = {
+    homework: { name: '回家作業', emoji: '📓', maxHp: 15, speed: 85, reward: 2, radius: 10, color: '#e2e8f0' },
+    quiz: { name: '小考卷', emoji: '📝', maxHp: 30, speed: 60, reward: 5, radius: 12, color: '#ffffff' },
+    midterm: { name: '期中考卷', emoji: '📚', maxHp: 100, speed: 40, reward: 15, radius: 16, color: '#fef08a' },
+    final: { name: '期末考卷', emoji: '📜', maxHp: 300, speed: 30, reward: 40, radius: 20, color: '#fca5a5' },
+    boss: { name: '班導師', emoji: '👨‍🏫', maxHp: 600, speed: 25, reward: 100, radius: 24, color: '#fca5a5' },
+    discipline: { name: '生教組長', emoji: '🦅', maxHp: 500, speed: 55, reward: 150, radius: 24, color: '#94a3b8' }
+};
+
+class Enemy {
+    constructor(typeObj, hpMultiplier) {
+        this.type = typeObj;
+        this.maxHp = typeObj.maxHp * hpMultiplier;
+        this.hp = this.maxHp;
+        this.speed = typeObj.speed;
+        this.reward = typeObj.reward;
+        this.distanceTraveled = 0;
+        this.x = waypoints[0].x;
+        this.y = waypoints[0].y;
+        this.emoji = typeObj.emoji;
+        this.radius = typeObj.radius;
+        this.speedMultiplier = 1.0;
+        this.slowTimer = 0;
+    }
+
+    update(dt) {
+        if (this.hp <= 0) return false;
+        
+        if (this.slowTimer > 0) {
+            this.slowTimer -= dt;
+            this.speedMultiplier = 0.5;
+        } else {
+            this.speedMultiplier = 1.0;
+        }
+        
+        this.distanceTraveled += this.speed * this.speedMultiplier * dt;
+        
+        let currDist = this.distanceTraveled;
+        for (let i = 0; i < pathSegments.length; i++) {
+            let seg = pathSegments[i];
+            if (currDist <= seg.len) {
+                this.x = seg.p1.x + seg.dx * currDist;
+                this.y = seg.p1.y + seg.dy * currDist;
+                return true; 
+            }
+            currDist -= seg.len;
+        }
+        
+        lives -= 5; 
+        updateUI();
+        if (lives <= 0) gameOver();
+        return false;
+    }
+
+    draw(ctx) {
+        ctx.fillStyle = this.slowTimer > 0 ? 'rgba(56, 189, 248, 0.6)' : 'rgba(0,0,0,0.3)';
+        ctx.beginPath();
+        ctx.ellipse(this.x, this.y + this.radius, this.radius, this.radius*0.5, 0, 0, Math.PI*2);
+        ctx.fill();
+        
+        ctx.font = `${this.radius * 2}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(this.emoji, this.x, this.y);
+
+        const barWidth = this.radius * 2;
+        const barHeight = 4;
+        const hpPercent = Math.max(0, this.hp / this.maxHp);
+        
+        ctx.fillStyle = '#ef4444'; 
+        ctx.fillRect(this.x - barWidth/2, this.y - this.radius - 10, barWidth, barHeight);
+        ctx.fillStyle = '#22c55e'; 
+        ctx.fillRect(this.x - barWidth/2, this.y - this.radius - 10, barWidth * hpPercent, barHeight);
+        
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(this.x - barWidth/2, this.y - this.radius - 10, barWidth, barHeight);
+    }
+    
+    takeDamage(amt) {
+        if (this.hp <= 0) return true;
+        
+        this.hp -= amt;
+        addFloatingText(`-${Math.floor(amt)}`, this.x, this.y, '#ff4444');
+        if (this.hp <= 0) {
+            money += this.reward;
+            updateUI();
+            createParticles(this.x, this.y, this.type.color);
+            return true;
+        }
+        return false;
+    }
+}
+
+class Tower {
+    constructor(x, y, typeObj) {
+        this.x = x;
+        this.y = y;
+        this.type = typeObj;
+        this.cooldownTimer = 0;
+        this.target = null;
+        this.angle = 0;
+    }
+
+    update(dt) {
+        if (this.cooldownTimer > 0) {
+            this.cooldownTimer -= dt;
+        }
+
+        if (this.type.type === 'income') {
+            if (this.cooldownTimer <= 0) {
+                money += this.type.income;
+                updateUI();
+                addFloatingText(`+$${this.type.income}`, this.x, this.y - 10, '#4ade80');
+                this.cooldownTimer = this.type.cooldown;
+            }
+            return;
+        }
+
+        this.target = null;
+        let maxDist = -1;
+
+        for (let enemy of enemies) {
+            let distToEnemy = Math.hypot(enemy.x - this.x, enemy.y - this.y);
+            if (distToEnemy <= this.type.range + enemy.radius) {
+                if (enemy.distanceTraveled > maxDist) {
+                    maxDist = enemy.distanceTraveled;
+                    this.target = enemy;
+                }
+            }
+        }
+
+        if (this.target) {
+            this.angle = Math.atan2(this.target.y - this.y, this.target.x - this.x);
+            if (this.cooldownTimer <= 0) {
+                this.fire();
+            }
+        }
+    }
+
+    fire() {
+        this.cooldownTimer = this.type.cooldown;
+        if (this.type.type === 'sniper') {
+            createLaser(this.x, this.y, this.target.x, this.target.y, this.type.color);
+            this.target.takeDamage(this.type.damage);
+        } else {
+            projectiles.push(new Projectile(this.x, this.y, this.target, this.type));
+        }
+    }
+
+    draw(ctx) {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+        ctx.beginPath();
+        ctx.ellipse(this.x, this.y + this.type.radius - 2, this.type.radius + 5, (this.type.radius + 5)*0.5, 0, 0, Math.PI*2);
+        ctx.fill();
+        
+        ctx.fillStyle = this.type.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.type.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.font = `${this.type.radius * 1.5}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.fillText(this.type.emoji, 0, 0);
+        ctx.restore();
+
+        if (this.cooldownTimer > 0) {
+            const cdPercent = this.cooldownTimer / this.type.cooldown;
+            
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            ctx.rotate(-Math.PI / 2);
+            
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+            ctx.beginPath();
+            ctx.arc(0, 0, this.type.radius, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.arc(0, 0, this.type.radius, 0, Math.PI * 2 * cdPercent);
+            ctx.fill();
+            
+            ctx.restore();
+        }
+    }
+    
+    drawRange(ctx, isValid = true) {
+        if (this.type.range <= 0) return;
+        
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.type.range, 0, Math.PI * 2);
+        ctx.fillStyle = isValid ? 'rgba(255, 255, 255, 0.15)' : 'rgba(255, 0, 0, 0.2)';
+        ctx.fill();
+        ctx.strokeStyle = isValid ? 'rgba(255, 255, 255, 0.5)' : 'rgba(255, 0, 0, 0.5)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+    }
+}
+
+class Projectile {
+    constructor(x, y, target, towerType) {
+        this.x = x;
+        this.y = y;
+        this.target = target;
+        this.targetX = target.x;
+        this.targetY = target.y;
+        this.type = towerType;
+        this.speed = towerType.projSpeed;
+        this.damage = towerType.damage;
+    }
+
+    update(dt) {
+        if (this.target && this.target.hp > 0) {
+            this.targetX = this.target.x;
+            this.targetY = this.target.y;
+        }
+
+        const dx = this.targetX - this.x;
+        const dy = this.targetY - this.y;
+        const dist = Math.hypot(dx, dy);
+        
+        if (dist < 10) { 
+            this.hit();
+            return false;
+        }
+        
+        const moveAmt = this.speed * dt;
+        if (moveAmt >= dist) {
+            this.hit();
+            return false;
+        } else {
+            this.x += (dx / dist) * moveAmt;
+            this.y += (dy / dist) * moveAmt;
+        }
+        
+        return true;
+    }
+
+    hit() {
+        if (this.type.type === 'aoe') {
+            createParticles(this.x, this.y, '#fb923c', 10);
+            enemies.forEach(e => {
+                if (Math.hypot(e.x - this.x, e.y - this.y) <= this.type.aoeRadius + e.radius) {
+                    e.takeDamage(this.damage);
+                }
+            });
+        } else {
+            createParticles(this.x, this.y, this.type.color || '#fff', 3);
+            if (this.target && this.target.hp > 0) {
+                this.target.takeDamage(this.damage);
+                if (this.type.type === 'slow') {
+                    this.target.slowTimer = 2.0;
+                }
+            }
+        }
+    }
+
+    draw(ctx) {
+        ctx.fillStyle = this.type.type === 'aoe' ? '#fb923c' : '#fff';
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.type.type === 'aoe' ? 6 : 4, 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
+
+class Particle {
+    constructor(x, y, color) {
+        this.x = x;
+        this.y = y;
+        this.color = color;
+        const angle = Math.random() * Math.PI * 2;
+        const speed = Math.random() * 50 + 20;
+        this.vx = Math.cos(angle) * speed;
+        this.vy = Math.sin(angle) * speed;
+        this.life = 1.0;
+        this.decay = Math.random() * 1.5 + 1.0;
+        this.size = Math.random() * 3 + 2;
+    }
+    update(dt) {
+        this.x += this.vx * dt;
+        this.y += this.vy * dt;
+        this.life -= this.decay * dt;
+        return this.life > 0;
+    }
+    draw(ctx) {
+        ctx.globalAlpha = this.life;
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1.0;
+    }
+}
+
+let lasers = [];
+function createLaser(x1, y1, x2, y2, color) {
+    lasers.push({ x1, y1, x2, y2, color, life: 0.15 }); 
+}
+
+class FloatingText {
+    constructor(text, x, y, color) {
+        this.text = text;
+        this.x = x;
+        this.y = y - 20;
+        this.color = color;
+        this.life = 1.0;
+        this.vy = -30;
+    }
+    update(dt) {
+        this.y += this.vy * dt;
+        this.life -= 1.0 * dt;
+        return this.life > 0;
+    }
+    draw(ctx) {
+        ctx.globalAlpha = this.life;
+        ctx.fillStyle = this.color;
+        ctx.font = 'bold 16px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(this.text, this.x, this.y);
+        ctx.globalAlpha = 1.0;
+    }
+}
+
+function createParticles(x, y, color, count = 10) {
+    for (let i = 0; i < count; i++) particles.push(new Particle(x, y, color));
+}
+function addFloatingText(text, x, y, color) {
+    floatingTexts.push(new FloatingText(text, x, y, color));
+}
+
+function pointToLineDistance(px, py, x1, y1, x2, y2) {
+    const A = px - x1, B = py - y1, C = x2 - x1, D = y2 - y1;
+    const dot = A * C + B * D;
+    const len_sq = C * C + D * D;
+    let param = -1;
+    if (len_sq !== 0) param = dot / len_sq;
+    let xx, yy;
+    if (param < 0) { xx = x1; yy = y1; }
+    else if (param > 1) { xx = x2; yy = y2; }
+    else { xx = x1 + param * C; yy = y1 + param * D; }
+    const dx = px - xx, dy = py - yy;
+    return Math.sqrt(dx * dx + dy * dy);
+}
+
+function isValidPlacement(x, y, radius) {
+    if (x - radius < 0 || x + radius > GAME_WIDTH || y - radius < 0 || y + radius > GAME_HEIGHT) return false;
+    
+    const requiredDist = PATH_WIDTH / 2 + radius;
+    for (let seg of pathSegments) {
+        if (pointToLineDistance(x, y, seg.p1.x, seg.p1.y, seg.p2.x, seg.p2.y) < requiredDist) {
+            return false;
+        }
+    }
+    
+    for (let t of towers) {
+        if (Math.hypot(x - t.x, y - t.y) < (radius + t.type.radius + 5)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+function generateWave() {
+    waveQueue = [];
+    const hpMult = Math.pow(1.15, wave - 1);
+    
+    let hwCount = 3 + wave * 3;
+    for(let i=0; i<hwCount; i++) waveQueue.push({ type: ENEMY_TYPES.homework, hpMult, delay: 0.4 });
+
+    let quizCount = 4 + wave * 2;
+    for(let i=0; i<quizCount; i++) waveQueue.push({ type: ENEMY_TYPES.quiz, hpMult, delay: 0.8 });
+    
+    if (wave >= 2) {
+        let midCount = Math.floor(wave / 1.5);
+        for(let i=0; i<midCount; i++) waveQueue.push({ type: ENEMY_TYPES.midterm, hpMult, delay: 1.5 });
+    }
+
+    if (wave >= 4) {
+        let finalCount = Math.floor(wave / 3);
+        for(let i=0; i<finalCount; i++) waveQueue.push({ type: ENEMY_TYPES.final, hpMult, delay: 2.0 });
+    }
+    
+    if (wave > 0 && wave % 5 === 0) {
+        let bossCount = wave / 5;
+        for(let i=0; i<bossCount; i++) waveQueue.push({ type: ENEMY_TYPES.boss, hpMult, delay: 3.0 });
+    }
+
+    if (wave > 0 && wave % 7 === 0) {
+        waveQueue.push({ type: ENEMY_TYPES.discipline, hpMult, delay: 2.5 });
+    }
+    
+    waveQueue.sort(() => Math.random() - 0.5);
+    
+    waveActive = true;
+    updateUI();
+}
+
+function updateUI() {
+    uiMoney.textContent = money;
+    uiLives.textContent = lives;
+    uiWave.textContent = wave;
+    uiHighScore.textContent = highestWave;
+    
+    document.querySelectorAll('.tower-btn').forEach(btn => {
+        const typeId = btn.dataset.type;
+        const type = TOWER_TYPES[typeId];
+        if (money < type.cost) {
+            btn.disabled = true;
+            if(selectedTowerType === typeId) selectTower(null); 
+        } else {
+            btn.disabled = false;
+        }
+    });
+    
+    if (waveActive && (waveQueue.length > 0 || enemies.length > 0)) {
+        nextWaveBtn.disabled = true;
+        nextWaveBtn.textContent = '防禦中...';
+    } else {
+        nextWaveBtn.disabled = false;
+        nextWaveBtn.textContent = '下一波來襲';
+    }
+}
+
+function selectTower(typeId) {
+    selectedTowerType = typeId;
+    document.querySelectorAll('.tower-btn').forEach(btn => {
+        if (btn.dataset.type === typeId) btn.classList.add('selected');
+        else btn.classList.remove('selected');
+    });
+}
+
+function initUITowers() {
+    towerSelectionContainer.innerHTML = '';
+    Object.keys(TOWER_TYPES).forEach(key => {
+        const t = TOWER_TYPES[key];
+        const btn = document.createElement('button');
+        btn.className = 'tower-btn flex flex-col items-center bg-slate-700 hover:bg-slate-600 rounded p-2 text-left w-full';
+        btn.dataset.type = key;
+        btn.innerHTML = `
+            <div class="flex justify-between items-center w-full">
+                <span class="text-xl">${t.emoji} ${t.name}</span>
+                <span class="text-green-400 font-bold">$${t.cost}</span>
+            </div>
+            <div class="text-xs text-slate-400 mt-1 self-start">${t.desc}</div>
+        `;
+        btn.addEventListener('click', () => {
+            if (money >= t.cost) {
+                selectTower(selectedTowerType === key ? null : key);
+            }
+        });
+        towerSelectionContainer.appendChild(btn);
+    });
+}
+
+function getMousePos(evt) {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    return {
+        x: (evt.clientX - rect.left) * scaleX,
+        y: (evt.clientY - rect.top) * scaleY
+    };
+}
+
+canvas.addEventListener('mousemove', (evt) => {
+    isMouseOnCanvas = true;
+    const pos = getMousePos(evt);
+    mouseX = pos.x;
+    mouseY = pos.y;
+});
+
+canvas.addEventListener('mouseleave', () => {
+    isMouseOnCanvas = false;
+});
+
+canvas.addEventListener('click', () => {
+    if (gameState !== 'PLAYING') return;
+    if (selectedTowerType) {
+        const tType = TOWER_TYPES[selectedTowerType];
+        if (money >= tType.cost && isValidPlacement(mouseX, mouseY, tType.radius)) {
+            money -= tType.cost;
+            towers.push(new Tower(mouseX, mouseY, tType));
+            selectTower(null); 
+            updateUI();
+        }
+    }
+});
+
+canvas.addEventListener('contextmenu', (evt) => {
+    evt.preventDefault();
+    selectTower(null);
+});
+
+nextWaveBtn.addEventListener('click', () => {
+    if (gameState === 'PLAYING' && (!waveActive || (waveQueue.length === 0 && enemies.length === 0))) {
+        if (!waveActive && enemies.length === 0 && wave > 1) {
+        } else if (enemies.length === 0 && waveQueue.length === 0) {
+            if(waveActive) wave++; 
+        }
+        generateWave();
+    }
+});
+
+function drawMap() {
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    
+    ctx.beginPath();
+    ctx.moveTo(waypoints[0].x, waypoints[0].y);
+    for (let i = 1; i < waypoints.length; i++) ctx.lineTo(waypoints[i].x, waypoints[i].y);
+    ctx.strokeStyle = '#9ca3af'; 
+    ctx.lineWidth = PATH_WIDTH + 6;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(waypoints[0].x, waypoints[0].y);
+    for (let i = 1; i < waypoints.length; i++) ctx.lineTo(waypoints[i].x, waypoints[i].y);
+    ctx.strokeStyle = '#d1d5db'; 
+    ctx.lineWidth = PATH_WIDTH;
+    ctx.stroke();
+    
+    const end = waypoints[waypoints.length - 1];
+    ctx.fillStyle = '#1f2937';
+    ctx.fillRect(end.x - 20, end.y - PATH_WIDTH/2 - 10, 40, PATH_WIDTH + 20);
+    ctx.fillStyle = '#ef4444';
+    ctx.font = '20px Arial';
+    ctx.fillText('🚪', end.x, end.y);
+    
+    const start = waypoints[0];
+    ctx.font = '20px Arial';
+    ctx.fillText('🚏', Math.max(20, start.x), start.y);
+}
+
+let lastTime = 0;
+function gameLoop(timestamp) {
+    const dt = (timestamp - lastTime) / 1000;
+    lastTime = timestamp;
+
+    if (gameState === 'PLAYING') {
+        updateGame(dt);
+    }
+    
+    drawGame();
+    
+    requestAnimationFrame(gameLoop);
+}
+
+function updateGame(dt) {
+    if (waveActive && waveQueue.length > 0) {
+        spawnTimer -= dt;
+        if (spawnTimer <= 0) {
+            const nextEnemy = waveQueue.shift();
+            enemies.push(new Enemy(nextEnemy.type, nextEnemy.hpMult));
+            spawnTimer = nextEnemy.delay;
+        }
+    }
+    
+    if (waveActive && waveQueue.length === 0 && enemies.length === 0) {
+        waveActive = false;
+        money += wave * 10 + 20; 
+        if(wave > highestWave) {
+            highestWave = wave;
+            localStorage.setItem('studentTD_highScore', highestWave);
+        }
+        updateUI();
+    }
+
+    enemies = enemies.filter(e => e.update(dt));
+    towers.forEach(t => t.update(dt));
+    projectiles = projectiles.filter(p => p.update(dt));
+    particles = particles.filter(p => p.update(dt));
+    floatingTexts = floatingTexts.filter(ft => ft.update(dt));
+    
+    lasers = lasers.filter(l => {
+        l.life -= dt;
+        return l.life > 0;
+    });
+}
+
+function drawGame() {
+    ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+    
+    drawMap();
+    
+    towers.forEach(t => t.draw(ctx));
+    enemies.forEach(e => e.draw(ctx));
+    projectiles.forEach(p => p.draw(ctx));
+    particles.forEach(p => p.draw(ctx));
+    
+    lasers.forEach(l => {
+        ctx.beginPath();
+        ctx.moveTo(l.x1, l.y1);
+        ctx.lineTo(l.x2, l.y2);
+        ctx.strokeStyle = l.color;
+        ctx.lineWidth = l.life * 20; 
+        ctx.globalAlpha = l.life * 5;
+        ctx.stroke();
+        ctx.globalAlpha = 1.0;
+    });
+    
+    floatingTexts.forEach(ft => ft.draw(ctx));
+    
+    if (gameState === 'PLAYING' && selectedTowerType && isMouseOnCanvas) {
+        const type = TOWER_TYPES[selectedTowerType];
+        const valid = isValidPlacement(mouseX, mouseY, type.radius);
+        
+        ctx.save();
+        ctx.globalAlpha = 0.6;
+        
+        ctx.fillStyle = type.color;
+        ctx.beginPath();
+        ctx.arc(mouseX, mouseY, type.radius, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.beginPath();
+        ctx.arc(mouseX, mouseY, type.range, 0, Math.PI * 2);
+        ctx.fillStyle = valid ? 'rgba(0, 255, 0, 0.2)' : 'rgba(255, 0, 0, 0.2)';
+        ctx.fill();
+        ctx.strokeStyle = valid ? '#22c55e' : '#ef4444';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        
+        ctx.restore();
+    }
+}
+
+function startGame() {
+    gameState = 'PLAYING';
+    money = 150;
+    lives = 100;
+    wave = 1;
+    enemies = [];
+    towers = [];
+    projectiles = [];
+    particles = [];
+    floatingTexts = [];
+    lasers = [];
+    waveQueue = [];
+    waveActive = false;
+    nextWaveTimer = 0; 
+    selectTower(null);
+    
+    overlay.classList.add('hidden');
+    updateUI();
+}
+
+function gameOver() {
+    gameState = 'GAME_OVER';
+    overlay.classList.remove('hidden');
+    overlayTitle.textContent = '遊戲結束';
+    overlayTitle.className = 'text-4xl md:text-5xl font-bold mb-4 text-red-500 drop-shadow-lg';
+    overlayDesc.innerHTML = '你被當掉了！';
+    
+    overlayStats.classList.remove('hidden');
+    overlayStats.textContent = `最終生存波數: ${wave}`;
+    
+    startBtn.textContent = '重新開始';
+    
+    if(wave > highestWave) {
+        highestWave = wave;
+        localStorage.setItem('studentTD_highScore', highestWave);
+    }
+}
+
+startBtn.addEventListener('click', startGame);
+initUITowers();
+updateUI();
+
+requestAnimationFrame(gameLoop);
+</script>
+</body>
+</html>

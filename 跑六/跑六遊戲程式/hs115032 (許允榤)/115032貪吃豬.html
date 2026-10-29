@@ -1,0 +1,1299 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>佩佩豬吃泥巴貪吃蛇多人連線大亂鬥</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Noto+Sans+TC:wght@500;700;900&display=swap');
+
+        body {
+            font-family: 'Fredoka One', 'Noto Sans TC', sans-serif;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+            overflow: hidden;
+            background-color: #72c082;
+        }
+
+        canvas#gameCanvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+            background-color: #88d498;
+        }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.90);
+            backdrop-filter: blur(10px);
+            border: 3px solid rgba(255, 255, 255, 0.7);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+        }
+
+        .btn-peppa {
+            background: linear-gradient(180deg, #ff6b8b 0%, #e63956 100%);
+            box-shadow: 0 6px 0 #b32038, 0 10px 20px rgba(0,0,0,0.2);
+            transition: all 0.1s ease;
+        }
+        .btn-peppa:active {
+            transform: translateY(4px);
+            box-shadow: 0 2px 0 #b32038, 0 4px 10px rgba(0,0,0,0.2);
+        }
+
+        .btn-green {
+            background: linear-gradient(180deg, #4caf50 0%, #2e7d32 100%);
+            box-shadow: 0 6px 0 #1b5e20, 0 10px 20px rgba(0,0,0,0.2);
+        }
+        .btn-green:active {
+            transform: translateY(4px);
+            box-shadow: 0 2px 0 #1b5e20, 0 4px 10px rgba(0,0,0,0.2);
+        }
+
+        .btn-blue {
+            background: linear-gradient(180deg, #42a5f5 0%, #1565c0 100%);
+            box-shadow: 0 6px 0 #0d47a1, 0 10px 20px rgba(0,0,0,0.2);
+        }
+        .btn-blue:active {
+            transform: translateY(4px);
+            box-shadow: 0 2px 0 #0d47a1, 0 4px 10px rgba(0,0,0,0.2);
+        }
+
+        @keyframes pulse-light {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.04); }
+        }
+        .animate-bounce-slow {
+            animation: pulse-light 2s infinite ease-in-out;
+        }
+
+        .touch-zone {
+            touch-action: none;
+        }
+    </style>
+</head>
+<body class="w-screen h-screen m-0 p-0 overflow-hidden relative select-none">
+
+    <!-- Main Game Canvas -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- UI Overlay Containers -->
+    <div id="uiOverlay" class="absolute inset-0 pointer-events-none flex flex-col justify-between p-3 md:p-5">
+
+        <!-- Top HUD Panel -->
+        <div class="flex justify-between items-start w-full gap-2">
+            <!-- Player Stats HUD -->
+            <div id="hudStats" class="glass-panel p-3 rounded-2xl flex flex-col gap-1 min-w-[140px] md:min-w-[190px] pointer-events-auto">
+                <div class="flex items-center gap-2">
+                    <span class="text-2xl" id="hudPigAvatar">🐷</span>
+                    <div>
+                        <div id="hudName" class="text-xs md:text-sm font-bold text-gray-700 truncate max-w-[100px]">佩佩豬</div>
+                        <div class="text-base md:text-xl font-black text-rose-600 leading-tight" id="hudScore">分數: 0</div>
+                    </div>
+                </div>
+                <div class="flex justify-between text-[11px] md:text-xs font-bold text-gray-600 mt-1 border-t border-gray-200 pt-1">
+                    <span>長度: <span id="hudLength" class="text-rose-500">15</span></span>
+                    <span id="networkBadge" class="px-1.5 py-0.5 rounded text-[10px] bg-emerald-100 text-emerald-700">離線</span>
+                </div>
+            </div>
+
+            <!-- Room Share & Action Controls -->
+            <div class="flex flex-col items-center gap-2 pointer-events-auto">
+                <div class="flex gap-2">
+                    <button id="btnCopyRoom" class="glass-panel px-3 py-2 rounded-2xl flex items-center gap-1.5 text-xs font-bold text-gray-700 hover:bg-white transition" title="複製邀請好友連結">
+                        <span>🔗</span>
+                        <span id="roomCodeDisplay">房間: Default</span>
+                    </button>
+                    <button id="btnSound" class="glass-panel w-10 h-10 md:w-11 md:h-11 rounded-2xl flex items-center justify-center text-lg hover:bg-white transition" title="切換音效">
+                        🔊
+                    </button>
+                    <button id="btnPause" class="glass-panel w-10 h-10 md:w-11 md:h-11 rounded-2xl flex items-center justify-center text-lg font-bold text-gray-700 hover:bg-white transition" title="暫停遊戲">
+                        ⏸️
+                    </button>
+                </div>
+                <div id="onlineStatusText" class="text-[11px] font-bold text-white bg-black/40 px-2 py-0.5 rounded-full backdrop-blur-sm">
+                    👥 在線玩家: 1 人
+                </div>
+            </div>
+
+            <!-- Real-time Leaderboard HUD -->
+            <div id="hudLeaderboard" class="glass-panel p-3 rounded-2xl min-w-[150px] md:min-w-[200px] pointer-events-auto">
+                <div class="text-xs font-bold text-gray-700 mb-1.5 flex items-center justify-between border-b pb-1">
+                    <span class="flex items-center gap-1">🏆 泥巴大亂鬥榜</span>
+                    <span id="liveTag" class="text-[9px] bg-rose-500 text-white px-1 rounded animate-pulse">LIVE</span>
+                </div>
+                <div id="leaderboardList" class="flex flex-col gap-1 text-xs font-bold">
+                    <!-- Dynamic Leaderboard Items -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Controls & Minimap Area -->
+        <div class="flex justify-between items-end w-full">
+            <!-- Mobile Virtual Joystick Zone -->
+            <div id="joystickZone" class="w-32 h-32 md:w-40 md:h-40 rounded-full bg-white/25 border-2 border-white/50 relative touch-zone hidden pointer-events-auto flex items-center justify-center shadow-lg">
+                <div id="joystickKnob" class="w-12 h-12 md:w-16 md:h-16 rounded-full bg-rose-500/85 border-2 border-white shadow-md absolute transition-transform"></div>
+            </div>
+
+            <!-- Minimap HUD -->
+            <div class="glass-panel p-1.5 rounded-2xl pointer-events-auto flex flex-col items-center shadow-md">
+                <div class="text-[10px] font-bold text-gray-600 mb-0.5">泥巴大草原雷達</div>
+                <canvas id="minimapCanvas" width="90" height="90" class="rounded-xl border border-emerald-300 bg-emerald-100/90"></canvas>
+            </div>
+
+            <!-- Mobile Boost Button -->
+            <div id="mobileBoostBtn" class="w-20 h-20 md:w-24 md:h-24 rounded-full btn-peppa flex flex-col items-center justify-center text-white text-xs font-black shadow-2xl pointer-events-auto hidden touch-zone active:scale-95">
+                <span class="text-2xl">⚡</span>
+                <span>衝刺</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Start Screen & Lobby Modal -->
+    <div id="startModal" class="absolute inset-0 bg-black/45 backdrop-blur-md flex items-center justify-center p-4 z-50">
+        <div class="glass-panel max-w-md w-full rounded-3xl p-5 md:p-6 text-center shadow-2xl relative border-4 border-white animate-bounce-slow max-h-[92vh] overflow-y-auto">
+            <div class="text-5xl mb-1">🐷💦🌐</div>
+            <h1 class="text-2xl md:text-3xl font-black text-rose-600 mb-0.5 tracking-wide">佩佩豬吃泥巴</h1>
+            <h2 class="text-base md:text-lg font-bold text-emerald-700 mb-3">貪吃蛇多人連線大亂鬥</h2>
+
+            <!-- Character Skin Picker -->
+            <div class="mb-3 text-left">
+                <label class="block text-xs font-bold text-gray-700 mb-1">選擇角色造型：</label>
+                <div id="characterPicker" class="grid grid-cols-4 gap-2">
+                    <!-- Dynamic Character Buttons -->
+                </div>
+            </div>
+
+            <!-- Player Input Fields -->
+            <div class="space-y-2 mb-4 text-left">
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-1">玩家暱稱：</label>
+                    <input type="text" id="playerNameInput" value="佩佩豬 Peppa" maxlength="12" class="w-full px-3 py-2 rounded-xl border-2 border-rose-300 focus:border-rose-500 focus:outline-none font-bold text-gray-800 text-center text-sm shadow-sm">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-1">連線房間房號 (Room Code)：</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="roomCodeInput" value="PEPPA888" maxlength="12" class="w-full px-3 py-2 rounded-xl border-2 border-blue-300 focus:border-blue-500 focus:outline-none font-bold text-blue-900 text-center text-sm shadow-sm uppercase">
+                        <button id="btnRandomRoom" class="px-3 py-2 bg-amber-400 hover:bg-amber-500 font-bold text-xs text-amber-950 rounded-xl shadow">隨機</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Instructions Box -->
+            <div class="bg-amber-50/90 rounded-2xl p-3 border border-amber-200 text-left mb-4 text-xs text-gray-700 space-y-1 shadow-inner">
+                <div class="font-bold text-amber-800 text-xs mb-0.5">🌐 多人即時連線說明：</div>
+                <div>• 輸入相同的<b>「房間房號」</b>即可與朋友進入同一個泥巴大草原！</div>
+                <div>• 電腦：滑鼠控制方向，按<b>左鍵/空白鍵</b>衝刺。</div>
+                <div>• 手機：使用<b>左搖桿</b>與<b>右衝刺鈕</b>。</div>
+                <div>• 逼迫其他小豬頭部撞擊你的身體，可將對手爆成泥巴水坑！</div>
+            </div>
+
+            <!-- Action Start Buttons -->
+            <div class="flex flex-col gap-2">
+                <button id="btnStartOnline" class="w-full py-3.5 rounded-2xl btn-peppa text-white font-black text-lg md:text-xl tracking-wider cursor-pointer transform hover:scale-102 active:scale-95 transition flex items-center justify-center gap-2">
+                    <span>🌐</span> 加入即時多人連線大亂鬥
+                </button>
+                <button id="btnStartOffline" class="w-full py-2.5 rounded-2xl btn-green text-white font-bold text-sm tracking-wider cursor-pointer transform hover:scale-102 active:scale-95 transition">
+                    🎮 單人與 AI 練習模式
+                </button>
+            </div>
+
+            <!-- User ID Display -->
+            <div class="mt-3 text-[10px] text-gray-500 font-mono text-center truncate">
+                玩家識別碼 (UID): <span id="displayUserId">載入中...</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Over Screen Modal -->
+    <div id="gameOverModal" class="absolute inset-0 bg-black/65 backdrop-blur-md flex items-center justify-center p-4 z-50 hidden">
+        <div class="glass-panel max-w-md w-full rounded-3xl p-6 text-center shadow-2xl border-4 border-rose-300">
+            <div class="text-6xl mb-2">💥🐷💦</div>
+            <h2 class="text-3xl font-black text-rose-600 mb-1">淘汰出局！</h2>
+            <p id="deathReasonText" class="text-sm font-bold text-gray-600 mb-4">你撞到了別人的身體...</p>
+
+            <div class="bg-rose-50 rounded-2xl p-4 border-2 border-rose-200 mb-5 space-y-2">
+                <div class="flex justify-between items-center text-sm font-bold text-gray-700">
+                    <span>最終名次：</span>
+                    <span id="finalRankText" class="text-lg font-black text-amber-600">第 1 名</span>
+                </div>
+                <div class="flex justify-between items-center text-sm font-bold text-gray-700">
+                    <span>本局得分：</span>
+                    <span id="finalScoreText" class="text-2xl font-black text-rose-600">0</span>
+                </div>
+                <div class="flex justify-between items-center text-sm font-bold text-gray-700 border-t pt-2">
+                    <span>歷史最高分：</span>
+                    <span id="finalHighScoreText" class="text-lg font-black text-emerald-600">0</span>
+                </div>
+            </div>
+
+            <button id="btnRestartGame" class="w-full py-3.5 rounded-2xl btn-green text-white font-black text-xl tracking-wider cursor-pointer transform hover:scale-105 active:scale-95 transition">
+                重新加入戰局 🔄
+            </button>
+        </div>
+    </div>
+
+    <!-- Pause Screen Overlay -->
+    <div id="pauseModal" class="absolute inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-40 hidden">
+        <div class="glass-panel max-w-xs w-full rounded-3xl p-6 text-center shadow-2xl border-2 border-white">
+            <div class="text-4xl mb-2">⏸️</div>
+            <h2 class="text-2xl font-black text-gray-800 mb-4">遊戲已暫停</h2>
+            <button id="btnResumeGame" class="w-full py-3 rounded-2xl btn-peppa text-white font-black text-lg cursor-pointer transform hover:scale-105 transition">
+                繼續遊戲 ▶️
+            </button>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed top-20 left-1/2 -translate-x-1/2 bg-gray-900/90 text-white font-bold text-xs px-4 py-2 rounded-full shadow-2xl z-50 pointer-events-none transition-opacity duration-300 opacity-0">
+        已複製房間連結！
+    </div>
+
+    <!-- Firebase SDK Imports -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, updateDoc, deleteDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Firebase mandatory app configuration variables
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'peppa-pig-snake-multiplayer';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+
+        let db = null;
+        let auth = null;
+        let currentUser = null;
+        let currentUserId = `user_${Math.floor(Math.random()*1000000)}`;
+        let isOnlineMode = false;
+
+        // Sync control timers
+        let currentRoomId = "PEPPA888";
+        let syncInterval = null;
+        let remotePlayers = new Map(); // Map<uid, RemoteSnake>
+        let roomPlayersUnsubscribe = null;
+
+        const WORLD_SIZE = 3200;
+        const INITIAL_SNAKE_LENGTH = 15;
+        const BASE_SPEED = 3.6;
+        const BOOST_SPEED_MULT = 1.6;
+        const SENSITIVITY = 0.13;
+
+        const STATES = { START: 0, PLAYING: 1, PAUSED: 2, GAMEOVER: 3 };
+        let gameState = STATES.START;
+
+        let canvas, ctx, minimapCanvas, minimapCtx;
+        let camera = { x: WORLD_SIZE / 2, y: WORLD_SIZE / 2 };
+        let lastTime = 0;
+        let isMobile = false;
+
+        let playerSnake = null;
+        let aiSnakes = [];
+        let mudPuddles = [];
+        let particles = [];
+        let selectedSkinIndex = 0;
+
+        let mousePos = { x: 0, y: 0 };
+        let joystickActive = false;
+        let joystickVector = { x: 0, y: 0 };
+        let soundEnabled = true;
+
+        /* PEPPA PIG CHARACTERS CONFIG */
+        const CHARACTERS = [
+            { name: "佩佩 Peppa", avatar: "🐷", skinColor: "#FFB6C1", shirtColor: "#E53935", snoutColor: "#FF8DA1", earsColor: "#FFB6C1" },
+            { name: "喬治 George", avatar: "🐽", skinColor: "#FFB6C1", shirtColor: "#1E88E5", snoutColor: "#FF8DA1", earsColor: "#FFB6C1" },
+            { name: "蘇西 Suzy", avatar: "🐑", skinColor: "#FFFFFF", shirtColor: "#F48FB1", snoutColor: "#FFC1CC", earsColor: "#FFFFFF" },
+            { name: "佩德羅 Pedro", avatar: "🐴", skinColor: "#D7CCC8", shirtColor: "#FBC02D", snoutColor: "#BCAAA4", earsColor: "#D7CCC8" },
+            { name: "蕾貝卡 Rebecca", avatar: "🐰", skinColor: "#FFFFFF", shirtColor: "#FB8C00", snoutColor: "#FFCDD2", earsColor: "#FFFFFF" },
+            { name: "丹尼 Danny", avatar: "🐶", skinColor: "#A1887F", shirtColor: "#43A047", snoutColor: "#8D6E63", earsColor: "#A1887F" },
+            { name: "柔伊 Zoe", avatar: "🐘", skinColor: "#CFD8DC", shirtColor: "#8E24AA", snoutColor: "#B0BEC5", earsColor: "#CFD8DC" },
+            { name: "坎蒂 Candy", avatar: "🐱", skinColor: "#FFE082", shirtColor: "#00ACC1", snoutColor: "#FFD54F", earsColor: "#FFE082" }
+        ];
+
+        class SoundSystem {
+            constructor() { this.ctx = null; }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    if (AudioCtx) this.ctx = new AudioCtx();
+                }
+                if (this.ctx && this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            playEat() {
+                if (!soundEnabled || !this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(220, this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(550, this.ctx.currentTime + 0.08);
+                    gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.08);
+                    osc.connect(gain); gain.connect(this.ctx.destination);
+                    osc.start(); osc.stop(this.ctx.currentTime + 0.08);
+                } catch(e){}
+            }
+
+            playOink() {
+                if (!soundEnabled || !this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sawtooth';
+                    const now = this.ctx.currentTime;
+                    osc.frequency.setValueAtTime(280, now);
+                    osc.frequency.linearRampToValueAtTime(180, now + 0.12);
+                    osc.frequency.linearRampToValueAtTime(230, now + 0.22);
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.22);
+                    osc.connect(gain); gain.connect(this.ctx.destination);
+                    osc.start(); osc.stop(now + 0.22);
+                } catch(e){}
+            }
+
+            playDeath() {
+                if (!soundEnabled || !this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    const now = this.ctx.currentTime;
+                    osc.frequency.setValueAtTime(320, now);
+                    osc.frequency.exponentialRampToValueAtTime(40, now + 0.35);
+                    gain.gain.setValueAtTime(0.3, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+                    osc.connect(gain); gain.connect(this.ctx.destination);
+                    osc.start(); osc.stop(now + 0.35);
+                } catch(e){}
+            }
+        }
+        const audioSys = new SoundSystem();
+
+        class MudPuddle {
+            constructor(x, y, radius, isFromDeath = false) {
+                this.x = x; this.y = y; this.radius = radius;
+                this.scoreValue = Math.floor(radius * 1.5);
+                this.isFromDeath = isFromDeath;
+                this.points = [];
+                const numPoints = 8;
+                for (let i = 0; i < numPoints; i++) {
+                    const angle = (i / numPoints) * Math.PI * 2;
+                    const variation = 0.8 + Math.random() * 0.4;
+                    this.points.push({
+                        x: Math.cos(angle) * this.radius * variation,
+                        y: Math.sin(angle) * this.radius * variation
+                    });
+                }
+                this.color = isFromDeath ? "#5d4037" : "#795548";
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.beginPath();
+                ctx.fillStyle = this.color;
+                ctx.moveTo(this.points[0].x, this.points[0].y);
+                for (let i = 1; i < this.points.length; i++) {
+                    const p1 = this.points[i];
+                    const p2 = this.points[(i + 1) % this.points.length];
+                    const midX = (p1.x + p2.x) / 2;
+                    const midY = (p1.y + p2.y) / 2;
+                    ctx.quadraticCurveTo(p1.x, p1.y, midX, midY);
+                }
+                ctx.closePath();
+                ctx.fill();
+
+                ctx.fillStyle = "rgba(255, 255, 255, 0.25)";
+                ctx.beginPath();
+                ctx.arc(-this.radius * 0.3, -this.radius * 0.3, this.radius * 0.25, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x; this.y = y;
+                this.vx = (Math.random() - 0.5) * 6;
+                this.vy = (Math.random() - 0.5) * 6;
+                this.radius = Math.random() * 4 + 2;
+                this.color = color;
+                this.alpha = 1;
+                this.decay = Math.random() * 0.03 + 0.02;
+            }
+
+            update() {
+                this.x += this.vx; this.y += this.vy;
+                this.alpha -= this.decay;
+            }
+
+            draw(ctx) {
+                if (this.alpha <= 0) return;
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, this.alpha);
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        class Snake {
+            constructor(id, name, x, y, charConfig, isAI = false) {
+                this.id = id;
+                this.name = name;
+                this.charConfig = charConfig;
+                this.isAI = isAI;
+
+                this.x = x;
+                this.y = y;
+                this.angle = Math.random() * Math.PI * 2;
+                this.targetAngle = this.angle;
+                this.speed = BASE_SPEED;
+                this.isBoosting = false;
+
+                this.score = 0;
+                this.nodeRadius = 14;
+                this.spacing = 10;
+                this.dead = false;
+
+                this.body = [];
+                for (let i = 0; i < INITIAL_SNAKE_LENGTH; i++) {
+                    this.body.push({ x: x - i * this.spacing, y: y });
+                }
+
+                this.aiTargetTimer = 0;
+            }
+
+            update() {
+                if (this.dead) return;
+
+                let currentSpeed = this.isBoosting ? BASE_SPEED * BOOST_SPEED_MULT : BASE_SPEED;
+
+                if (this.isBoosting && this.body.length > 8) {
+                    if (Math.random() < 0.15) {
+                        const tail = this.body[this.body.length - 1];
+                        mudPuddles.push(new MudPuddle(tail.x, tail.y, 6));
+                        this.body.pop();
+                    }
+                }
+
+                let diff = this.targetAngle - this.angle;
+                while (diff < -Math.PI) diff += Math.PI * 2;
+                while (diff > Math.PI) diff -= Math.PI * 2;
+                this.angle += diff * SENSITIVITY;
+
+                this.x += Math.cos(this.angle) * currentSpeed;
+                this.y += Math.sin(this.angle) * currentSpeed;
+
+                if (this.x < 30 || this.x > WORLD_SIZE - 30 || this.y < 30 || this.y > WORLD_SIZE - 30) {
+                    this.die("撞到了大草原欄桿邊界！");
+                    return;
+                }
+
+                this.body[0] = { x: this.x, y: this.y };
+                for (let i = 1; i < this.body.length; i++) {
+                    const prev = this.body[i - 1];
+                    const curr = this.body[i];
+                    const dx = prev.x - curr.x;
+                    const dy = prev.y - curr.y;
+                    const dist = Math.hypot(dx, dy);
+
+                    if (dist > this.spacing) {
+                        const angle = Math.atan2(dy, dx);
+                        curr.x = prev.x - Math.cos(angle) * this.spacing;
+                        curr.y = prev.y - Math.sin(angle) * this.spacing;
+                    }
+                }
+
+                if (this.isAI) this.updateAILogic();
+            }
+
+            updateAILogic() {
+                this.aiTargetTimer++;
+                if (this.aiTargetTimer % 6 === 0) {
+                    let nearestFood = null;
+                    let minDist = 350;
+
+                    for (let puddle of mudPuddles) {
+                        const dist = Math.hypot(puddle.x - this.x, puddle.y - this.y);
+                        if (dist < minDist) {
+                            minDist = dist; nearestFood = puddle;
+                        }
+                    }
+
+                    if (nearestFood) {
+                        this.targetAngle = Math.atan2(nearestFood.y - this.y, nearestFood.x - this.x);
+                    } else if (Math.random() < 0.08) {
+                        this.targetAngle += (Math.random() - 0.5) * 1.5;
+                    }
+
+                    const avoidDistance = 75;
+                    let danger = false;
+
+                    if (this.x < avoidDistance) { this.targetAngle = 0; danger = true; }
+                    else if (this.x > WORLD_SIZE - avoidDistance) { this.targetAngle = Math.PI; danger = true; }
+                    if (this.y < avoidDistance) { this.targetAngle = Math.PI / 2; danger = true; }
+                    else if (this.y > WORLD_SIZE - avoidDistance) { this.targetAngle = -Math.PI / 2; danger = true; }
+
+                    if (!danger) {
+                        const allSnakes = [playerSnake, ...Array.from(remotePlayers.values()), ...aiSnakes];
+                        for (let other of allSnakes) {
+                            if (!other || other.dead || other.id === this.id) continue;
+                            for (let seg of other.body) {
+                                const d = Math.hypot(seg.x - this.x, seg.y - this.y);
+                                if (d < avoidDistance) {
+                                    this.targetAngle = Math.atan2(this.y - seg.y, this.x - seg.x);
+                                    danger = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    this.isBoosting = (!danger && nearestFood && minDist < 120 && this.body.length > 10 && Math.random() < 0.2);
+                }
+            }
+
+            grow(amount) {
+                this.score += amount;
+                const newSegments = Math.floor(amount / 8);
+                const last = this.body[this.body.length - 1];
+                for (let i = 0; i < newSegments; i++) {
+                    this.body.push({ x: last.x, y: last.y });
+                }
+            }
+
+            die(reason = "") {
+                if (this.dead) return;
+                this.dead = true;
+
+                for (let i = 0; i < this.body.length; i += 2) {
+                    const seg = this.body[i];
+                    mudPuddles.push(new MudPuddle(seg.x + (Math.random() - 0.5) * 10, seg.y + (Math.random() - 0.5) * 10, Math.random() * 6 + 10, true));
+                    for (let p = 0; p < 3; p++) {
+                        particles.push(new Particle(seg.x, seg.y, "#795548"));
+                    }
+                }
+
+                if (this.id === "local_player") {
+                    audioSys.playDeath();
+                    triggerGameOver(reason);
+                    if (isOnlineMode) pushPlayerStateToFirebase(true);
+                } else {
+                    audioSys.playEat();
+                }
+            }
+
+            draw(ctx) {
+                if (this.dead || !this.body || this.body.length === 0) return;
+
+                // Body Segments
+                for (let i = this.body.length - 1; i >= 1; i--) {
+                    const seg = this.body[i];
+                    ctx.save();
+                    ctx.translate(seg.x, seg.y);
+                    ctx.fillStyle = this.charConfig.shirtColor;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.nodeRadius, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.strokeStyle = "rgba(0,0,0,0.12)";
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                    ctx.restore();
+                }
+
+                // Head Node
+                const head = this.body[0];
+                ctx.save();
+                ctx.translate(head.x, head.y);
+                ctx.rotate(this.angle);
+
+                // Ears
+                ctx.fillStyle = this.charConfig.earsColor;
+                ctx.beginPath();
+                ctx.ellipse(-2, -14, 6, 10, -Math.PI / 6, 0, Math.PI * 2);
+                ctx.ellipse(-2, 14, 6, 10, Math.PI / 6, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Main Head
+                ctx.fillStyle = this.charConfig.skinColor;
+                ctx.beginPath();
+                ctx.arc(0, 0, this.nodeRadius + 2, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Snout
+                ctx.fillStyle = this.charConfig.snoutColor;
+                ctx.beginPath();
+                ctx.ellipse(12, 0, 7, 10, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Nostrils
+                ctx.fillStyle = "#E53935";
+                ctx.beginPath();
+                ctx.arc(13, -3, 1.8, 0, Math.PI * 2);
+                ctx.arc(13, 3, 1.8, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Eyes & Pupils
+                ctx.fillStyle = "#FFFFFF";
+                ctx.beginPath();
+                ctx.arc(4, -7, 4.5, 0, Math.PI * 2);
+                ctx.arc(4, 7, 4.5, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = "#000000";
+                ctx.beginPath();
+                ctx.arc(5, -7, 2, 0, Math.PI * 2);
+                ctx.arc(5, 7, 2, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.restore();
+
+                // Name Plate & Online Indicator
+                ctx.save();
+                ctx.font = "bold 12px 'Noto Sans TC', sans-serif";
+                ctx.fillStyle = "#ffffff";
+                ctx.shadowColor = "rgba(0,0,0,0.7)";
+                ctx.shadowBlur = 4;
+                ctx.textAlign = "center";
+                const isLocal = this.id === "local_player";
+                const tag = isLocal ? " (你)" : (this.isAI ? " [AI]" : " [線上]");
+                ctx.fillText(`${this.charConfig.avatar || "🐷"} ${this.name}${tag}`, head.x, head.y - 22);
+                ctx.restore();
+            }
+        }
+
+        /* Remote Snake Representation for Interpolated Multiplayer Sync */
+        class RemoteSnake extends Snake {
+            constructor(id, name, x, y, charConfig) {
+                super(id, name, x, y, charConfig, false);
+                this.targetX = x;
+                this.targetY = y;
+                this.lastUpdate = Date.now();
+            }
+
+            updateFromNetwork(data) {
+                if (!data) return;
+                this.targetX = data.x;
+                this.targetY = data.y;
+                this.targetAngle = data.angle;
+                this.score = data.score || 0;
+                this.isBoosting = data.isBoosting || false;
+                this.dead = data.dead || false;
+
+                if (data.body && Array.isArray(data.body)) {
+                    this.body = data.body;
+                }
+                this.lastUpdate = Date.now();
+            }
+
+            updateInterpolation() {
+                if (this.dead) return;
+                // Smooth movement towards latest network state
+                this.x += (this.targetX - this.x) * 0.25;
+                this.y += (this.targetY - this.y) * 0.25;
+                let diff = this.targetAngle - this.angle;
+                while (diff < -Math.PI) diff += Math.PI * 2;
+                while (diff > Math.PI) diff -= Math.PI * 2;
+                this.angle += diff * 0.25;
+
+                if (this.body && this.body.length > 0) {
+                    this.body[0] = { x: this.x, y: this.y };
+                }
+            }
+        }
+
+        async function setupFirebaseMultiplayer() {
+            if (!firebaseConfig) {
+                console.warn("Firebase Config not supplied. Defaulting to local offline room.");
+                document.getElementById('displayUserId').innerText = currentUserId + " (離線模式)";
+                return false;
+            }
+
+            try {
+                const app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    const userCred = await signInWithCustomToken(auth, __initial_auth_token);
+                    currentUser = userCred.user;
+                } else {
+                    const userCred = await signInAnonymously(auth);
+                    currentUser = userCred.user;
+                }
+                currentUserId = currentUser.uid;
+                document.getElementById('displayUserId').innerText = currentUserId;
+                return true;
+            } catch (err) {
+                console.error("Firebase Auth error:", err);
+                document.getElementById('displayUserId').innerText = currentUserId + " (連線失敗)";
+                return false;
+            }
+        }
+
+        function joinMultiplayerRoom(roomId) {
+            if (!db || !currentUser) return;
+            currentRoomId = roomId.trim().toUpperCase() || "PEPPA888";
+            document.getElementById('roomCodeDisplay').innerText = `房間: ${currentRoomId}`;
+
+            if (roomPlayersUnsubscribe) roomPlayersUnsubscribe();
+
+            // Firestore Path format: /artifacts/{appId}/public/data/players
+            // Querying all player documents for the current room
+            const playersColRef = collection(db, 'artifacts', appId, 'public', 'data', 'players');
+
+            roomPlayersUnsubscribe = onSnapshot(playersColRef, (snapshot) => {
+                const now = Date.now();
+                const activeInRoom = [];
+
+                snapshot.docs.forEach(docSnap => {
+                    const data = docSnap.data();
+                    if (!data || data.roomId !== currentRoomId) return;
+
+                    // Filter out stale / inactive network players (>10 sec timeout)
+                    if (now - (data.lastSeen || 0) > 10000) return;
+
+                    const uid = data.uid;
+                    if (uid === currentUserId) return; // Skip local player
+
+                    activeInRoom.push(uid);
+
+                    let remoteSnake = remotePlayers.get(uid);
+                    if (!remoteSnake) {
+                        const charConfig = CHARACTERS[data.skinIndex || 0] || CHARACTERS[0];
+                        remoteSnake = new RemoteSnake(uid, data.name || "線上玩家", data.x || 500, data.y || 500, charConfig);
+                        remotePlayers.set(uid, remoteSnake);
+                    }
+                    remoteSnake.updateFromNetwork(data);
+                });
+
+                // Remove disconnected snakes
+                for (let [uid, snake] of remotePlayers.entries()) {
+                    if (!activeInRoom.includes(uid)) {
+                        remotePlayers.delete(uid);
+                    }
+                }
+
+                document.getElementById('onlineStatusText').innerText = `👥 在線玩家: ${remotePlayers.size + 1} 人`;
+            }, (error) => {
+                console.error("Firestore Multiplayer listen error:", error);
+            });
+
+            // Start periodic position push to room (~100ms)
+            if (syncInterval) clearInterval(syncInterval);
+            syncInterval = setInterval(() => {
+                if (gameState === STATES.PLAYING && playerSnake) {
+                    pushPlayerStateToFirebase(playerSnake.dead);
+                }
+            }, 100);
+        }
+
+        async function pushPlayerStateToFirebase(isDead = false) {
+            if (!db || !currentUser || !playerSnake) return;
+
+            // Strict flat public collection path according to Mandatory Rule 1
+            const playerDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'players', `${currentRoomId}_${currentUserId}`);
+
+            // Compress body array to save network bandwidth
+            const simplifiedBody = playerSnake.body.slice(0, 30).map(p => ({ x: Math.round(p.x), y: Math.round(p.y) }));
+
+            try {
+                await setDoc(playerDocRef, {
+                    uid: currentUserId,
+                    roomId: currentRoomId,
+                    name: playerSnake.name,
+                    skinIndex: selectedSkinIndex,
+                    x: Math.round(playerSnake.x),
+                    y: Math.round(playerSnake.y),
+                    angle: Number(playerSnake.angle.toFixed(2)),
+                    score: playerSnake.score,
+                    isBoosting: playerSnake.isBoosting,
+                    dead: isDead,
+                    body: simplifiedBody,
+                    lastSeen: Date.now()
+                }, { merge: true });
+            } catch(e) {
+                console.warn("Push player state error:", e);
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            canvas = document.getElementById('gameCanvas');
+            ctx = canvas.getContext('2d');
+            minimapCanvas = document.getElementById('minimapCanvas');
+            minimapCtx = minimapCanvas.getContext('2d');
+
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+
+            detectMobile();
+            renderCharacterPicker();
+            setupEventListeners();
+            loadHighScore();
+
+            // Spawn Initial Mud Puddles
+            for (let i = 0; i < 220; i++) spawnRandomMudPuddle();
+
+            // Initialize Firebase background
+            await setupFirebaseMultiplayer();
+
+            requestAnimationFrame(gameLoop);
+        });
+
+        function renderCharacterPicker() {
+            const picker = document.getElementById('characterPicker');
+            picker.innerHTML = '';
+
+            CHARACTERS.forEach((char, index) => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = `p-2 rounded-2xl border-2 flex flex-col items-center justify-center gap-1 transition ${index === selectedSkinIndex ? 'border-rose-500 bg-rose-50 scale-105 shadow' : 'border-gray-200 bg-white opacity-80 hover:opacity-100'}`;
+                btn.innerHTML = `
+                    <span class="text-2xl">${char.avatar}</span>
+                    <span class="text-[10px] font-bold text-gray-700 truncate w-full text-center">${char.name.split(' ')[0]}</span>
+                `;
+                btn.addEventListener('click', () => {
+                    selectedSkinIndex = index;
+                    renderCharacterPicker();
+                    document.getElementById('hudPigAvatar').innerText = char.avatar;
+                });
+                picker.appendChild(btn);
+            });
+        }
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+
+        function detectMobile() {
+            isMobile = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+            if (isMobile) {
+                document.getElementById('joystickZone').classList.remove('hidden');
+                document.getElementById('mobileBoostBtn').classList.remove('hidden');
+            }
+        }
+
+        function spawnRandomMudPuddle() {
+            const x = Math.random() * (WORLD_SIZE - 120) + 60;
+            const y = Math.random() * (WORLD_SIZE - 120) + 60;
+            const radius = Math.random() * 8 + 8;
+            mudPuddles.push(new MudPuddle(x, y, radius));
+        }
+
+        function loadHighScore() {
+            const hs = localStorage.getItem('peppa_snake_highscore') || 0;
+            document.getElementById('finalHighScoreText').innerText = hs;
+        }
+
+        function startMatch(online = true) {
+            audioSys.init();
+            isOnlineMode = online;
+
+            const nameInput = document.getElementById('playerNameInput').value.trim() || "佩佩豬 Peppa";
+            const roomInput = document.getElementById('roomCodeInput').value.trim() || "PEPPA888";
+
+            const charConfig = CHARACTERS[selectedSkinIndex];
+
+            // Instantiate Local Player Snake
+            const startX = Math.random() * (WORLD_SIZE - 600) + 300;
+            const startY = Math.random() * (WORLD_SIZE - 600) + 300;
+            playerSnake = new Snake("local_player", nameInput, startX, startY, charConfig, false);
+
+            // Populate AI Opponents
+            aiSnakes = [];
+            const aiCount = online ? 3 : 6;
+            for (let i = 0; i < aiCount; i++) {
+                const aiSkin = CHARACTERS[(selectedSkinIndex + i + 1) % CHARACTERS.length];
+                const aiX = Math.random() * (WORLD_SIZE - 600) + 300;
+                const aiY = Math.random() * (WORLD_SIZE - 600) + 300;
+                aiSnakes.push(new Snake(`ai_${i}`, aiSkin.name, aiX, aiY, aiSkin, true));
+            }
+
+            document.getElementById('hudName').innerText = nameInput;
+            document.getElementById('hudPigAvatar').innerText = charConfig.avatar;
+
+            const badge = document.getElementById('networkBadge');
+            if (online && db) {
+                badge.innerText = "🌐 多人連線";
+                badge.className = "px-1.5 py-0.5 rounded text-[10px] bg-blue-100 text-blue-700 font-bold";
+                joinMultiplayerRoom(roomInput);
+            } else {
+                badge.innerText = "🎮 單人練習";
+                badge.className = "px-1.5 py-0.5 rounded text-[10px] bg-emerald-100 text-emerald-700 font-bold";
+            }
+
+            document.getElementById('startModal').classList.add('hidden');
+            document.getElementById('gameOverModal').classList.add('hidden');
+            document.getElementById('pauseModal').classList.add('hidden');
+
+            gameState = STATES.PLAYING;
+            audioSys.playOink();
+        }
+
+        function triggerGameOver(reason) {
+            gameState = STATES.GAMEOVER;
+            document.getElementById('deathReasonText').innerText = reason || "你撞到了別人的身體...";
+            document.getElementById('finalScoreText').innerText = playerSnake ? playerSnake.score : 0;
+
+            const allActive = [playerSnake, ...Array.from(remotePlayers.values()), ...aiSnakes];
+            allActive.sort((a, b) => b.score - a.score);
+            const rank = allActive.findIndex(s => s.id === "local_player") + 1;
+            document.getElementById('finalRankText').innerText = `第 ${rank || 1} 名`;
+
+            const currentHS = parseInt(localStorage.getItem('peppa_snake_highscore') || '0');
+            if (playerSnake && playerSnake.score > currentHS) {
+                localStorage.setItem('peppa_snake_highscore', playerSnake.score);
+            }
+            document.getElementById('finalHighScoreText').innerText = localStorage.getItem('peppa_snake_highscore') || '0';
+
+            document.getElementById('gameOverModal').classList.remove('hidden');
+        }
+
+        function setupEventListeners() {
+            document.getElementById('btnStartOnline').addEventListener('click', () => startMatch(true));
+            document.getElementById('btnStartOffline').addEventListener('click', () => startMatch(false));
+            document.getElementById('btnRestartGame').addEventListener('click', () => startMatch(isOnlineMode));
+
+            document.getElementById('btnRandomRoom').addEventListener('click', () => {
+                const randomCode = "PEPPA" + Math.floor(100 + Math.random() * 900);
+                document.getElementById('roomCodeInput').value = randomCode;
+            });
+
+            document.getElementById('btnCopyRoom').addEventListener('click', () => {
+                const roomCode = currentRoomId || "PEPPA888";
+                const shareText = `快來跟我一起玩「佩佩豬吃泥巴貪吃蛇」！房間號碼：${roomCode}`;
+
+                const textArea = document.createElement("textarea");
+                textArea.value = shareText;
+                document.body.appendChild(textArea);
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                    showToast(`已複製邀請碼: ${roomCode}`);
+                } catch (err) {
+                    showToast(`房間號碼: ${roomCode}`);
+                }
+                document.body.removeChild(textArea);
+            });
+
+            document.getElementById('btnPause').addEventListener('click', () => {
+                if (gameState === STATES.PLAYING) {
+                    gameState = STATES.PAUSED;
+                    document.getElementById('pauseModal').classList.remove('hidden');
+                }
+            });
+
+            document.getElementById('btnResumeGame').addEventListener('click', () => {
+                if (gameState === STATES.PAUSED) {
+                    gameState = STATES.PLAYING;
+                    document.getElementById('pauseModal').classList.add('hidden');
+                }
+            });
+
+            document.getElementById('btnSound').addEventListener('click', () => {
+                soundEnabled = !soundEnabled;
+                document.getElementById('btnSound').innerText = soundEnabled ? "🔊" : "🔇";
+            });
+
+            // PC Controls
+            window.addEventListener('mousemove', (e) => {
+                if (gameState !== STATES.PLAYING || !playerSnake || joystickActive) return;
+                mousePos.x = e.clientX; mousePos.y = e.clientY;
+                const screenCenterX = canvas.width / 2;
+                const screenCenterY = canvas.height / 2;
+                playerSnake.targetAngle = Math.atan2(e.clientY - screenCenterY, e.clientX - screenCenterX);
+            });
+
+            window.addEventListener('mousedown', (e) => {
+                if (gameState === STATES.PLAYING && playerSnake && e.button === 0 && !isMobile) {
+                    playerSnake.isBoosting = true;
+                }
+            });
+
+            window.addEventListener('mouseup', () => {
+                if (playerSnake && !isMobile) playerSnake.isBoosting = false;
+            });
+
+            window.addEventListener('keydown', (e) => {
+                if (e.code === 'Space' && playerSnake && gameState === STATES.PLAYING) {
+                    playerSnake.isBoosting = true;
+                }
+            });
+
+            window.addEventListener('keyup', (e) => {
+                if (e.code === 'Space' && playerSnake) {
+                    playerSnake.isBoosting = false;
+                }
+            });
+
+            // Mobile Touch Joystick Controls
+            const joystickZone = document.getElementById('joystickZone');
+            const joystickKnob = document.getElementById('joystickKnob');
+
+            joystickZone.addEventListener('touchstart', (e) => {
+                joystickActive = true;
+                handleTouchJoystick(e.touches[0]);
+            }, { passive: false });
+
+            joystickZone.addEventListener('touchmove', (e) => {
+                if (joystickActive) {
+                    e.preventDefault();
+                    handleTouchJoystick(e.touches[0]);
+                }
+            }, { passive: false });
+
+            const resetJoystick = () => {
+                joystickActive = false;
+                joystickKnob.style.transform = `translate(0px, 0px)`;
+            };
+            joystickZone.addEventListener('touchend', resetJoystick);
+            joystickZone.addEventListener('touchcancel', resetJoystick);
+
+            const boostBtn = document.getElementById('mobileBoostBtn');
+            boostBtn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                if (playerSnake) playerSnake.isBoosting = true;
+            }, { passive: false });
+            boostBtn.addEventListener('touchend', () => {
+                if (playerSnake) playerSnake.isBoosting = false;
+            });
+        }
+
+        function handleTouchJoystick(touch) {
+            const rect = document.getElementById('joystickZone').getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            let dx = touch.clientX - centerX;
+            let dy = touch.clientY - centerY;
+            const maxRadius = rect.width / 2 - 20;
+            const dist = Math.hypot(dx, dy);
+
+            if (dist > maxRadius) {
+                dx = (dx / dist) * maxRadius;
+                dy = (dy / dist) * maxRadius;
+            }
+
+            document.getElementById('joystickKnob').style.transform = `translate(${dx}px, ${dy}px)`;
+            if (playerSnake && dist > 5) {
+                playerSnake.targetAngle = Math.atan2(dy, dx);
+            }
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.innerText = msg;
+            toast.classList.remove('opacity-0');
+            setTimeout(() => toast.classList.add('opacity-0'), 2500);
+        }
+
+        function checkCollisions() {
+            const allLocalSnakes = [playerSnake, ...aiSnakes].filter(s => s && !s.dead);
+            const allSnakesForCollision = [...allLocalSnakes, ...Array.from(remotePlayers.values()).filter(s => !s.dead)];
+
+            for (let snake of allLocalSnakes) {
+                const head = snake.body[0];
+
+                // Eating Mud Puddles
+                for (let i = mudPuddles.length - 1; i >= 0; i--) {
+                    const puddle = mudPuddles[i];
+                    const dist = Math.hypot(head.x - puddle.x, head.y - puddle.y);
+
+                    if (dist < snake.nodeRadius + puddle.radius) {
+                        snake.grow(puddle.scoreValue);
+                        for (let p = 0; p < 4; p++) {
+                            particles.push(new Particle(puddle.x, puddle.y, puddle.color));
+                        }
+                        if (snake.id === "local_player") audioSys.playEat();
+                        mudPuddles.splice(i, 1);
+                        spawnRandomMudPuddle();
+                    }
+                }
+
+                // Head-to-Body Collision with Other Snakes
+                for (let other of allSnakesForCollision) {
+                    if (!other.body) continue;
+                    for (let j = 0; j < other.body.length; j++) {
+                        if (snake.id === other.id && j < 3) continue;
+
+                        const seg = other.body[j];
+                        const dist = Math.hypot(head.x - seg.x, head.y - seg.y);
+
+                        if (dist < snake.nodeRadius + 6) {
+                            snake.die(`被 ${other.name} 淘汰了！`);
+                            break;
+                        }
+                    }
+                    if (snake.dead) break;
+                }
+            }
+
+            // Respawn AI Snakes
+            for (let i = 0; i < aiSnakes.length; i++) {
+                if (aiSnakes[i].dead) {
+                    const aiSkin = CHARACTERS[(i + 1) % CHARACTERS.length];
+                    const spawnX = Math.random() * (WORLD_SIZE - 400) + 200;
+                    const spawnY = Math.random() * (WORLD_SIZE - 400) + 200;
+                    aiSnakes[i] = new Snake(`ai_${i}`, aiSkin.name, spawnX, spawnY, aiSkin, true);
+                }
+            }
+        }
+
+        function drawBackground() {
+            ctx.fillStyle = "#88d498";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.strokeStyle = "rgba(0, 0, 0, 0.04)";
+            ctx.lineWidth = 2;
+            const gridSize = 100;
+
+            const startX = Math.floor((camera.x - canvas.width / 2) / gridSize) * gridSize;
+            const startY = Math.floor((camera.y - canvas.height / 2) / gridSize) * gridSize;
+
+            for (let x = startX; x < camera.x + canvas.width; x += gridSize) {
+                const screenX = x - camera.x + canvas.width / 2;
+                ctx.beginPath(); ctx.moveTo(screenX, 0); ctx.lineTo(screenX, canvas.height); ctx.stroke();
+            }
+
+            for (let y = startY; y < camera.y + canvas.height; y += gridSize) {
+                const screenY = y - camera.y + canvas.height / 2;
+                ctx.beginPath(); ctx.moveTo(0, screenY); ctx.lineTo(canvas.width, screenY); ctx.stroke();
+            }
+
+            // Red Map Bounds Fence
+            ctx.strokeStyle = "#e53935";
+            ctx.lineWidth = 10;
+            ctx.strokeRect(-camera.x + canvas.width / 2, -camera.y + canvas.height / 2, WORLD_SIZE, WORLD_SIZE);
+        }
+
+        function drawMinimap() {
+            minimapCtx.clearRect(0, 0, minimapCanvas.width, minimapCanvas.height);
+            const scale = minimapCanvas.width / WORLD_SIZE;
+
+            // Mud Puddles on Minimap
+            minimapCtx.fillStyle = "#795548";
+            for (let puddle of mudPuddles) {
+                minimapCtx.fillRect(puddle.x * scale, puddle.y * scale, 1.5, 1.5);
+            }
+
+            // Remote Online Players (Blue)
+            minimapCtx.fillStyle = "#29b6f6";
+            for (let remote of remotePlayers.values()) {
+                if (!remote.dead) {
+                    minimapCtx.beginPath();
+                    minimapCtx.arc(remote.x * scale, remote.y * scale, 2.5, 0, Math.PI * 2);
+                    minimapCtx.fill();
+                }
+            }
+
+            // Local Player (Red)
+            if (playerSnake && !playerSnake.dead) {
+                minimapCtx.fillStyle = "#e53935";
+                minimapCtx.beginPath();
+                minimapCtx.arc(playerSnake.x * scale, playerSnake.y * scale, 3.5, 0, Math.PI * 2);
+                minimapCtx.fill();
+            }
+        }
+
+        function updateHUD() {
+            if (!playerSnake) return;
+
+            document.getElementById('hudScore').innerText = `分數: ${playerSnake.score}`;
+            document.getElementById('hudLength').innerText = playerSnake.body.length;
+
+            const allActive = [playerSnake, ...Array.from(remotePlayers.values()), ...aiSnakes].filter(s => s && !s.dead);
+            allActive.sort((a, b) => b.score - a.score);
+
+            const leaderboardList = document.getElementById('leaderboardList');
+            leaderboardList.innerHTML = '';
+
+            allActive.slice(0, 5).forEach((snake, index) => {
+                const item = document.createElement('div');
+                const isLocal = snake.id === 'local_player';
+                const isRemote = snake instanceof RemoteSnake;
+                item.className = `flex justify-between items-center ${isLocal ? 'text-rose-600 font-black' : (isRemote ? 'text-blue-700 font-bold' : 'text-gray-700')}`;
+                item.innerHTML = `
+                    <span class="truncate max-w-[100px]">${index + 1}. ${snake.charConfig.avatar || "🐷"} ${snake.name}</span>
+                    <span>${snake.score}</span>
+                `;
+                leaderboardList.appendChild(item);
+            });
+        }
+
+        function gameLoop(timestamp) {
+            const deltaTime = timestamp - lastTime;
+            lastTime = timestamp;
+
+            if (gameState === STATES.PLAYING) {
+                if (playerSnake && !playerSnake.dead) {
+                    playerSnake.update();
+                    camera.x = playerSnake.x;
+                    camera.y = playerSnake.y;
+                }
+
+                // Update Remote Players Smooth Interpolation
+                for (let remote of remotePlayers.values()) {
+                    remote.updateInterpolation();
+                }
+
+                // Update AI Snakes
+                for (let ai of aiSnakes) {
+                    ai.update();
+                }
+
+                for (let i = particles.length - 1; i >= 0; i--) {
+                    particles[i].update();
+                    if (particles[i].alpha <= 0) particles.splice(i, 1);
+                }
+
+                checkCollisions();
+                updateHUD();
+            }
+
+            // Render Frame
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.save();
+
+            drawBackground();
+            ctx.translate(-camera.x + canvas.width / 2, -camera.y + canvas.height / 2);
+
+            // Draw Mud Puddles
+            for (let puddle of mudPuddles) {
+                if (Math.abs(puddle.x - camera.x) < canvas.width / 2 + 100 &&
+                    Math.abs(puddle.y - camera.y) < canvas.height / 2 + 100) {
+                    puddle.draw(ctx);
+                }
+            }
+
+            // Draw Remote Players
+            for (let remote of remotePlayers.values()) {
+                remote.draw(ctx);
+            }
+
+            // Draw AI Snakes
+            for (let ai of aiSnakes) {
+                ai.draw(ctx);
+            }
+
+            // Draw Local Player
+            if (playerSnake) playerSnake.draw(ctx);
+
+            // Draw Particles
+            for (let particle of particles) {
+                particle.draw(ctx);
+            }
+
+            ctx.restore();
+
+            drawMinimap();
+            requestAnimationFrame(gameLoop);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>賽博朋克：霓虹貪食蛇 (Cyberpunk Neon Snake)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+TC:wght@400;700&display=swap');
+
+        body {
+            font-family: 'Orbitron', 'Noto Sans TC', sans-serif;
+            background-color: #05050a;
+            touch-action: manipulation;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        /* Neon Glow Utility Classes */
+        .neon-border-cyan {
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.6), inset 0 0 15px rgba(6, 182, 212, 0.3);
+        }
+        .neon-text-pink {
+            text-shadow: 0 0 8px #ec4899, 0 0 20px #ec4899;
+        }
+        .neon-text-cyan {
+            text-shadow: 0 0 8px #06b6d4, 0 0 20px #06b6d4;
+        }
+        .neon-text-gold {
+            text-shadow: 0 0 8px #eab308, 0 0 20px #eab308;
+        }
+
+        /* Canvas Container Frame */
+        #game-canvas {
+            background: radial-gradient(circle, #0f172a 0%, #020617 100%);
+            box-shadow: 0 0 25px rgba(6, 182, 212, 0.25);
+        }
+
+        /* Screen Shake Animation */
+        .shake {
+            animation: shakeAnim 0.3s cubic-bezier(.36,.07,.19,.97) both;
+        }
+        @keyframes shakeAnim {
+            10%, 90% { transform: translate3d(-2px, 0, 0); }
+            20%, 80% { transform: translate3d(4px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-6px, 0, 0); }
+            40%, 60% { transform: translate3d(6px, 0, 0); }
+        }
+    </style>
+</head>
+<body class="w-screen h-screen flex flex-col items-center justify-between text-white overflow-hidden p-2 sm:p-4">
+
+    <!-- Header HUD -->
+    <header class="w-full max-w-lg bg-slate-900/80 border border-cyan-500/40 rounded-xl p-3 backdrop-blur-md neon-border-cyan flex justify-between items-center z-10">
+        <div>
+            <h1 class="text-sm sm:text-lg font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-pink-500 to-yellow-400 tracking-wider">
+                <i class="fa-solid fa-staff-snake text-cyan-400 mr-1.5"></i>NEON SNAKE
+            </h1>
+            <div class="text-[10px] sm:text-xs text-slate-400 font-mono">
+                LENGTH: <span id="snake-len" class="text-cyan-400 font-bold">3</span> | 
+                COMBO: <span id="combo-count" class="text-pink-400 font-bold">x1</span>
+            </div>
+        </div>
+
+        <div class="flex gap-4 font-mono text-right">
+            <div>
+                <div class="text-[10px] text-slate-400">SCORE</div>
+                <div id="score" class="text-base sm:text-xl font-bold text-cyan-400 neon-text-cyan">0</div>
+            </div>
+            <div>
+                <div class="text-[10px] text-slate-400">BEST</div>
+                <div id="high-score" class="text-base sm:text-xl font-bold text-yellow-400 neon-text-gold">0</div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Game Frame & Canvas -->
+    <main class="relative flex-1 flex items-center justify-center my-2 w-full max-w-lg">
+        <canvas id="game-canvas" width="400" height="400" class="w-full max-w-[400px] aspect-square rounded-xl border-2 border-cyan-500/50 block"></canvas>
+
+        <!-- Start Screen Overlay -->
+        <div id="start-overlay" class="absolute inset-0 bg-slate-950/90 rounded-xl flex flex-col items-center justify-center p-6 text-center z-20">
+            <i class="fa-solid fa-gamepad text-5xl text-cyan-400 mb-3 animate-bounce"></i>
+            <h2 class="text-2xl sm:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-pink-500 mb-2">
+                賽博朋克：霓虹貪食蛇
+            </h2>
+            <p class="text-slate-300 text-xs sm:text-sm mb-6 max-w-xs leading-relaxed font-sans">
+                操控霓虹光蛇吞噬能量核！避開牆壁與自身。連續吃取食物可觸發 Combo 倍數加成與金色能量球！
+            </p>
+            <button id="btn-start" class="px-8 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black rounded-lg shadow-lg shadow-cyan-500/50 transition-all transform hover:scale-105 active:scale-95 text-base">
+                <i class="fa-solid fa-play mr-2"></i>開始遊戲
+            </button>
+            <div class="mt-4 text-[11px] text-slate-400 font-sans">
+                電腦：<kbd class="px-1.5 py-0.5 bg-slate-800 rounded border border-slate-700">WASD</kbd> 或 <kbd class="px-1.5 py-0.5 bg-slate-800 rounded border border-slate-700">方向鍵</kbd> | 手機：滑勢或虛擬按鈕
+            </div>
+        </div>
+
+        <!-- Pause Overlay -->
+        <div id="pause-overlay" class="absolute inset-0 bg-slate-950/85 rounded-xl flex flex-col items-center justify-center p-6 text-center z-20 hidden">
+            <i class="fa-solid fa-pause text-4xl text-yellow-400 mb-3"></i>
+            <h2 class="text-2xl font-bold text-yellow-400 mb-4">遊戲暫停中</h2>
+            <button id="btn-resume" class="px-6 py-2.5 bg-cyan-500 text-slate-950 font-bold rounded-lg shadow-lg shadow-cyan-500/30 mb-3 w-40">
+                繼續遊戲
+            </button>
+            <button id="btn-restart-pause" class="px-6 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-lg w-40 border border-slate-700">
+                重新開始
+            </button>
+        </div>
+
+        <!-- Game Over Overlay -->
+        <div id="gameover-overlay" class="absolute inset-0 bg-slate-950/95 rounded-xl flex flex-col items-center justify-center p-6 text-center z-20 hidden">
+            <i class="fa-solid fa-skull-crossbones text-5xl text-pink-500 mb-3 animate-pulse"></i>
+            <h2 class="text-3xl font-black text-pink-500 neon-text-pink mb-1">SYSTEM OVERRIDE</h2>
+            <p class="text-slate-400 text-xs mb-4">蛇體碰撞系統已過載引爆</p>
+            
+            <div class="bg-slate-900 border border-slate-800 rounded-lg p-4 w-full max-w-xs mb-6 font-mono">
+                <div class="flex justify-between mb-2">
+                    <span class="text-slate-400 text-xs">本次得分：</span>
+                    <span id="final-score" class="text-cyan-400 font-bold text-lg">0</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-400 text-xs">歷史最高分：</span>
+                    <span id="final-high-score" class="text-yellow-400 font-bold text-lg">0</span>
+                </div>
+            </div>
+
+            <button id="btn-restart" class="px-8 py-3 bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-400 hover:to-rose-500 text-white font-black rounded-lg shadow-lg shadow-pink-500/50 transition-all transform hover:scale-105 active:scale-95 text-base">
+                <i class="fa-solid fa-rotate-right mr-2"></i>再次挑戰
+            </button>
+        </div>
+    </main>
+
+    <!-- Mobile Touch D-Pad Controls -->
+    <footer class="w-full max-w-lg flex flex-col items-center pb-2">
+        <!-- Action Buttons Bar -->
+        <div class="w-full flex justify-between items-center px-4 mb-2">
+            <button id="btn-pause-toggle" class="px-3 py-1.5 bg-slate-800 border border-slate-700 text-slate-300 rounded-lg text-xs font-mono">
+                <i class="fa-solid fa-pause mr-1"></i>PAUSE
+            </button>
+            <div class="text-[11px] text-slate-500 font-mono">SWIPE / TOUCH CONTROLS</div>
+        </div>
+
+        <!-- Virtual Cross D-Pad -->
+        <div class="relative w-36 h-36 sm:hidden">
+            <button id="dpad-up" class="absolute top-0 left-12 w-12 h-12 bg-slate-800/80 active:bg-cyan-500/50 border border-slate-700 rounded-t-xl flex items-center justify-center text-cyan-400 text-lg">
+                <i class="fa-solid fa-caret-up"></i>
+            </button>
+            <button id="dpad-left" class="absolute top-12 left-0 w-12 h-12 bg-slate-800/80 active:bg-cyan-500/50 border border-slate-700 rounded-l-xl flex items-center justify-center text-cyan-400 text-lg">
+                <i class="fa-solid fa-caret-left"></i>
+            </button>
+            <button id="dpad-right" class="absolute top-12 right-0 w-12 h-12 bg-slate-800/80 active:bg-cyan-500/50 border border-slate-700 rounded-r-xl flex items-center justify-center text-cyan-400 text-lg">
+                <i class="fa-solid fa-caret-right"></i>
+            </button>
+            <button id="dpad-down" class="absolute bottom-0 left-12 w-12 h-12 bg-slate-800/80 active:bg-cyan-500/50 border border-slate-700 rounded-b-xl flex items-center justify-center text-cyan-400 text-lg">
+                <i class="fa-solid fa-caret-down"></i>
+            </button>
+            <div class="absolute top-12 left-12 w-12 h-12 bg-slate-900 border border-slate-800 flex items-center justify-center">
+                <div class="w-3 h-3 rounded-full bg-cyan-500/30"></div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Game Logic Script -->
+    <script>
+        // --- Web Audio API Native Sound Synthesizer ---
+        class NeonSoundEngine {
+            constructor() {
+                this.ctx = null;
+            }
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            }
+            playEatSound() {
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(600, now);
+                osc.frequency.exponentialRampToValueAtTime(1200, now + 0.08);
+
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.linearRampToValueAtTime(0.01, now + 0.08);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+            }
+            playGoldSound() {
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(800, now);
+                osc.frequency.setValueAtTime(1200, now + 0.08);
+                osc.frequency.setValueAtTime(1600, now + 0.16);
+
+                gain.gain.setValueAtTime(0.4, now);
+                gain.gain.linearRampToValueAtTime(0.01, now + 0.25);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+            }
+            playDieSound() {
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(220, now);
+                osc.frequency.exponentialRampToValueAtTime(40, now + 0.35);
+
+                gain.gain.setValueAtTime(0.5, now);
+                gain.gain.linearRampToValueAtTime(0.01, now + 0.35);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+            }
+        }
+
+        const sounds = new NeonSoundEngine();
+
+        // --- Game Core Constants & State ---
+        const GRID_COUNT = 20; // 20x20 Grid
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+        const CELL_SIZE = canvas.width / GRID_COUNT;
+
+        let gameState = 'START'; // START, PLAYING, PAUSED, GAMEOVER
+        let snake = [];
+        let dir = { x: 1, y: 0 };
+        let nextDir = { x: 1, y: 0 };
+
+        let food = { x: 0, y: 0 };
+        let goldFood = null; // { x, y, timer }
+        let score = 0;
+        let highScore = parseInt(localStorage.getItem('snake_high_score') || '0');
+        let combo = 1;
+        let lastEatTime = 0;
+
+        let gameSpeed = 120; // MS per tick
+        let foodEatenCount = 0;
+        let gameInterval = null;
+
+        let particles = [];
+        let floatingTexts = [];
+
+        // --- Particle & Visual Effects Engine ---
+        function createExplosion(x, y, color) {
+            const count = 12;
+            for (let i = 0; i < count; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 3 + 1;
+                particles.push({
+                    x: (x + 0.5) * CELL_SIZE,
+                    y: (y + 0.5) * CELL_SIZE,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    radius: Math.random() * 3 + 1.5,
+                    color: color,
+                    alpha: 1,
+                    decay: Math.random() * 0.04 + 0.02
+                });
+            }
+        }
+
+        function createFloatingText(x, y, text, color) {
+            floatingTexts.push({
+                x: (x + 0.5) * CELL_SIZE,
+                y: y * CELL_SIZE,
+                text: text,
+                color: color,
+                alpha: 1,
+                dy: -1
+            });
+        }
+
+        function updateFX() {
+            // Update Particles
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.alpha -= p.decay;
+                if (p.alpha <= 0) particles.splice(i, 1);
+            }
+
+            // Update Floating Texts
+            for (let i = floatingTexts.length - 1; i >= 0; i--) {
+                const ft = floatingTexts[i];
+                ft.y += ft.dy;
+                ft.alpha -= 0.025;
+                if (ft.alpha <= 0) floatingTexts.splice(i, 1);
+            }
+        }
+
+        function drawFX() {
+            // Draw Particles
+            particles.forEach(p => {
+                ctx.save();
+                ctx.globalAlpha = p.alpha;
+                ctx.fillStyle = p.color;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            });
+
+            // Draw Floating Texts
+            floatingTexts.forEach(ft => {
+                ctx.save();
+                ctx.globalAlpha = ft.alpha;
+                ctx.fillStyle = ft.color;
+                ctx.font = 'bold 14px Orbitron';
+                ctx.textAlign = 'center';
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = ft.color;
+                ctx.fillText(ft.text, ft.x, ft.y);
+                ctx.restore();
+            });
+        }
+
+        // --- Game Logic Functions ---
+        function initGame() {
+            snake = [
+                { x: 10, y: 10 },
+                { x: 9, y: 10 },
+                { x: 8, y: 10 }
+            ];
+            dir = { x: 1, y: 0 };
+            nextDir = { x: 1, y: 0 };
+
+            score = 0;
+            combo = 1;
+            foodEatenCount = 0;
+            gameSpeed = 120;
+            goldFood = null;
+
+            updateHUD();
+            spawnFood();
+
+            particles = [];
+            floatingTexts = [];
+        }
+
+        function spawnFood() {
+            let valid = false;
+            while (!valid) {
+                food.x = Math.floor(Math.random() * GRID_COUNT);
+                food.y = Math.floor(Math.random() * GRID_COUNT);
+                valid = !snake.some(segment => segment.x === food.x && segment.y === food.y);
+            }
+
+            // 20% Chance to spawn Golden Super Food if none exists
+            if (!goldFood && Math.random() < 0.25) {
+                let gValid = false;
+                let gx, gy;
+                while (!gValid) {
+                    gx = Math.floor(Math.random() * GRID_COUNT);
+                    gy = Math.floor(Math.random() * GRID_COUNT);
+                    gValid = !snake.some(s => s.x === gx && s.y === gy) && (gx !== food.x || gy !== food.y);
+                }
+                goldFood = { x: gx, y: gy, timer: 30 }; // Expires in 30 ticks
+            }
+        }
+
+        function gameTick() {
+            if (gameState !== 'PLAYING') return;
+
+            // Apply Direction
+            dir = { ...nextDir };
+
+            // Calculate new Head position
+            const head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
+
+            // Wall Collision Check
+            if (head.x < 0 || head.x >= GRID_COUNT || head.y < 0 || head.y >= GRID_COUNT) {
+                triggerGameOver();
+                return;
+            }
+
+            // Self Collision Check
+            if (snake.some(segment => segment.x === head.x && segment.y === head.y)) {
+                triggerGameOver();
+                return;
+            }
+
+            // Move Snake
+            snake.unshift(head);
+
+            const now = Date.now();
+
+            // Eat Normal Food Check
+            if (head.x === food.x && head.y === food.y) {
+                sounds.playEatSound();
+
+                // Combo calculation (if eaten within 2.5 seconds)
+                if (now - lastEatTime < 2500) {
+                    combo = Math.min(combo + 1, 5);
+                } else {
+                    combo = 1;
+                }
+                lastEatTime = now;
+
+                const points = 10 * combo;
+                score += points;
+                foodEatenCount++;
+
+                createExplosion(food.x, food.y, '#ec4899');
+                createFloatingText(food.x, food.y, `+${points} (${combo}x)`, '#ec4899');
+
+                // Difficulty scaling (Speed up every 5 foods)
+                if (foodEatenCount % 5 === 0 && gameSpeed > 60) {
+                    gameSpeed -= 8;
+                    restartGameLoop();
+                }
+
+                spawnFood();
+            } 
+            // Eat Golden Food Check
+            else if (goldFood && head.x === goldFood.x && head.y === goldFood.y) {
+                sounds.playGoldSound();
+                const points = 35 * combo;
+                score += points;
+
+                createExplosion(goldFood.x, goldFood.y, '#eab308');
+                createFloatingText(goldFood.x, goldFood.y, `SUPER +${points}!`, '#eab308');
+
+                goldFood = null;
+                updateHUD();
+            } 
+            else {
+                // Remove tail if didn't eat normal food
+                snake.pop();
+            }
+
+            // Golden Food Timer Decrement
+            if (goldFood) {
+                goldFood.timer--;
+                if (goldFood.timer <= 0) goldFood = null;
+            }
+
+            // Update Highscore
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('snake_high_score', highScore.toString());
+            }
+
+            updateHUD();
+        }
+
+        function updateHUD() {
+            document.getElementById('score').innerText = score;
+            document.getElementById('high-score').innerText = highScore;
+            document.getElementById('snake-len').innerText = snake.length;
+            document.getElementById('combo-count').innerText = `x${combo}`;
+            document.getElementById('final-score').innerText = score;
+            document.getElementById('final-high-score').innerText = highScore;
+        }
+
+        // --- Render Loop ---
+        function render() {
+            // Clear Canvas
+            ctx.fillStyle = '#020617';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Background Cyber Grid Lines
+            ctx.strokeStyle = 'rgba(6, 182, 212, 0.06)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= GRID_COUNT; i++) {
+                ctx.beginPath();
+                ctx.moveTo(i * CELL_SIZE, 0);
+                ctx.lineTo(i * CELL_SIZE, canvas.height);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(0, i * CELL_SIZE);
+                ctx.lineTo(canvas.width, i * CELL_SIZE);
+                ctx.stroke();
+            }
+
+            // Draw Normal Food (Pulsating Pink Energy Core)
+            ctx.save();
+            ctx.fillStyle = '#ec4899';
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#ec4899';
+            ctx.beginPath();
+            ctx.arc((food.x + 0.5) * CELL_SIZE, (food.y + 0.5) * CELL_SIZE, CELL_SIZE * 0.38, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+
+            // Draw Golden Super Food (Spinning Gold Core)
+            if (goldFood) {
+                ctx.save();
+                ctx.fillStyle = '#eab308';
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = '#eab308';
+                ctx.beginPath();
+                ctx.arc((goldFood.x + 0.5) * CELL_SIZE, (goldFood.y + 0.5) * CELL_SIZE, CELL_SIZE * 0.42, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+
+            // Draw Neon Snake Body
+            snake.forEach((segment, index) => {
+                ctx.save();
+                if (index === 0) {
+                    // Snake Head
+                    ctx.fillStyle = '#22d3ee';
+                    ctx.shadowBlur = 18;
+                    ctx.shadowColor = '#06b6d4';
+                    ctx.fillRect(segment.x * CELL_SIZE + 1, segment.y * CELL_SIZE + 1, CELL_SIZE - 2, CELL_SIZE - 2);
+
+                    // Head Eyes
+                    ctx.fillStyle = '#020617';
+                    ctx.beginPath();
+                    ctx.arc(segment.x * CELL_SIZE + CELL_SIZE * 0.35, segment.y * CELL_SIZE + CELL_SIZE * 0.35, 2.5, 0, Math.PI * 2);
+                    ctx.arc(segment.x * CELL_SIZE + CELL_SIZE * 0.65, segment.y * CELL_SIZE + CELL_SIZE * 0.35, 2.5, 0, Math.PI * 2);
+                    ctx.fill();
+                } else {
+                    // Snake Tail Body (Gradient Cyan-Blue)
+                    const alpha = 1 - (index / snake.length) * 0.65;
+                    ctx.fillStyle = `rgba(6, 182, 212, ${alpha})`;
+                    ctx.shadowBlur = 8;
+                    ctx.shadowColor = '#06b6d4';
+                    ctx.fillRect(segment.x * CELL_SIZE + 2, segment.y * CELL_SIZE + 2, CELL_SIZE - 4, CELL_SIZE - 4);
+                }
+                ctx.restore();
+            });
+
+            // Update & Render FX
+            updateFX();
+            drawFX();
+
+            requestAnimationFrame(render);
+        }
+
+        // --- Game Controls & Inputs ---
+        function setDirection(dx, dy) {
+            // Prevent 180-degree immediate reverse turn
+            if (dir.x + dx === 0 && dir.y + dy === 0) return;
+            nextDir = { x: dx, y: dy };
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (gameState === 'PLAYING') {
+                if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') setDirection(0, -1);
+                if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') setDirection(0, 1);
+                if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') setDirection(-1, 0);
+                if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') setDirection(1, 0);
+                if (e.key === ' ') togglePause();
+            }
+        });
+
+        // Touch Gestures Swipe Detection
+        let touchStartX = 0;
+        let touchStartY = 0;
+        canvas.addEventListener('touchstart', (e) => {
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+        }, { passive: true });
+
+        canvas.addEventListener('touchend', (e) => {
+            if (gameState !== 'PLAYING') return;
+            const dx = e.changedTouches[0].clientX - touchStartX;
+            const dy = e.changedTouches[0].clientY - touchStartY;
+
+            if (Math.abs(dx) > Math.abs(dy)) {
+                if (Math.abs(dx) > 25) setDirection(dx > 0 ? 1 : -1, 0);
+            } else {
+                if (Math.abs(dy) > 25) setDirection(0, dy > 0 ? 1 : -1);
+            }
+        }, { passive: true });
+
+        // D-Pad Touch Controls
+        document.getElementById('dpad-up').addEventListener('click', () => setDirection(0, -1));
+        document.getElementById('dpad-down').addEventListener('click', () => setDirection(0, 1));
+        document.getElementById('dpad-left').addEventListener('click', () => setDirection(-1, 0));
+        document.getElementById('dpad-right').addEventListener('click', () => setDirection(1, 0));
+
+        // State Flow Control Functions
+        function startGame() {
+            sounds.init();
+            initGame();
+            gameState = 'PLAYING';
+            document.getElementById('start-overlay').classList.add('hidden');
+            document.getElementById('gameover-overlay').classList.add('hidden');
+            document.getElementById('pause-overlay').classList.add('hidden');
+            restartGameLoop();
+        }
+
+        function triggerGameOver() {
+            gameState = 'GAMEOVER';
+            sounds.playDieSound();
+            clearInterval(gameInterval);
+
+            // Screen Shake Effect
+            document.getElementById('game-canvas').classList.add('shake');
+            setTimeout(() => document.getElementById('game-canvas').classList.remove('shake'), 400);
+
+            document.getElementById('gameover-overlay').classList.remove('hidden');
+        }
+
+        function togglePause() {
+            if (gameState === 'PLAYING') {
+                gameState = 'PAUSED';
+                clearInterval(gameInterval);
+                document.getElementById('pause-overlay').classList.remove('hidden');
+            } else if (gameState === 'PAUSED') {
+                gameState = 'PLAYING';
+                document.getElementById('pause-overlay').classList.add('hidden');
+                restartGameLoop();
+            }
+        }
+
+        function restartGameLoop() {
+            clearInterval(gameInterval);
+            gameInterval = setInterval(gameTick, gameSpeed);
+        }
+
+        // Event Listener Bindings
+        document.getElementById('btn-start').addEventListener('click', startGame);
+        document.getElementById('btn-restart').addEventListener('click', startGame);
+        document.getElementById('btn-restart-pause').addEventListener('click', startGame);
+        document.getElementById('btn-resume').addEventListener('click', togglePause);
+        document.getElementById('btn-pause-toggle').addEventListener('click', togglePause);
+
+        // Initialize HUD High Score & Render Loop
+        document.getElementById('high-score').innerText = highScore;
+        requestAnimationFrame(render);
+    </script>
+</body>
+</html>

@@ -1,0 +1,1366 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>春日部大冒險！蠟筆小新角色數獨</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Noto+Sans+TC:wght@500;700;900&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        shinYellow: '#FFD166',
+                        shinRed: '#EF476F',
+                        shinBlue: '#118AB2',
+                        shinGreen: '#06D6A0',
+                        shinPurple: '#8338EC',
+                        shinOrange: '#F77F00',
+                        shinBackground: '#FFFDF5',
+                        shinCard: '#FFFFFF',
+                    },
+                    fontFamily: {
+                        sans: ['"Noto Sans TC"', 'Fredoka', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #FFFDF5;
+            background-image: radial-gradient(#FFD166 1.5px, transparent 1.5px), radial-gradient(#118AB2 1.5px, #FFFDF5 1.5px);
+            background-size: 60px 60px;
+            background-position: 0 0, 30px 30px;
+            touch-action: manipulation;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .sudoku-grid {
+            display: grid;
+            grid-template-columns: repeat(9, minmax(0, 1fr));
+            gap: 1px;
+            background-color: #334155;
+            border: 3.5px solid #1E293B;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+        }
+
+        /* 3x3 block borders */
+        .sudoku-cell {
+            position: relative;
+            aspect-ratio: 1 / 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.12s ease-in-out;
+            background-color: #FFFFFF;
+        }
+
+        .border-r-bold { border-right: 3px solid #1E293B !important; }
+        .border-b-bold { border-bottom: 3px solid #1E293B !important; }
+
+        /* Cell highlighting states */
+        .cell-selected {
+            background-color: #FEF08A !important; /* Yellow-200 */
+            transform: scale(1.02);
+            z-index: 10;
+            box-shadow: inset 0 0 0 2px #EAB308;
+        }
+
+        .cell-highlight-group {
+            background-color: #FEF9C3 !important; /* Yellow-100 */
+        }
+
+        .cell-highlight-match {
+            background-color: #BAE6FD !important; /* Sky-200 */
+        }
+
+        .cell-given {
+            color: #0F172A;
+            font-weight: 900;
+        }
+
+        .cell-user {
+            color: #2563EB;
+        }
+
+        .cell-error {
+            background-color: #FCA5A5 !important; /* Red-300 */
+            color: #DC2626 !important;
+            animation: shake 0.35s ease-in-out;
+        }
+
+        /* Gold completion flash */
+        .cell-complete-flash {
+            animation: goldFlash 0.8s ease-out;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20% { transform: translateX(-4px); }
+            40% { transform: translateX(4px); }
+            60% { transform: translateX(-3px); }
+            80% { transform: translateX(3px); }
+        }
+
+        @keyframes goldFlash {
+            0% { background-color: #FFF; }
+            50% { background-color: #FACC15; transform: scale(1.08); z-index: 20; box-shadow: 0 0 15px #FACC15; }
+            100% { background-color: #FFF; transform: scale(1); }
+        }
+
+        /* Pencil notes 3x3 layout inside a cell */
+        .notes-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            width: 100%;
+            height: 100%;
+            padding: 2px;
+        }
+
+        .note-item {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.6rem;
+            line-height: 1;
+            color: #64748B;
+            font-weight: 600;
+        }
+
+        @media (min-width: 640px) {
+            .note-item { font-size: 0.75rem; }
+        }
+
+        /* Custom buttons styling */
+        .btn-cartoon {
+            transition: all 0.1s ease;
+            box-shadow: 0 4px 0 0 rgba(0,0,0,0.2);
+        }
+        .btn-cartoon:active {
+            transform: translateY(3px);
+            box-shadow: 0 1px 0 0 rgba(0,0,0,0.2);
+        }
+
+        .character-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 9999px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        /* Modal backdrop blur */
+        .backdrop-blur-custom {
+            backdrop-filter: blur(4px);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between items-center p-2 sm:p-4 text-slate-800">
+
+    <header class="w-full max-w-xl flex flex-col items-center mb-2 sm:mb-4">
+        <div class="flex items-center justify-between w-full px-2 py-1">
+            <div class="flex items-center gap-2">
+                <div class="w-10 h-10 rounded-full bg-shinRed flex items-center justify-center text-white font-black text-xl shadow-md border-2 border-white">
+                    新
+                </div>
+                <div>
+                    <h1 class="text-xl sm:text-2xl font-black tracking-wide text-slate-800 flex items-center gap-1">
+                        春日部大冒險！
+                        <span class="text-xs bg-shinYellow text-slate-900 px-2 py-0.5 rounded-full font-bold shadow-sm">角色數獨</span>
+                    </h1>
+                    <p class="text-xs text-slate-500 font-semibold">Crayon Shin-chan Sudoku</p>
+                </div>
+            </div>
+
+            <!-- Display Mode Switcher -->
+            <div class="flex bg-slate-200 p-1 rounded-2xl gap-1 shadow-inner text-xs font-bold">
+                <button id="mode-char-btn" onclick="setDisplayMode('character')" class="px-2.5 py-1 rounded-xl transition-all bg-white text-slate-800 shadow">
+                    頭像
+                </button>
+                <button id="mode-dual-btn" onclick="setDisplayMode('dual')" class="px-2.5 py-1 rounded-xl transition-all text-slate-600 hover:text-slate-900">
+                    雙標
+                </button>
+                <button id="mode-num-btn" onclick="setDisplayMode('number')" class="px-2.5 py-1 rounded-xl transition-all text-slate-600 hover:text-slate-900">
+                    數字
+                </button>
+            </div>
+        </div>
+
+        <!-- Top Controls: Difficulty & Stats Bar -->
+        <div class="w-full bg-white/90 backdrop-blur rounded-2xl p-2.5 mt-2 border-2 border-amber-200 shadow-sm flex flex-wrap justify-between items-center gap-2">
+            <!-- Difficulty Selector -->
+            <div class="flex items-center gap-1">
+                <span class="text-xs font-bold text-slate-500">難度：</span>
+                <select id="difficulty-select" onchange="changeDifficulty()" class="bg-amber-100 text-slate-800 font-bold text-xs sm:text-sm rounded-xl px-2.5 py-1 border border-amber-300 focus:outline-none cursor-pointer">
+                    <option value="easy">簡單 (雙葉幼稚園)</option>
+                    <option value="medium" selected>中等 (春日部防衛隊)</option>
+                    <option value="hard">困難 (美冴暴怒級)</option>
+                </select>
+            </div>
+
+            <!-- Game Counters -->
+            <div class="flex items-center gap-3 text-xs sm:text-sm font-bold text-slate-700">
+                <div class="flex items-center gap-1 bg-sky-50 px-2.5 py-1 rounded-xl border border-sky-200">
+                    <span class="text-sky-600">⏱️</span>
+                    <span id="timer-display">00:00</span>
+                </div>
+                <div class="flex items-center gap-1 bg-rose-50 px-2.5 py-1 rounded-xl border border-rose-200">
+                    <span class="text-rose-500">❌</span>
+                    <span id="mistakes-display">0/3</span>
+                </div>
+                <div class="flex items-center gap-1 bg-emerald-50 px-2.5 py-1 rounded-xl border border-emerald-200">
+                    <span class="text-emerald-600">🏆</span>
+                    <span id="score-display">0</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="w-full max-w-xl flex flex-col items-center">
+        <!-- 9x9 Sudoku Board Grid -->
+        <div class="w-full px-1">
+            <div id="sudoku-board" class="sudoku-grid rounded-2xl overflow-hidden w-full aspect-square">
+                <!-- 81 cells will be rendered here dynamically -->
+            </div>
+        </div>
+
+        <div class="w-full px-2 mt-3 flex justify-between items-center gap-2">
+            <button onclick="handleUndo()" class="btn-cartoon flex-1 bg-white hover:bg-slate-50 border-2 border-slate-200 text-slate-700 py-2 rounded-2xl flex flex-col items-center justify-center font-bold text-xs gap-0.5">
+                <span class="text-base">↩️</span>
+                <span>復原</span>
+            </button>
+            <button onclick="handleErase()" class="btn-cartoon flex-1 bg-white hover:bg-slate-50 border-2 border-slate-200 text-slate-700 py-2 rounded-2xl flex flex-col items-center justify-center font-bold text-xs gap-0.5">
+                <span class="text-base">🧹</span>
+                <span>擦除</span>
+            </button>
+            <button id="note-mode-btn" onclick="toggleNoteMode()" class="btn-cartoon flex-1 bg-white hover:bg-amber-50 border-2 border-slate-200 text-slate-700 py-2 rounded-2xl flex flex-col items-center justify-center font-bold text-xs gap-0.5">
+                <span id="note-icon" class="text-base">✏️</span>
+                <span id="note-text">筆記 [關]</span>
+            </button>
+            <button onclick="handleHint()" class="btn-cartoon flex-1 bg-amber-400 hover:bg-amber-300 text-amber-950 py-2 rounded-2xl flex flex-col items-center justify-center font-bold text-xs gap-0.5 border-2 border-amber-500">
+                <span class="text-base">💡</span>
+                <span>提示 (<span id="hint-count">3</span>)</span>
+            </button>
+            <button onclick="togglePauseModal()" class="btn-cartoon bg-slate-700 hover:bg-slate-800 text-white px-3 py-2 rounded-2xl flex flex-col items-center justify-center font-bold text-xs gap-0.5">
+                <span class="text-base">⏸️</span>
+                <span>暫停</span>
+            </button>
+        </div>
+
+        <div id="numpad-container" class="w-full px-1 mt-3 grid grid-cols-9 gap-1 sm:gap-2">
+            <!-- 9 Numpad buttons dynamically generated -->
+        </div>
+    </main>
+
+    <!-- Footer Information -->
+    <footer class="w-full max-w-xl text-center text-xs text-slate-400 font-medium py-3">
+        春日部防衛隊數獨特訓 · 野原一家與朋友們陪伴你鍛鍊大腦！
+    </footer>
+
+    <!-- Victory Modal -->
+    <div id="victory-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-custom">
+        <div class="bg-white rounded-3xl p-6 max-w-sm w-full text-center border-4 border-amber-400 shadow-2xl transform transition-all scale-100 animate-bounce-short">
+            <div class="w-20 h-20 mx-auto -mt-12 bg-amber-300 rounded-full border-4 border-white shadow-lg flex items-center justify-center text-4xl">
+                👑
+            </div>
+            <h2 class="text-2xl font-black text-slate-800 mt-2">太棒了！挑戰成功！</h2>
+            <p class="text-amber-600 font-bold text-sm mt-1">「動感超人誇獎你是數獨天才！」</p>
+            
+            <div class="bg-amber-50 rounded-2xl p-4 my-4 border border-amber-200 text-left space-y-2 text-sm font-bold text-slate-700">
+                <div class="flex justify-between">
+                    <span class="text-slate-500">通關難度：</span>
+                    <span id="win-diff-text" class="text-amber-700">中等</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-500">消耗時間：</span>
+                    <span id="win-time-text" class="text-sky-600">03:45</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-500">最終得分：</span>
+                    <span id="win-score-text" class="text-emerald-600">1250</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-500">歷史最高：</span>
+                    <span id="win-best-text" class="text-purple-600">1500</span>
+                </div>
+            </div>
+
+            <div class="flex gap-2">
+                <button onclick="startNewGame()" class="btn-cartoon flex-1 bg-shinYellow text-slate-900 font-black py-3 rounded-2xl border-2 border-amber-400 text-base">
+                    再玩一局 🎮
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Over Modal -->
+    <div id="gameover-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-custom">
+        <div class="bg-white rounded-3xl p-6 max-w-sm w-full text-center border-4 border-rose-400 shadow-2xl">
+            <div class="w-20 h-20 mx-auto -mt-12 bg-rose-200 rounded-full border-4 border-white shadow-lg flex items-center justify-center text-4xl">
+                💥
+            </div>
+            <h2 class="text-2xl font-black text-slate-800 mt-2">美冴暴怒啦！</h2>
+            <p class="text-rose-500 font-bold text-sm mt-1">「犯錯 3 次囉！再試一次吧！」</p>
+            
+            <div class="my-5">
+                <p class="text-xs text-slate-500">別灰心，春日部防衛隊隨時準備好再次出擊！</p>
+            </div>
+
+            <button onclick="startNewGame()" class="btn-cartoon w-full bg-rose-500 text-white font-black py-3 rounded-2xl border-2 border-rose-600 text-base">
+                重新挑戰 🔄
+            </button>
+        </div>
+    </div>
+
+    <!-- Pause Modal -->
+    <div id="pause-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-custom">
+        <div class="bg-white rounded-3xl p-6 max-w-xs w-full text-center border-4 border-sky-300 shadow-2xl">
+            <div class="text-4xl mb-2">☕</div>
+            <h2 class="text-2xl font-black text-slate-800">遊戲暫停中</h2>
+            <p class="text-xs text-slate-500 mt-1 mb-6">休息一下，喝口茶再繼續吧！</p>
+            
+            <div class="space-y-3">
+                <button onclick="togglePauseModal()" class="btn-cartoon w-full bg-sky-500 text-white font-bold py-3 rounded-2xl text-sm">
+                    繼續遊戲 ▶️
+                </button>
+                <button onclick="startNewGame(); togglePauseModal();" class="btn-cartoon w-full bg-slate-100 text-slate-700 font-bold py-2.5 rounded-2xl text-sm border border-slate-200">
+                    開新局 🔄
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Canvas overlay for Victory Confetti fireworks -->
+    <canvas id="confetti-canvas" class="pointer-events-none fixed inset-0 z-40 w-full h-full"></canvas>
+
+    <script>
+        /* ==========================================================================
+           1. CHARACTERS & VISUAL ASSETS (SVG Vector Avatars)
+           ========================================================================== */
+        const CHARACTERS = {
+            1: {
+                id: 1,
+                name: '小新',
+                role: '野原新之助',
+                themeColor: '#EF476F',
+                bgColor: '#FFE5EC',
+                // Shin-chan SVG Avatar
+                svg: `<svg viewBox="0 0 100 100" class="w-full h-full">
+                        <circle cx="50" cy="50" r="46" fill="#EF476F" />
+                        <circle cx="50" cy="46" r="34" fill="#FDE2E4" />
+                        <!-- Eyebrows -->
+                        <path d="M 24 32 Q 36 22 46 32" stroke="#1E293B" stroke-width="7" stroke-linecap="round" fill="none" />
+                        <path d="M 54 32 Q 64 22 76 32" stroke="#1E293B" stroke-width="7" stroke-linecap="round" fill="none" />
+                        <!-- Eyes -->
+                        <circle cx="36" cy="42" r="5" fill="#1E293B" />
+                        <circle cx="64" cy="42" r="5" fill="#1E293B" />
+                        <!-- Cheeks -->
+                        <ellipse cx="26" cy="52" rx="7" ry="5" fill="#FFB5A7" />
+                        <ellipse cx="74" cy="52" rx="7" ry="5" fill="#FFB5A7" />
+                        <!-- Smile -->
+                        <path d="M 38 58 Q 50 72 62 58" stroke="#1E293B" stroke-width="4" stroke-linecap="round" fill="#EF476F" />
+                      </svg>`
+            },
+            2: {
+                id: 2,
+                name: '美冴',
+                role: '野原美冴',
+                themeColor: '#F72585',
+                bgColor: '#FFE5EC',
+                svg: `<svg viewBox="0 0 100 100" class="w-full h-full">
+                        <circle cx="50" cy="50" r="46" fill="#F72585" />
+                        <!-- Curly Hair -->
+                        <path d="M 18 45 Q 15 20 50 18 Q 85 20 82 45 Q 88 65 78 78 Q 22 78 12 45 Z" fill="#4A1525" />
+                        <circle cx="50" cy="48" r="30" fill="#FDE2E4" />
+                        <!-- Hair Bangs -->
+                        <path d="M 25 38 Q 50 25 75 38" stroke="#4A1525" stroke-width="8" fill="none" />
+                        <!-- Eyes & Angry Brow -->
+                        <path d="M 28 38 L 42 42" stroke="#1E293B" stroke-width="4" stroke-linecap="round" />
+                        <path d="M 72 38 L 58 42" stroke="#1E293B" stroke-width="4" stroke-linecap="round" />
+                        <circle cx="36" cy="48" r="4" fill="#1E293B" />
+                        <circle cx="64" cy="48" r="4" fill="#1E293B" />
+                        <!-- Mouth -->
+                        <path d="M 40 62 Q 50 54 60 62" stroke="#1E293B" stroke-width="3" stroke-linecap="round" fill="none" />
+                      </svg>`
+            },
+            3: {
+                id: 3,
+                name: '廣志',
+                role: '野原廣志',
+                themeColor: '#06D6A0',
+                bgColor: '#E8FCCF',
+                svg: `<svg viewBox="0 0 100 100" class="w-full h-full">
+                        <circle cx="50" cy="50" r="46" fill="#06D6A0" />
+                        <path d="M 25 25 L 75 25 L 70 75 L 30 75 Z" fill="#3A5A40" />
+                        <circle cx="50" cy="48" r="28" fill="#FDE2E4" />
+                        <!-- Thick Eyebrows -->
+                        <rect x="28" y="34" width="18" height="6" rx="3" fill="#1E293B" />
+                        <rect x="54" y="34" width="18" height="6" rx="3" fill="#1E293B" />
+                        <!-- Eyes -->
+                        <circle cx="37" cy="46" r="3.5" fill="#1E293B" />
+                        <circle cx="63" cy="46" r="3.5" fill="#1E293B" />
+                        <!-- Beard Stubble Dots -->
+                        <path d="M 32 60 Q 50 72 68 60" stroke="#1E293B" stroke-width="3" fill="none" stroke-dasharray="2 3" />
+                        <!-- Smile -->
+                        <path d="M 42 56 Q 50 62 58 56" stroke="#1E293B" stroke-width="3" fill="none" stroke-linecap="round" />
+                      </svg>`
+            },
+            4: {
+                id: 4,
+                name: '小葵',
+                role: '野原葵',
+                themeColor: '#FFD166',
+                bgColor: '#FFF3B0',
+                svg: `<svg viewBox="0 0 100 100" class="w-full h-full">
+                        <circle cx="50" cy="50" r="46" fill="#FFD166" />
+                        <circle cx="50" cy="50" r="34" fill="#FDE2E4" />
+                        <!-- Hair Swirl -->
+                        <path d="M 50 18 C 30 10 30 30 45 28" stroke="#D4A373" stroke-width="6" fill="none" stroke-linecap="round" />
+                        <!-- Sparkling Eyes -->
+                        <circle cx="36" cy="45" r="7" fill="#1E293B" />
+                        <circle cx="38" cy="43" r="2.5" fill="#FFF" />
+                        <circle cx="64" cy="45" r="7" fill="#1E293B" />
+                        <circle cx="66" cy="43" r="2.5" fill="#FFF" />
+                        <!-- Cheeks -->
+                        <circle cx="26" cy="54" r="6" fill="#FFB5A7" />
+                        <circle cx="74" cy="54" r="6" fill="#FFB5A7" />
+                        <!-- Pacifier / Cute mouth -->
+                        <circle cx="50" cy="58" r="7" fill="#FF4D6D" />
+                        <circle cx="50" cy="58" r="3" fill="#FFF" />
+                      </svg>`
+            },
+            5: {
+                id: 5,
+                name: '小白',
+                role: '小白 (Cotton)',
+                themeColor: '#4EA8DE',
+                bgColor: '#E0F2FE',
+                svg: `<svg viewBox="0 0 100 100" class="w-full h-full">
+                        <circle cx="50" cy="50" r="46" fill="#4EA8DE" />
+                        <!-- Dog Ears -->
+                        <ellipse cx="20" cy="40" rx="12" ry="18" fill="#FFFFFF" />
+                        <ellipse cx="80" cy="40" rx="12" ry="18" fill="#FFFFFF" />
+                        <!-- Fluffy Head -->
+                        <circle cx="50" cy="52" r="32" fill="#FFFFFF" />
+                        <!-- Eyes -->
+                        <circle cx="38" cy="48" r="4" fill="#1E293B" />
+                        <circle cx="62" cy="48" r="4" fill="#1E293B" />
+                        <!-- Nose -->
+                        <ellipse cx="50" cy="56" rx="5" ry="4" fill="#1E293B" />
+                        <!-- Mouth -->
+                        <path d="M 45 63 Q 50 67 55 63" stroke="#1E293B" stroke-width="3" fill="none" stroke-linecap="round" />
+                      </svg>`
+            },
+            6: {
+                id: 6,
+                name: '風間',
+                role: '風間徹',
+                themeColor: '#3A86EF',
+                bgColor: '#DBEAFE',
+                svg: `<svg viewBox="0 0 100 100" class="w-full h-full">
+                        <circle cx="50" cy="50" r="46" fill="#3A86EF" />
+                        <!-- Aristocratic Hair Swoop -->
+                        <path d="M 20 45 Q 20 18 50 18 Q 80 18 80 45 Z" fill="#1E3A8A" />
+                        <circle cx="50" cy="50" r="28" fill="#FDE2E4" />
+                        <!-- Hair Bangs -->
+                        <path d="M 30 25 Q 45 35 70 25 Q 55 40 30 25 Z" fill="#1E3A8A" />
+                        <!-- Eyebrows -->
+                        <path d="M 30 38 Q 38 34 44 38" stroke="#1E293B" stroke-width="3" fill="none" />
+                        <path d="M 56 38 Q 62 34 70 38" stroke="#1E293B" stroke-width="3" fill="none" />
+                        <!-- Eyes -->
+                        <circle cx="37" cy="46" r="4" fill="#1E293B" />
+                        <circle cx="63" cy="46" r="4" fill="#1E293B" />
+                        <!-- Smug Smile -->
+                        <path d="M 42 58 Q 54 62 60 55" stroke="#1E293B" stroke-width="3" fill="none" stroke-linecap="round" />
+                      </svg>`
+            },
+            7: {
+                id: 7,
+                name: '妮妮',
+                role: '櫻田妮妮',
+                themeColor: '#FF70A6',
+                bgColor: '#FCE7F3',
+                svg: `<svg viewBox="0 0 100 100" class="w-full h-full">
+                        <circle cx="50" cy="50" r="46" fill="#FF70A6" />
+                        <!-- Twin Tails Hair -->
+                        <circle cx="20" cy="32" r="14" fill="#B5179E" />
+                        <circle cx="80" cy="32" r="14" fill="#B5179E" />
+                        <circle cx="50" cy="50" r="30" fill="#FDE2E4" />
+                        <!-- Bangs -->
+                        <path d="M 25 36 Q 50 20 75 36" stroke="#B5179E" stroke-width="8" fill="none" />
+                        <!-- Big Cute Eyes -->
+                        <circle cx="36" cy="48" r="5" fill="#1E293B" />
+                        <circle cx="37" cy="46" r="2" fill="#FFF" />
+                        <circle cx="64" cy="48" r="5" fill="#1E293B" />
+                        <circle cx="65" cy="46" r="2" fill="#FFF" />
+                        <!-- Cheeks -->
+                        <circle cx="28" cy="56" r="5" fill="#FFB5A7" />
+                        <circle cx="72" cy="56" r="5" fill="#FFB5A7" />
+                        <!-- Mouth -->
+                        <path d="M 42 60 Q 50 66 58 60" stroke="#1E293B" stroke-width="3" fill="none" stroke-linecap="round" />
+                      </svg>`
+            },
+            8: {
+                id: 8,
+                name: '正男',
+                role: '佐藤正男',
+                themeColor: '#70E000',
+                bgColor: '#DCFCE7',
+                svg: `<svg viewBox="0 0 100 100" class="w-full h-full">
+                        <circle cx="50" cy="50" r="46" fill="#70E000" />
+                        <!-- Rice Ball / Onigiri Shaped Head -->
+                        <path d="M 50 16 Q 82 45 74 76 Q 26 76 26 45 Z" fill="#FDE2E4" />
+                        <!-- Eyebrows (Worried) -->
+                        <path d="M 32 38 L 44 42" stroke="#1E293B" stroke-width="3" stroke-linecap="round" />
+                        <path d="M 68 38 L 56 42" stroke="#1E293B" stroke-width="3" stroke-linecap="round" />
+                        <!-- Eyes -->
+                        <circle cx="38" cy="48" r="4" fill="#1E293B" />
+                        <circle cx="62" cy="48" r="4" fill="#1E293B" />
+                        <!-- Tear Drop -->
+                        <path d="M 72 52 C 72 48 76 44 76 44 C 76 44 80 48 80 52 C 80 55 76 57 76 57 C 76 57 72 55 72 52 Z" fill="#38BDF8" />
+                        <!-- Wobbly mouth -->
+                        <path d="M 40 62 Q 45 58 50 62 Q 55 66 60 62" stroke="#1E293B" stroke-width="3" fill="none" stroke-linecap="round" />
+                      </svg>`
+            },
+            9: {
+                id: 9,
+                name: '阿呆',
+                role: '阿呆 (Bo)',
+                themeColor: '#FF9F1C',
+                bgColor: '#FFEDD5',
+                svg: `<svg viewBox="0 0 100 100" class="w-full h-full">
+                        <circle cx="50" cy="50" r="46" fill="#FF9F1C" />
+                        <!-- Oval Head -->
+                        <ellipse cx="50" cy="50" rx="28" ry="34" fill="#FDE2E4" />
+                        <!-- Tiny Eyes -->
+                        <circle cx="38" cy="44" r="3" fill="#1E293B" />
+                        <circle cx="62" cy="44" r="3" fill="#1E293B" />
+                        <!-- Drooping Snot Drop (Iconic) -->
+                        <path d="M 50 52 Q 45 72 50 78 Q 55 72 50 52 Z" fill="#7DD3FC" stroke="#0284C7" stroke-width="1.5" />
+                        <!-- Calm Mouth -->
+                        <line x1="44" y1="58" x2="56" y2="58" stroke="#1E293B" stroke-width="2.5" stroke-linecap="round" />
+                      </svg>`
+            }
+        };
+
+        /* ==========================================================================
+           2. WEB AUDIO API SYNTHESIZER (Zero external Audio files)
+           ========================================================================== */
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioCtx();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            playTap() {
+                this.init();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(400, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(800, this.ctx.currentTime + 0.05);
+                gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.05);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.05);
+            }
+
+            playSelect() {
+                this.init();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(523.25, this.ctx.currentTime); // C5
+                gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.08);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.08);
+            }
+
+            playError() {
+                this.init();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(180, this.ctx.currentTime);
+                osc.frequency.setValueAtTime(140, this.ctx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.25, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.25);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.25);
+            }
+
+            playSuccess() {
+                this.init();
+                const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+                notes.forEach((freq, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime + idx * 0.06);
+                    gain.gain.setValueAtTime(0.2, this.ctx.currentTime + idx * 0.06);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + idx * 0.06 + 0.15);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(this.ctx.currentTime + idx * 0.06);
+                    osc.stop(this.ctx.currentTime + idx * 0.06 + 0.15);
+                });
+            }
+
+            playVictory() {
+                this.init();
+                const melody = [
+                    { freq: 523.25, duration: 0.15 },
+                    { freq: 659.25, duration: 0.15 },
+                    { freq: 783.99, duration: 0.15 },
+                    { freq: 1046.50, duration: 0.3 },
+                    { freq: 880.00, duration: 0.15 },
+                    { freq: 1046.50, duration: 0.4 }
+                ];
+                let time = this.ctx.currentTime;
+                melody.forEach(note => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(note.freq, time);
+                    gain.gain.setValueAtTime(0.25, time);
+                    gain.gain.exponentialRampToValueAtTime(0.01, time + note.duration);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(time);
+                    osc.stop(time + note.duration);
+                    time += note.duration + 0.03;
+                });
+            }
+        }
+
+        const audio = new SoundEngine();
+
+        /* ==========================================================================
+           3. SUDOKU SOLVER & GENERATOR ALGORITHM (Backtracking)
+           ========================================================================== */
+        class SudokuEngine {
+            static createEmptyGrid() {
+                return Array.from({ length: 9 }, () => Array(9).fill(0));
+            }
+
+            static isValid(grid, row, col, num) {
+                for (let i = 0; i < 9; i++) {
+                    if (grid[row][i] === num && i !== col) return false;
+                    if (grid[i][col] === num && i !== row) return false;
+                }
+                const startRow = Math.floor(row / 3) * 3;
+                const startCol = Math.floor(col / 3) * 3;
+                for (let r = 0; r < 3; r++) {
+                    for (let c = 0; c < 3; c++) {
+                        const currR = startRow + r;
+                        const currC = startCol + c;
+                        if (grid[currR][currC] === num && (currR !== row || currC !== col)) {
+                            return false;
+                        }
+                    }
+                }
+                return true;
+            }
+
+            static solve(grid) {
+                for (let r = 0; r < 9; r++) {
+                    for (let c = 0; c < 9; c++) {
+                        if (grid[r][c] === 0) {
+                            const nums = [1, 2, 3, 4, 5, 6, 7, 8, 9].sort(() => Math.random() - 0.5);
+                            for (let num of nums) {
+                                if (this.isValid(grid, r, c, num)) {
+                                    grid[r][c] = num;
+                                    if (this.solve(grid)) return true;
+                                    grid[r][c] = 0;
+                                }
+                            }
+                            return false;
+                        }
+                    }
+                }
+                return true;
+            }
+
+            static generatePuzzle(difficulty = 'medium') {
+                const solution = this.createEmptyGrid();
+                this.solve(solution);
+
+                // Deep copy
+                const puzzle = solution.map(row => [...row]);
+
+                // Determine cells to keep based on difficulty
+                let keepCount = 34; // default medium
+                if (difficulty === 'easy') keepCount = 44;
+                if (difficulty === 'hard') keepCount = 26;
+
+                const removeCount = 81 - keepCount;
+                let removed = 0;
+                
+                const positions = [];
+                for (let r = 0; r < 9; r++) {
+                    for (let c = 0; c < 9; c++) {
+                        positions.push([r, c]);
+                    }
+                }
+                positions.sort(() => Math.random() - 0.5);
+
+                for (let [r, c] of positions) {
+                    if (removed >= removeCount) break;
+                    puzzle[r][c] = 0;
+                    removed++;
+                }
+
+                return { solution, puzzle };
+            }
+        }
+
+        /* ==========================================================================
+           4. GAME STATE MANAGEMENT
+           ========================================================================== */
+        let state = {
+            displayMode: 'character', // 'character' | 'dual' | 'number'
+            difficulty: 'medium',
+            solutionGrid: [],
+            initialGrid: [],
+            currentGrid: [],
+            notesGrid: [], // 9x9 set/array of arrays
+            selectedCell: null, // [row, col]
+            isNoteMode: false,
+            mistakes: 0,
+            hintsLeft: 3,
+            score: 0,
+            timerSeconds: 0,
+            timerInterval: null,
+            isPaused: false,
+            isGameOver: false,
+            history: [] // for undo action
+        };
+
+        /* LocalStorage High Scores */
+        function getHighScore(diff) {
+            return parseInt(localStorage.getItem(`shin_sudoku_best_${diff}`) || '0', 10);
+        }
+
+        function saveHighScore(diff, score) {
+            const current = getHighScore(diff);
+            if (score > current) {
+                localStorage.setItem(`shin_sudoku_best_${diff}`, score.toString());
+            }
+        }
+
+        /* ==========================================================================
+           5. UI RENDERING & DOM UPDATES
+           ========================================================================== */
+        function initGame() {
+            clearInterval(state.timerInterval);
+            
+            const { solution, puzzle } = SudokuEngine.generatePuzzle(state.difficulty);
+            state.solutionGrid = solution;
+            state.initialGrid = puzzle;
+            state.currentGrid = puzzle.map(row => [...row]);
+            state.notesGrid = Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => []));
+            
+            state.selectedCell = null;
+            state.isNoteMode = false;
+            state.mistakes = 0;
+            state.hintsLeft = state.difficulty === 'easy' ? 4 : (state.difficulty === 'medium' ? 3 : 2);
+            state.score = 0;
+            state.timerSeconds = 0;
+            state.isPaused = false;
+            state.isGameOver = false;
+            state.history = [];
+
+            updateHeaderStats();
+            renderBoard();
+            renderNumpad();
+
+            // Start Timer
+            state.timerInterval = setInterval(() => {
+                if (!state.isPaused && !state.isGameOver) {
+                    state.timerSeconds++;
+                    updateTimerDisplay();
+                }
+            }, 1000);
+
+            document.getElementById('victory-modal').classList.add('hidden');
+            document.getElementById('gameover-modal').classList.add('hidden');
+            document.getElementById('pause-modal').classList.add('hidden');
+        }
+
+        function renderBoard() {
+            const boardEl = document.getElementById('sudoku-board');
+            boardEl.innerHTML = '';
+
+            const [selR, selC] = state.selectedCell || [-1, -1];
+            const selValue = (selR >= 0 && selC >= 0) ? state.currentGrid[selR][selC] : 0;
+
+            for (let r = 0; r < 9; r++) {
+                for (let c = 0; c < 9; c++) {
+                    const cellValue = state.currentGrid[r][c];
+                    const isGiven = state.initialGrid[r][c] !== 0;
+                    
+                    const cellEl = document.createElement('div');
+                    cellEl.id = `cell-${r}-${c}`;
+                    
+                    // Base Classes
+                    let classes = ['sudoku-cell'];
+                    if (c === 2 || c === 5) classes.push('border-r-bold');
+                    if (r === 2 || r === 5) classes.push('border-b-bold');
+
+                    // Highlight checks
+                    const isSelected = (r === selR && c === selC);
+                    const inSameGroup = (r === selR || c === selC || (Math.floor(r/3) === Math.floor(selR/3) && Math.floor(c/3) === Math.floor(selC/3)));
+                    const isSameMatch = (cellValue !== 0 && cellValue === selValue);
+
+                    if (isSelected) {
+                        classes.push('cell-selected');
+                    } else if (isSameMatch) {
+                        classes.push('cell-highlight-match');
+                    } else if (inSameGroup) {
+                        classes.push('cell-highlight-group');
+                    }
+
+                    // Value source styling
+                    if (isGiven) {
+                        classes.push('cell-given');
+                    } else if (cellValue !== 0) {
+                        classes.push('cell-user');
+                    }
+
+                    // Conflict error styling
+                    if (cellValue !== 0 && cellValue !== state.solutionGrid[r][c]) {
+                        classes.push('cell-error');
+                    }
+
+                    cellEl.className = classes.join(' ');
+                    cellEl.onclick = () => selectCell(r, c);
+
+                    // Render Content (Value or Pencil Notes)
+                    if (cellValue !== 0) {
+                        cellEl.appendChild(createCellContent(cellValue));
+                    } else if (state.notesGrid[r][c].length > 0) {
+                        cellEl.appendChild(createNotesGrid(state.notesGrid[r][c]));
+                    }
+
+                    boardEl.appendChild(cellEl);
+                }
+            }
+
+            updateNumpadCounts();
+        }
+
+        function createCellContent(value) {
+            const container = document.createElement('div');
+            container.className = 'w-full h-full flex flex-col items-center justify-center p-0.5 pointer-events-none';
+
+            const charInfo = CHARACTERS[value];
+
+            if (state.displayMode === 'character') {
+                container.innerHTML = `<div class="w-4/5 h-4/5 flex items-center justify-center">${charInfo.svg}</div>`;
+            } else if (state.displayMode === 'number') {
+                container.innerHTML = `<span class="text-xl sm:text-2xl font-black" style="color: ${charInfo.themeColor}">${value}</span>`;
+            } else { // Dual mode
+                container.innerHTML = `
+                    <div class="w-3/5 h-3/5 flex items-center justify-center">${charInfo.svg}</div>
+                    <span class="text-xs font-black -mt-1" style="color: ${charInfo.themeColor}">${value}</span>
+                `;
+            }
+            return container;
+        }
+
+        function createNotesGrid(notesArr) {
+            const grid = document.createElement('div');
+            grid.className = 'notes-grid pointer-events-none';
+            for (let i = 1; i <= 9; i++) {
+                const item = document.createElement('div');
+                item.className = 'note-item';
+                if (notesArr.includes(i)) {
+                    if (state.displayMode === 'number') {
+                        item.innerText = i;
+                    } else {
+                        item.innerHTML = `<div class="w-full h-full p-0.5">${CHARACTERS[i].svg}</div>`;
+                    }
+                }
+                grid.appendChild(item);
+            }
+            return grid;
+        }
+
+        function renderNumpad() {
+            const numpadEl = document.getElementById('numpad-container');
+            numpadEl.innerHTML = '';
+
+            for (let i = 1; i <= 9; i++) {
+                const charInfo = CHARACTERS[i];
+                const btn = document.createElement('button');
+                btn.id = `numpad-btn-${i}`;
+                btn.onclick = () => handleInput(i);
+                btn.className = 'btn-cartoon bg-white border-2 border-slate-200 hover:border-amber-400 rounded-2xl p-1 flex flex-col items-center justify-between aspect-[4/5] relative transition-all';
+                
+                btn.innerHTML = `
+                    <div class="w-full aspect-square flex items-center justify-center p-0.5">
+                        ${charInfo.svg}
+                    </div>
+                    <div class="flex items-center gap-0.5">
+                        <span class="text-xs font-black" style="color: ${charInfo.themeColor}">${i}</span>
+                    </div>
+                    <span id="num-count-${i}" class="text-[10px] text-slate-400 font-bold -mt-0.5">9</span>
+                `;
+                numpadEl.appendChild(btn);
+            }
+            updateNumpadCounts();
+        }
+
+        function updateNumpadCounts() {
+            // Count how many of each digit are filled correctly on board
+            const counts = {};
+            for (let i = 1; i <= 9; i++) counts[i] = 0;
+
+            for (let r = 0; r < 9; r++) {
+                for (let c = 0; c < 9; c++) {
+                    const val = state.currentGrid[r][c];
+                    if (val === state.solutionGrid[r][c]) {
+                        counts[val]++;
+                    }
+                }
+            }
+
+            for (let i = 1; i <= 9; i++) {
+                const remaining = 9 - counts[i];
+                const countSpan = document.getElementById(`num-count-${i}`);
+                const btn = document.getElementById(`numpad-btn-${i}`);
+                if (countSpan) countSpan.innerText = remaining > 0 ? remaining : '✓';
+                if (btn) {
+                    if (remaining === 0) {
+                        btn.classList.add('opacity-40', 'bg-slate-100');
+                    } else {
+                        btn.classList.remove('opacity-40', 'bg-slate-100');
+                    }
+                }
+            }
+        }
+
+        function setDisplayMode(mode) {
+            state.displayMode = mode;
+            audio.playTap();
+
+            ['char', 'dual', 'num'].forEach(m => {
+                const btn = document.getElementById(`mode-${m}-btn`);
+                btn.className = 'px-2.5 py-1 rounded-xl transition-all text-slate-600 hover:text-slate-900';
+            });
+
+            const activeMap = { character: 'char', dual: 'dual', number: 'num' };
+            const activeBtn = document.getElementById(`mode-${activeMap[mode]}-btn`);
+            activeBtn.className = 'px-2.5 py-1 rounded-xl transition-all bg-white text-slate-800 shadow font-bold';
+
+            renderBoard();
+        }
+
+        /* ==========================================================================
+           6. INTERACTION LOGIC & GAME ENGINE
+           ========================================================================== */
+        function selectCell(r, c) {
+            if (state.isGameOver || state.isPaused) return;
+            state.selectedCell = [r, c];
+            audio.playSelect();
+            renderBoard();
+        }
+
+        function handleInput(number) {
+            if (!state.selectedCell || state.isGameOver || state.isPaused) return;
+            const [r, c] = state.selectedCell;
+
+            // Given cells cannot be edited
+            if (state.initialGrid[r][c] !== 0) return;
+
+            // Save history for Undo
+            state.history.push({
+                r, c,
+                prevVal: state.currentGrid[r][c],
+                prevNotes: [...state.notesGrid[r][c]]
+            });
+
+            if (state.isNoteMode) {
+                // Pencil Note Mode Toggle
+                const notes = state.notesGrid[r][c];
+                const idx = notes.indexOf(number);
+                if (idx >= 0) {
+                    notes.splice(idx, 1);
+                } else {
+                    notes.push(number);
+                }
+                state.currentGrid[r][c] = 0; // Clear main value if setting note
+                audio.playTap();
+            } else {
+                // Direct Value Entry
+                state.currentGrid[r][c] = number;
+                state.notesGrid[r][c] = []; // Clear notes on value enter
+
+                if (number === state.solutionGrid[r][c]) {
+                    // Correct Move!
+                    audio.playTap();
+                    state.score += 50;
+
+                    // Check if block / row / col complete for flash effect
+                    checkAndFlashCompletions(r, c);
+
+                    // Auto remove notes of same number in row/col/box
+                    autoCleanNotes(r, c, number);
+
+                    // Check Win Condition
+                    if (checkWinCondition()) {
+                        handleVictory();
+                        return;
+                    }
+                } else {
+                    // Conflict Error Move
+                    audio.playError();
+                    state.mistakes++;
+                    state.score = Math.max(0, state.score - 20);
+
+                    if (state.mistakes >= 3) {
+                        handleGameOver();
+                        return;
+                    }
+                }
+            }
+
+            updateHeaderStats();
+            renderBoard();
+        }
+
+        function handleErase() {
+            if (!state.selectedCell || state.isGameOver || state.isPaused) return;
+            const [r, c] = state.selectedCell;
+
+            if (state.initialGrid[r][c] !== 0) return;
+
+            if (state.currentGrid[r][c] !== 0 || state.notesGrid[r][c].length > 0) {
+                state.history.push({
+                    r, c,
+                    prevVal: state.currentGrid[r][c],
+                    prevNotes: [...state.notesGrid[r][c]]
+                });
+                state.currentGrid[r][c] = 0;
+                state.notesGrid[r][c] = [];
+                audio.playTap();
+                renderBoard();
+            }
+        }
+
+        function handleUndo() {
+            if (state.history.length === 0 || state.isGameOver || state.isPaused) return;
+            const lastAction = state.history.pop();
+            state.currentGrid[lastAction.r][lastAction.c] = lastAction.prevVal;
+            state.notesGrid[lastAction.r][lastAction.c] = lastAction.prevNotes;
+            state.selectedCell = [lastAction.r, lastAction.c];
+            audio.playTap();
+            renderBoard();
+        }
+
+        function toggleNoteMode() {
+            state.isNoteMode = !state.isNoteMode;
+            audio.playTap();
+            const noteBtn = document.getElementById('note-mode-btn');
+            const noteText = document.getElementById('note-text');
+            if (state.isNoteMode) {
+                noteBtn.classList.add('bg-amber-100', 'border-amber-400', 'text-amber-900');
+                noteText.innerText = '筆記 [開]';
+            } else {
+                noteBtn.classList.remove('bg-amber-100', 'border-amber-400', 'text-amber-900');
+                noteText.innerText = '筆記 [關]';
+            }
+        }
+
+        function handleHint() {
+            if (state.hintsLeft <= 0 || state.isGameOver || state.isPaused) return;
+            
+            // Find empty or wrong cells
+            const emptyCells = [];
+            for (let r = 0; r < 9; r++) {
+                for (let c = 0; c < 9; c++) {
+                    if (state.currentGrid[r][c] !== state.solutionGrid[r][c]) {
+                        emptyCells.push([r, c]);
+                    }
+                }
+            }
+
+            if (emptyCells.length === 0) return;
+
+            // Pick random target cell or selected cell
+            let target = emptyCells[Math.floor(Math.random() * emptyCells.length)];
+            if (state.selectedCell) {
+                const [sr, sc] = state.selectedCell;
+                if (state.currentGrid[sr][sc] !== state.solutionGrid[sr][sc]) {
+                    target = [sr, sc];
+                }
+            }
+
+            const [tr, tc] = target;
+            state.selectedCell = [tr, tc];
+            state.hintsLeft--;
+            document.getElementById('hint-count').innerText = state.hintsLeft;
+
+            // Fill correct solution
+            handleInput(state.solutionGrid[tr][tc]);
+            audio.playSuccess();
+        }
+
+        function autoCleanNotes(row, col, value) {
+            for (let i = 0; i < 9; i++) {
+                // Row & Col
+                state.notesGrid[row][i] = state.notesGrid[row][i].filter(n => n !== value);
+                state.notesGrid[i][col] = state.notesGrid[i][col].filter(n => n !== value);
+            }
+            // 3x3 Box
+            const startR = Math.floor(row / 3) * 3;
+            const startC = Math.floor(col / 3) * 3;
+            for (let r = 0; r < 3; r++) {
+                for (let c = 0; c < 3; c++) {
+                    const currR = startR + r;
+                    const currC = startC + c;
+                    state.notesGrid[currR][currC] = state.notesGrid[currR][currC].filter(n => n !== value);
+                }
+            }
+        }
+
+        function checkAndFlashCompletions(r, c) {
+            let rowComplete = true;
+            let colComplete = true;
+            let boxComplete = true;
+
+            for (let i = 0; i < 9; i++) {
+                if (state.currentGrid[r][i] !== state.solutionGrid[r][i]) rowComplete = false;
+                if (state.currentGrid[i][c] !== state.solutionGrid[i][c]) colComplete = false;
+            }
+
+            const startR = Math.floor(r / 3) * 3;
+            const startC = Math.floor(c / 3) * 3;
+            for (let br = 0; br < 3; br++) {
+                for (let bc = 0; bc < 3; bc++) {
+                    if (state.currentGrid[startR + br][startC + bc] !== state.solutionGrid[startR + br][startC + bc]) {
+                        boxComplete = false;
+                    }
+                }
+            }
+
+            if (rowComplete || colComplete || boxComplete) {
+                audio.playSuccess();
+                // Add flash class to corresponding cells
+                const cellsToFlash = new Set();
+                if (rowComplete) {
+                    for (let i = 0; i < 9; i++) cellsToFlash.add(`cell-${r}-${i}`);
+                }
+                if (colComplete) {
+                    for (let i = 0; i < 9; i++) cellsToFlash.add(`cell-${i}-${c}`);
+                }
+                if (boxComplete) {
+                    for (let br = 0; br < 3; br++) {
+                        for (let bc = 0; bc < 3; bc++) cellsToFlash.add(`cell-${startR + br}-${startC + bc}`);
+                    }
+                }
+
+                cellsToFlash.forEach(cellId => {
+                    const el = document.getElementById(cellId);
+                    if (el) {
+                        el.classList.add('cell-complete-flash');
+                        setTimeout(() => el.classList.remove('cell-complete-flash'), 800);
+                    }
+                });
+            }
+        }
+
+        function checkWinCondition() {
+            for (let r = 0; r < 9; r++) {
+                for (let c = 0; c < 9; c++) {
+                    if (state.currentGrid[r][c] !== state.solutionGrid[r][c]) return false;
+                }
+            }
+            return true;
+        }
+
+        /* ==========================================================================
+           7. GAME END & WIN CELEBRATION (Confetti Canvas)
+           ========================================================================== */
+        function handleVictory() {
+            state.isGameOver = true;
+            clearInterval(state.timerInterval);
+            audio.playVictory();
+
+            // Calculate final score with time bonus
+            const timeBonus = Math.max(0, 1000 - state.timerSeconds * 2);
+            const finalScore = state.score + timeBonus;
+            saveHighScore(state.difficulty, finalScore);
+
+            const diffNames = { easy: '簡單 (幼稚園)', medium: '中等 (防衛隊)', hard: '困難 (美冴級)' };
+            document.getElementById('win-diff-text').innerText = diffNames[state.difficulty];
+            document.getElementById('win-time-text').innerText = formatTime(state.timerSeconds);
+            document.getElementById('win-score-text').innerText = finalScore;
+            document.getElementById('win-best-text').innerText = getHighScore(state.difficulty);
+
+            document.getElementById('victory-modal').classList.remove('hidden');
+            triggerConfetti();
+        }
+
+        function handleGameOver() {
+            state.isGameOver = true;
+            clearInterval(state.timerInterval);
+            audio.playError();
+            document.getElementById('gameover-modal').classList.remove('hidden');
+        }
+
+        function togglePauseModal() {
+            if (state.isGameOver) return;
+            state.isPaused = !state.isPaused;
+            const pauseModal = document.getElementById('pause-modal');
+            if (state.isPaused) {
+                pauseModal.classList.remove('hidden');
+            } else {
+                pauseModal.classList.add('hidden');
+            }
+        }
+
+        function changeDifficulty() {
+            const select = document.getElementById('difficulty-select');
+            state.difficulty = select.value;
+            initGame();
+        }
+
+        function startNewGame() {
+            initGame();
+        }
+
+        function updateHeaderStats() {
+            document.getElementById('mistakes-display').innerText = `${state.mistakes}/3`;
+            document.getElementById('score-display').innerText = state.score;
+        }
+
+        function updateTimerDisplay() {
+            document.getElementById('timer-display').innerText = formatTime(state.timerSeconds);
+        }
+
+        function formatTime(seconds) {
+            const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+            const s = (seconds % 60).toString().padStart(2, '0');
+            return `${m}:${s}`;
+        }
+
+        /* Canvas Particle Engine for Win Fireworks */
+        function triggerConfetti() {
+            const canvas = document.getElementById('confetti-canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+
+            const particles = [];
+            const colors = ['#EF476F', '#FFD166', '#06D6A0', '#118AB2', '#8338EC', '#F77F00'];
+
+            for (let i = 0; i < 120; i++) {
+                particles.push({
+                    x: canvas.width / 2,
+                    y: canvas.height / 2,
+                    vx: (Math.random() - 0.5) * 16,
+                    vy: (Math.random() - 0.7) * 18,
+                    size: Math.random() * 8 + 4,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    rotation: Math.random() * 360,
+                    rotSpeed: (Math.random() - 0.5) * 10,
+                    life: 100
+                });
+            }
+
+            function animate() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                let alive = false;
+
+                particles.forEach(p => {
+                    if (p.life > 0) {
+                        alive = true;
+                        p.x += p.vx;
+                        p.y += p.vy;
+                        p.vy += 0.3; // Gravity
+                        p.life -= 0.8;
+                        p.rotation += p.rotSpeed;
+
+                        ctx.save();
+                        ctx.translate(p.x, p.y);
+                        ctx.rotate((p.rotation * Math.PI) / 180);
+                        ctx.fillStyle = p.color;
+                        ctx.globalAlpha = p.life / 100;
+                        ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+                        ctx.restore();
+                    }
+                });
+
+                if (alive) {
+                    requestAnimationFrame(animate);
+                } else {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                }
+            }
+
+            animate();
+        }
+
+        /* ==========================================================================
+           8. KEYBOARD & STARTUP EVENT LISTENERS
+           ========================================================================== */
+        window.addEventListener('keydown', (e) => {
+            if (state.isGameOver || state.isPaused) return;
+
+            // Numbers 1-9
+            if (e.key >= '1' && e.key <= '9') {
+                handleInput(parseInt(e.key, 10));
+            }
+            // Arrow navigation
+            else if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                let [r, c] = state.selectedCell || [0, 0];
+                if (e.key === 'ArrowUp') r = Math.max(0, r - 1);
+                if (e.key === 'ArrowDown') r = Math.min(8, r + 1);
+                if (e.key === 'ArrowLeft') c = Math.max(0, c - 1);
+                if (e.key === 'ArrowRight') c = Math.min(8, c + 1);
+                selectCell(r, c);
+            }
+            // Erase key (Backspace or Delete)
+            else if (e.key === 'Backspace' || e.key === 'Delete') {
+                handleErase();
+            }
+            // Note key (N)
+            else if (e.key.toLowerCase() === 'n') {
+                toggleNoteMode();
+            }
+            // Undo key (Ctrl+Z or U)
+            else if (e.key.toLowerCase() === 'u' || (e.ctrlKey && e.key.toLowerCase() === 'z')) {
+                handleUndo();
+            }
+        });
+
+        // Initialize Game on Window Load
+        window.onload = function() {
+            initGame();
+        };
+    </script>
+</body>
+</html>

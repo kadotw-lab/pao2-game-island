@@ -1,0 +1,1252 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>方原 - 協同戰術模擬器</title>
+    <style>
+        :root {
+            --bg-color: #0d0f12;
+            --panel-bg: rgba(20, 24, 30, 0.85);
+            --border-color: rgba(255, 204, 0, 0.3);
+            --primary-yellow: #fcee21;
+            --electric-blue: #00f0ff;
+            --physical-orange: #ff6b00;
+            --hp-green: #00ff66;
+            --text-main: #f0f3f8;
+            --text-dim: #7a8b9e;
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            max-width: 1280px;
+            max-height: 720px;
+            background: #000;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.8);
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            background: #08090b;
+        }
+
+        .hud-top {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .hud-top * {
+            pointer-events: auto;
+        }
+
+        .brand-logo {
+            font-weight: 900;
+            font-size: 1.1rem;
+            letter-spacing: 2px;
+            color: var(--primary-yellow);
+            text-shadow: 0 0 10px rgba(252, 238, 33, 0.4);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .brand-logo span {
+            font-size: 0.75rem;
+            padding: 2px 6px;
+            background: var(--primary-yellow);
+            color: #000;
+            border-radius: 2px;
+            font-weight: 800;
+        }
+
+        .stats-group {
+            display: flex;
+            gap: 15px;
+            background: var(--panel-bg);
+            padding: 8px 16px;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+            backdrop-filter: blur(8px);
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+
+        .stat-label {
+            font-size: 0.65rem;
+            color: var(--text-dim);
+            letter-spacing: 1px;
+        }
+
+        .stat-value {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: var(--primary-yellow);
+            font-family: monospace;
+        }
+
+        .control-btns {
+            display: flex;
+            gap: 8px;
+        }
+
+        .icon-btn {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            width: 36px;
+            height: 36px;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+
+        .icon-btn:hover {
+            background: var(--primary-yellow);
+            color: #000;
+        }
+
+        .hud-bottom {
+            position: absolute;
+            bottom: 12px;
+            left: 10px;
+            right: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .hud-bottom * {
+            pointer-events: auto;
+        }
+
+        .team-panel {
+            display: flex;
+            gap: 8px;
+            max-width: 80vw;
+            overflow-x: auto;
+            padding-bottom: 4px;
+        }
+
+        .char-card {
+            width: 120px;
+            flex-shrink: 0;
+            background: var(--panel-bg);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 6px;
+            padding: 8px;
+            cursor: pointer;
+            transition: transform 0.2s, border-color 0.2s;
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(8px);
+        }
+
+        .char-card.active {
+            border-color: var(--primary-yellow);
+            box-shadow: 0 0 12px rgba(252, 238, 33, 0.3);
+            transform: translateY(-4px);
+        }
+
+        .char-card.dead {
+            opacity: 0.4;
+            filter: grayscale(1);
+            pointer-events: none;
+        }
+
+        .char-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        .char-name {
+            font-weight: bold;
+            font-size: 0.85rem;
+        }
+
+        .char-badge {
+            font-size: 0.6rem;
+            padding: 1px 4px;
+            border-radius: 2px;
+            font-weight: bold;
+        }
+
+        .badge-elec { background: rgba(0, 240, 255, 0.2); color: var(--electric-blue); border: 1px solid var(--electric-blue); }
+        .badge-phys { background: rgba(255, 107, 0, 0.2); color: var(--physical-orange); border: 1px solid var(--physical-orange); }
+        .badge-frost { background: rgba(255, 0, 170, 0.2); color: #ff00aa; border: 1px solid #ff00aa; }
+        .badge-heat { background: rgba(255, 51, 0, 0.2); color: #ff3300; border: 1px solid #ff3300; }
+
+        .bar-container {
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            margin-bottom: 4px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .hp-bar-fill {
+            height: 100%;
+            background: var(--hp-green);
+            width: 100%;
+            transition: width 0.2s;
+        }
+
+        .sp-bar-fill {
+            height: 100%;
+            background: var(--electric-blue);
+            width: 0%;
+            transition: width 0.2s;
+        }
+
+        .sp-bar-fill.ready {
+            background: var(--primary-yellow);
+            box-shadow: 0 0 8px var(--primary-yellow);
+        }
+
+        .char-skills {
+            display: flex;
+            gap: 4px;
+            margin-top: 6px;
+        }
+
+        .skill-btn {
+            flex: 1;
+            font-size: 0.65rem;
+            padding: 4px 2px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #fff;
+            border-radius: 3px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .skill-btn:hover:not(:disabled) {
+            background: rgba(255, 255, 255, 0.25);
+        }
+
+        .skill-btn.ult-ready {
+            background: var(--primary-yellow);
+            color: #000;
+            font-weight: bold;
+            animation: pulse 1s infinite alternate;
+        }
+
+        @keyframes pulse {
+            from { opacity: 0.8; box-shadow: 0 0 4px var(--primary-yellow); }
+            to { opacity: 1; box-shadow: 0 0 12px var(--primary-yellow); }
+        }
+
+        .action-controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        .atk-btn {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary-yellow), #e6c200);
+            color: #000;
+            border: 3px solid #fff;
+            font-weight: 900;
+            font-size: 1.1rem;
+            cursor: pointer;
+            box-shadow: 0 0 15px rgba(252, 238, 33, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: transform 0.1s;
+        }
+
+        .atk-btn:active {
+            transform: scale(0.92);
+        }
+
+        .overlay-panel {
+            position: absolute;
+            inset: 0;
+            background: rgba(8, 9, 11, 0.92);
+            backdrop-filter: blur(10px);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .overlay-title {
+            font-size: 2.2rem;
+            font-weight: 900;
+            letter-spacing: 3px;
+            color: var(--primary-yellow);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+        }
+
+        .overlay-sub {
+            font-size: 0.9rem;
+            color: var(--text-dim);
+            margin-bottom: 25px;
+            max-width: 480px;
+            line-height: 1.5;
+        }
+
+        .bgm-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.75rem;
+            background: rgba(252, 238, 33, 0.12);
+            color: var(--primary-yellow);
+            border: 1px solid rgba(252, 238, 33, 0.3);
+            padding: 4px 10px;
+            border-radius: 20px;
+            margin-bottom: 18px;
+        }
+
+        .start-btn {
+            padding: 14px 40px;
+            font-size: 1.1rem;
+            font-weight: 900;
+            color: #000;
+            background: var(--primary-yellow);
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            letter-spacing: 2px;
+            transition: all 0.2s;
+            box-shadow: 0 0 20px rgba(252, 238, 33, 0.4);
+        }
+
+        .start-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 30px rgba(252, 238, 33, 0.7);
+        }
+
+        .hidden { display: none !important; }
+
+        /* Hidden YouTube Audio Player Container */
+        #youtube-player-container {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            top: -9999px;
+            left: -9999px;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* Mobile Adjustments */
+        @media (max-width: 768px) {
+            .char-card { width: 105px; padding: 5px; }
+            .char-name { font-size: 0.75rem; }
+            .atk-btn { width: 65px; height: 65px; font-size: 0.9rem; }
+            .overlay-title { font-size: 1.6rem; }
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <!-- Hidden YouTube Player Container -->
+        <div id="youtube-player-container">
+            <div id="yt-player"></div>
+        </div>
+
+        <!-- Top HUD -->
+        <div class="hud-top">
+            <div class="brand-logo">
+                ENDFIELD <span>TACTICAL</span>
+            </div>
+            <div class="stats-group">
+                <div class="stat-item">
+                    <span class="stat-label">SCORE</span>
+                    <span id="score-val" class="stat-value">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">HIGH SCORE</span>
+                    <span id="hi-score-val" class="stat-value">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">WAVE</span>
+                    <span id="wave-val" class="stat-value">1</span>
+                </div>
+            </div>
+            <div class="control-btns">
+                <button id="btn-sound" class="icon-btn" title="切換音效與背景音樂">🔊</button>
+                <button id="btn-pause" class="icon-btn" title="暫停遊戲">⏸</button>
+            </div>
+        </div>
+
+        <!-- Main Canvas -->
+        <canvas id="gameCanvas"></canvas>
+
+        <!-- Bottom HUD Party Cards -->
+        <div class="hud-bottom">
+            <div class="team-panel" id="team-panel">
+                <!-- Cards will be populated dynamically -->
+            </div>
+            <div class="action-controls">
+                <button id="btn-attack" class="atk-btn">攻擊<br><span style="font-size:0.6rem; font-weight:normal;">[SPACE]</span></button>
+            </div>
+        </div>
+
+        <!-- Start Overlay -->
+        <div id="panel-start" class="overlay-panel">
+            <h1 class="overlay-title">方原</h1>
+            <p style="color:var(--primary-yellow); font-weight:bold; margin-bottom:8px;">協同戰術模擬器</p>
+            <div class="bgm-tag">🎵 BGM: STARSET - WE ARE EMPIRE (Official Lyric Video)</div>
+            <p class="overlay-sub">
+                指揮 5 人先鋒小隊抵禦源石怪物浪潮！<br>
+                • 點擊角色卡片或按數字鍵 <b>[1 - 5]</b> 切換登場角色<br>
+                • 按 <b>[Q]</b> 施放戰技，按 <b>[E]</b> 施放終極技<br>
+                • 按 <b>[空白鍵]</b> 或點擊攻擊按鈕進行打擊並累積 SP 能量<br>
+                • SP 達 100 時施放強大終極技全螢幕清場！
+            </p>
+            <button id="btn-start-game" class="start-btn">開始模擬戰鬥</button>
+        </div>
+
+        <!-- Pause Overlay -->
+        <div id="panel-pause" class="overlay-panel hidden">
+            <h1 class="overlay-title">戰術模擬暫停</h1>
+            <p class="overlay-sub">即時指揮評估中...</p>
+            <div style="display:flex; gap:15px;">
+                <button id="btn-resume" class="start-btn" style="padding:10px 25px;">繼續戰鬥</button>
+                <button id="btn-restart" class="start-btn" style="padding:10px 25px; background:#fff;">重新開始</button>
+            </div>
+        </div>
+
+        <!-- Game Over Overlay -->
+        <div id="panel-gameover" class="overlay-panel hidden">
+            <h1 class="overlay-title" style="color:#ff3344;">小隊全員倒下</h1>
+            <p class="overlay-sub">戰術模擬結束</p>
+            <div style="background:rgba(255,255,255,0.05); padding:15px 30px; border-radius:6px; margin-bottom:20px;">
+                <p style="font-size:0.9rem; color:var(--text-dim);">本次得分</p>
+                <p id="final-score" style="font-size:2rem; font-weight:900; color:var(--primary-yellow);">0</p>
+            </div>
+            <button id="btn-retry" class="start-btn">重新部署小隊</button>
+        </div>
+    </div>
+
+    <!-- YouTube Iframe API -->
+    <script src="https://www.youtube.com/iframe_api"></script>
+
+    <script>
+        // YouTube BGM Manager
+        let ytPlayer = null;
+        let ytReady = false;
+
+        function onYouTubeIframeAPIReady() {
+            ytPlayer = new YT.Player('yt-player', {
+                height: '100',
+                width: '100',
+                videoId: 'cJmrkQ3qXGw',
+                playerVars: {
+                    'autoplay': 0,
+                    'controls': 0,
+                    'loop': 1,
+                    'playlist': 'cJmrkQ3qXGw',
+                    'playsinline': 1
+                },
+                events: {
+                    'onReady': () => {
+                        ytReady = true;
+                        if (ytPlayer && ytPlayer.setVolume) {
+                            ytPlayer.setVolume(50);
+                        }
+                    }
+                }
+            });
+        }
+
+        class AudioSynth {
+            constructor() {
+                this.ctx = null;
+                this.muted = false;
+                this.noiseBuffer = null;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                    this.createNoiseBuffer();
+                }
+            }
+
+            playBGM() {
+                if (this.muted) return;
+                if (ytReady && ytPlayer && ytPlayer.playVideo) {
+                    try {
+                        ytPlayer.playVideo();
+                    } catch (e) {}
+                }
+            }
+
+            pauseBGM() {
+                if (ytReady && ytPlayer && ytPlayer.pauseVideo) {
+                    try {
+                        ytPlayer.pauseVideo();
+                    } catch (e) {}
+                }
+            }
+
+            toggleMute() {
+                this.muted = !this.muted;
+                if (this.muted) {
+                    this.pauseBGM();
+                } else {
+                    if (gameState === 'PLAYING') {
+                        this.playBGM();
+                    }
+                }
+                return this.muted;
+            }
+
+            createNoiseBuffer() {
+                if (!this.ctx) return;
+                const bufferSize = this.ctx.sampleRate * 2;
+                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const output = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    output[i] = Math.random() * 2 - 1;
+                }
+                this.noiseBuffer = buffer;
+            }
+
+            playBeep(freq = 440, duration = 0.08, type = 'sine') {
+                if (this.muted || !this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = type;
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                    gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + duration);
+                } catch(e) {}
+            }
+
+            playHitSound() {
+                if (this.muted || !this.ctx) return;
+                try {
+                    const now = this.ctx.currentTime;
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(180, now);
+                    osc.frequency.exponentialRampToValueAtTime(30, now + 0.12);
+                    gain.gain.setValueAtTime(0.4, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.12);
+
+                    if (this.noiseBuffer) {
+                        const noiseSrc = this.ctx.createBufferSource();
+                        noiseSrc.buffer = this.noiseBuffer;
+                        const filter = this.ctx.createBiquadFilter();
+                        filter.type = 'bandpass';
+                        filter.frequency.setValueAtTime(1200, now);
+                        filter.Q.setValueAtTime(3, now);
+                        const noiseGain = this.ctx.createGain();
+                        noiseGain.gain.setValueAtTime(0.35, now);
+                        noiseGain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+                        noiseSrc.connect(filter);
+                        filter.connect(noiseGain);
+                        noiseGain.connect(this.ctx.destination);
+                        noiseSrc.start(now);
+                        noiseSrc.stop(now + 0.08);
+                    }
+                } catch(e) {}
+            }
+
+            playSkillSound() {
+                if (this.muted || !this.ctx) return;
+                try {
+                    const now = this.ctx.currentTime;
+                    const carrier = this.ctx.createOscillator();
+                    const modulator = this.ctx.createOscillator();
+                    const modGain = this.ctx.createGain();
+                    const mainGain = this.ctx.createGain();
+
+                    carrier.type = 'sawtooth';
+                    carrier.frequency.setValueAtTime(220, now);
+                    carrier.frequency.exponentialRampToValueAtTime(880, now + 0.25);
+
+                    modulator.type = 'sine';
+                    modulator.frequency.setValueAtTime(110, now);
+                    modGain.gain.setValueAtTime(200, now);
+
+                    modulator.connect(carrier.frequency);
+
+                    const filter = this.ctx.createBiquadFilter();
+                    filter.type = 'lowpass';
+                    filter.frequency.setValueAtTime(600, now);
+                    filter.frequency.exponentialRampToValueAtTime(3500, now + 0.25);
+
+                    mainGain.gain.setValueAtTime(0.3, now);
+                    mainGain.gain.exponentialRampToValueAtTime(0.01, now + 0.28);
+
+                    carrier.connect(filter);
+                    filter.connect(mainGain);
+                    mainGain.connect(this.ctx.destination);
+
+                    modulator.start(now);
+                    carrier.start(now);
+                    modulator.stop(now + 0.28);
+                    carrier.stop(now + 0.28);
+                } catch(e) {}
+            }
+
+            playUltSound() {
+                if (this.muted || !this.ctx) return;
+                try {
+                    const now = this.ctx.currentTime;
+                    const subOsc = this.ctx.createOscillator();
+                    const subGain = this.ctx.createGain();
+                    subOsc.type = 'sine';
+                    subOsc.frequency.setValueAtTime(160, now);
+                    subOsc.frequency.exponentialRampToValueAtTime(20, now + 0.7);
+                    subGain.gain.setValueAtTime(0.6, now);
+                    subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.7);
+                    subOsc.connect(subGain);
+                    subGain.connect(this.ctx.destination);
+                    subOsc.start(now);
+                    subOsc.stop(now + 0.7);
+
+                    const sawOsc = this.ctx.createOscillator();
+                    const sawGain = this.ctx.createGain();
+                    sawOsc.type = 'sawtooth';
+                    sawOsc.frequency.setValueAtTime(100, now);
+                    sawOsc.frequency.linearRampToValueAtTime(850, now + 0.2);
+                    sawOsc.frequency.exponentialRampToValueAtTime(100, now + 0.65);
+
+                    const filter = this.ctx.createBiquadFilter();
+                    filter.type = 'lowpass';
+                    filter.frequency.setValueAtTime(300, now);
+                    filter.frequency.linearRampToValueAtTime(4500, now + 0.25);
+                    filter.frequency.exponentialRampToValueAtTime(300, now + 0.65);
+
+                    sawGain.gain.setValueAtTime(0.35, now);
+                    sawGain.gain.exponentialRampToValueAtTime(0.01, now + 0.65);
+
+                    sawOsc.connect(filter);
+                    filter.connect(sawGain);
+                    sawGain.connect(this.ctx.destination);
+                    sawOsc.start(now);
+                    sawOsc.stop(now + 0.65);
+
+                    if (this.noiseBuffer) {
+                        const noiseSrc = this.ctx.createBufferSource();
+                        noiseSrc.buffer = this.noiseBuffer;
+                        const noiseFilter = this.ctx.createBiquadFilter();
+                        noiseFilter.type = 'lowpass';
+                        noiseFilter.frequency.setValueAtTime(2500, now);
+                        noiseFilter.frequency.exponentialRampToValueAtTime(150, now + 0.55);
+
+                        const noiseGain = this.ctx.createGain();
+                        noiseGain.gain.setValueAtTime(0.4, now + 0.05);
+                        noiseGain.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
+
+                        noiseSrc.connect(noiseFilter);
+                        noiseFilter.connect(noiseGain);
+                        noiseGain.connect(this.ctx.destination);
+                        noiseSrc.start(now);
+                        noiseSrc.stop(now + 0.6);
+                    }
+                } catch(e) {}
+            }
+        }
+
+        const audio = new AudioSynth();
+
+        const CHAR_DATA = [
+            {
+                id: 'perlica',
+                name: '佩里卡',
+                class: '術師',
+                element: '電磁',
+                maxHp: 1200,
+                attack: 210,
+                color: '#00f0ff',
+                skillName: '電磁脈衝',
+                ultName: '過載高壓氣流'
+            },
+            {
+                id: 'admin',
+                name: '江幻',
+                class: '重裝',
+                element: '物理',
+                maxHp: 1800,
+                attack: 290,
+                color: '#fcee21',
+                skillName: '破空斬',
+                ultName: '星環重擊'
+            },
+            {
+                id: 'chen',
+                name: '陳千語',
+                class: '近衛',
+                element: '物理',
+                maxHp: 1500,
+                attack: 260,
+                color: '#ff6b00',
+                skillName: '連環一閃',
+                ultName: '絕技・千羽千尋'
+            },
+            {
+                id: 'angelina',
+                name: '安潔莉娜',
+                class: '輔助',
+                element: '極寒',
+                maxHp: 1150,
+                attack: 230,
+                color: '#ff00aa',
+                skillName: '重力扭曲',
+                ultName: '反重力爆破'
+            },
+            {
+                id: 'pyra',
+                name: '熾炎',
+                class: '先鋒',
+                element: '熱能',
+                maxHp: 1400,
+                attack: 280,
+                color: '#ff3300',
+                skillName: '熱能衝擊',
+                ultName: '熔岩過載'
+            }
+        ];
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let gameState = 'START'; // START, PLAYING, PAUSED, GAMEOVER
+        let score = 0;
+        let highScore = parseInt(localStorage.getItem('endfield_hi_score') || '0');
+        let wave = 1;
+        let lastTime = 0;
+        let shakeTime = 0;
+
+        // Game Entities
+        let characters = [];
+        let activeCharIndex = 0;
+        let enemies = [];
+        let particles = [];
+        let floatingTexts = [];
+
+        // Setup Canvas Size
+        function resizeCanvas() {
+            canvas.width = canvas.clientWidth;
+            canvas.height = canvas.clientHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        function initGame() {
+            score = 0;
+            wave = 1;
+            enemies = [];
+            particles = [];
+            floatingTexts = [];
+            
+            characters = CHAR_DATA.map(d => ({
+                ...d,
+                hp: d.maxHp,
+                sp: 0,
+                ultCost: 100,
+                x: 150,
+                y: canvas.height * 0.65,
+                animTimer: 0
+            }));
+
+            activeCharIndex = 0;
+            updateHUD();
+            document.getElementById('hi-score-val').innerText = highScore;
+        }
+
+        function getActiveChar() {
+            return characters[activeCharIndex];
+        }
+
+        function spawnParticles(x, y, color, count = 10, speed = 4) {
+            for (let i = 0; i < count; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const spd = (Math.random() * 0.8 + 0.2) * speed;
+                particles.push({
+                    x, y,
+                    vx: Math.cos(angle) * spd,
+                    vy: Math.sin(angle) * spd,
+                    radius: Math.random() * 3 + 2,
+                    color,
+                    alpha: 1,
+                    life: 1
+                });
+            }
+        }
+
+        function addFloatingText(text, x, y, color = '#fff', size = 18) {
+            floatingTexts.push({
+                text, x, y, color, size,
+                alpha: 1,
+                vy: -1.5
+            });
+        }
+
+        function spawnEnemy() {
+            const types = [
+                { name: '源石爬行者', hp: 300, atk: 40, spd: 2.2, color: '#ff4444', size: 20 },
+                { name: '重裝侵略者', hp: 800, atk: 80, spd: 1.2, color: '#aa22aa', size: 32 },
+                { name: '高頻飛行器', hp: 200, atk: 30, spd: 3.5, color: '#ff8800', size: 16 }
+            ];
+            const type = types[Math.floor(Math.random() * types.length)];
+            const hpBonus = wave * 50;
+
+            enemies.push({
+                ...type,
+                maxHp: type.hp + hpBonus,
+                hp: type.hp + hpBonus,
+                x: canvas.width + 30,
+                y: canvas.height * 0.65 + (Math.random() * 40 - 20),
+                hitFlash: 0
+            });
+        }
+
+        function performAttack() {
+            if (gameState !== 'PLAYING') return;
+            const char = getActiveChar();
+            if (char.hp <= 0) return;
+
+            audio.playHitSound();
+            char.animTimer = 10;
+
+            char.sp = Math.min(char.ultCost, char.sp + 15);
+
+            if (enemies.length > 0) {
+                const target = enemies[0];
+                const dmg = char.attack + Math.floor(Math.random() * 40);
+                target.hp -= dmg;
+                target.hitFlash = 5;
+                
+                spawnParticles(target.x, target.y, char.color, 12, 5);
+                addFloatingText(`-${dmg}`, target.x, target.y - 20, char.color);
+
+                if (target.hp <= 0) {
+                    score += 100;
+                    spawnParticles(target.x, target.y, '#ffffff', 25, 8);
+                    enemies.shift();
+
+                    if (score > 0 && score % 500 === 0) {
+                        wave++;
+                        addFloatingText(`WAVE ${wave} 來襲!`, canvas.width / 2, canvas.height * 0.3, '#fcee21', 28);
+                    }
+                }
+            } else {
+                spawnParticles(char.x + 40, char.y - 20, char.color, 8, 3);
+            }
+
+            updateHUD();
+        }
+
+        function castSkill(index) {
+            if (gameState !== 'PLAYING') return;
+            const char = characters[index];
+            if (char.hp <= 0) return;
+
+            audio.playSkillSound();
+            addFloatingText(`戰技: ${char.skillName}!`, char.x, char.y - 50, char.color, 20);
+
+            enemies.forEach(e => {
+                const dmg = Math.floor(char.attack * 1.8);
+                e.hp -= dmg;
+                e.hitFlash = 8;
+                spawnParticles(e.x, e.y, char.color, 15, 6);
+                addFloatingText(`-${dmg}`, e.x, e.y - 30, char.color, 22);
+            });
+
+            enemies = enemies.filter(e => e.hp > 0);
+            char.sp = Math.min(char.ultCost, char.sp + 25);
+            updateHUD();
+        }
+
+        function castUltimate(index) {
+            if (gameState !== 'PLAYING') return;
+            const char = characters[index];
+            if (char.hp <= 0 || char.sp < char.ultCost) return;
+
+            audio.playUltSound();
+            char.sp = 0;
+            shakeTime = 20;
+
+            addFloatingText(`終極技: ${char.ultName}!!`, canvas.width / 2 - 80, canvas.height * 0.3, '#fcee21', 32);
+
+            enemies.forEach(e => {
+                const dmg = char.attack * 4;
+                e.hp -= dmg;
+                spawnParticles(e.x, e.y, '#ffffff', 30, 10);
+                addFloatingText(`CRITICAL -${dmg}`, e.x, e.y - 40, '#fcee21', 26);
+            });
+
+            enemies = enemies.filter(e => e.hp > 0);
+            score += 300;
+            updateHUD();
+        }
+
+        function update(delta) {
+            if (gameState !== 'PLAYING') return;
+
+            if (Math.random() < 0.02 + wave * 0.003 && enemies.length < 5) {
+                spawnEnemy();
+            }
+
+            if (shakeTime > 0) shakeTime--;
+
+            characters.forEach(c => {
+                if (c.animTimer > 0) c.animTimer--;
+            });
+
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                const e = enemies[i];
+                e.x -= e.spd;
+                if (e.hitFlash > 0) e.hitFlash--;
+
+                if (e.x <= 180) {
+                    const activeChar = getActiveChar();
+                    activeChar.hp -= e.atk;
+                    shakeTime = 8;
+                    audio.playHitSound();
+
+                    spawnParticles(activeChar.x, activeChar.y, '#ff0033', 15, 6);
+                    addFloatingText(`-${e.atk}`, activeChar.x, activeChar.y - 30, '#ff3344', 20);
+
+                    enemies.splice(i, 1);
+
+                    if (activeChar.hp <= 0) {
+                        activeChar.hp = 0;
+                        addFloatingText(`${activeChar.name} 倒下了！`, activeChar.x, activeChar.y - 60, '#ff0000', 22);
+                        
+                        const nextAlive = characters.findIndex(c => c.hp > 0);
+                        if (nextAlive !== -1) {
+                            activeCharIndex = nextAlive;
+                        } else {
+                            triggerGameOver();
+                        }
+                    }
+                    updateHUD();
+                }
+            }
+
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.alpha -= 0.025;
+                if (p.alpha <= 0) particles.splice(i, 1);
+            }
+
+            for (let i = floatingTexts.length - 1; i >= 0; i--) {
+                const ft = floatingTexts[i];
+                ft.y += ft.vy;
+                ft.alpha -= 0.02;
+                if (ft.alpha <= 0) floatingTexts.splice(i, 1);
+            }
+
+            document.getElementById('score-val').innerText = score;
+            document.getElementById('wave-val').innerText = wave;
+        }
+
+        function render() {
+            ctx.save();
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (shakeTime > 0) {
+                const dx = (Math.random() - 0.5) * shakeTime * 1.5;
+                const dy = (Math.random() - 0.5) * shakeTime * 1.5;
+                ctx.translate(dx, dy);
+            }
+
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+            ctx.lineWidth = 1;
+            const gridSize = 40;
+            for (let x = 0; x < canvas.width; x += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            for (let y = 0; y < canvas.height; y += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+
+            ctx.strokeStyle = 'rgba(252, 238, 33, 0.3)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height * 0.72);
+            ctx.lineTo(canvas.width, canvas.height * 0.72);
+            ctx.stroke();
+
+            enemies.forEach(e => {
+                ctx.save();
+                ctx.fillStyle = e.hitFlash > 0 ? '#ffffff' : e.color;
+                ctx.shadowColor = e.color;
+                ctx.shadowBlur = 10;
+                
+                ctx.beginPath();
+                ctx.arc(e.x, e.y, e.size, 0, Math.PI * 2);
+                ctx.fill();
+
+                const barW = 30;
+                ctx.fillStyle = 'rgba(0,0,0,0.5)';
+                ctx.fillRect(e.x - barW/2, e.y - e.size - 12, barW, 4);
+                ctx.fillStyle = '#ff3344';
+                ctx.fillRect(e.x - barW/2, e.y - e.size - 12, barW * (e.hp / e.maxHp), 4);
+
+                ctx.restore();
+            });
+
+            const char = getActiveChar();
+            if (char && char.hp > 0) {
+                ctx.save();
+                ctx.fillStyle = char.color;
+                ctx.shadowColor = char.color;
+                ctx.shadowBlur = char.animTimer > 0 ? 25 : 12;
+
+                const attackOffset = char.animTimer > 0 ? 20 : 0;
+                const px = char.x + attackOffset;
+                const py = char.y;
+
+                ctx.beginPath();
+                ctx.moveTo(px, py - 35);
+                ctx.lineTo(px + 20, py);
+                ctx.lineTo(px + 0, py + 15);
+                ctx.lineTo(px - 20, py);
+                ctx.closePath();
+                ctx.fill();
+
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(px, py - 10, 30, 0, Math.PI * 2);
+                ctx.stroke();
+
+                ctx.restore();
+            }
+
+            particles.forEach(p => {
+                ctx.save();
+                ctx.globalAlpha = p.alpha;
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            });
+
+            floatingTexts.forEach(ft => {
+                ctx.save();
+                ctx.globalAlpha = ft.alpha;
+                ctx.fillStyle = ft.color;
+                ctx.font = `bold ${ft.size}px monospace`;
+                ctx.fillText(ft.text, ft.x, ft.y);
+                ctx.restore();
+            });
+
+            ctx.restore();
+        }
+
+        function updateHUD() {
+            const panel = document.getElementById('team-panel');
+            panel.innerHTML = '';
+
+            characters.forEach((c, idx) => {
+                const card = document.createElement('div');
+                card.className = `char-card ${idx === activeCharIndex ? 'active' : ''} ${c.hp <= 0 ? 'dead' : ''}`;
+                
+                let badgeClass = 'badge-phys';
+                if (c.element === '電磁') badgeClass = 'badge-elec';
+                else if (c.element === '極寒') badgeClass = 'badge-frost';
+                else if (c.element === '熱能') badgeClass = 'badge-heat';
+
+                const hpPct = (c.hp / c.maxHp) * 100;
+                const spPct = (c.sp / c.ultCost) * 100;
+                const isUltReady = c.sp >= c.ultCost;
+
+                card.innerHTML = `
+                    <div class="char-header">
+                        <span class="char-name">${c.name}</span>
+                        <span class="char-badge ${badgeClass}">${c.element}</span>
+                    </div>
+                    <div class="bar-container" title="HP: ${c.hp}/${c.maxHp}">
+                        <div class="hp-bar-fill" style="width: ${hpPct}%;"></div>
+                    </div>
+                    <div class="bar-container" title="SP: ${c.sp}/${c.ultCost}">
+                        <div class="sp-bar-fill ${isUltReady ? 'ready' : ''}" style="width: ${spPct}%;"></div>
+                    </div>
+                    <div class="char-skills">
+                        <button class="skill-btn" onclick="event.stopPropagation(); castSkill(${idx})">戰技</button>
+                        <button class="skill-btn ${isUltReady ? 'ult-ready' : ''}" ${!isUltReady ? 'disabled' : ''} onclick="event.stopPropagation(); castUltimate(${idx})">大招</button>
+                    </div>
+                `;
+
+                card.addEventListener('click', () => {
+                    if (c.hp > 0) {
+                        activeCharIndex = idx;
+                        audio.playBeep(600, 0.05);
+                        updateHUD();
+                    }
+                });
+
+                panel.appendChild(card);
+            });
+        }
+
+        function gameLoop(timestamp) {
+            const delta = timestamp - lastTime;
+            lastTime = timestamp;
+
+            update(delta);
+            render();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function triggerGameOver() {
+            gameState = 'GAMEOVER';
+            audio.pauseBGM();
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('endfield_hi_score', highScore.toString());
+            }
+            document.getElementById('final-score').innerText = score;
+            document.getElementById('panel-gameover').classList.remove('hidden');
+        }
+
+        document.getElementById('btn-start-game').addEventListener('click', () => {
+            audio.init();
+            audio.playBeep(800, 0.1);
+            document.getElementById('panel-start').classList.add('hidden');
+            gameState = 'PLAYING';
+            initGame();
+            audio.playBGM();
+        });
+
+        document.getElementById('btn-pause').addEventListener('click', () => {
+            if (gameState === 'PLAYING') {
+                gameState = 'PAUSED';
+                audio.pauseBGM();
+                document.getElementById('panel-pause').classList.remove('hidden');
+            }
+        });
+
+        document.getElementById('btn-resume').addEventListener('click', () => {
+            gameState = 'PLAYING';
+            audio.playBGM();
+            document.getElementById('panel-pause').classList.add('hidden');
+        });
+
+        document.getElementById('btn-restart').addEventListener('click', () => {
+            document.getElementById('panel-pause').classList.add('hidden');
+            gameState = 'PLAYING';
+            initGame();
+            audio.playBGM();
+        });
+
+        document.getElementById('btn-retry').addEventListener('click', () => {
+            document.getElementById('panel-gameover').classList.add('hidden');
+            gameState = 'PLAYING';
+            initGame();
+            audio.playBGM();
+        });
+
+        document.getElementById('btn-attack').addEventListener('click', () => {
+            performAttack();
+        });
+
+        document.getElementById('btn-sound').addEventListener('click', (e) => {
+            const isMuted = audio.toggleMute();
+            e.target.innerText = isMuted ? '🔇' : '🔊';
+        });
+
+        // Hotkey Binds
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                performAttack();
+            } else if (['1', '2', '3', '4', '5'].includes(e.key)) {
+                const targetIdx = parseInt(e.key) - 1;
+                if (characters[targetIdx] && characters[targetIdx].hp > 0) {
+                    activeCharIndex = targetIdx;
+                    audio.playBeep(600, 0.05);
+                    updateHUD();
+                }
+            } else if (e.key.toLowerCase() === 'q') {
+                castSkill(activeCharIndex);
+            } else if (e.key.toLowerCase() === 'e') {
+                castUltimate(activeCharIndex);
+            }
+        });
+
+        // Start Loop
+        requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>

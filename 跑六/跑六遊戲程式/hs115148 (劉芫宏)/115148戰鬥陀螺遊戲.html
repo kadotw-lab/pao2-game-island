@@ -1,0 +1,1701 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>戰鬥陀螺 X：極速對撞競技場 (Beyblade X: AI Arena)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+TC:wght@400;700;900&display=swap');
+        
+        body {
+            font-family: 'Noto Sans TC', 'Orbitron', sans-serif;
+            background-color: #080914;
+            color: #ffffff;
+            overflow: hidden;
+            touch-action: none;
+            user-select: none;
+        }
+
+        .font-orbitron {
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        .neon-border-blue {
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.5), inset 0 0 15px rgba(0, 240, 255, 0.3);
+            border: 2px solid #00f0ff;
+        }
+
+        .neon-border-red {
+            box-shadow: 0 0 15px rgba(255, 0, 85, 0.5), inset 0 0 15px rgba(255, 0, 85, 0.3);
+            border: 2px solid #ff0055;
+        }
+
+        .neon-text-cyan {
+            text-shadow: 0 0 10px rgba(0, 240, 255, 0.8), 0 0 20px rgba(0, 240, 255, 0.4);
+        }
+
+        .neon-text-pink {
+            text-shadow: 0 0 10px rgba(255, 0, 85, 0.8), 0 0 20px rgba(255, 0, 85, 0.4);
+        }
+
+        .glass-card {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
+        .btn-action {
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+        }
+        .btn-action:hover {
+            transform: translateY(-2px);
+            filter: brightness(1.2);
+        }
+        .btn-action:active {
+            transform: translateY(1px);
+        }
+
+        .bar-transition {
+            transition: width 0.1s linear, background-color 0.3s ease;
+        }
+
+        .beyblade-card {
+            cursor: pointer;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .beyblade-card:hover {
+            transform: translateY(-4px);
+            border-color: rgba(0, 240, 255, 0.8);
+        }
+        .beyblade-card.selected {
+            border-color: #00f0ff;
+            background: rgba(0, 240, 255, 0.18);
+            box-shadow: 0 0 20px rgba(0, 240, 255, 0.4);
+        }
+
+        /* 模式選擇按鈕高亮 */
+        .mode-btn.selected {
+            border-color: #00f0ff;
+            background: rgba(0, 240, 255, 0.2);
+            color: #00f0ff;
+            box-shadow: 0 0 12px rgba(0, 240, 255, 0.4);
+        }
+    </style>
+</head>
+<body class="w-screen h-screen flex flex-col items-center justify-center relative">
+
+    <!-- 遊戲主要 Canvas 繪圖區 -->
+    <div id="game-container" class="relative w-full h-full max-w-[900px] max-h-[900px] flex items-center justify-center p-2">
+        <canvas id="arenaCanvas" class="w-full h-full object-contain rounded-2xl shadow-2xl cursor-crosshair"></canvas>
+
+        <!-- 頂部 HUD (對決中動態顯示 1v1 或 4人混戰) -->
+        <div id="hud-overlay" class="absolute top-3 left-3 right-3 flex flex-col gap-2 pointer-events-none hidden z-10">
+            <div id="hud-bars-container" class="grid grid-cols-2 md:grid-cols-4 gap-2 w-full">
+                <!-- 由 JS 動態繪製玩家與 AI 陀螺血條 -->
+            </div>
+            <div class="flex justify-between items-center px-2">
+                <div class="bg-amber-500/20 text-amber-300 border border-amber-500/50 px-3 py-0.5 rounded-full text-xs font-bold shadow-md">
+                    連勝: <span id="hud-streak-count">0</span>
+                </div>
+                <div id="hud-mode-badge" class="bg-cyan-500/20 text-cyan-300 border border-cyan-500/50 px-3 py-0.5 rounded-full text-xs font-bold shadow-md">
+                    4人大亂鬥
+                </div>
+            </div>
+        </div>
+
+        <!-- 提示訊息 overlay (倒數、拉弓提示) -->
+        <div id="center-message" class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-20 hidden">
+            <h1 id="center-title" class="font-orbitron font-black text-5xl md:text-7xl text-amber-400 tracking-wider neon-text-pink animate-bounce text-center">
+                3
+            </h1>
+            <p id="center-subtitle" class="text-cyan-300 text-lg md:text-2xl font-bold mt-2 tracking-widest text-center px-4"></p>
+        </div>
+    </div>
+
+    <!-- 主選單 Modal -->
+    <div id="main-menu-modal" class="fixed inset-0 bg-slate-950/90 flex items-center justify-center z-30 p-4">
+        <div class="glass-card max-w-3xl w-full rounded-2xl p-5 border border-cyan-500/40 shadow-2xl flex flex-col max-h-[92vh] overflow-y-auto">
+            <div class="text-center mb-4">
+                <h1 class="font-orbitron font-black text-3xl md:text-5xl bg-gradient-to-r from-cyan-400 via-teal-300 to-indigo-500 bg-clip-text text-transparent italic tracking-wider">
+                    BEYBLADE X
+                </h1>
+                <p class="text-slate-400 text-xs md:text-sm mt-1">極限對決：多陀螺高速衝撞 ＆ 連環激撞賽場</p>
+            </div>
+
+            <!-- 對戰模式選擇區 -->
+            <div class="mb-4">
+                <h2 class="text-cyan-400 font-bold text-xs md:text-sm tracking-wider uppercase mb-2">對戰模式</h2>
+                <div class="grid grid-cols-2 gap-3">
+                    <button data-mode="1v1" class="mode-btn py-2.5 rounded-xl border border-slate-700 bg-slate-800/60 font-bold text-slate-300 hover:border-cyan-500 transition text-xs md:text-sm">
+                        ⚔️ 1 v 1 單挑對決
+                    </button>
+                    <button data-mode="royale" class="mode-btn selected py-2.5 rounded-xl border border-cyan-500 bg-cyan-950/40 font-bold text-cyan-300 neon-border-blue transition text-xs md:text-sm">
+                        🔥 4 人大亂鬥 (Battle Royale)
+                    </button>
+                </div>
+            </div>
+
+            <!-- 陀螺選擇區 (8 款多樣陀螺) -->
+            <div class="mb-4">
+                <h2 class="text-cyan-400 font-bold text-xs md:text-sm tracking-wider uppercase mb-2 flex items-center gap-2">
+                    <span class="w-2 h-2 bg-cyan-400 rounded-full animate-ping"></span> 選擇您的戰鬥陀螺 (8 款強大機種)
+                </h2>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5" id="beyblade-selector">
+                    <!-- 由 JS 動態生成 8 款陀螺卡片 -->
+                </div>
+            </div>
+
+            <!-- AI 難度選擇區 -->
+            <div class="mb-5">
+                <h2 class="text-cyan-400 font-bold text-xs md:text-sm tracking-wider uppercase mb-2">對手 AI 難度</h2>
+                <div class="grid grid-cols-3 gap-3">
+                    <button data-diff="easy" class="diff-btn py-2 rounded-xl border border-slate-700 bg-slate-800/60 font-bold text-slate-300 hover:border-emerald-500 transition text-xs">
+                        簡單 (Easy)
+                    </button>
+                    <button data-diff="medium" class="diff-btn py-2 rounded-xl border border-cyan-500 bg-cyan-950/40 font-bold text-cyan-300 neon-border-blue transition text-xs">
+                        中等 (Medium)
+                    </button>
+                    <button data-diff="hard" class="diff-btn py-2 rounded-xl border border-slate-700 bg-slate-800/60 font-bold text-slate-300 hover:border-rose-500 transition text-xs">
+                        困難 (Hard)
+                    </button>
+                </div>
+            </div>
+
+            <!-- 操作按鈕 -->
+            <div class="flex gap-3 mt-auto">
+                <button id="btn-show-leaderboard" class="btn-action flex-1 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 font-bold py-3 rounded-xl transition flex items-center justify-center gap-2 text-xs md:text-sm">
+                    🏆 排行榜
+                </button>
+                <button id="btn-start-game" class="btn-action flex-[2] bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black text-sm md:text-base py-3 rounded-xl shadow-lg shadow-cyan-500/30 transition">
+                    進入發射準備 ➔
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 排行榜 Modal -->
+    <div id="leaderboard-modal" class="fixed inset-0 bg-slate-950/90 flex items-center justify-center z-40 p-4 hidden">
+        <div class="glass-card max-w-md w-full rounded-2xl p-6 border border-amber-500/40 shadow-2xl flex flex-col">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="font-orbitron font-bold text-xl md:text-2xl text-amber-400 flex items-center gap-2">
+                    🏆 殿堂排行榜
+                </h2>
+                <button id="btn-close-leaderboard" class="text-slate-400 hover:text-white text-xl p-1">✕</button>
+            </div>
+
+            <div class="overflow-y-auto max-h-60 mb-4 pr-1">
+                <table class="w-full text-left text-xs md:text-sm text-slate-300">
+                    <thead class="uppercase bg-slate-800/80 text-amber-300">
+                        <tr>
+                            <th class="p-2 rounded-l">名次</th>
+                            <th class="p-2">玩家</th>
+                            <th class="p-2">陀螺</th>
+                            <th class="p-2">連勝</th>
+                            <th class="p-2 text-right rounded-r">得分</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboard-tbody" class="divide-y divide-slate-800">
+                        <!-- 動態填入排行榜 -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="flex justify-between items-center">
+                <button id="btn-clear-leaderboard" class="text-xs text-rose-400 hover:underline py-2">清空紀錄</button>
+                <button id="btn-close-leaderboard-2" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-5 py-2 rounded-xl text-xs md:text-sm font-bold">
+                    關閉
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 結算彈窗 (Game Over Modal) -->
+    <div id="gameover-modal" class="fixed inset-0 bg-slate-950/90 flex items-center justify-center z-40 p-4 hidden">
+        <div class="glass-card max-w-md w-full rounded-2xl p-6 border border-cyan-500/40 shadow-2xl flex flex-col text-center">
+            <h2 id="result-title" class="font-orbitron font-black text-3xl md:text-4xl text-amber-400 mb-1">
+                VICTORY!
+            </h2>
+            <p id="result-subtitle" class="text-cyan-300 font-bold mb-4 text-sm">SPIN OUT 旋轉結束勝！</p>
+
+            <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-800 mb-4 flex justify-around">
+                <div>
+                    <div class="text-xs text-slate-400">本次得分</div>
+                    <div id="result-score" class="font-orbitron font-bold text-xl md:text-2xl text-cyan-400">1250</div>
+                </div>
+                <div class="border-r border-slate-800"></div>
+                <div>
+                    <div class="text-xs text-slate-400">當前連勝</div>
+                    <div id="result-streak" class="font-orbitron font-bold text-xl md:text-2xl text-amber-400">3</div>
+                </div>
+            </div>
+
+            <div id="high-score-input-box" class="mb-4 text-left hidden">
+                <label class="block text-xs font-bold text-cyan-300 mb-1">打破紀錄！請輸入您的名字：</label>
+                <input type="text" id="player-name-input" maxlength="10" placeholder="BLADER_01" value="BLADER_01" 
+                    class="w-full bg-slate-900 border border-cyan-500/50 rounded-xl px-3 py-2 text-cyan-200 font-bold text-sm focus:outline-none focus:border-cyan-400">
+            </div>
+
+            <div class="flex gap-3">
+                <button id="btn-restart" class="btn-action flex-1 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-black py-3 rounded-xl shadow-lg transition text-sm">
+                    下一局對決 ➔
+                </button>
+                <button id="btn-return-menu" class="btn-action bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold px-4 py-3 rounded-xl transition text-sm">
+                    選單
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioCtx();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            playBeep(freq = 440, type = 'sine', duration = 0.15) {
+                if (!this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = type;
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                    gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + duration);
+                } catch (e) {}
+            }
+
+            playLaunchSound() {
+                if (!this.ctx) return;
+                try {
+                    const now = this.ctx.currentTime;
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(150, now);
+                    osc.frequency.exponentialRampToValueAtTime(800, now + 0.3);
+                    gain.gain.setValueAtTime(0.25, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(now + 0.35);
+                } catch (e) {}
+            }
+
+            playCollisionSound(intensity = 1.0) {
+                if (!this.ctx) return;
+                try {
+                    const now = this.ctx.currentTime;
+                    const bufferSize = Math.floor(this.ctx.sampleRate * 0.08);
+                    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                    const data = buffer.getChannelData(0);
+                    for (let i = 0; i < bufferSize; i++) {
+                        data[i] = Math.random() * 2 - 1;
+                    }
+
+                    const noise = this.ctx.createBufferSource();
+                    noise.buffer = buffer;
+
+                    const filter = this.ctx.createBiquadFilter();
+                    filter.type = 'bandpass';
+                    filter.frequency.setValueAtTime(1200 + Math.random() * 800, now);
+                    filter.Q.setValueAtTime(2.5, now);
+
+                    const gain = this.ctx.createGain();
+                    const volume = Math.min(0.4, 0.1 + intensity * 0.25);
+                    gain.gain.setValueAtTime(volume, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+
+                    noise.connect(filter);
+                    filter.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    noise.start();
+                } catch (e) {}
+            }
+
+            playBurstSound() {
+                if (!this.ctx) return;
+                try {
+                    const now = this.ctx.currentTime;
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(260, now);
+                    osc.frequency.exponentialRampToValueAtTime(30, now + 0.5);
+                    gain.gain.setValueAtTime(0.5, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(now + 0.5);
+                    this.playCollisionSound(2.0);
+                } catch (e) {}
+            }
+
+            playWinSound() {
+                if (!this.ctx) return;
+                const notes = [523.25, 659.25, 783.99, 1046.50];
+                notes.forEach((freq, idx) => {
+                    setTimeout(() => {
+                        this.playBeep(freq, 'triangle', 0.25);
+                    }, idx * 120);
+                });
+            }
+        }
+
+        const sound = new SoundEngine();
+
+        const BEYBLADE_TYPES = {
+            attack: {
+                id: 'attack',
+                name: '疾風赤刃',
+                typeLabel: '攻擊型',
+                desc: '極速衝撞、強大打擊擊退力。',
+                color: '#ff0055',
+                secondaryColor: '#ffaa00',
+                blades: 3,
+                maxRpm: 4200,
+                weight: 1.0,
+                attack: 1.45,
+                defense: 0.85,
+                friction: 0.0005, // 調低摩擦力，確保戰鬥延長
+                speed: 1.35,
+                shape: 'jagged'
+            },
+            defense: {
+                id: 'defense',
+                name: '玄武重盾',
+                typeLabel: '防禦型',
+                desc: '高重量防禦，超強抗擊退與耐撞。',
+                color: '#00ff88',
+                secondaryColor: '#0088ff',
+                blades: 8,
+                maxRpm: 4000,
+                weight: 1.55,
+                attack: 0.85,
+                defense: 1.65,
+                friction: 0.0004,
+                speed: 0.88,
+                shape: 'round'
+            },
+            stamina: {
+                id: 'stamina',
+                name: '黃金帝王',
+                typeLabel: '持久型',
+                desc: '超高轉速、旋減速慢、長久戰鬥力。',
+                color: '#ffcc00',
+                secondaryColor: '#ffffff',
+                blades: 2,
+                maxRpm: 5000,
+                weight: 0.85,
+                attack: 0.75,
+                defense: 0.95,
+                friction: 0.0002,
+                speed: 1.1,
+                shape: 'smooth'
+            },
+            balance: {
+                id: 'balance',
+                name: '星導異客',
+                typeLabel: '平衡型',
+                desc: '全方位平衡，兼具攻擊與持久力。',
+                color: '#a855f7',
+                secondaryColor: '#00f0ff',
+                blades: 4,
+                maxRpm: 4400,
+                weight: 1.1,
+                attack: 1.1,
+                defense: 1.15,
+                friction: 0.00035,
+                speed: 1.15,
+                shape: 'star'
+            },
+            phoenix: {
+                id: 'phoenix',
+                name: '閃光鳳凰',
+                typeLabel: '極速型',
+                desc: '擁有軌道 X-Dash 狂暴爆發加成。',
+                color: '#ff3300',
+                secondaryColor: '#ffee00',
+                blades: 5,
+                maxRpm: 4600,
+                weight: 0.95,
+                attack: 1.3,
+                defense: 0.9,
+                friction: 0.0003,
+                speed: 1.45,
+                shape: 'jagged'
+            },
+            unicorn: {
+                id: 'unicorn',
+                name: '暴風獨角',
+                typeLabel: '重擊型',
+                desc: '單角撞擊力極強，容易造成爆裂。',
+                color: '#ec4899',
+                secondaryColor: '#8b5cf6',
+                blades: 1,
+                maxRpm: 4100,
+                weight: 1.25,
+                attack: 1.5,
+                defense: 1.0,
+                friction: 0.0004,
+                speed: 1.2,
+                shape: 'star'
+            },
+            serpent: {
+                id: 'serpent',
+                name: '烈焰毒蛇',
+                typeLabel: '吸收型',
+                desc: '能吸收敵方衝撞動能補給 RPM。',
+                color: '#10b981',
+                secondaryColor: '#f59e0b',
+                blades: 6,
+                maxRpm: 4300,
+                weight: 1.05,
+                attack: 0.95,
+                defense: 1.2,
+                friction: 0.00025,
+                speed: 1.05,
+                shape: 'round'
+            },
+            wolf: {
+                id: 'wolf',
+                name: '冰霜巨狼',
+                typeLabel: '反擊型',
+                desc: '受擊後觸發冰閃反彈擊退。',
+                color: '#06b6d4',
+                secondaryColor: '#e0f2fe',
+                blades: 4,
+                maxRpm: 4200,
+                weight: 1.15,
+                attack: 1.15,
+                defense: 1.3,
+                friction: 0.00035,
+                speed: 1.1,
+                shape: 'jagged'
+            }
+        };
+
+        class BeybladeGame {
+            constructor() {
+                this.canvas = document.getElementById('arenaCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                
+                this.state = 'MENU'; // 'MENU', 'LAUNCH_PREP', 'COUNTDOWN', 'BATTLE', 'GAMEOVER'
+                
+                this.width = 800;
+                this.height = 800;
+                this.canvas.width = this.width;
+                this.canvas.height = this.height;
+
+                this.screenShake = 0;
+
+                // 競技場尺寸
+                this.arenaCenter = { x: 400, y: 400 };
+                this.arenaRadius = 320;
+                this.xDashRailRadius = 300;
+                this.outOfBoundsRadius = 370;
+
+                this.selectedPlayerType = 'attack';
+                this.matchMode = 'royale'; // '1v1' 或 'royale' (4人混戰)
+                this.aiDifficulty = 'medium';
+                this.winStreak = 0;
+                this.currentScore = 0;
+
+                this.beyblades = []; // 陣列保存所有參戰陀螺
+                this.particles = [];
+                this.shockwaves = [];
+                this.floatingTexts = [];
+                this.impactMarks = [];
+                this.screenFlash = { color: '#ffffff', alpha: 0 };
+                this.hitFreezeTime = 0;
+
+                // 發射控制
+                this.isDragging = false;
+                this.dragStart = { x: 0, y: 0 };
+                this.dragCurrent = { x: 0, y: 0 };
+
+                this.leaderboard = JSON.parse(localStorage.getItem('beyblade_leaderboard') || '[]');
+
+                this.renderBeybladeSelector();
+                this.updateLeaderboardTable();
+                this.bindEvents();
+
+                this.lastTime = performance.now();
+                requestAnimationFrame(this.loop.bind(this));
+            }
+
+            renderBeybladeSelector() {
+                const container = document.getElementById('beyblade-selector');
+                container.innerHTML = '';
+
+                Object.values(BEYBLADE_TYPES).forEach(type => {
+                    const isSelected = type.id === this.selectedPlayerType;
+                    const card = document.createElement('div');
+                    card.className = `beyblade-card p-2 rounded-xl border flex flex-col justify-between ${isSelected ? 'selected' : 'border-slate-800 bg-slate-900/60'}`;
+                    card.dataset.id = type.id;
+
+                    card.innerHTML = `
+                        <div>
+                            <div class="flex items-center justify-between mb-0.5">
+                                <span class="text-[10px] font-bold" style="color: ${type.color}">${type.typeLabel}</span>
+                                <span class="w-2 h-2 rounded-full" style="background-color: ${type.color}"></span>
+                            </div>
+                            <h3 class="font-bold text-slate-100 text-xs mb-1">${type.name}</h3>
+                            <p class="text-[9px] text-slate-400 leading-snug mb-1">${type.desc}</p>
+                        </div>
+                        <div class="space-y-0.5 text-[9px] font-mono text-slate-300">
+                            <div class="flex justify-between"><span>攻擊</span><span>${'★'.repeat(Math.round(type.attack*2.5))}</span></div>
+                            <div class="flex justify-between"><span>防禦</span><span>${'★'.repeat(Math.round(type.defense*2.5))}</span></div>
+                        </div>
+                    `;
+
+                    card.addEventListener('click', () => {
+                        this.selectedPlayerType = type.id;
+                        this.renderBeybladeSelector();
+                    });
+
+                    container.appendChild(card);
+                });
+            }
+
+            bindEvents() {
+                // 1. 對戰模式選擇
+                document.querySelectorAll('.mode-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('selected'));
+                        const target = e.currentTarget;
+                        target.classList.add('selected');
+                        this.matchMode = target.dataset.mode;
+                    });
+                });
+
+                // 2. AI 難度選擇
+                document.querySelectorAll('.diff-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        document.querySelectorAll('.diff-btn').forEach(b => {
+                            b.className = 'diff-btn py-2 rounded-xl border border-slate-700 bg-slate-800/60 font-bold text-slate-300 transition text-xs';
+                        });
+                        const target = e.currentTarget;
+                        this.aiDifficulty = target.dataset.diff;
+                        
+                        if (this.aiDifficulty === 'easy') {
+                            target.className = 'diff-btn py-2 rounded-xl border border-emerald-500 bg-emerald-950/40 font-bold text-emerald-300 neon-border-blue transition text-xs';
+                        } else if (this.aiDifficulty === 'medium') {
+                            target.className = 'diff-btn py-2 rounded-xl border border-cyan-500 bg-cyan-950/40 font-bold text-cyan-300 neon-border-blue transition text-xs';
+                        } else {
+                            target.className = 'diff-btn py-2 rounded-xl border border-rose-500 bg-rose-950/40 font-bold text-rose-300 neon-border-red transition text-xs';
+                        }
+                    });
+                });
+
+                // 3. 開始遊戲與選單按鈕
+                document.getElementById('btn-start-game').addEventListener('click', () => {
+                    sound.init();
+                    document.getElementById('main-menu-modal').classList.add('hidden');
+                    this.startLaunchPrep();
+                });
+
+                document.getElementById('btn-show-leaderboard').addEventListener('click', () => {
+                    document.getElementById('leaderboard-modal').classList.remove('hidden');
+                });
+                const closeLb = () => document.getElementById('leaderboard-modal').classList.add('hidden');
+                document.getElementById('btn-close-leaderboard').addEventListener('click', closeLb);
+                document.getElementById('btn-close-leaderboard-2').addEventListener('click', closeLb);
+
+                document.getElementById('btn-clear-leaderboard').addEventListener('click', () => {
+                    localStorage.removeItem('beyblade_leaderboard');
+                    this.leaderboard = [];
+                    this.updateLeaderboardTable();
+                });
+
+                document.getElementById('btn-restart').addEventListener('click', () => {
+                    this.checkAndSaveHighScore();
+                    document.getElementById('gameover-modal').classList.add('hidden');
+                    this.startLaunchPrep();
+                });
+
+                document.getElementById('btn-return-menu').addEventListener('click', () => {
+                    this.checkAndSaveHighScore();
+                    document.getElementById('gameover-modal').classList.add('hidden');
+                    document.getElementById('main-menu-modal').classList.remove('hidden');
+                    document.getElementById('hud-overlay').classList.add('hidden');
+                    this.state = 'MENU';
+                });
+
+                // 4. Canvas 手感拉弓拖曳
+                const getCanvasPos = (e) => {
+                    const rect = this.canvas.getBoundingClientRect();
+                    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                    return {
+                        x: (clientX - rect.left) * (this.width / rect.width),
+                        y: (clientY - rect.top) * (this.height / rect.height)
+                    };
+                };
+
+                const startDrag = (e) => {
+                    if (this.state !== 'LAUNCH_PREP') return;
+                    sound.init();
+                    this.isDragging = true;
+                    const pos = getCanvasPos(e);
+                    this.dragStart = pos;
+                    this.dragCurrent = pos;
+                };
+
+                const moveDrag = (e) => {
+                    if (!this.isDragging || this.state !== 'LAUNCH_PREP') return;
+                    this.dragCurrent = getCanvasPos(e);
+                };
+
+                const endDrag = (e) => {
+                    if (!this.isDragging || this.state !== 'LAUNCH_PREP') return;
+                    this.isDragging = false;
+
+                    const dx = this.dragStart.x - this.dragCurrent.x;
+                    const dy = this.dragStart.y - this.dragCurrent.y;
+                    const dist = Math.hypot(dx, dy);
+
+                    if (dist > 18) {
+                        const angle = Math.atan2(dy, dx);
+                        const power = Math.min(dist, 200);
+                        this.triggerLaunchCountdown(power, angle);
+                    }
+                };
+
+                this.canvas.addEventListener('mousedown', startDrag);
+                this.canvas.addEventListener('mousemove', moveDrag);
+                window.addEventListener('mouseup', endDrag);
+
+                this.canvas.addEventListener('touchstart', (e) => { e.preventDefault(); startDrag(e); }, { passive: false });
+                this.canvas.addEventListener('touchmove', (e) => { e.preventDefault(); moveDrag(e); }, { passive: false });
+                window.addEventListener('touchend', endDrag);
+            }
+
+            startLaunchPrep() {
+                this.state = 'LAUNCH_PREP';
+                this.beyblades = [];
+                
+                const pType = BEYBLADE_TYPES[this.selectedPlayerType];
+                
+                // 1. 建立玩家陀螺
+                const playerBey = new Beyblade({
+                    id: 'player',
+                    name: '玩家 (ME)',
+                    x: 280,
+                    y: 520,
+                    vx: 0,
+                    vy: 0,
+                    type: pType,
+                    isPlayer: true
+                });
+                this.beyblades.push(playerBey);
+
+                // 2. 根據模式建立 AI 陀螺
+                const allKeys = Object.keys(BEYBLADE_TYPES);
+                const count = this.matchMode === 'royale' ? 3 : 1;
+                
+                const spawnPoints = [
+                    { x: 520, y: 280 },
+                    { x: 280, y: 280 },
+                    { x: 520, y: 520 }
+                ];
+
+                for (let i = 0; i < count; i++) {
+                    const aiKey = allKeys[(allKeys.indexOf(this.selectedPlayerType) + i + 1) % allKeys.length];
+                    const aiType = BEYBLADE_TYPES[aiKey];
+                    const pt = spawnPoints[i];
+
+                    this.beyblades.push(new Beyblade({
+                        id: `ai_${i+1}`,
+                        name: `AI ${i+1} (${aiType.name})`,
+                        x: pt.x,
+                        y: pt.y,
+                        vx: 0,
+                        vy: 0,
+                        type: aiType,
+                        isPlayer: false
+                    }));
+                }
+
+                // 更新 HUD 顯示
+                this.renderHudOverlay();
+
+                const msg = document.getElementById('center-message');
+                const title = document.getElementById('center-title');
+                const sub = document.getElementById('center-subtitle');
+
+                msg.classList.remove('hidden');
+                title.textContent = "READY";
+                sub.textContent = "在場地上「拖曳拉弓」發射陀螺！";
+            }
+
+            renderHudOverlay() {
+                const container = document.getElementById('hud-bars-container');
+                container.innerHTML = '';
+                document.getElementById('hud-overlay').classList.remove('hidden');
+                document.getElementById('hud-streak-count').textContent = this.winStreak;
+                document.getElementById('hud-mode-badge').textContent = this.matchMode === 'royale' ? '🔥 4人混戰' : '⚔️ 1v1 單挑';
+
+                this.beyblades.forEach(bey => {
+                    const card = document.createElement('div');
+                    const isPlayer = bey.isPlayer;
+                    card.className = `glass-card p-2 rounded-xl flex flex-col ${isPlayer ? 'neon-border-blue' : 'neon-border-red'}`;
+                    card.id = `hud-card-${bey.id}`;
+
+                    card.innerHTML = `
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="font-bold text-[11px] truncate ${isPlayer ? 'text-cyan-400' : 'text-rose-400'}">${bey.name}</span>
+                            <span id="rpm-text-${bey.id}" class="font-orbitron text-[10px] text-slate-300 font-semibold">${Math.round(bey.rpm)}</span>
+                        </div>
+                        <div class="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden p-0.5 border border-slate-700">
+                            <div id="rpm-bar-${bey.id}" class="${isPlayer ? 'bg-gradient-to-r from-cyan-500 to-blue-400' : 'bg-gradient-to-r from-rose-500 to-red-600'} h-full rounded-full bar-transition" style="width: 100%;"></div>
+                        </div>
+                    `;
+                    container.appendChild(card);
+                });
+            }
+
+            triggerLaunchCountdown(power, angle) {
+                this.state = 'COUNTDOWN';
+                
+                const msg = document.getElementById('center-message');
+                const title = document.getElementById('center-title');
+                const sub = document.getElementById('center-subtitle');
+
+                sub.textContent = "";
+
+                let count = 3;
+                title.textContent = count;
+                sound.playBeep(440, 'sine', 0.15);
+
+                const timer = setInterval(() => {
+                    count--;
+                    if (count > 0) {
+                        title.textContent = count;
+                        sound.playBeep(440, 'sine', 0.15);
+                    } else if (count === 0) {
+                        title.textContent = "GO SHOOT!";
+                        sound.playBeep(880, 'triangle', 0.3);
+                        sound.playLaunchSound();
+
+                        // 玩家發射（調降速度至舒適觀賞與操作體驗）
+                        const player = this.beyblades.find(b => b.isPlayer);
+                        if (player) {
+                            const launchSpeed = (power / 200) * 11 * player.type.speed;
+                            player.vx = Math.cos(angle) * launchSpeed;
+                            player.vy = Math.sin(angle) * launchSpeed;
+                        }
+
+                        // AI 陀螺發射
+                        let aiPowerMult = 1.0;
+                        if (this.aiDifficulty === 'easy') aiPowerMult = 0.8;
+                        else if (this.aiDifficulty === 'hard') aiPowerMult = 1.25;
+
+                        this.beyblades.filter(b => !b.isPlayer).forEach(ai => {
+                            const aiAngle = Math.atan2(this.arenaCenter.y - ai.y, this.arenaCenter.x - ai.x) + (Math.random() - 0.5) * 0.5;
+                            const aiSpeed = (8 + Math.random() * 4) * ai.type.speed * aiPowerMult;
+                            ai.vx = Math.cos(aiAngle) * aiSpeed;
+                            ai.vy = Math.sin(aiAngle) * aiSpeed;
+                        });
+
+                    } else {
+                        clearInterval(timer);
+                        msg.classList.add('hidden');
+                        this.state = 'BATTLE';
+                    }
+                }, 600);
+            }
+
+            loop(timestamp) {
+                const dt = Math.min((timestamp - this.lastTime) / 1000, 0.1);
+                this.lastTime = timestamp;
+
+                this.update(dt);
+                this.render();
+
+                requestAnimationFrame(this.loop.bind(this));
+            }
+
+            update(dt) {
+                if (this.state !== 'BATTLE') return;
+
+                if (this.hitFreezeTime > 0) {
+                    this.hitFreezeTime -= dt;
+                    return; // Hit-stop 撞擊微停頓
+                }
+
+                if (this.screenShake > 0) {
+                    this.screenShake *= 0.88;
+                    if (this.screenShake < 0.1) this.screenShake = 0;
+                }
+
+                if (this.screenFlash.alpha > 0) {
+                    this.screenFlash.alpha -= dt * 3.0;
+                }
+
+                // 1. 更新所有陀螺物理與 AI 戰術
+                this.beyblades.forEach(bey => {
+                    this.updateBeybladePhysics(bey, dt);
+                    if (!bey.isPlayer) {
+                        this.applyAiTactics(bey);
+                    }
+                });
+
+                // 2. 所有陀螺兩兩碰撞檢測
+                for (let i = 0; i < this.beyblades.length; i++) {
+                    for (let j = i + 1; j < this.beyblades.length; j++) {
+                        this.checkBeybladeCollision(this.beyblades[i], this.beyblades[j]);
+                    }
+                }
+
+                // 3. 特效更新
+                this.particles.forEach((p, idx) => {
+                    p.update(dt);
+                    if (p.life <= 0) this.particles.splice(idx, 1);
+                });
+                this.shockwaves.forEach((s, idx) => {
+                    s.update(dt);
+                    if (s.life <= 0) this.shockwaves.splice(idx, 1);
+                });
+                this.floatingTexts.forEach((ft, idx) => {
+                    ft.update(dt);
+                    if (ft.life <= 0) this.floatingTexts.splice(idx, 1);
+                });
+                this.impactMarks.forEach((im, idx) => {
+                    im.update(dt);
+                    if (im.life <= 0) this.impactMarks.splice(idx, 1);
+                });
+
+                // 4. 更新 HUD
+                this.updateHudBars();
+
+                // 5. 判斷勝負條件
+                this.checkGameWinConditions();
+            }
+
+            applyAiTactics(ai) {
+                if (!ai.active) return;
+
+                // 尋找最近的活著敵方陀螺
+                let nearestEnemy = null;
+                let minDist = Infinity;
+
+                this.beyblades.forEach(other => {
+                    if (other !== ai && other.active) {
+                        const d = Math.hypot(other.x - ai.x, other.y - ai.y);
+                        if (d < minDist) {
+                            minDist = d;
+                            nearestEnemy = other;
+                        }
+                    }
+                });
+
+                if (nearestEnemy) {
+                    const dx = nearestEnemy.x - ai.x;
+                    const dy = nearestEnemy.y - ai.y;
+                    let force = 0.65;
+                    if (this.aiDifficulty === 'easy') force = 0.35;
+                    else if (this.aiDifficulty === 'hard') force = 1.0;
+
+                    ai.vx += (dx / minDist) * force * ai.type.speed;
+                    ai.vy += (dy / minDist) * force * ai.type.speed;
+                }
+            }
+
+            updateBeybladePhysics(bey, dt) {
+                if (!bey.active) return;
+
+                if (bey.xDashCooldown > 0) {
+                    bey.xDashCooldown -= dt * 60;
+                }
+
+                // 碗狀傾斜向心力 (Bowl Slope Gravity - 適中平滑)
+                const dx = this.arenaCenter.x - bey.x;
+                const dy = this.arenaCenter.y - bey.y;
+                const distToCenter = Math.hypot(dx, dy);
+
+                const slopeFactor = 0.18;
+                if (distToCenter > 10) {
+                    bey.vx += (dx / distToCenter) * (distToCenter / this.arenaRadius) * slopeFactor * bey.type.speed;
+                    bey.vy += (dy / distToCenter) * (distToCenter / this.arenaRadius) * slopeFactor * bey.type.speed;
+                }
+
+                // 競技場彈力邊牆
+                if (distToCenter > this.arenaRadius - 10) {
+                    const nx = (bey.x - this.arenaCenter.x) / distToCenter;
+                    const ny = (bey.y - this.arenaCenter.y) / distToCenter;
+                    
+                    bey.x = this.arenaCenter.x + nx * (this.arenaRadius - 10);
+                    bey.y = this.arenaCenter.y + ny * (this.arenaRadius - 10);
+
+                    const dot = bey.vx * nx + bey.vy * ny;
+                    if (dot > 0) {
+                        bey.vx = (bey.vx - 1.7 * dot * nx) * 0.85;
+                        bey.vy = (bey.vy - 1.7 * dot * ny) * 0.85;
+                        this.createSparks(bey.x, bey.y, 8, bey.type.color);
+                        sound.playCollisionSound(0.3);
+                    }
+                }
+
+                // 主動對決磁吸力（調整至適中追擊頻率，不會亂飛）
+                let nearest = null;
+                let minDist = Infinity;
+                this.beyblades.forEach(other => {
+                    if (other !== bey && other.active) {
+                        const d = Math.hypot(other.x - bey.x, other.y - bey.y);
+                        if (d < minDist) {
+                            minDist = d;
+                            nearest = other;
+                        }
+                    }
+                });
+
+                if (nearest && minDist < 650) {
+                    const odx = nearest.x - bey.x;
+                    const ody = nearest.y - bey.y;
+                    let homingForce = 0.35;
+                    if (bey.type.id === 'attack') homingForce = 0.52;
+                    bey.vx += (odx / minDist) * homingForce * bey.type.speed;
+                    bey.vy += (ody / minDist) * homingForce * bey.type.speed;
+                }
+
+                // X-Dash 極限軌道衝刺 (速度調整至張力十足但不失控)
+                if (distToCenter > this.xDashRailRadius && distToCenter < this.arenaRadius) {
+                    if (!bey.xDashCooldown || bey.xDashCooldown <= 0) {
+                        bey.xDashCooldown = 25;
+                        const dashAngle = nearest 
+                            ? Math.atan2(nearest.y - bey.y, nearest.x - bey.x)
+                            : Math.atan2(dy, dx);
+
+                        const dashSpeed = 16 * bey.type.speed;
+                        bey.vx = Math.cos(dashAngle) * dashSpeed;
+                        bey.vy = Math.sin(dashAngle) * dashSpeed;
+
+                        this.screenShake = 16;
+                        this.screenFlash = { color: bey.type.color, alpha: 0.25 };
+                        sound.playLaunchSound();
+                        
+                        this.createSparks(bey.x, bey.y, 25, bey.type.color);
+                        this.shockwaves.push(new Shockwave(bey.x, bey.y, bey.type.color, 90));
+                        this.floatingTexts.push(new FloatingText(bey.x, bey.y - 30, 'X-DASH!', bey.type.color, 22));
+                        this.impactMarks.push(new ImpactMark(bey.x, bey.y, 25, bey.type.color));
+                    }
+                }
+
+                // 位置更新
+                bey.x += bey.vx * dt * 60;
+                bey.y += bey.vy * dt * 60;
+
+                // 自然阻力與穩定體力消耗 (每局約 20~35 秒正常結束)
+                const friction = 0.985;
+                bey.vx *= friction;
+                bey.vy *= friction;
+
+                bey.rpm -= (12.0 + (1.5 - bey.type.weight * 0.4)) * dt;
+                bey.spinAngle += (bey.rpm / 60) * Math.PI * 2 * dt;
+
+                // 拖尾記錄
+                bey.trail.unshift({ x: bey.x, y: bey.y, alpha: 1.0 });
+                if (bey.trail.length > 8) bey.trail.pop();
+                bey.trail.forEach(t => t.alpha -= dt * 3.0);
+            }
+
+            checkBeybladeCollision(b1, b2) {
+                if (!b1.active || !b2.active) return;
+
+                const dx = b2.x - b1.x;
+                const dy = b2.y - b1.y;
+                const dist = Math.hypot(dx, dy);
+                const minDist = b1.radius + b2.radius;
+
+                if (dist < minDist) {
+                    const nx = dx / (dist || 1);
+                    const ny = dy / (dist || 1);
+
+                    const overlap = minDist - dist + 6;
+                    b1.x -= nx * overlap * 0.5;
+                    b1.y -= ny * overlap * 0.5;
+                    b2.x += nx * overlap * 0.5;
+                    b2.y += ny * overlap * 0.5;
+
+                    const kx = b1.vx - b2.vx;
+                    const ky = b1.vy - b2.vy;
+                    const p = 2 * (nx * kx + ny * ky) / (b1.type.weight + b2.type.weight);
+
+                    const impulse = Math.max(Math.abs(p), 10);
+                    
+                    b1.vx -= p * b2.type.weight * nx * b1.type.attack * 1.2;
+                    b1.vy -= p * b2.type.weight * ny * b1.type.attack * 1.2;
+                    b2.vx += p * b1.type.weight * nx * b2.type.attack * 1.2;
+                    b2.vy += p * b1.type.weight * ny * b2.type.attack * 1.2;
+
+                    // 碰撞傷害計算（大幅調升至合理對決數值：每撞一次約扣 80~250 RPM）
+                    const damage1 = (impulse * 4.2 * b2.type.attack) / b1.type.defense;
+                    const damage2 = (impulse * 4.2 * b1.type.attack) / b2.type.defense;
+
+                    b1.rpm -= damage1;
+                    b2.rpm -= damage2;
+
+                    // 毒蛇 (Serpent) 吸收能量特質
+                    if (b1.type.id === 'serpent') b1.rpm += damage2 * 0.15;
+                    if (b2.type.id === 'serpent') b2.rpm += damage1 * 0.15;
+
+                    const hitX = (b1.x + b2.x) / 2;
+                    const hitY = (b1.y + b2.y) / 2;
+
+                    this.screenShake = Math.min(25, 8 + impulse * 0.9);
+                    this.screenFlash = { color: impulse > 16 ? '#ffffff' : b1.type.color, alpha: Math.min(0.5, 0.1 + impulse * 0.02) };
+                    
+                    if (impulse > 16) {
+                        this.hitFreezeTime = 0.02;
+                    }
+
+                    const textStr = impulse > 20 ? 'CRITICAL!' : impulse > 14 ? 'HEAVY CLASH!' : 'HIT!';
+                    const textColor = impulse > 20 ? '#ff0055' : impulse > 14 ? '#ffaa00' : '#00f0ff';
+                    this.floatingTexts.push(new FloatingText(hitX, hitY - 20, textStr, textColor, Math.min(28, 16 + impulse)));
+
+                    for (let i = 0; i < 3; i++) {
+                        this.particles.push(new ElectricArc(hitX, hitY, b1.type.color));
+                    }
+
+                    sound.playCollisionSound(Math.min(impulse / 7, 2.0));
+                    this.createSparks(hitX, hitY, Math.floor(15 + impulse * 4), '#ffffff');
+                    this.createSparks(hitX, hitY, Math.floor(10 + impulse * 3), b1.type.color);
+                    
+                    this.shockwaves.push(new Shockwave(hitX, hitY, impulse > 14 ? '#ff0055' : '#00f0ff', 70 + impulse * 4));
+                    this.impactMarks.push(new ImpactMark(hitX, hitY, 16 + impulse * 1.5, '#ffaa00'));
+
+                    // 爆裂擊殺檢測 (低體力受重擊時觸發)
+                    if (damage1 > 150 && b1.rpm < 800) {
+                        this.triggerBurstFinish(b1);
+                    } else if (damage2 > 150 && b2.rpm < 800) {
+                        this.triggerBurstFinish(b2);
+                    }
+                }
+            }
+
+            triggerBurstFinish(loser) {
+                loser.active = false;
+                loser.isBurst = true;
+
+                sound.playBurstSound();
+                this.screenShake = 40;
+                this.screenFlash = { color: '#ff0055', alpha: 0.75 };
+                this.hitFreezeTime = 0.07;
+
+                this.floatingTexts.push(new FloatingText(loser.x, loser.y - 40, 'BURST FINISH!!', '#ff0055', 34));
+
+                for (let i = 0; i < 40; i++) {
+                    this.particles.push(new FragmentParticle(loser.x, loser.y, loser.type.color));
+                    this.particles.push(new Particle(loser.x, loser.y, '#ffaa00'));
+                }
+                this.shockwaves.push(new Shockwave(loser.x, loser.y, '#ff0055', 180));
+                this.impactMarks.push(new ImpactMark(loser.x, loser.y, 55, '#ff0055'));
+            }
+
+            createSparks(x, y, count, color) {
+                for (let i = 0; i < count; i++) {
+                    this.particles.push(new Particle(x, y, color));
+                }
+            }
+
+            render() {
+                const ctx = this.ctx;
+                ctx.save();
+
+                if (this.screenShake > 0) {
+                    const shakeX = (Math.random() - 0.5) * this.screenShake;
+                    const shakeY = (Math.random() - 0.5) * this.screenShake;
+                    ctx.translate(shakeX, shakeY);
+                }
+
+                ctx.fillStyle = '#080914';
+                ctx.fillRect(-20, -20, this.width + 40, this.height + 40);
+
+                this.renderArena();
+
+                this.impactMarks.forEach(im => im.draw(ctx));
+
+                if (this.state === 'LAUNCH_PREP' && this.isDragging) {
+                    this.renderLaunchArrow();
+                }
+
+                this.beyblades.forEach(bey => bey.draw(ctx));
+
+                this.particles.forEach(p => p.draw(ctx));
+                this.shockwaves.forEach(s => s.draw(ctx));
+                this.floatingTexts.forEach(ft => ft.draw(ctx));
+
+                if (this.screenFlash.alpha > 0) {
+                    ctx.fillStyle = this.screenFlash.color;
+                    ctx.globalAlpha = Math.min(1.0, this.screenFlash.alpha);
+                    ctx.fillRect(0, 0, this.width, this.height);
+                    ctx.globalAlpha = 1.0;
+                }
+
+                ctx.restore();
+            }
+
+            renderArena() {
+                const ctx = this.ctx;
+                const cx = this.arenaCenter.x;
+                const cy = this.arenaCenter.y;
+
+                const outerGrad = ctx.createRadialGradient(cx, cy, this.arenaRadius, cx, cy, this.outOfBoundsRadius + 20);
+                outerGrad.addColorStop(0, '#1e1b4b');
+                outerGrad.addColorStop(0.7, '#0f172a');
+                outerGrad.addColorStop(1, '#020617');
+
+                ctx.beginPath();
+                ctx.arc(cx, cy, this.outOfBoundsRadius + 20, 0, Math.PI * 2);
+                ctx.fillStyle = outerGrad;
+                ctx.fill();
+
+                ctx.beginPath();
+                ctx.arc(cx, cy, this.xDashRailRadius, 0, Math.PI * 2);
+                ctx.strokeStyle = '#00f0ff';
+                ctx.lineWidth = 4;
+                ctx.setLineDash([12, 8]);
+                ctx.shadowColor = '#00f0ff';
+                ctx.shadowBlur = 10;
+                ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.shadowBlur = 0;
+
+                ctx.beginPath();
+                ctx.arc(cx, cy, this.arenaRadius + 6, 0, Math.PI * 2);
+                ctx.strokeStyle = '#ff0055';
+                ctx.lineWidth = 12;
+                ctx.shadowColor = '#ff0055';
+                ctx.shadowBlur = 15;
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+
+                const bowlGrad = ctx.createRadialGradient(cx, cy, 10, cx, cy, this.arenaRadius);
+                bowlGrad.addColorStop(0, '#0284c7');
+                bowlGrad.addColorStop(0.4, '#0f172a');
+                bowlGrad.addColorStop(0.85, '#1e1b4b');
+                bowlGrad.addColorStop(1, '#312e81');
+
+                ctx.beginPath();
+                ctx.arc(cx, cy, this.arenaRadius, 0, Math.PI * 2);
+                ctx.fillStyle = bowlGrad;
+                ctx.fill();
+
+                ctx.strokeStyle = 'rgba(0, 240, 255, 0.15)';
+                ctx.lineWidth = 1.5;
+                [80, 160, 240].forEach(r => {
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+                    ctx.stroke();
+                });
+
+                ctx.beginPath();
+                ctx.moveTo(cx - this.arenaRadius, cy); ctx.lineTo(cx + this.arenaRadius, cy);
+                ctx.moveTo(cx, cy - this.arenaRadius); ctx.lineTo(cx, cy + this.arenaRadius);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.arc(cx, cy, 12, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(0, 240, 255, 0.4)';
+                ctx.fill();
+            }
+
+            renderLaunchArrow() {
+                const ctx = this.ctx;
+                const startX = this.dragStart.x;
+                const startY = this.dragStart.y;
+
+                const dx = this.dragStart.x - this.dragCurrent.x;
+                const dy = this.dragStart.y - this.dragCurrent.y;
+                const dist = Math.hypot(dx, dy);
+                const angle = Math.atan2(dy, dx);
+
+                const powerRatio = Math.min(dist / 180, 1.0);
+
+                ctx.beginPath();
+                ctx.moveTo(startX, startY);
+                ctx.lineTo(startX + Math.cos(angle) * powerRatio * 160, startY + Math.sin(angle) * powerRatio * 160);
+                ctx.strokeStyle = `hsl(${120 - powerRatio * 120}, 100%, 50%)`;
+                ctx.lineWidth = 6;
+                ctx.shadowColor = ctx.strokeStyle;
+                ctx.shadowBlur = 10;
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+
+                ctx.beginPath();
+                ctx.arc(startX, startY, 22, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+                ctx.lineWidth = 2.5;
+                ctx.stroke();
+            }
+
+            updateHudBars() {
+                this.beyblades.forEach(bey => {
+                    const bar = document.getElementById(`rpm-bar-${bey.id}`);
+                    const text = document.getElementById(`rpm-text-${bey.id}`);
+
+                    if (bar && text) {
+                        const pct = Math.max(0, (bey.rpm / bey.type.maxRpm) * 100);
+                        bar.style.width = `${pct}%`;
+                        text.textContent = `${Math.round(bey.rpm)}`;
+                    }
+                });
+            }
+
+            checkGameWinConditions() {
+                if (this.state !== 'BATTLE') return;
+
+                // 檢查是否出場或停止旋轉
+                this.beyblades.forEach(bey => {
+                    if (bey.active) {
+                        const dist = Math.hypot(bey.x - this.arenaCenter.x, bey.y - this.arenaCenter.y);
+                        // 只有當體力過低 (RPM < 300) 且受到超強撞擊衝出邊界才算 Over Finish
+                        if (dist > this.outOfBoundsRadius && bey.rpm < 300) {
+                            bey.active = false;
+                            this.floatingTexts.push(new FloatingText(bey.x, bey.y, 'OVER FINISH!', '#ffaa00', 28));
+                        } else if (bey.rpm <= 0) {
+                            bey.active = false;
+                            this.floatingTexts.push(new FloatingText(bey.x, bey.y, 'SPIN OUT!', '#00f0ff', 24));
+                        }
+                    }
+                });
+
+                // 統計存活數量
+                const activeBeyblades = this.beyblades.filter(b => b.active);
+
+                if (activeBeyblades.length <= 1) {
+                    const winner = activeBeyblades.length === 1 ? activeBeyblades[0] : null;
+                    this.endBattle(winner);
+                }
+            }
+
+            endBattle(winner) {
+                this.state = 'GAMEOVER';
+
+                const modal = document.getElementById('gameover-modal');
+                const title = document.getElementById('result-title');
+                const sub = document.getElementById('result-subtitle');
+                const scoreText = document.getElementById('result-score');
+                const streakText = document.getElementById('result-streak');
+                const highScoreBox = document.getElementById('high-score-input-box');
+
+                const isPlayerWin = winner && winner.isPlayer;
+
+                if (isPlayerWin) {
+                    sound.playWinSound();
+                    this.winStreak++;
+                    const bonus = this.matchMode === 'royale' ? 1200 : 500;
+                    this.currentScore = this.winStreak * 600 + Math.round(winner.rpm) + bonus;
+
+                    title.textContent = 'VICTORY!';
+                    title.className = 'font-orbitron font-black text-3xl md:text-4xl text-amber-400 mb-1 neon-text-pink animate-bounce';
+                    sub.textContent = `獲勝！獲勝陀螺：${winner.name}`;
+                } else {
+                    this.winStreak = 0;
+                    this.currentScore = 150;
+
+                    title.textContent = 'DEFEAT...';
+                    title.className = 'font-orbitron font-black text-3xl md:text-4xl text-rose-500 mb-1';
+                    sub.textContent = winner ? `勝者為：${winner.name}` : '平局 (同歸於盡)';
+                }
+
+                scoreText.textContent = this.currentScore;
+                streakText.textContent = this.winStreak;
+
+                const minScore = this.leaderboard.length >= 10 ? this.leaderboard[this.leaderboard.length - 1].score : 0;
+                if (this.currentScore > minScore || this.leaderboard.length < 10) {
+                    highScoreBox.classList.remove('hidden');
+                } else {
+                    highScoreBox.classList.add('hidden');
+                }
+
+                modal.classList.remove('hidden');
+            }
+
+            checkAndSaveHighScore() {
+                const highScoreBox = document.getElementById('high-score-input-box');
+                if (!highScoreBox.classList.contains('hidden')) {
+                    const input = document.getElementById('player-name-input');
+                    const name = input.value.trim() || 'BLADER_01';
+
+                    const playerBey = this.beyblades.find(b => b.isPlayer);
+
+                    this.leaderboard.push({
+                        name: name,
+                        bey: playerBey ? playerBey.type.name : '疾風赤刃',
+                        streak: this.winStreak,
+                        score: this.currentScore,
+                        date: new Date().toLocaleDateString()
+                    });
+
+                    this.leaderboard.sort((a, b) => b.score - a.score);
+                    this.leaderboard = this.leaderboard.slice(0, 10);
+
+                    localStorage.setItem('beyblade_leaderboard', JSON.stringify(this.leaderboard));
+                    this.updateLeaderboardTable();
+                    highScoreBox.classList.add('hidden');
+                }
+            }
+
+            updateLeaderboardTable() {
+                const tbody = document.getElementById('leaderboard-tbody');
+                tbody.innerHTML = '';
+
+                if (this.leaderboard.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-slate-500">尚無排行紀錄，快來進行對決吧！</td></tr>`;
+                    return;
+                }
+
+                this.leaderboard.forEach((item, index) => {
+                    const tr = document.createElement('tr');
+                    tr.className = index === 0 ? 'text-amber-300 font-bold' : '';
+                    tr.innerHTML = `
+                        <td class="p-2">${index + 1}</td>
+                        <td class="p-2 font-semibold">${item.name}</td>
+                        <td class="p-2 text-slate-400 text-xs">${item.bey}</td>
+                        <td class="p-2 text-cyan-400 font-bold">${item.streak}</td>
+                        <td class="p-2 text-right font-orbitron font-bold text-amber-400">${item.score}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+        }
+
+        class Beyblade {
+            constructor(config) {
+                this.id = config.id;
+                this.name = config.name;
+                this.x = config.x;
+                this.y = config.y;
+                this.vx = config.vx;
+                this.vy = config.vy;
+                this.type = config.type;
+                this.isPlayer = config.isPlayer;
+
+                this.radius = 28;
+                this.rpm = this.type.maxRpm;
+                this.spinAngle = Math.random() * Math.PI * 2;
+                this.trail = [];
+                this.active = true;
+                this.isBurst = false;
+                this.auraPulse = 0;
+                this.xDashCooldown = 0;
+            }
+
+            draw(ctx) {
+                if (!this.active) return;
+
+                this.auraPulse += 0.15;
+                const rpmRatio = Math.max(0, this.rpm / this.type.maxRpm);
+
+                // 1. 動態能量氣場
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                
+                const auraSize = this.radius * (1.2 + Math.sin(this.auraPulse) * 0.15 * rpmRatio);
+                const auraGrad = ctx.createRadialGradient(0, 0, this.radius * 0.5, 0, 0, auraSize + 10);
+                auraGrad.addColorStop(0, this.type.color);
+                auraGrad.addColorStop(1, 'transparent');
+
+                ctx.beginPath();
+                ctx.arc(0, 0, auraSize + 8, 0, Math.PI * 2);
+                ctx.fillStyle = auraGrad;
+                ctx.globalAlpha = 0.45 * rpmRatio;
+                ctx.fill();
+                ctx.restore();
+
+                // 2. 殘影與速度拖尾
+                this.trail.forEach((t, index) => {
+                    ctx.beginPath();
+                    ctx.arc(t.x, t.y, this.radius * (0.6 + index * 0.03), 0, Math.PI * 2);
+                    ctx.fillStyle = this.type.color;
+                    ctx.globalAlpha = Math.max(0, t.alpha * 0.4);
+                    ctx.shadowColor = this.type.color;
+                    ctx.shadowBlur = 12;
+                    ctx.fill();
+                });
+                ctx.globalAlpha = 1.0;
+
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.spinAngle);
+
+                // 旋轉刀刃
+                const blades = this.type.blades;
+                ctx.fillStyle = this.type.color;
+                ctx.shadowColor = this.type.color;
+                ctx.shadowBlur = 18;
+
+                for (let i = 0; i < blades; i++) {
+                    const angle = (i * 2 * Math.PI) / blades;
+                    ctx.rotate(angle);
+
+                    if (this.type.shape === 'jagged') {
+                        ctx.beginPath();
+                        ctx.moveTo(0, -this.radius);
+                        ctx.lineTo(15, -this.radius - 8);
+                        ctx.lineTo(8, -this.radius + 10);
+                        ctx.closePath();
+                        ctx.fill();
+                    } else if (this.type.shape === 'round') {
+                        ctx.beginPath();
+                        ctx.arc(0, -this.radius, 10, 0, Math.PI);
+                        ctx.fill();
+                    } else if (this.type.shape === 'star') {
+                        ctx.beginPath();
+                        ctx.moveTo(0, -this.radius - 5);
+                        ctx.lineTo(10, -this.radius + 8);
+                        ctx.lineTo(-10, -this.radius + 8);
+                        ctx.closePath();
+                        ctx.fill();
+                    } else {
+                        ctx.beginPath();
+                        ctx.arc(0, -this.radius, 6, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+
+                // 中心金屬環
+                ctx.beginPath();
+                ctx.arc(0, 0, this.radius - 4, 0, Math.PI * 2);
+                ctx.fillStyle = '#334155';
+                ctx.strokeStyle = this.type.secondaryColor;
+                ctx.lineWidth = 4;
+                ctx.fill();
+                ctx.stroke();
+
+                // 中心璀璨核心
+                ctx.beginPath();
+                ctx.arc(0, 0, this.radius * 0.35, 0, Math.PI * 2);
+                ctx.fillStyle = this.isPlayer ? '#00f0ff' : '#ff0055';
+                ctx.fill();
+
+                ctx.restore();
+                ctx.shadowBlur = 0;
+
+                // 若為玩家陀螺，在中心繪製 ME 標籤
+                if (this.isPlayer) {
+                    ctx.save();
+                    ctx.translate(this.x, this.y);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = '900 13px Orbitron, sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.shadowColor = '#00f0ff';
+                    ctx.shadowBlur = 12;
+                    ctx.fillText('ME', 0, 1);
+                    ctx.restore();
+                }
+            }
+        }
+
+        class ElectricArc {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.life = 1.0;
+                this.points = [];
+                let currX = x;
+                let currY = y;
+                const angle = Math.random() * Math.PI * 2;
+                const len = 15 + Math.random() * 30;
+
+                for (let i = 0; i < 5; i++) {
+                    currX += Math.cos(angle) * (len / 5) + (Math.random() - 0.5) * 12;
+                    currY += Math.sin(angle) * (len / 5) + (Math.random() - 0.5) * 12;
+                    this.points.push({ x: currX, y: currY });
+                }
+            }
+
+            update(dt) {
+                this.life -= 0.12;
+            }
+
+            draw(ctx) {
+                if (this.life <= 0) return;
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, this.life);
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y);
+                this.points.forEach(p => ctx.lineTo(p.x, p.y));
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2.5;
+                ctx.shadowColor = this.color;
+                ctx.shadowBlur = 10;
+                ctx.stroke();
+                ctx.restore();
+            }
+        }
+
+        class FloatingText {
+            constructor(x, y, text, color, fontSize = 20) {
+                this.x = x;
+                this.y = y;
+                this.text = text;
+                this.color = color;
+                this.fontSize = fontSize;
+                this.life = 1.0;
+                this.vy = -1.8;
+                this.scale = 1.4;
+            }
+
+            update(dt) {
+                this.y += this.vy;
+                this.life -= 0.025;
+                if (this.scale > 1.0) this.scale -= 0.05;
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, this.life);
+                ctx.translate(this.x, this.y);
+                ctx.scale(this.scale, this.scale);
+                ctx.font = `900 ${this.fontSize}px Orbitron, sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.fillStyle = this.color;
+                ctx.shadowColor = this.color;
+                ctx.shadowBlur = 12;
+                ctx.fillText(this.text, 0, 0);
+                ctx.restore();
+            }
+        }
+
+        class ImpactMark {
+            constructor(x, y, size, color) {
+                this.x = x;
+                this.y = y;
+                this.size = size;
+                this.color = color;
+                this.life = 1.0;
+            }
+
+            update(dt) {
+                this.life -= 0.015;
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, this.life * 0.5);
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.shadowColor = this.color;
+                ctx.shadowBlur = 15;
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                const angle = Math.random() * Math.PI * 2;
+                const speed = 2 + Math.random() * 8;
+                this.vx = Math.cos(angle) * speed;
+                this.vy = Math.sin(angle) * speed;
+                this.color = color;
+                this.life = 1.0;
+                this.decay = 0.03 + Math.random() * 0.04;
+                this.size = 2 + Math.random() * 3;
+            }
+
+            update(dt) {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vx *= 0.95;
+                this.vy *= 0.95;
+                this.life -= this.decay;
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, this.life);
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.shadowColor = this.color;
+                ctx.shadowBlur = 8;
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        class FragmentParticle extends Particle {
+            constructor(x, y, color) {
+                super(x, y, color);
+                this.rot = Math.random() * Math.PI;
+                this.size = 6 + Math.random() * 8;
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rot);
+                ctx.globalAlpha = Math.max(0, this.life);
+                ctx.beginPath();
+                ctx.moveTo(-this.size, -this.size);
+                ctx.lineTo(this.size, -this.size / 2);
+                ctx.lineTo(0, this.size);
+                ctx.closePath();
+                ctx.fillStyle = this.color;
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        class Shockwave {
+            constructor(x, y, color, maxRadius = 60) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.radius = 5;
+                this.maxRadius = maxRadius;
+                this.life = 1.0;
+            }
+
+            update(dt) {
+                this.radius += (this.maxRadius - this.radius) * 0.2;
+                this.life -= 0.06;
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, this.life);
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.strokeStyle = this.color;
+                ctx.lineWidth = 3;
+                ctx.stroke();
+                ctx.restore();
+            }
+        }
+
+        window.addEventListener('load', () => {
+            window.gameInstance = new BeybladeGame();
+        });
+    </script>
+</body>
+</html>

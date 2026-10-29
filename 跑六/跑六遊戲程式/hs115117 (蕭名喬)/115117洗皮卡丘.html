@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>洗皮卡丘</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #f0f2f5;
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            touch-action: none; /* Prevent pull-to-refresh and scrolling on mobile */
+            color: #333333;
+        }
+
+        #game-wrapper {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            box-shadow: 0 0 40px rgba(0,0,0,0.05);
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        .ui-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(5px);
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+            z-index: 10;
+        }
+
+        .ui-screen.hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .btn {
+            background-color: #a8dadc;
+            color: #1d3557;
+            border: none;
+            padding: 12px 32px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 10px rgba(168, 218, 220, 0.4);
+            margin-top: 20px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            background-color: #90cdd0;
+            box-shadow: 0 6px 15px rgba(168, 218, 220, 0.5);
+        }
+        
+        .btn:active {
+            transform: translateY(1px);
+        }
+
+        .title {
+            font-size: 3rem;
+            font-weight: 800;
+            color: #1d3557;
+            margin-bottom: 10px;
+            letter-spacing: -1px;
+        }
+        
+        .subtitle {
+            font-size: 1rem;
+            color: #6c757d;
+            margin-bottom: 30px;
+            text-align: center;
+            padding: 0 20px;
+        }
+
+        #hud {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            box-sizing: border-box;
+            z-index: 5;
+            pointer-events: none;
+        }
+
+        .hud-text {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #1d3557;
+        }
+
+        #pause-btn {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            color: #1d3557;
+            cursor: pointer;
+            z-index: 6;
+            pointer-events: auto;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+        
+        #pause-btn:hover { opacity: 1; }
+    </style>
+</head>
+<body>
+
+    <div id="game-wrapper">
+        <!-- HUD -->
+        <div id="hud" class="hidden">
+            <div class="hud-text">分數: <span id="score-display">0</span></div>
+            <div class="hud-text">生命: <span id="lives-display">❤️❤️❤️</span></div>
+        </div>
+        <button id="pause-btn" class="hidden">⏸️</button>
+
+        <!-- Canvas -->
+        <canvas id="game-canvas"></canvas>
+
+        <!-- Start Screen -->
+        <div id="start-screen" class="ui-screen">
+            <h1 class="title">洗皮卡丘</h1>
+            <p class="subtitle">左右滑動或使用方向鍵控制底部擋板<br>接住所有落下的彩色水滴！</p>
+            <div class="mb-4 text-sm text-gray-500 font-semibold">最高分: <span id="start-high-score">0</span></div>
+            <button class="btn" id="start-btn">開始遊戲</button>
+        </div>
+
+        <!-- Pause Screen -->
+        <div id="pause-screen" class="ui-screen hidden">
+            <h1 class="title" style="font-size: 2.5rem;">遊戲暫停</h1>
+            <button class="btn" id="resume-btn">繼續遊戲</button>
+        </div>
+
+        <!-- Game Over Screen -->
+        <div id="game-over-screen" class="ui-screen hidden">
+            <h1 class="title" style="font-size: 2.5rem; color: #e63946;">遊戲結束</h1>
+            <p class="subtitle" style="font-size: 1.2rem; margin-bottom: 10px;">最終分數: <span id="final-score" style="font-weight: 800; color: #1d3557;">0</span></p>
+            <p class="subtitle" style="font-size: 1rem; margin-bottom: 20px;">最高分: <span id="end-high-score" style="font-weight: 800;">0</span></p>
+            <button class="btn" id="restart-btn">再玩一次</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // DOM Elements
+        const startScreen = document.getElementById('start-screen');
+        const pauseScreen = document.getElementById('pause-screen');
+        const gameOverScreen = document.getElementById('game-over-screen');
+        const hud = document.getElementById('hud');
+        const pauseBtn = document.getElementById('pause-btn');
+        const scoreDisplay = document.getElementById('score-display');
+        const livesDisplay = document.getElementById('lives-display');
+        const startHighScoreDisplay = document.getElementById('start-high-score');
+        const endHighScoreDisplay = document.getElementById('end-high-score');
+        const finalScoreDisplay = document.getElementById('final-score');
+
+        // Game State Enum
+        const STATE = { START: 0, PLAYING: 1, PAUSED: 2, GAMEOVER: 3 };
+        let currentState = STATE.START;
+
+        // Game Variables
+        let score = 0;
+        let lives = 3;
+        let highScore = localStorage.getItem('colorCatchHighScore') || 0;
+        let gameLoopId;
+        let frameCount = 0;
+        let difficultyMultiplier = 1;
+
+        // Entities
+        let player = { x: 0, y: 0, width: 100, height: 15, color: '#fbd400', targetX: 0 };
+        let droplets = [];
+        let particles = [];
+        let floatingTexts = [];
+
+        // Colors for droplets (Pastel)
+        const dropletColors = ['#ffb7b2', '#e2f0cb', '#c7ceea', '#ffdac1', '#b5ead7'];
+
+        function resizeCanvas() {
+            const wrapper = document.getElementById('game-wrapper');
+            canvas.width = wrapper.clientWidth;
+            canvas.height = wrapper.clientHeight;
+            
+            // Reposition player
+            player.y = canvas.height - 40;
+            if (currentState === STATE.START) {
+                player.x = canvas.width / 2;
+                player.targetX = canvas.width / 2;
+            }
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+        startHighScoreDisplay.innerText = highScore;
+
+        // Input handling (Mouse/Touch)
+        function handleInput(clientX) {
+            if (currentState !== STATE.PLAYING) return;
+            const rect = canvas.getBoundingClientRect();
+            let x = clientX - rect.left;
+            player.targetX = x;
+        }
+
+        canvas.addEventListener('mousemove', (e) => handleInput(e.clientX));
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault(); // Prevent scrolling
+            handleInput(e.touches[0].clientX);
+        }, { passive: false });
+        
+        // Input handling (Keyboard)
+        let keys = { ArrowLeft: false, ArrowRight: false };
+        window.addEventListener('keydown', (e) => {
+            if (keys.hasOwnProperty(e.key)) keys[e.key] = true;
+            if (e.key === 'Escape' || e.key === 'p' || e.key === 'P') togglePause();
+        });
+        window.addEventListener('keyup', (e) => {
+            if (keys.hasOwnProperty(e.key)) keys[e.key] = false;
+        });
+
+        class Droplet {
+            constructor() {
+                this.radius = 15;
+                this.x = Math.random() * (canvas.width - this.radius * 2) + this.radius;
+                this.y = -this.radius;
+                // Speed increases based on difficulty
+                this.speed = (Math.random() * 2 + 3) * difficultyMultiplier;
+                this.color = dropletColors[Math.floor(Math.random() * dropletColors.length)];
+                this.markedForDeletion = false;
+            }
+            update() {
+                this.y += this.speed;
+                // Check if missed
+                if (this.y > canvas.height + this.radius) {
+                    this.markedForDeletion = true;
+                    loseLife();
+                }
+            }
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+                ctx.closePath();
+                
+                // Highlight
+                ctx.beginPath();
+                ctx.arc(this.x - 4, this.y - 4, this.radius * 0.3, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255,255,255,0.6)';
+                ctx.fill();
+                ctx.closePath();
+            }
+        }
+
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.size = Math.random() * 5 + 2;
+                this.speedX = Math.random() * 6 - 3;
+                this.speedY = Math.random() * -6 - 2;
+                this.color = color;
+                this.life = 1.0;
+                this.decay = Math.random() * 0.05 + 0.02;
+            }
+            update() {
+                this.x += this.speedX;
+                this.y += this.speedY;
+                this.speedY += 0.2; // gravity
+                this.life -= this.decay;
+            }
+            draw() {
+                ctx.globalAlpha = Math.max(0, this.life);
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = 1.0;
+            }
+        }
+
+        class FloatingText {
+            constructor(x, y, text) {
+                this.x = x;
+                this.y = y;
+                this.text = text;
+                this.life = 1.0;
+            }
+            update() {
+                this.y -= 1;
+                this.life -= 0.03;
+            }
+            draw() {
+                ctx.globalAlpha = Math.max(0, this.life);
+                ctx.fillStyle = '#1d3557';
+                ctx.font = 'bold 20px Inter';
+                ctx.textAlign = 'center';
+                ctx.fillText(this.text, this.x, this.y);
+                ctx.globalAlpha = 1.0;
+            }
+        }
+
+        function spawnDroplet() {
+            // Spawn rate gets faster as difficulty increases
+            let spawnRate = Math.max(30, 80 - (difficultyMultiplier * 10));
+            if (frameCount % Math.floor(spawnRate) === 0) {
+                droplets.push(new Droplet());
+            }
+        }
+
+        function checkCollisions() {
+            droplets.forEach(drop => {
+                // Simple Circle-Rectangle collision
+                let testX = drop.x;
+                let testY = drop.y;
+
+                if (drop.x < player.x - player.width/2) testX = player.x - player.width/2;
+                else if (drop.x > player.x + player.width/2) testX = player.x + player.width/2;
+
+                if (drop.y < player.y - player.height/2) testY = player.y - player.height/2;
+                else if (drop.y > player.y + player.height/2) testY = player.y + player.height/2;
+
+                let distX = drop.x - testX;
+                let distY = drop.y - testY;
+                let distance = Math.sqrt((distX*distX) + (distY*distY));
+
+                if (distance <= drop.radius) {
+                    // Collision detected!
+                    drop.markedForDeletion = true;
+                    gainScore(10, drop.x, drop.y, drop.color);
+                }
+            });
+        }
+
+        // Simple Audio Context for synthetic sounds
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let audioCtx;
+        
+        // 音符頻率表
+        const notes = {
+            C4: 261.63, D4: 293.66, E4: 329.63, F4: 349.23,
+            G4: 392.00, A4: 440.00, B4: 493.88, C5: 523.25
+        };
+        
+        // 歡樂頌 (Ode to Joy) 旋律
+        const melody = [
+            notes.E4, notes.E4, notes.F4, notes.G4, notes.G4, notes.F4, notes.E4, notes.D4,
+            notes.C4, notes.C4, notes.D4, notes.E4, notes.E4, notes.D4, notes.D4,
+            notes.E4, notes.E4, notes.F4, notes.G4, notes.G4, notes.F4, notes.E4, notes.D4,
+            notes.C4, notes.C4, notes.D4, notes.E4, notes.D4, notes.C4, notes.C4
+        ];
+        let currentNoteIndex = 0; // 追蹤目前播放到哪一個音符
+        
+        function playTone(frequency, type, duration) {
+            if (!audioCtx) audioCtx = new AudioContext();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            
+            oscillator.type = type;
+            oscillator.frequency.setValueAtTime(frequency, audioCtx.currentTime);
+            
+            gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            
+            oscillator.start();
+            oscillator.stop(audioCtx.currentTime + duration);
+        }
+
+        function gainScore(points, x, y, color) {
+            score += points;
+            scoreDisplay.innerText = score;
+            
+            // Visual feedback
+            scoreDisplay.style.transform = 'scale(1.5)';
+            scoreDisplay.style.color = color;
+            setTimeout(() => {
+                scoreDisplay.style.transform = 'scale(1)';
+                scoreDisplay.style.color = '#1d3557';
+            }, 150);
+
+            floatingTexts.push(new FloatingText(x, y, `+${points}`));
+            for(let i=0; i<8; i++) {
+                particles.push(new Particle(x, y, color));
+            }
+            
+            // Increase difficulty slightly
+            difficultyMultiplier = 1 + (score / 300);
+            
+            // Sound feedback (Play melody sequence)
+            let freq = melody[currentNoteIndex];
+            playTone(freq, 'sine', 0.15); // 稍微延長一點點讓旋律更明顯
+            currentNoteIndex = (currentNoteIndex + 1) % melody.length; // 循環播放
+        }
+
+        function loseLife() {
+            lives--;
+            updateLivesDisplay();
+            
+            // Sound feedback (error)
+            playTone(150, 'sawtooth', 0.2);
+
+            // Flash screen red softly
+            document.getElementById('game-wrapper').style.backgroundColor = '#ffe3e3';
+            setTimeout(() => {
+                document.getElementById('game-wrapper').style.backgroundColor = '#ffffff';
+            }, 100);
+
+            if (lives <= 0) {
+                gameOver();
+            }
+        }
+
+        function updateLivesDisplay() {
+            livesDisplay.innerText = '❤️'.repeat(Math.max(0, lives));
+        }
+
+        // 繪製背景淺色皮卡丘 (浮水印風格)
+        function drawPikachuBG() {
+            ctx.save();
+            // 將畫布原點移動到中心
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+            // 根據視窗大小自動縮放
+            let scale = Math.min(canvas.width, canvas.height) / 450;
+            ctx.scale(scale, scale);
+
+            // 淺色簡潔風設定：設定低透明度，產生淡淡的浮水印效果
+            ctx.globalAlpha = 0.15; 
+
+            const pikaYellow = '#fbd400';
+            const pikaBrown = '#5a4231';
+            const pikaRed = '#ff6b6b';
+
+            // 繪製左耳
+            ctx.save();
+            ctx.beginPath();
+            ctx.moveTo(-40, -50);
+            ctx.quadraticCurveTo(-100, -130, -120, -100);
+            ctx.quadraticCurveTo(-80, -40, -60, -30);
+            ctx.fillStyle = pikaYellow;
+            ctx.fill();
+            // 繪製左耳尖端 (使用 clip 確保邊緣完美貼合)
+            ctx.clip();
+            ctx.fillStyle = pikaBrown;
+            ctx.beginPath();
+            ctx.moveTo(-75, -75);
+            ctx.lineTo(-150, -80);
+            ctx.lineTo(-150, -150);
+            ctx.lineTo(-80, -150);
+            ctx.fill();
+            ctx.restore();
+
+            // 繪製右耳
+            ctx.save();
+            ctx.beginPath();
+            ctx.moveTo(40, -50);
+            ctx.quadraticCurveTo(100, -130, 120, -100);
+            ctx.quadraticCurveTo(80, -40, 60, -30);
+            ctx.fillStyle = pikaYellow;
+            ctx.fill();
+            // 繪製右耳尖端
+            ctx.clip();
+            ctx.fillStyle = pikaBrown;
+            ctx.beginPath();
+            ctx.moveTo(75, -75);
+            ctx.lineTo(150, -80);
+            ctx.lineTo(150, -150);
+            ctx.lineTo(80, -150);
+            ctx.fill();
+            ctx.restore();
+
+            // 繪製頭部輪廓
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 80, 70, 0, 0, Math.PI * 2);
+            ctx.fillStyle = pikaYellow;
+            ctx.fill();
+
+            // 腮紅
+            ctx.beginPath();
+            ctx.arc(-55, 20, 16, 0, Math.PI * 2);
+            ctx.fillStyle = pikaRed;
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(55, 20, 16, 0, Math.PI * 2);
+            ctx.fillStyle = pikaRed;
+            ctx.fill();
+
+            // 眼睛與高光
+            ctx.beginPath();
+            ctx.arc(-30, -5, 8, 0, Math.PI * 2);
+            ctx.fillStyle = pikaBrown;
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(-28, -8, 2.5, 0, Math.PI * 2); 
+            ctx.fillStyle = '#ffffff';
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.arc(30, -5, 8, 0, Math.PI * 2);
+            ctx.fillStyle = pikaBrown;
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(32, -8, 2.5, 0, Math.PI * 2);
+            ctx.fillStyle = '#ffffff';
+            ctx.fill();
+
+            // 鼻子
+            ctx.beginPath();
+            ctx.arc(0, 8, 2.5, 0, Math.PI * 2);
+            ctx.fillStyle = pikaBrown;
+            ctx.fill();
+
+            // 嘴巴 (W字型微笑)
+            ctx.beginPath();
+            ctx.moveTo(-15, 18);
+            ctx.quadraticCurveTo(-7, 28, 0, 18);
+            ctx.quadraticCurveTo(7, 28, 15, 18);
+            ctx.strokeStyle = pikaBrown;
+            ctx.lineWidth = 2.5;
+            ctx.lineCap = 'round';
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        function update() {
+            if (currentState !== STATE.PLAYING) return;
+
+            // Keyboard Movement
+            const moveSpeed = 8;
+            if (keys.ArrowLeft) player.targetX -= moveSpeed;
+            if (keys.ArrowRight) player.targetX += moveSpeed;
+
+            // Constrain Target
+            player.targetX = Math.max(player.width/2, Math.min(canvas.width - player.width/2, player.targetX));
+
+            // Smooth movement (Lerp)
+            player.x += (player.targetX - player.x) * 0.2;
+
+            spawnDroplet();
+
+            // Update Entities
+            droplets.forEach(drop => drop.update());
+            particles.forEach(p => p.update());
+            floatingTexts.forEach(ft => ft.update());
+
+            checkCollisions();
+
+            // Clean up deleted entities
+            droplets = droplets.filter(drop => !drop.markedForDeletion);
+            particles = particles.filter(p => p.life > 0);
+            floatingTexts = floatingTexts.filter(ft => ft.life > 0);
+
+            frameCount++;
+        }
+
+        function draw() {
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 繪製背景皮卡丘 (置於最底層)
+            drawPikachuBG();
+
+            if (currentState === STATE.START) return;
+
+            const pikaYellow = '#fbd400';
+            const pikaBrown = '#5a4231';
+            
+            // 繪製左耳
+            ctx.save();
+            ctx.translate(player.x - player.width/2 + 20, player.y);
+            ctx.rotate(-Math.PI / 5); // 向左傾斜
+            ctx.beginPath();
+            ctx.moveTo(-8, 5);
+            ctx.quadraticCurveTo(-10, -35, 0, -40);
+            ctx.quadraticCurveTo(10, -35, 8, 5);
+            ctx.fillStyle = pikaYellow;
+            ctx.fill();
+            
+            // 繪製左耳尖端 (使用 clip 限制邊界)
+            ctx.clip(); 
+            ctx.beginPath();
+            ctx.moveTo(-15, -20);
+            ctx.lineTo(15, -15);
+            ctx.lineTo(15, -50);
+            ctx.lineTo(-15, -50);
+            ctx.fillStyle = pikaBrown;
+            ctx.fill();
+            ctx.restore();
+
+            // 繪製右耳
+            ctx.save();
+            ctx.translate(player.x + player.width/2 - 20, player.y);
+            ctx.rotate(Math.PI / 5); // 向右傾斜
+            ctx.beginPath();
+            ctx.moveTo(-8, 5);
+            ctx.quadraticCurveTo(-10, -35, 0, -40);
+            ctx.quadraticCurveTo(10, -35, 8, 5);
+            ctx.fillStyle = pikaYellow;
+            ctx.fill();
+            
+            // 繪製右耳尖端
+            ctx.clip();
+            ctx.beginPath();
+            ctx.moveTo(-15, -15);
+            ctx.lineTo(15, -20);
+            ctx.lineTo(15, -50);
+            ctx.lineTo(-15, -50);
+            ctx.fillStyle = pikaBrown;
+            ctx.fill();
+            ctx.restore();
+
+            // Draw player (Pill shape)
+            ctx.fillStyle = player.color;
+            ctx.beginPath();
+            ctx.roundRect(player.x - player.width/2, player.y - player.height/2, player.width, player.height, player.height/2);
+            ctx.fill();
+            
+            // Player Highlight/Shadow for depth
+            ctx.fillStyle = 'rgba(255,255,255,0.4)';
+            ctx.beginPath();
+            ctx.roundRect(player.x - player.width/2 + 2, player.y - player.height/2 + 2, player.width - 4, player.height/2, player.height/4);
+            ctx.fill();
+
+            // Draw Entities
+            droplets.forEach(drop => drop.draw());
+            particles.forEach(p => p.draw());
+            floatingTexts.forEach(ft => ft.draw());
+        }
+
+        function loop() {
+            update();
+            draw();
+            gameLoopId = requestAnimationFrame(loop);
+        }
+
+        function startGame() {
+            // Reset state
+            score = 0;
+            lives = 3;
+            difficultyMultiplier = 1;
+            frameCount = 0;
+            currentNoteIndex = 0; // 重置旋律進度
+            droplets = [];
+            particles = [];
+            floatingTexts = [];
+            
+            scoreDisplay.innerText = score;
+            updateLivesDisplay();
+            
+            // Set Player Center
+            player.x = canvas.width / 2;
+            player.targetX = canvas.width / 2;
+
+            // UI Transitions
+            startScreen.classList.add('hidden');
+            gameOverScreen.classList.add('hidden');
+            hud.classList.remove('hidden');
+            pauseBtn.classList.remove('hidden');
+
+            currentState = STATE.PLAYING;
+            
+            // Resume Audio Context if needed (browsers require user interaction to start audio)
+            if (!audioCtx) audioCtx = new AudioContext();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+
+            if (!gameLoopId) loop();
+        }
+
+        function togglePause() {
+            if (currentState === STATE.PLAYING) {
+                currentState = STATE.PAUSED;
+                pauseScreen.classList.remove('hidden');
+            } else if (currentState === STATE.PAUSED) {
+                currentState = STATE.PLAYING;
+                pauseScreen.classList.add('hidden');
+            }
+        }
+
+        function gameOver() {
+            currentState = STATE.GAMEOVER;
+            
+            // Update High Score
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('colorCatchHighScore', highScore);
+            }
+
+            finalScoreDisplay.innerText = score;
+            endHighScoreDisplay.innerText = highScore;
+
+            // UI Transitions
+            hud.classList.add('hidden');
+            pauseBtn.classList.add('hidden');
+            gameOverScreen.classList.remove('hidden');
+        }
+
+        // Event Listeners
+        document.getElementById('start-btn').addEventListener('click', startGame);
+        document.getElementById('restart-btn').addEventListener('click', startGame);
+        document.getElementById('resume-btn').addEventListener('click', togglePause);
+        pauseBtn.addEventListener('click', togglePause);
+
+        // Start Initial Render Loop (just for background or layout init)
+        loop();
+
+    </script>
+</body>
+</html>

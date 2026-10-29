@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>三角洲行動：戰術狙擊 (Delta Force: Tactical Sniper)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #0a0a0a;
+            color: #d1d5db;
+            font-family: 'Share Tech Mono', monospace;
+            overflow: hidden;
+            touch-action: none; /* Prevent default touch actions on mobile */
+        }
+
+        #game-container {
+            width: 100%;
+            max-width: 800px;
+            height: 100%;
+            max-height: 450px; /* 16:9 aspect ratio max height for 800px width */
+            aspect-ratio: 16 / 9;
+            margin: 0 auto;
+            position: relative;
+            background: linear-gradient(to bottom, #1a202c, #2d3748, #1a202c);
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+            border: 2px solid #4a5568;
+            /* Hide default cursor to use custom crosshair */
+            cursor: none; 
+        }
+
+        @media (min-height: 450px) {
+            #game-container {
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+            }
+        }
+
+        .hud-text {
+            text-shadow: 1px 1px 2px black;
+            font-weight: bold;
+            z-index: 10;
+        }
+
+        #health-display, #score-display, #ammo-display {
+            position: absolute;
+            padding: 10px;
+            font-size: 1.2rem;
+            pointer-events: none; /* Let clicks pass through HUD */
+        }
+
+        #health-display { top: 0; left: 0; color: #f87171; }
+        #score-display { top: 0; right: 0; text-align: right; color: #a7f3d0; }
+        #ammo-display { bottom: 0; right: 0; font-size: 1.5rem; }
+
+        .ammo-low { color: #f87171; animation: blink 1s infinite; }
+        .ammo-normal { color: #d1d5db; }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        #crosshair {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            pointer-events: none; /* Crucial: clicks go through to targets */
+            z-index: 100;
+            transform: translate(-50%, -50%); /* Center on mouse */
+            transition: width 0.05s, height 0.05s;
+        }
+        
+        #crosshair::before, #crosshair::after {
+            content: '';
+            position: absolute;
+            background-color: rgba(0, 255, 0, 0.7);
+        }
+
+        #crosshair::before { top: 19px; left: 0; width: 40px; height: 2px; }
+        #crosshair::after { top: 0; left: 19px; width: 2px; height: 40px; }
+
+        .crosshair-recoil {
+            width: 60px !important;
+            height: 60px !important;
+        }
+
+        .target {
+            position: absolute;
+            bottom: 20%; /* Emerge from bottom */
+            font-size: 3rem;
+            user-select: none;
+            /* Base animation for emerging */
+            transform: translateY(100%);
+            transition: transform 0.3s ease-out;
+            cursor: none; /* Keep cursor hidden over targets */
+        }
+
+        .target.active {
+            transform: translateY(0);
+        }
+
+        .target.hit {
+            transform: rotateX(90deg) translateY(0);
+            transition: transform 0.2s ease-in, opacity 0.2s ease-in;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        #muzzle-flash {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(255, 255, 200, 0.4);
+            opacity: 0;
+            pointer-events: none;
+            z-index: 50;
+        }
+
+        .flash-anim { animation: flash 0.1s ease-out; }
+        @keyframes flash {
+            0% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+
+        #blood-screen {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            box-shadow: inset 0 0 100px rgba(255, 0, 0, 0.8);
+            opacity: 0;
+            pointer-events: none;
+            z-index: 49;
+        }
+
+        .blood-anim { animation: bloodFlash 0.3s ease-out; }
+        @keyframes bloodFlash {
+            0% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+
+        .shake-anim { animation: shake 0.3s cubic-bezier(.36,.07,.19,.97) both; }
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+            40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
+
+        .overlay-menu {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(0, 0, 0, 0.85);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+        }
+
+        .hidden { display: none !important; }
+
+        .btn {
+            background-color: #4b5563;
+            color: white;
+            padding: 10px 20px;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 1.5rem;
+            border: 2px solid #9ca3af;
+            border-radius: 5px;
+            cursor: pointer;
+            text-transform: uppercase;
+            transition: background-color 0.2s;
+        }
+
+        .btn:hover { background-color: #6b7280; }
+        .btn:active { transform: scale(0.95); }
+
+        /* Mobile specific elements */
+        #reload-btn-mobile {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            z-index: 10;
+            font-size: 1rem;
+            padding: 15px;
+            border-radius: 50%;
+            width: 70px;
+            height: 70px;
+            display: none; /* Hidden by default, shown via JS if touch device */
+            background-color: rgba(75, 85, 99, 0.7);
+            border: 2px solid #9ca3af;
+        }
+        
+        @media (max-width: 768px) {
+            #reload-btn-mobile {
+                display: block;
+            }
+            .target { font-size: 4rem; /* Larger targets on mobile */ }
+        }
+
+        /* Scenery elements */
+        .cover {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 25%;
+            background: linear-gradient(to top, #111, #333);
+            border-top: 2px solid #555;
+            z-index: 5;
+            pointer-events: none;
+        }
+        
+        .crate {
+            position: absolute;
+            bottom: 20%;
+            font-size: 4rem;
+            z-index: 6;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <!-- Scenery -->
+        <div class="cover"></div>
+        <div class="crate" style="left: 15%;">📦</div>
+        <div class="crate" style="right: 25%;">🛢️</div>
+
+        <!-- Visual Effects -->
+        <div id="muzzle-flash"></div>
+        <div id="blood-screen"></div>
+
+        <!-- Custom Crosshair -->
+        <div id="crosshair"></div>
+
+        <!-- HUD -->
+        <div id="health-display" class="hud-text">❤️❤️❤️</div>
+        <div id="score-display" class="hud-text">
+            SCORE: <span id="current-score">0</span><br>
+            HIGH: <span id="high-score">0</span>
+        </div>
+        <div id="ammo-display" class="hud-text ammo-normal">AMMO: 10/10</div>
+
+        <!-- Targets Container -->
+        <div id="targets-container"></div>
+
+        <!-- Mobile Reload Button -->
+        <button id="reload-btn-mobile" class="btn text-white font-bold rounded shadow-lg">RELOAD</button>
+
+        <!-- Start Menu -->
+        <div id="start-menu" class="overlay-menu">
+            <h1 class="text-4xl md:text-5xl font-bold text-green-500 mb-4 text-center">三角洲行動<br><span class="text-2xl text-gray-400">戰術狙擊</span></h1>
+            <p class="text-sm md:text-base text-gray-400 mb-8 text-center max-w-md px-4">
+                任務簡報：擊斃恐怖分子(🥷)，保護人質(🧑)。<br>
+                操作：滑鼠瞄準/點擊開火。按 'R' 鍵換彈。<br>
+                手機版：點擊螢幕開火，點擊左下角換彈。
+            </p>
+            <button id="start-btn" class="btn">START MISSION</button>
+        </div>
+
+        <!-- Game Over Menu -->
+        <div id="game-over-menu" class="overlay-menu hidden">
+            <h1 id="end-title" class="text-4xl md:text-5xl font-bold text-red-500 mb-4">MISSION FAILED</h1>
+            <div class="text-xl mb-2">FINAL SCORE: <span id="final-score" class="text-green-400">0</span></div>
+            <div id="new-record-msg" class="text-yellow-400 font-bold mb-6 hidden blink">*** NEW RECORD ***</div>
+            <button id="restart-btn" class="btn">REDEPLOY</button>
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const container = document.getElementById('game-container');
+        const crosshair = document.getElementById('crosshair');
+        const muzzleFlash = document.getElementById('muzzle-flash');
+        const bloodScreen = document.getElementById('blood-screen');
+        const targetsContainer = document.getElementById('targets-container');
+        
+        // HUD Elements
+        const healthDisplay = document.getElementById('health-display');
+        const scoreDisplay = document.getElementById('current-score');
+        const highScoreDisplay = document.getElementById('high-score');
+        const ammoDisplay = document.getElementById('ammo-display');
+        
+        // Menus and Buttons
+        const startMenu = document.getElementById('start-menu');
+        const gameOverMenu = document.getElementById('game-over-menu');
+        const startBtn = document.getElementById('start-btn');
+        const restartBtn = document.getElementById('restart-btn');
+        const reloadBtnMobile = document.getElementById('reload-btn-mobile');
+        const endTitle = document.getElementById('end-title');
+        const finalScoreDisplay = document.getElementById('final-score');
+        const newRecordMsg = document.getElementById('new-record-msg');
+
+        // Game State Constants
+        const MAX_AMMO = 10;
+        const MAX_HEALTH = 3;
+        const TARGET_TYPES = { ENEMY: '🥷', HOSTAGE: '🧑' };
+        
+        // Game State Variables
+        let gameState = 'START'; // START, PLAYING, GAMEOVER
+        let score = 0;
+        let highScore = localStorage.getItem('deltaSniperHighScore') || 0;
+        let health = MAX_HEALTH;
+        let ammo = MAX_AMMO;
+        let isReloading = false;
+        
+        // Game Loop Variables
+        let spawnInterval;
+        let baseSpawnRate = 2000; // Time between spawns (ms)
+        let activeTargets = [];
+        
+        // Audio Context (Initialized on first user interaction)
+        let audioCtx = null;
+
+        // Display initial high score
+        highScoreDisplay.textContent = highScore;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        function playSound(type) {
+            if (!audioCtx) return;
+            
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            osc.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            const now = audioCtx.currentTime;
+
+            switch(type) {
+                case 'shoot':
+                    // Short, sharp burst
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(150, now);
+                    osc.frequency.exponentialRampToValueAtTime(40, now + 0.1);
+                    gainNode.gain.setValueAtTime(0.3, now);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                    osc.start(now);
+                    osc.stop(now + 0.1);
+                    break;
+                case 'empty':
+                    // High frequency click
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(800, now);
+                    gainNode.gain.setValueAtTime(0.1, now);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+                    osc.start(now);
+                    osc.stop(now + 0.05);
+                    break;
+                case 'reload':
+                    // Two-part mechanical sound
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(200, now);
+                    gainNode.gain.setValueAtTime(0.1, now);
+                    gainNode.gain.linearRampToValueAtTime(0, now + 0.2);
+                    osc.start(now);
+                    osc.stop(now + 0.2);
+                    
+                    setTimeout(() => {
+                        const osc2 = audioCtx.createOscillator();
+                        const gain2 = audioCtx.createGain();
+                        osc2.connect(gain2);
+                        gain2.connect(audioCtx.destination);
+                        osc2.type = 'square';
+                        osc2.frequency.setValueAtTime(300, audioCtx.currentTime);
+                        gain2.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                        gain2.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.1);
+                        osc2.start(audioCtx.currentTime);
+                        osc2.stop(audioCtx.currentTime + 0.1);
+                    }, 500); // Second click partway through reload
+                    break;
+                case 'hit':
+                    // Low error buzz
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(100, now);
+                    osc.frequency.linearRampToValueAtTime(50, now + 0.3);
+                    gainNode.gain.setValueAtTime(0.3, now);
+                    gainNode.gain.linearRampToValueAtTime(0.01, now + 0.3);
+                    osc.start(now);
+                    osc.stop(now + 0.3);
+                    break;
+            }
+        }
+
+        
+        // Update Crosshair Position
+        function updateCrosshair(e) {
+            if (gameState !== 'PLAYING') return;
+            
+            // Get coordinates relative to the game container
+            let clientX, clientY;
+            if (e.type.includes('touch')) {
+                // Don't move crosshair on touch, just use it for visual center if needed later
+                // Actually, for mobile, we might just hide the custom crosshair or leave it centered
+                return;
+            } else {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
+
+            const rect = container.getBoundingClientRect();
+            // Constrain within container
+            let x = clientX - rect.left;
+            let y = clientY - rect.top;
+            
+            x = Math.max(0, Math.min(x, rect.width));
+            y = Math.max(0, Math.min(y, rect.height));
+
+            crosshair.style.left = `${x}px`;
+            crosshair.style.top = `${y}px`;
+        }
+
+        container.addEventListener('mousemove', updateCrosshair);
+
+        // Hide custom crosshair on touch devices
+        container.addEventListener('touchstart', () => {
+            crosshair.style.display = 'none';
+        }, { once: true });
+
+        // Handle Shooting
+        function handleFire(e) {
+            if (gameState !== 'PLAYING') return;
+            // Prevent default behavior like scrolling on touch, except if it's the reload button
+            if (e.target.id === 'reload-btn-mobile') return;
+            
+            if (e.type === 'touchstart') {
+                e.preventDefault();
+                initAudio(); // Ensure audio context is ready on first touch
+            }
+
+            if (isReloading) return;
+
+            if (ammo > 0) {
+                ammo--;
+                updateHUD();
+                playSound('shoot');
+                triggerVisualEffects('fire');
+                
+                // If it's a mouse click, the actual target might be underneath the crosshair.
+                // If it's a touch, e.target is usually the element touched.
+                let clickedElement = e.target;
+                
+                // If clicking container, we need to check if a target was hit by coordinate mapping
+                // For simplicity in this structure, we handle target clicks via event delegation below,
+                // but we also need to handle misses.
+                
+                // We add an event listener specifically to targets later.
+            } else {
+                playSound('empty');
+                // Auto trigger reload visual prompt
+                ammoDisplay.classList.add('ammo-low');
+            }
+        }
+
+        container.addEventListener('mousedown', (e) => {
+            if(e.button === 0) handleFire(e); // Left click only
+        });
+        container.addEventListener('touchstart', handleFire, {passive: false});
+
+        // Handle Keyboard (Reload)
+        window.addEventListener('keydown', (e) => {
+            if (gameState !== 'PLAYING') return;
+            if (e.key.toLowerCase() === 'r') {
+                reloadWeapon();
+            }
+        });
+
+        // Handle Mobile Reload Button
+        reloadBtnMobile.addEventListener('click', (e) => {
+            e.stopPropagation(); // Prevent firing
+            reloadWeapon();
+        });
+        reloadBtnMobile.addEventListener('touchstart', (e) => {
+            e.stopPropagation();
+            reloadWeapon();
+        });
+
+        
+        function reloadWeapon() {
+            if (gameState !== 'PLAYING' || isReloading || ammo === MAX_AMMO) return;
+            
+            isReloading = true;
+            playSound('reload');
+            ammoDisplay.textContent = "RELOADING...";
+            ammoDisplay.classList.remove('ammo-low');
+            
+            setTimeout(() => {
+                if (gameState === 'PLAYING') {
+                    ammo = MAX_AMMO;
+                    isReloading = false;
+                    updateHUD();
+                }
+            }, 1000); // 1 second reload time
+        }
+
+        function updateHUD() {
+            // Health
+            healthDisplay.textContent = '❤️'.repeat(Math.max(0, health));
+            
+            // Score
+            scoreDisplay.textContent = score;
+            
+            // Ammo
+            if (!isReloading) {
+                ammoDisplay.textContent = `AMMO: ${ammo}/${MAX_AMMO}`;
+                if (ammo <= 3 && ammo > 0) {
+                    ammoDisplay.classList.add('ammo-low');
+                    ammoDisplay.classList.remove('ammo-normal');
+                } else if (ammo === 0) {
+                    ammoDisplay.classList.add('ammo-low');
+                    ammoDisplay.classList.remove('ammo-normal');
+                    ammoDisplay.textContent = "PRESS 'R' TO RELOAD";
+                } else {
+                    ammoDisplay.classList.remove('ammo-low');
+                    ammoDisplay.classList.add('ammo-normal');
+                }
+            }
+        }
+
+        function takeDamage(reason) {
+            if (gameState !== 'PLAYING') return;
+            
+            health--;
+            playSound('hit');
+            triggerVisualEffects('damage');
+            updateHUD();
+
+            if (health <= 0) {
+                endGame(reason === 'hostage' ? 'MISSION FAILED: CASUALTIES UNACCEPTABLE' : 'MISSION FAILED: KIA');
+            }
+        }
+
+        function triggerVisualEffects(type) {
+            if (type === 'fire') {
+                // Muzzle flash
+                muzzleFlash.classList.remove('flash-anim');
+                void muzzleFlash.offsetWidth; // trigger reflow
+                muzzleFlash.classList.add('flash-anim');
+                
+                // Recoil on crosshair
+                crosshair.classList.add('crosshair-recoil');
+                setTimeout(() => crosshair.classList.remove('crosshair-recoil'), 50);
+            } else if (type === 'damage') {
+                // Blood screen and shake
+                bloodScreen.classList.remove('blood-anim');
+                container.classList.remove('shake-anim');
+                void bloodScreen.offsetWidth;
+                void container.offsetWidth;
+                bloodScreen.classList.add('blood-anim');
+                container.classList.add('shake-anim');
+            }
+        }
+
+        
+        function spawnTarget() {
+            if (gameState !== 'PLAYING') return;
+
+            const target = document.createElement('div');
+            target.classList.add('target');
+            
+            // Determine type (20% chance for hostage)
+            const isHostage = Math.random() < 0.2;
+            const type = isHostage ? 'HOSTAGE' : 'ENEMY';
+            target.textContent = TARGET_TYPES[type];
+            target.dataset.type = type;
+
+            // Randomize position horizontally (10% to 90%)
+            const pos = Math.floor(Math.random() * 80) + 10;
+            target.style.left = `${pos}%`;
+            
+            // Adjust Z-index to appear behind crates sometimes
+            target.style.zIndex = Math.random() > 0.5 ? 4 : 7;
+
+            targetsContainer.appendChild(target);
+            
+            // Animate up
+            setTimeout(() => target.classList.add('active'), 50);
+
+            // Determine lifetime based on score (gets faster)
+            let lifeTime = Math.max(1500, 3000 - (score * 5)); 
+            
+            target.timeoutId = setTimeout(() => {
+                if (target.parentNode) {
+                    // Target timed out
+                    target.classList.remove('active');
+                    if (type === 'ENEMY') {
+                        // Punish for missing enemy
+                        takeDamage('timeout');
+                    }
+                    setTimeout(() => target.remove(), 300);
+                }
+            }, lifeTime);
+
+            // Setup interaction (shoot target)
+            // We use pointerdown to handle both mouse and touch efficiently
+            target.addEventListener('pointerdown', (e) => {
+                if (gameState !== 'PLAYING' || ammo <= 0 || isReloading) return;
+                
+                // We handle ammo deduction in the global listener, so just handle the hit logic here
+                e.stopPropagation(); // Stop global listener from double firing if needed, but we want global to handle ammo.
+                
+                // To keep ammo logic centralized, we'll manually trigger it
+                if (e.pointerType !== 'mouse') initAudio();
+                
+                ammo--;
+                playSound('shoot');
+                triggerVisualEffects('fire');
+                updateHUD();
+
+                clearTimeout(target.timeoutId);
+                target.classList.add('hit');
+
+                if (type === 'ENEMY') {
+                    score += 100;
+                } else {
+                    score -= 50;
+                    takeDamage('hostage');
+                }
+                
+                updateHUD();
+
+                setTimeout(() => {
+                    if(target.parentNode) target.remove();
+                }, 200);
+            });
+
+            // Schedule next spawn
+            let nextSpawnTime = Math.max(800, baseSpawnRate - (score * 2));
+            spawnInterval = setTimeout(spawnTarget, nextSpawnTime);
+        }
+
+        
+        function startGame() {
+            initAudio();
+            gameState = 'PLAYING';
+            score = 0;
+            health = MAX_HEALTH;
+            ammo = MAX_AMMO;
+            isReloading = false;
+            
+            startMenu.classList.add('hidden');
+            gameOverMenu.classList.add('hidden');
+            targetsContainer.innerHTML = '';
+            
+            updateHUD();
+            
+            // Start game loop
+            spawnInterval = setTimeout(spawnTarget, 1000);
+        }
+
+        function endGame(titleText) {
+            gameState = 'GAMEOVER';
+            clearTimeout(spawnInterval);
+            
+            // Clear remaining targets visually
+            const targets = document.querySelectorAll('.target');
+            targets.forEach(t => {
+                clearTimeout(t.timeoutId);
+                t.classList.remove('active');
+            });
+
+            endTitle.textContent = titleText;
+            finalScoreDisplay.textContent = score;
+
+            // Handle High Score
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('deltaSniperHighScore', highScore);
+                highScoreDisplay.textContent = highScore;
+                newRecordMsg.classList.remove('hidden');
+            } else {
+                newRecordMsg.classList.add('hidden');
+            }
+
+            setTimeout(() => {
+                gameOverMenu.classList.remove('hidden');
+            }, 500); // Slight delay for dramatic effect
+        }
+
+        // Button Listeners
+        startBtn.addEventListener('click', startGame);
+        restartBtn.addEventListener('click', startGame);
+
+    </script>
+</body>
+</html>

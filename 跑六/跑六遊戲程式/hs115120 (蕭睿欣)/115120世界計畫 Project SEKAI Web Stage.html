@@ -1,0 +1,1200 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>世界計畫 Project SEKAI - Web Stage (AI Music Search & Live Video)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:ital,wght@0,400;0,700;1,900&family=Noto+Sans+TC:wght@500;700;900&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        pjsk: {
+                            cyan: '#00f0ff',
+                            pink: '#ff2a8d',
+                            yellow: '#ffcc00',
+                            purple: '#8a2be2',
+                            dark: '#08090e',
+                            card: '#121524'
+                        }
+                    },
+                    fontFamily: {
+                        pjsk: ['Kanit', 'Noto Sans TC', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        * {
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+        body {
+            background-color: #05060a;
+            color: #ffffff;
+            font-family: 'Kanit', 'Noto Sans TC', sans-serif;
+            overflow: hidden;
+        }
+        .glow-cyan {
+            text-shadow: 0 0 12px rgba(0, 240, 255, 0.8), 0 0 24px rgba(0, 240, 255, 0.4);
+        }
+        .glow-pink {
+            text-shadow: 0 0 12px rgba(255, 42, 141, 0.8), 0 0 24px rgba(255, 42, 141, 0.4);
+        }
+        .box-glow-cyan {
+            box-shadow: 0 0 20px rgba(0, 240, 255, 0.3), inset 0 0 10px rgba(0, 240, 255, 0.2);
+        }
+        .glass-panel {
+            background: rgba(18, 21, 36, 0.85);
+            backdrop-filter: blur(18px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* Fullscreen cover styling for YouTube iframe background */
+        .yt-bg-wrapper {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 100vw;
+            height: 100vh;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 0;
+            overflow: hidden;
+        }
+        .yt-bg-wrapper iframe {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 100vw;
+            height: 56.25vw; /* 16:9 Aspect Ratio */
+            min-height: 100vh;
+            min-width: 177.78vh; /* 16:9 Aspect Ratio */
+            transform: translate(-50%, -50%);
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col justify-center items-center relative font-pjsk select-none overflow-hidden">
+
+    <!-- Background YouTube Video Layer -->
+    <div class="yt-bg-wrapper">
+        <div id="yt-player"></div>
+    </div>
+    <!-- Video Dark Dim Overlay during Gameplay -->
+    <div id="bg-dim-overlay" class="absolute inset-0 bg-black/60 z-0 pointer-events-none transition-opacity duration-700 opacity-80"></div>
+
+    <!-- Background Ambient Glow (PJSK Style) -->
+    <div class="absolute inset-0 z-0 opacity-30 pointer-events-none overflow-hidden">
+        <div class="absolute -top-40 -left-40 w-96 h-96 bg-pjsk-cyan rounded-full blur-3xl animate-pulse"></div>
+        <div class="absolute -bottom-40 -right-40 w-96 h-96 bg-pjsk-pink rounded-full blur-3xl animate-pulse" style="animation-delay: 1s;"></div>
+    </div>
+
+    <!-- TOP HEADER / HUD -->
+    <header id="game-header" class="absolute top-0 left-0 right-0 z-30 p-4 flex justify-between items-center glass-panel border-b border-white/10">
+        <div class="flex items-center gap-3">
+            <div class="bg-gradient-to-r from-pjsk-cyan to-pjsk-pink p-2 rounded-lg text-black font-black text-xl tracking-wider shadow-lg">
+                PJSK <span class="text-xs bg-black text-white px-1.5 py-0.5 rounded">STAGE</span>
+            </div>
+            <div class="max-w-[200px] sm:max-w-md truncate">
+                <h1 id="song-title-display" class="font-bold text-base sm:text-lg text-white leading-tight truncate">千本桜</h1>
+                <p id="song-artist-display" class="text-xs text-gray-400 truncate">黑兔P feat. 初音未來</p>
+            </div>
+        </div>
+
+        <!-- HUD Stats (Active in Live Stage) -->
+        <div id="hud-stats" class="hidden flex items-center gap-4 sm:gap-6">
+            <!-- Score -->
+            <div class="text-right">
+                <div class="text-[10px] text-gray-400 font-bold uppercase tracking-widest">SCORE</div>
+                <div id="score-val" class="text-xl sm:text-2xl font-black text-pjsk-cyan glow-cyan tracking-wider">0000000</div>
+            </div>
+            <!-- Health Bar -->
+            <div class="w-24 sm:w-32 bg-gray-900/80 rounded-full h-3 border border-white/20 p-0.5 relative overflow-hidden">
+                <div id="hp-bar-fill" class="h-full bg-gradient-to-r from-green-400 to-pjsk-cyan rounded-full transition-all duration-150 w-full"></div>
+            </div>
+            <!-- Pause Button -->
+            <button id="btn-pause" class="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 flex items-center justify-center text-white transition active:scale-95">
+                <i class="fa-solid fa-pause"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- MAIN RHYTHM CANVAS STAGE -->
+    <main id="stage-container" class="relative z-10 w-full h-full flex items-center justify-center overflow-hidden">
+        <canvas id="rhythm-canvas" class="w-full h-full block"></canvas>
+
+        <!-- Dynamic In-Game Judgment & Combo Visual Overlay -->
+        <div id="game-overlay" class="absolute inset-0 pointer-events-none flex flex-col items-center justify-center z-20">
+            <!-- Combo Counter -->
+            <div id="combo-box" class="text-center opacity-0 transform scale-75 transition-all duration-100 mb-8">
+                <div id="combo-num" class="text-6xl font-black italic text-transparent bg-clip-text bg-gradient-to-b from-white via-pjsk-cyan to-pjsk-pink drop-shadow-[0_4px_12px_rgba(0,240,255,0.7)]">0</div>
+                <div class="text-xs font-extrabold tracking-[0.3em] text-cyan-200 uppercase">COMBO</div>
+            </div>
+
+            <!-- Judgment Popup -->
+            <div id="judgment-text" class="text-3xl font-black tracking-widest opacity-0 transform translate-y-4 transition-all duration-150">
+                PERFECT
+            </div>
+        </div>
+    </main>
+
+    <!-- SONG SELECT / MAIN MENU OVERLAY -->
+    <div id="menu-overlay" class="absolute inset-0 z-40 bg-pjsk-dark/90 backdrop-blur-xl flex flex-col items-center justify-center p-4 sm:p-6 overflow-y-auto no-scrollbar">
+        <div class="max-w-4xl w-full flex flex-col gap-5 my-auto">
+            
+            <!-- Title Header -->
+            <div class="text-center space-y-1">
+                <span class="px-3 py-1 bg-pjsk-pink/20 text-pjsk-pink border border-pjsk-pink/40 rounded-full text-xs font-bold uppercase tracking-widest inline-block mb-1">
+                    <i class="fa-solid fa-magnifying-glass-music mr-1"></i> AI 歌名搜尋 & YouTube 實時連線
+                </span>
+                <h2 class="text-3xl sm:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-pjsk-cyan via-white to-pjsk-pink tracking-wide">
+                    世界計畫 WEB STAGE
+                </h2>
+                <p class="text-gray-300 text-xs sm:text-sm">輸入任意歌名關鍵字，系統將智慧檢索 YouTube 音樂並顯示實時背景影片！</p>
+            </div>
+
+            <!-- AI Song Search Bar -->
+            <div class="glass-panel p-3.5 rounded-2xl border border-pjsk-cyan/40 box-glow-cyan flex flex-col sm:flex-row items-center gap-3">
+                <div class="flex-1 w-full relative">
+                    <i class="fa-solid fa-music absolute left-4 top-1/2 -translate-y-1/2 text-pjsk-cyan text-lg"></i>
+                    <input type="text" id="song-search-input" placeholder="輸入歌曲名稱或歌手 (例如: 千本櫻 / KING / 偶像 / Hatsune Miku)" 
+                           class="w-full pl-11 pr-4 py-3 bg-black/60 border border-white/15 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:border-pjsk-cyan text-sm transition">
+                </div>
+                <button id="btn-search-song" class="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-pjsk-cyan to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-black font-extrabold rounded-xl transition shadow-lg flex items-center justify-center gap-2 whitespace-nowrap">
+                    <i class="fa-solid fa-magnifying-glass"></i> 搜尋並載入樂曲
+                </button>
+            </div>
+
+            <!-- Search Status Toast Notification -->
+            <div id="search-status" class="hidden text-center text-xs py-2 px-4 rounded-xl bg-pjsk-cyan/20 border border-pjsk-cyan/40 text-pjsk-cyan font-bold animate-pulse">
+                <i class="fa-solid fa-spinner fa-spin mr-1.5"></i> AI 正在搜尋 YouTube 音樂資料庫中，請稍候...
+            </div>
+
+            <!-- Preset Song Selection Cards -->
+            <div>
+                <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2.5 flex items-center gap-2">
+                    <i class="fa-solid fa-compact-disc text-pjsk-pink"></i> 推薦熱門經典 Vocaloid 曲目
+                </h3>
+                <div id="song-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <!-- Preset Songs dynamically injected via JavaScript -->
+                </div>
+            </div>
+
+            <!-- Game Settings & Speed Controls -->
+            <div class="glass-panel p-4 rounded-2xl flex flex-wrap items-center justify-between gap-4">
+                <!-- Difficulty Buttons -->
+                <div class="flex items-center gap-2 sm:gap-3">
+                    <label class="text-xs font-bold text-gray-300 uppercase">難易度：</label>
+                    <div class="flex gap-1.5" id="difficulty-selector">
+                        <button data-diff="EASY" class="diff-btn px-2.5 py-1 rounded-lg text-xs font-bold bg-green-500/20 text-green-400 border border-green-500/40">EASY</button>
+                        <button data-diff="NORMAL" class="diff-btn px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-500/20 text-blue-400 border border-blue-500/40">NORMAL</button>
+                        <button data-diff="HARD" class="diff-btn active px-2.5 py-1 rounded-lg text-xs font-bold bg-pjsk-yellow/20 text-pjsk-yellow border border-pjsk-yellow/40 ring-2 ring-pjsk-yellow">HARD</button>
+                        <button data-diff="EXPERT" class="diff-btn px-2.5 py-1 rounded-lg text-xs font-bold bg-pjsk-pink/20 text-pjsk-pink border border-pjsk-pink/40">EXPERT</button>
+                    </div>
+                </div>
+
+                <!-- Scroll Speed Adjustment -->
+                <div class="flex items-center gap-3">
+                    <label for="speed-range" class="text-xs font-bold text-gray-300 uppercase">下落速度: <span id="speed-val" class="text-pjsk-cyan font-bold">6.5</span></label>
+                    <input type="range" id="speed-range" min="3.0" max="11.0" step="0.5" value="6.5" class="w-24 sm:w-28 accent-pjsk-cyan cursor-pointer">
+                </div>
+            </div>
+
+            <!-- Start Game & Instructions -->
+            <div class="flex gap-3">
+                <button id="btn-instructions" class="px-4 py-3.5 glass-panel hover:bg-white/10 text-pjsk-cyan font-bold rounded-2xl border border-pjsk-cyan/40 transition flex items-center justify-center gap-2 whitespace-nowrap shadow-lg text-sm">
+                    <i class="fa-solid fa-circle-question text-base"></i> 遊戲說明
+                </button>
+                <button id="btn-start-game" class="flex-1 py-3.5 bg-gradient-to-r from-pjsk-cyan via-blue-500 to-pjsk-pink hover:opacity-95 text-black font-black text-xl sm:text-2xl tracking-wider rounded-2xl shadow-[0_0_30px_rgba(0,240,255,0.4)] transition transform active:scale-98 flex items-center justify-center gap-3">
+                    <i class="fa-solid fa-play"></i> START LIVE STAGE
+                </button>
+            </div>
+            
+            <p class="text-center text-xs text-gray-400">電腦按鍵預設：<span class="text-pjsk-cyan font-bold">S · D · F · J · K · L</span>（手機支援全螢幕點擊觸控）</p>
+        </div>
+    </div>
+
+    <!-- INSTRUCTIONS MODAL OVERLAY -->
+    <div id="instruction-overlay" class="hidden absolute inset-0 z-50 bg-pjsk-dark/95 backdrop-blur-2xl flex flex-col items-center justify-center p-4 overflow-y-auto no-scrollbar">
+        <div class="max-w-lg w-full glass-panel p-6 rounded-3xl border border-pjsk-cyan/40 text-left space-y-5 relative my-auto shadow-[0_0_50px_rgba(0,240,255,0.2)]">
+            <div class="flex justify-between items-center border-b border-white/10 pb-3">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-xl bg-pjsk-cyan/20 border border-pjsk-cyan flex items-center justify-center text-pjsk-cyan text-lg">
+                        <i class="fa-solid fa-book-open"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-black text-white">遊戲說明與操作指南</h3>
+                        <p class="text-xs text-gray-400">Project SEKAI Web Stage</p>
+                    </div>
+                </div>
+                <button id="btn-close-instructions" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-gray-300 flex items-center justify-center transition">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="space-y-4 text-xs text-gray-200">
+                <!-- Controls -->
+                <div>
+                    <h4 class="text-xs font-bold text-pjsk-cyan uppercase tracking-widest mb-2 flex items-center gap-2">
+                        <i class="fa-solid fa-keyboard"></i> 操作方式
+                    </h4>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="bg-black/40 p-2.5 rounded-xl border border-white/5 space-y-1">
+                            <div class="text-[11px] text-gray-400 font-bold">電腦鍵盤按鍵</div>
+                            <div class="flex gap-1 font-mono text-xs text-pjsk-cyan font-black pt-1">
+                                <span class="bg-white/10 border border-white/20 px-1.5 py-0.5 rounded">S</span>
+                                <span class="bg-white/10 border border-white/20 px-1.5 py-0.5 rounded">D</span>
+                                <span class="bg-white/10 border border-white/20 px-1.5 py-0.5 rounded">F</span>
+                                <span class="bg-white/10 border border-white/20 px-1.5 py-0.5 rounded">J</span>
+                                <span class="bg-white/10 border border-white/20 px-1.5 py-0.5 rounded">K</span>
+                                <span class="bg-white/10 border border-white/20 px-1.5 py-0.5 rounded">L</span>
+                            </div>
+                        </div>
+                        <div class="bg-black/40 p-2.5 rounded-xl border border-white/5 space-y-1">
+                            <div class="text-[11px] text-gray-400 font-bold">手機觸控</div>
+                            <p class="text-[11px] text-white pt-1">點擊螢幕下方對應軌道判定線即可打擊。</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Notes Types -->
+                <div>
+                    <h4 class="text-xs font-bold text-pjsk-pink uppercase tracking-widest mb-2 flex items-center gap-2">
+                        <i class="fa-solid fa-shapes"></i> 音符種類
+                    </h4>
+                    <div class="space-y-1.5">
+                        <div class="flex items-center gap-3 bg-black/40 p-2 rounded-xl border border-white/5">
+                            <div class="w-8 h-2.5 rounded-full bg-gradient-to-r from-pjsk-cyan to-blue-400 border border-white/40 shadow-[0_0_8px_#00f0ff] shrink-0"></div>
+                            <div>
+                                <span class="font-bold text-pjsk-cyan text-xs">藍綠音符 (Tap)</span>：普通單擊鍵。
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3 bg-black/40 p-2 rounded-xl border border-white/5">
+                            <div class="w-8 h-2.5 rounded-full bg-gradient-to-r from-yellow-300 via-white to-amber-500 border border-white/40 shadow-[0_0_8px_#ffcc00] shrink-0"></div>
+                            <div>
+                                <span class="font-bold text-pjsk-yellow text-xs">黃金音符 (Critical)</span>：暴擊高分音符。
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3 bg-black/40 p-2 rounded-xl border border-white/5">
+                            <div class="w-8 h-2.5 rounded-full bg-gradient-to-r from-pjsk-pink to-pink-400 border border-white/40 shadow-[0_0_8px_#ff2a8d] shrink-0"></div>
+                            <div>
+                                <span class="font-bold text-pjsk-pink text-xs">粉紅音符 (Flick)</span>：快速滑擊音符。
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Music Search Tip -->
+                <div class="bg-black/40 p-2.5 rounded-xl border border-white/5 space-y-1">
+                    <h4 class="text-xs font-bold text-pjsk-yellow uppercase">💡 歌名搜尋提示</h4>
+                    <p class="text-[11px] text-gray-300">
+                        在選單搜尋框輸入歌曲名稱（如「強風大背頭」、「KING」），系統會自動搜尋 YouTube 最匹配的影片並同步播放畫面與背景音樂！
+                    </p>
+                </div>
+            </div>
+
+            <button id="btn-understand" class="w-full py-2.5 bg-gradient-to-r from-pjsk-cyan to-pjsk-pink text-black font-extrabold rounded-xl transition hover:opacity-90 text-xs">
+                了解，開始 LIVE STAGE！
+            </button>
+        </div>
+    </div>
+
+    <!-- RESULT SCREEN OVERLAY -->
+    <div id="result-overlay" class="hidden absolute inset-0 z-50 bg-pjsk-dark/95 backdrop-blur-2xl flex flex-col items-center justify-center p-6">
+        <div class="max-w-md w-full glass-panel p-8 rounded-3xl border border-pjsk-pink/40 text-center space-y-6 relative overflow-hidden my-auto">
+            <div class="space-y-1">
+                <span class="text-xs font-extrabold text-pjsk-cyan tracking-widest uppercase">LIVE STAGE COMPLETE</span>
+                <h3 id="result-song-title" class="text-2xl font-black text-white truncate">Song Title</h3>
+            </div>
+
+            <!-- Clear Grade Rank -->
+            <div class="py-2">
+                <div id="result-rank" class="text-5xl font-black italic text-transparent bg-clip-text bg-gradient-to-tr from-pjsk-yellow via-white to-pjsk-pink drop-shadow-[0_0_20px_rgba(255,204,0,0.6)]">
+                    STAGE CLEAR
+                </div>
+            </div>
+
+            <!-- Score Breakdown Grid -->
+            <div class="bg-black/50 rounded-2xl p-4 border border-white/10 space-y-2 text-sm">
+                <div class="flex justify-between items-center text-gray-300">
+                    <span>SCORE</span>
+                    <span id="result-score" class="font-bold text-pjsk-cyan text-xl">0</span>
+                </div>
+                <div class="flex justify-between items-center text-gray-300">
+                    <span>MAX COMBO</span>
+                    <span id="result-combo" class="font-bold text-pjsk-yellow text-xl">0</span>
+                </div>
+                <hr class="border-white/10 my-2">
+                <div class="grid grid-cols-5 gap-1 text-center text-xs font-bold">
+                    <div class="text-pjsk-cyan">PERFECT<br><span id="cnt-perfect" class="text-white text-sm">0</span></div>
+                    <div class="text-green-400">GREAT<br><span id="cnt-great" class="text-white text-sm">0</span></div>
+                    <div class="text-pjsk-yellow">GOOD<br><span id="cnt-good" class="text-white text-sm">0</span></div>
+                    <div class="text-orange-400">BAD<br><span id="cnt-bad" class="text-white text-sm">0</span></div>
+                    <div class="text-red-500">MISS<br><span id="cnt-miss" class="text-white text-sm">0</span></div>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex gap-4">
+                <button id="btn-retry" class="flex-1 py-3 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold rounded-xl transition">
+                    <i class="fa-solid fa-rotate-right mr-1"></i> 再試一次
+                </button>
+                <button id="btn-back-menu" class="flex-1 py-3 bg-gradient-to-r from-pjsk-cyan to-pjsk-pink hover:opacity-90 text-black font-extrabold rounded-xl transition">
+                    <i class="fa-solid fa-list mr-1"></i> 返回曲目
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- YouTube IFrame API -->
+    <script src="https://www.youtube.com/iframe_api"></script>
+
+    <script>
+        // Web Audio Synthesizer for low-latency hit sounds AND procedural music fallback
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+                this.isFallbackPlaying = false;
+                this.fallbackInterval = null;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            // Play hit sounds for notes
+            playHitSound(type = 'TAP') {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                if (type === 'CRITICAL') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(1400, this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(350, this.ctx.currentTime + 0.1);
+                    gain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.1);
+                } else if (type === 'FLICK') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(1800, this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(700, this.ctx.currentTime + 0.08);
+                    gain.gain.setValueAtTime(0.35, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.08);
+                } else {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(900, this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(250, this.ctx.currentTime + 0.08);
+                    gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.08);
+                }
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.1);
+            }
+
+            // Fallback Synth Beat in case YouTube playback is blocked/restricted
+            startFallbackBGM(bpm = 150) {
+                if (!this.ctx || this.isFallbackPlaying) return;
+                this.isFallbackPlaying = true;
+                const intervalMs = (60 / bpm) * 1000 / 2; // 8th notes
+
+                let beatCount = 0;
+                const scale = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25]; // C major pentatonic
+
+                this.fallbackInterval = setInterval(() => {
+                    if (!this.isFallbackPlaying || !this.ctx) return;
+
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+
+                    // Bass Kick on beats 0 & 4
+                    if (beatCount % 4 === 0) {
+                        const kickOsc = this.ctx.createOscillator();
+                        const kickGain = this.ctx.createGain();
+                        kickOsc.frequency.setValueAtTime(150, this.ctx.currentTime);
+                        kickOsc.frequency.exponentialRampToValueAtTime(30, this.ctx.currentTime + 0.15);
+                        kickGain.gain.setValueAtTime(0.5, this.ctx.currentTime);
+                        kickGain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.15);
+                        kickOsc.connect(kickGain);
+                        kickGain.connect(this.ctx.destination);
+                        kickOsc.start();
+                        kickOsc.stop(this.ctx.currentTime + 0.15);
+                    }
+
+                    // Synth Arpeggio
+                    const noteFreq = scale[beatCount % scale.length];
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(noteFreq, this.ctx.currentTime);
+                    gain.gain.setValueAtTime(0.08, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.12);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.12);
+
+                    beatCount++;
+                }, intervalMs);
+            }
+
+            stopFallbackBGM() {
+                this.isFallbackPlaying = false;
+                if (this.fallbackInterval) {
+                    clearInterval(this.fallbackInterval);
+                    this.fallbackInterval = null;
+                }
+            }
+        }
+
+        const sounds = new SoundEngine();
+
+        // Preset Song Catalog
+        const PRESET_SONGS = [
+            {
+                id: 'cm-l2h6GB8Q',
+                title: 'KING',
+                artist: 'Kanaria feat. GUMI',
+                bpm: 172,
+                duration: 135,
+                cover: 'https://img.youtube.com/vi/cm-l2h6GB8Q/hqdefault.jpg'
+            },
+            {
+                id: 'PqJNc9KnxOE',
+                title: 'Tell Your World',
+                artist: 'kz (livetune) feat. 初音ミク',
+                bpm: 150,
+                duration: 250,
+                cover: 'https://img.youtube.com/vi/PqJNc9KnxOE/hqdefault.jpg'
+            },
+            {
+                id: 'v6L8vO-4Jmg',
+                title: '初音ミクの消失',
+                artist: 'cosMo@暴走P feat. 初音ミク',
+                bpm: 240,
+                duration: 280,
+                cover: 'https://img.youtube.com/vi/v6L8vO-4Jmg/hqdefault.jpg'
+            },
+            {
+                id: 'NocXEwsJ68s',
+                title: 'Miku',
+                artist: 'Anamanaguchi feat. Hatsune Miku',
+                bpm: 132,
+                duration: 210,
+                cover: 'https://img.youtube.com/vi/NocXEwsJ68s/hqdefault.jpg'
+            }
+        ];
+
+        // Global Game States
+        let ytPlayer = null;
+        let isYtReady = false;
+        let selectedSong = PRESET_SONGS[0];
+        let selectedDifficulty = 'HARD';
+        let noteSpeed = 6.5;
+        let gameActive = false;
+        let isPaused = false;
+
+        const LANE_KEYS = ['KeyS', 'KeyD', 'KeyF', 'KeyJ', 'KeyK', 'KeyL'];
+        const LANE_KEY_LABELS = ['S', 'D', 'F', 'J', 'K', 'L'];
+        const LANE_COUNT = 6;
+
+        let score = 0;
+        let combo = 0;
+        let maxCombo = 0;
+        let hp = 1000;
+        const MAX_HP = 1000;
+        let stats = { perfect: 0, great: 0, good: 0, bad: 0, miss: 0 };
+
+        let notesList = [];
+        let activeKeyStates = new Array(LANE_COUNT).fill(false);
+        let laneEffectPulses = new Array(LANE_COUNT).fill(0);
+        let startTime = 0;
+        let animationFrameId = null;
+
+        function onYouTubeIframeAPIReady() {
+            ytPlayer = new YT.Player('yt-player', {
+                height: '100%',
+                width: '100%',
+                videoId: selectedSong.id,
+                playerVars: {
+                    'autoplay': 1,
+                    'controls': 0,
+                    'disablekb': 1,
+                    'modestbranding': 1,
+                    'rel': 0,
+                    'playsinline': 1,
+                    'origin': window.location.origin || '*'
+                },
+                events: {
+                    'onReady': (e) => { 
+                        isYtReady = true; 
+                        e.target.unMute();
+                        e.target.setVolume(100);
+                    },
+                    'onStateChange': onPlayerStateChange
+                }
+            });
+        }
+
+        function onPlayerStateChange(event) {
+            if (event.data === YT.PlayerState.ENDED && gameActive) {
+                endGameStage();
+            }
+        }
+
+        function loadYouTubeVideo(vidId) {
+            if (ytPlayer && ytPlayer.loadVideoById) {
+                ytPlayer.loadVideoById(vidId);
+                ytPlayer.unMute();
+                ytPlayer.setVolume(100);
+            }
+        }
+
+        async function searchSongByTitle(query) {
+            const statusEl = document.getElementById('search-status');
+            statusEl.classList.remove('hidden');
+
+            try {
+                // Use Gemini 3 Flash model with Google Search grounding
+                const apiKey = "";
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+
+                const payload = {
+                    contents: [{ parts: [{ text: `尋找歌曲 "${query}" 的最熱門 YouTube 影片。請提供 11 字元的 YouTube Video ID、歌曲名稱、原唱歌手與估算 BPM。` }] }],
+                    tools: [{ "google_search": {} }],
+                    systemInstruction: {
+                        parts: [{ text: "你是一個專業音樂搜尋器。請回答 JSON 格式資料：\n{\"videoId\": \"11字元ID\", \"title\": \"歌名\", \"artist\": \"歌手\", \"bpm\": 150}\n只輸出這段 JSON。範例：{\"videoId\": \"cm-l2h6GB8Q\", \"title\": \"KING\", \"artist\": \"Kanaria\", \"bpm\": 172}" }]
+                    }
+                };
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+                const responseText = result.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+                let songData = null;
+                const jsonMatch = responseText.match(/\{[\s\S]*?\}/);
+                if (jsonMatch) {
+                    try { songData = JSON.parse(jsonMatch[0]); } catch (e) {}
+                }
+
+                if (!songData || !songData.videoId) {
+                    // Fallback search video ID directly from grounding attributions if any
+                    const groundings = result.candidates?.[0]?.groundingMetadata?.groundingAttributions;
+                    let foundVid = null;
+                    if (groundings) {
+                        for (let g of groundings) {
+                            if (g.web?.uri && g.web.uri.includes('watch?v=')) {
+                                foundVid = g.web.uri.split('v=')[1].split('&')[0];
+                                break;
+                            }
+                        }
+                    }
+                    
+                    songData = {
+                        videoId: foundVid || 'cm-l2h6GB8Q',
+                        title: query,
+                        artist: 'YouTube Live Search',
+                        bpm: 150
+                    };
+                }
+
+                const searchedSong = {
+                    id: songData.videoId,
+                    title: songData.title || query,
+                    artist: songData.artist || 'Vocaloid / Artist',
+                    bpm: songData.bpm || 150,
+                    duration: 210,
+                    cover: `https://img.youtube.com/vi/${songData.videoId}/hqdefault.jpg`
+                };
+
+                selectSong(searchedSong);
+                statusEl.classList.add('hidden');
+
+            } catch (err) {
+                console.warn('AI Search error, using fallback preset:', err);
+                statusEl.classList.add('hidden');
+                // Fallback to query title with a default playable song
+                const customSong = {
+                    id: 'cm-l2h6GB8Q',
+                    title: query,
+                    artist: '熱門選曲',
+                    bpm: 160,
+                    duration: 200,
+                    cover: 'https://img.youtube.com/vi/cm-l2h6GB8Q/hqdefault.jpg'
+                };
+                selectSong(customSong);
+            }
+        }
+
+        function generateProceduralChart(song, diff) {
+            const notes = [];
+            const bpm = song.bpm || 150;
+            const beatInterval = 60 / bpm;
+            
+            const densityMap = { 'EASY': 1.0, 'NORMAL': 0.75, 'HARD': 0.5, 'EXPERT': 0.33 };
+            const step = beatInterval * (densityMap[diff] || 0.5);
+            
+            const totalDuration = song.duration || 180;
+            let currentTime = 2.5;
+
+            let seed = song.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+            function pseudoRandom() {
+                seed = (seed * 9301 + 49297) % 233280;
+                return seed / 233280;
+            }
+
+            while (currentTime < totalDuration - 2) {
+                const lane = Math.floor(pseudoRandom() * LANE_COUNT);
+                const isCritical = pseudoRandom() < 0.15;
+                const isFlick = !isCritical && pseudoRandom() < 0.2;
+
+                notes.push({
+                    id: Math.random().toString(36).substr(2, 9),
+                    time: currentTime,
+                    lane: lane,
+                    type: isCritical ? 'CRITICAL' : (isFlick ? 'FLICK' : 'TAP'),
+                    hit: false,
+                    missed: false
+                });
+
+                if ((diff === 'EXPERT' || diff === 'HARD') && pseudoRandom() < 0.22) {
+                    const secondLane = (lane + 2 + Math.floor(pseudoRandom() * (LANE_COUNT - 2))) % LANE_COUNT;
+                    notes.push({
+                        id: Math.random().toString(36).substr(2, 9),
+                        time: currentTime,
+                        lane: secondLane,
+                        type: isCritical ? 'CRITICAL' : 'TAP',
+                        hit: false,
+                        missed: false
+                    });
+                }
+
+                currentTime += step + (pseudoRandom() * 0.1);
+            }
+
+            return notes.sort((a, b) => a.time - b.time);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            renderSongGrid();
+            setupUIEventListeners();
+            setupInputListeners();
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+        });
+
+        function renderSongGrid() {
+            const grid = document.getElementById('song-grid');
+            grid.innerHTML = '';
+            PRESET_SONGS.forEach((song) => {
+                const isSelected = song.id === selectedSong.id;
+                const card = document.createElement('div');
+                card.className = `glass-panel p-2.5 rounded-xl border flex items-center gap-3 cursor-pointer transition hover:border-pjsk-cyan ${
+                    isSelected ? 'border-pjsk-cyan bg-pjsk-cyan/15' : 'border-white/10'
+                }`;
+                card.onclick = () => selectSong(song);
+                card.innerHTML = `
+                    <img src="${song.cover}" class="w-14 h-14 rounded-lg object-cover border border-white/10 shrink-0" alt="cover">
+                    <div class="flex-1 min-w-0">
+                        <h4 class="font-bold text-white text-xs sm:text-sm truncate">${song.title}</h4>
+                        <p class="text-[11px] text-gray-400 truncate">${song.artist}</p>
+                        <span class="inline-block text-[10px] bg-white/10 text-pjsk-cyan px-2 py-0.5 rounded mt-0.5 font-bold">BPM ${song.bpm}</span>
+                    </div>
+                    ${isSelected ? '<i class="fa-solid fa-circle-check text-pjsk-cyan text-lg mr-2"></i>' : ''}
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function selectSong(song) {
+            selectedSong = song;
+            renderSongGrid();
+            document.getElementById('song-title-display').textContent = song.title;
+            document.getElementById('song-artist-display').textContent = song.artist;
+            if (isYtReady) loadYouTubeVideo(song.id);
+        }
+
+        function setupUIEventListeners() {
+            document.getElementById('btn-instructions').addEventListener('click', () => {
+                sounds.init();
+                document.getElementById('instruction-overlay').classList.remove('hidden');
+            });
+
+            document.getElementById('btn-close-instructions').addEventListener('click', () => {
+                document.getElementById('instruction-overlay').classList.add('hidden');
+            });
+
+            document.getElementById('btn-understand').addEventListener('click', () => {
+                document.getElementById('instruction-overlay').classList.add('hidden');
+            });
+
+            const speedInput = document.getElementById('speed-range');
+            speedInput.addEventListener('input', (e) => {
+                noteSpeed = parseFloat(e.target.value);
+                document.getElementById('speed-val').textContent = noteSpeed.toFixed(1);
+            });
+
+            document.querySelectorAll('.diff-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('ring-2', 'ring-pjsk-yellow', 'active'));
+                    const target = e.currentTarget;
+                    target.classList.add('ring-2', 'ring-pjsk-yellow', 'active');
+                    selectedDifficulty = target.dataset.diff;
+                });
+            });
+
+            // Song Search Button Handler
+            const searchBtn = document.getElementById('btn-search-song');
+            const searchInput = document.getElementById('song-search-input');
+            
+            const triggerSearch = () => {
+                const query = searchInput.value.trim();
+                if (query) {
+                    searchSongByTitle(query);
+                }
+            };
+
+            searchBtn.addEventListener('click', triggerSearch);
+            searchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') triggerSearch();
+            });
+
+            document.getElementById('btn-start-game').addEventListener('click', () => {
+                sounds.init();
+                startGameStage();
+            });
+
+            document.getElementById('btn-pause').addEventListener('click', togglePauseGame);
+
+            document.getElementById('btn-retry').addEventListener('click', () => {
+                document.getElementById('result-overlay').classList.add('hidden');
+                startGameStage();
+            });
+            document.getElementById('btn-back-menu').addEventListener('click', () => {
+                document.getElementById('result-overlay').classList.add('hidden');
+                document.getElementById('menu-overlay').classList.remove('hidden');
+                document.getElementById('hud-stats').classList.add('hidden');
+                document.getElementById('bg-dim-overlay').classList.add('opacity-80');
+                sounds.stopFallbackBGM();
+            });
+        }
+
+        const canvas = document.getElementById('rhythm-canvas');
+        const ctx = canvas.getContext('2d');
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+
+        function getTrackCoordinates(yRatio) {
+            const w = canvas.width;
+            const h = canvas.height;
+
+            const topY = h * 0.22;
+            const bottomY = h * 0.88;
+            const currentY = topY + yRatio * (bottomY - topY);
+
+            const topWidth = w * 0.28;
+            const bottomWidth = w * 0.84;
+            const currentWidth = topWidth + yRatio * (bottomWidth - topWidth);
+
+            const leftX = (w - currentWidth) / 2;
+            const rightX = leftX + currentWidth;
+
+            return { y: currentY, leftX, rightX, width: currentWidth };
+        }
+
+        function getLaneBounds(laneIndex, yRatio) {
+            const track = getTrackCoordinates(yRatio);
+            const laneWidth = track.width / LANE_COUNT;
+            const x1 = track.leftX + laneIndex * laneWidth;
+            const x2 = x1 + laneWidth;
+            return { x1, x2, y: track.y, width: laneWidth };
+        }
+
+        function startGameStage() {
+            score = 0;
+            combo = 0;
+            maxCombo = 0;
+            hp = MAX_HP;
+            stats = { perfect: 0, great: 0, good: 0, bad: 0, miss: 0 };
+            updateHUD();
+
+            notesList = generateProceduralChart(selectedSong, selectedDifficulty);
+
+            document.getElementById('menu-overlay').classList.add('hidden');
+            document.getElementById('hud-stats').classList.remove('hidden');
+            document.getElementById('bg-dim-overlay').classList.remove('opacity-80');
+            document.getElementById('bg-dim-overlay').classList.add('opacity-40'); // Clearer video visibility during gameplay
+
+            gameActive = true;
+            isPaused = false;
+            startTime = performance.now() / 1000;
+
+            // Trigger YouTube Video Unmute & Audio Context
+            if (isYtReady && ytPlayer && ytPlayer.playVideo) {
+                ytPlayer.seekTo(0);
+                ytPlayer.unMute();
+                ytPlayer.setVolume(100);
+                ytPlayer.playVideo();
+            }
+
+            // Start Fallback Synthesizer sound in case video lacks audio or autoplay blocks it
+            sounds.startFallbackBGM(selectedSong.bpm || 150);
+
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            gameLoop();
+        }
+
+        function togglePauseGame() {
+            if (!gameActive) return;
+            isPaused = !isPaused;
+            if (isPaused) {
+                if (ytPlayer && ytPlayer.pauseVideo) ytPlayer.pauseVideo();
+            } else {
+                if (ytPlayer && ytPlayer.playVideo) ytPlayer.playVideo();
+                gameLoop();
+            }
+        }
+
+        function endGameStage() {
+            gameActive = false;
+            sounds.stopFallbackBGM();
+            if (ytPlayer && ytPlayer.pauseVideo) ytPlayer.pauseVideo();
+
+            document.getElementById('result-song-title').textContent = selectedSong.title;
+            document.getElementById('result-score').textContent = score.toLocaleString();
+            document.getElementById('result-combo').textContent = maxCombo;
+
+            document.getElementById('cnt-perfect').textContent = stats.perfect;
+            document.getElementById('cnt-great').textContent = stats.great;
+            document.getElementById('cnt-good').textContent = stats.good;
+            document.getElementById('cnt-bad').textContent = stats.bad;
+            document.getElementById('cnt-miss').textContent = stats.miss;
+
+            let rank = 'STAGE CLEAR';
+            if (stats.miss === 0 && stats.bad === 0) {
+                rank = stats.great === 0 ? 'ALL PERFECT' : 'FULL COMBO';
+            }
+            document.getElementById('result-rank').textContent = rank;
+
+            document.getElementById('result-overlay').classList.remove('hidden');
+        }
+
+        function handleLaneTap(laneIndex) {
+            if (!gameActive || isPaused) return;
+
+            laneEffectPulses[laneIndex] = 0.18;
+            const currentTime = getCurrentGameTime();
+            const targetNote = notesList.find(n => !n.hit && !n.missed && n.lane === laneIndex && Math.abs(n.time - currentTime) < 0.22);
+
+            if (targetNote) {
+                const diff = Math.abs(targetNote.time - currentTime);
+                let judgment = 'MISS';
+
+                if (diff <= 0.045) {
+                    judgment = 'PERFECT';
+                    score += (targetNote.type === 'CRITICAL' ? 1200 : 1000);
+                    stats.perfect++;
+                    hp = Math.min(MAX_HP, hp + 10);
+                } else if (diff <= 0.09) {
+                    judgment = 'GREAT';
+                    score += 700;
+                    stats.great++;
+                    hp = Math.min(MAX_HP, hp + 5);
+                } else if (diff <= 0.14) {
+                    judgment = 'GOOD';
+                    score += 400;
+                    stats.good++;
+                } else {
+                    judgment = 'BAD';
+                    score += 100;
+                    stats.bad++;
+                    combo = 0;
+                    hp -= 30;
+                }
+
+                if (judgment === 'PERFECT' || judgment === 'GREAT' || judgment === 'GOOD') {
+                    combo++;
+                    if (combo > maxCombo) maxCombo = combo;
+                    sounds.playHitSound(targetNote.type);
+                } else {
+                    combo = 0;
+                }
+
+                targetNote.hit = true;
+                triggerJudgmentUI(judgment);
+                updateHUD();
+            }
+        }
+
+        function getCurrentGameTime() {
+            if (ytPlayer && ytPlayer.getCurrentTime && isYtReady) {
+                const ytTime = ytPlayer.getCurrentTime();
+                if (ytTime > 0) return ytTime;
+            }
+            return (performance.now() / 1000) - startTime;
+        }
+
+        function updateHUD() {
+            document.getElementById('score-val').textContent = String(score).padStart(7, '0');
+            const hpPct = Math.max(0, (hp / MAX_HP) * 100);
+            document.getElementById('hp-bar-fill').style.width = `${hpPct}%`;
+
+            if (hp <= 0 && gameActive) {
+                endGameStage();
+            }
+        }
+
+        function triggerJudgmentUI(text) {
+            const el = document.getElementById('judgment-text');
+            const comboEl = document.getElementById('combo-box');
+            const comboNum = document.getElementById('combo-num');
+
+            el.textContent = text;
+            el.className = 'text-3xl font-black tracking-widest transition-all duration-100 transform scale-125 ';
+            
+            if (text === 'PERFECT') el.className += 'text-pjsk-cyan drop-shadow-[0_0_12px_rgba(0,240,255,0.8)]';
+            else if (text === 'GREAT') el.className += 'text-green-400';
+            else if (text === 'GOOD') el.className += 'text-pjsk-yellow';
+            else if (text === 'BAD') el.className += 'text-orange-400';
+            else el.className += 'text-red-500';
+
+            el.style.opacity = '1';
+            
+            if (combo > 1) {
+                comboNum.textContent = combo;
+                comboEl.style.opacity = '1';
+                comboEl.style.transform = 'scale(1.1)';
+                setTimeout(() => comboEl.style.transform = 'scale(1.0)', 80);
+            } else {
+                comboEl.style.opacity = '0';
+            }
+
+            setTimeout(() => {
+                el.style.opacity = '0';
+                el.style.transform = 'translateY(10px) scale(0.9)';
+            }, 300);
+        }
+
+        function gameLoop() {
+            if (!gameActive || isPaused) return;
+
+            const currentTime = getCurrentGameTime();
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 1. Draw 3D Track Lanes
+            drawTrackBackground();
+
+            // 2. Render Falling Notes
+            const travelTime = 12.0 / noteSpeed;
+
+            notesList.forEach(note => {
+                if (note.hit || note.missed) return;
+
+                const timeDiff = note.time - currentTime;
+
+                if (timeDiff < -0.18) {
+                    note.missed = true;
+                    combo = 0;
+                    stats.miss++;
+                    hp -= 50;
+                    triggerJudgmentUI('MISS');
+                    updateHUD();
+                    return;
+                }
+
+                if (timeDiff <= travelTime && timeDiff >= -0.15) {
+                    const yRatio = 1 - (timeDiff / travelTime);
+                    drawNote(note, yRatio);
+                }
+            });
+
+            // 3. Render Key Bar & Laser Flash
+            drawKeyBarOverlay();
+
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+
+        function drawTrackBackground() {
+            const topTrack = getTrackCoordinates(0);
+            const bottomTrack = getTrackCoordinates(1.05);
+
+            const grad = ctx.createLinearGradient(0, topTrack.y, 0, bottomTrack.y);
+            grad.addColorStop(0, 'rgba(10, 12, 25, 0.35)');
+            grad.addColorStop(1, 'rgba(15, 20, 40, 0.8)');
+
+            ctx.beginPath();
+            ctx.moveTo(topTrack.leftX, topTrack.y);
+            ctx.lineTo(topTrack.rightX, topTrack.y);
+            ctx.lineTo(bottomTrack.rightX, bottomTrack.y);
+            ctx.lineTo(bottomTrack.leftX, bottomTrack.y);
+            ctx.closePath();
+            ctx.fillStyle = grad;
+            ctx.fill();
+
+            // Lane Divider Lines
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
+            ctx.lineWidth = 1.5;
+            for (let i = 0; i <= LANE_COUNT; i++) {
+                const topPt = getLaneBounds(i, 0);
+                const botPt = getLaneBounds(i, 1);
+                ctx.beginPath();
+                ctx.moveTo(topPt.x1, topPt.y);
+                ctx.lineTo(botPt.x1, botPt.y);
+                ctx.stroke();
+            }
+
+            // Judgment Line
+            const judgeTrack = getTrackCoordinates(1.0);
+            ctx.shadowColor = '#00f0ff';
+            ctx.shadowBlur = 18;
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(judgeTrack.leftX, judgeTrack.y);
+            ctx.lineTo(judgeTrack.rightX, judgeTrack.y);
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+        }
+
+        function drawNote(note, yRatio) {
+            if (yRatio < 0 || yRatio > 1.1) return;
+
+            const bounds = getLaneBounds(note.lane, yRatio);
+            const noteHeight = Math.max(8, 22 * yRatio);
+            const x = bounds.x1 + 2;
+            const width = bounds.width - 4;
+            const y = bounds.y - noteHeight / 2;
+
+            ctx.save();
+
+            if (note.type === 'CRITICAL') {
+                const goldGrad = ctx.createLinearGradient(x, y, x + width, y);
+                goldGrad.addColorStop(0, '#ffe600');
+                goldGrad.addColorStop(0.5, '#ffffff');
+                goldGrad.addColorStop(1, '#ffaa00');
+                ctx.fillStyle = goldGrad;
+                ctx.shadowColor = '#ffcc00';
+                ctx.shadowBlur = 12;
+            } else if (note.type === 'FLICK') {
+                const pinkGrad = ctx.createLinearGradient(x, y, x + width, y);
+                pinkGrad.addColorStop(0, '#ff2a8d');
+                pinkGrad.addColorStop(1, '#ff73b3');
+                ctx.fillStyle = pinkGrad;
+                ctx.shadowColor = '#ff2a8d';
+                ctx.shadowBlur = 10;
+            } else {
+                const cyanGrad = ctx.createLinearGradient(x, y, x + width, y);
+                cyanGrad.addColorStop(0, '#00f0ff');
+                cyanGrad.addColorStop(0.5, '#ffffff');
+                cyanGrad.addColorStop(1, '#00aaff');
+                ctx.fillStyle = cyanGrad;
+                ctx.shadowColor = '#00f0ff';
+                ctx.shadowBlur = 8;
+            }
+
+            ctx.beginPath();
+            ctx.roundRect(x, y, width, noteHeight, 4);
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        function drawKeyBarOverlay() {
+            for (let i = 0; i < LANE_COUNT; i++) {
+                const bounds = getLaneBounds(i, 1.0);
+
+                if (activeKeyStates[i] || laneEffectPulses[i] > 0) {
+                    if (laneEffectPulses[i] > 0) laneEffectPulses[i] -= 0.016;
+
+                    const pulseGrad = ctx.createLinearGradient(bounds.x1, bounds.y, bounds.x1, bounds.y - 140);
+                    pulseGrad.addColorStop(0, 'rgba(0, 240, 255, 0.45)');
+                    pulseGrad.addColorStop(1, 'rgba(0, 240, 255, 0.0)');
+
+                    ctx.fillStyle = pulseGrad;
+                    ctx.beginPath();
+                    const topB = getLaneBounds(i, 0.55);
+                    ctx.moveTo(bounds.x1, bounds.y);
+                    ctx.lineTo(bounds.x2, bounds.y);
+                    ctx.lineTo(topB.x2, topB.y);
+                    ctx.lineTo(topB.x1, topB.y);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+
+                ctx.fillStyle = activeKeyStates[i] ? '#00f0ff' : 'rgba(255, 255, 255, 0.7)';
+                ctx.font = 'bold 16px Kanit';
+                ctx.textAlign = 'center';
+                ctx.fillText(LANE_KEY_LABELS[i], bounds.x1 + bounds.width / 2, bounds.y + 28);
+            }
+        }
+
+        function setupInputListeners() {
+            window.addEventListener('keydown', (e) => {
+                if (e.repeat) return;
+                const keyIdx = LANE_KEYS.indexOf(e.code);
+                if (keyIdx !== -1) {
+                    activeKeyStates[keyIdx] = true;
+                    handleLaneTap(keyIdx);
+                }
+            });
+
+            window.addEventListener('keyup', (e) => {
+                const keyIdx = LANE_KEYS.indexOf(e.code);
+                if (keyIdx !== -1) {
+                    activeKeyStates[keyIdx] = false;
+                }
+            });
+
+            const stage = document.getElementById('stage-container');
+            
+            function processTouch(e) {
+                if (!gameActive) return;
+                const rect = canvas.getBoundingClientRect();
+                for (let i = 0; i < e.touches.length; i++) {
+                    const touch = e.touches[i];
+                    const touchX = touch.clientX - rect.left;
+                    
+                    const track = getTrackCoordinates(1.0);
+                    if (touchX >= track.leftX && touchX <= track.rightX) {
+                        const laneWidth = track.width / LANE_COUNT;
+                        const laneIdx = Math.floor((touchX - track.leftX) / laneWidth);
+                        if (laneIdx >= 0 && laneIdx < LANE_COUNT) {
+                            handleLaneTap(laneIdx);
+                        }
+                    }
+                }
+            }
+
+            stage.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                processTouch(e);
+            }, { passive: false });
+        }
+    </script>
+</body>
+</html>

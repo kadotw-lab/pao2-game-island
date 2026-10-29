@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>貓咪大戰爭</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Noto+Sans+TC:wght@500;700&display=swap');
+        
+        body {
+            font-family: 'Fredoka One', 'Noto Sans TC', sans-serif;
+            background-color: #2c3e50;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+            margin: 0;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100%;
+            max-width: 900px;
+            aspect-ratio: 16 / 9;
+            background: linear-gradient(to bottom, #87CEEB 0%, #87CEEB 65%, #7CFC00 65%, #228B22 100%);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            border: 4px solid #34495e;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        .overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            z-index: 50;
+            backdrop-filter: blur(4px);
+        }
+
+        .hud {
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .health-bar-container {
+            width: 150px;
+            height: 20px;
+            background: #e74c3c;
+            border: 2px solid white;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .health-bar {
+            height: 100%;
+            background: #2ecc71;
+            width: 100%;
+            transition: width 0.2s;
+        }
+
+        .enemy-health .health-bar {
+            background: #f1c40f;
+        }
+
+        .controls {
+            position: absolute;
+            bottom: 10px; left: 0; right: 0;
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            z-index: 20;
+            padding: 0 10px;
+        }
+
+        .unit-btn {
+            position: relative;
+            width: 70px;
+            height: 70px;
+            background: #fff;
+            border: 3px solid #34495e;
+            border-radius: 15px;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            transition: transform 0.1s;
+        }
+
+        .unit-btn:active:not(:disabled) {
+            transform: scale(0.95);
+        }
+
+        .unit-btn:disabled {
+            filter: grayscale(100%);
+            cursor: not-allowed;
+        }
+
+        .unit-cost {
+            font-size: 12px;
+            font-weight: bold;
+            color: #d35400;
+            background: #f1c40f;
+            padding: 2px 6px;
+            border-radius: 10px;
+            position: absolute;
+            bottom: -10px;
+            border: 2px solid #fff;
+        }
+
+        .cooldown-overlay {
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            background: rgba(0, 0, 0, 0.6);
+            height: 0%;
+            border-radius: 12px;
+            transition: height 0.1s linear;
+        }
+
+        .pause-btn {
+            pointer-events: auto;
+            background: rgba(255,255,255,0.8);
+            border: 2px solid #333;
+            border-radius: 8px;
+            padding: 5px 15px;
+            font-weight: bold;
+            cursor: pointer;
+            color: #333;
+        }
+
+        .hidden { display: none !important; }
+        
+        .title-text {
+            font-size: 3rem;
+            text-shadow: 3px 3px 0 #34495e, -2px -2px 0 #34495e, 2px -2px 0 #34495e, -2px 2px 0 #34495e;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        @media (max-width: 600px) {
+            .unit-btn { width: 55px; height: 55px; font-size: 20px; }
+            .title-text { font-size: 2rem; }
+            .health-bar-container { width: 100px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <!-- Canvas 渲染層 -->
+        <canvas id="gameCanvas" width="800" height="450"></canvas>
+
+        <!-- 頂部資訊列 (HUD) -->
+        <div class="hud">
+            <div class="flex flex-col items-start">
+                <span class="text-white font-bold text-shadow mb-1">🏰 貓堡 HP</span>
+                <div class="health-bar-container"><div id="player-hp-bar" class="health-bar"></div></div>
+                <div class="text-yellow-400 font-bold mt-2 bg-gray-800 bg-opacity-50 px-2 py-1 rounded">
+                    💰 <span id="wallet-text">0 / 100</span>
+                </div>
+            </div>
+            
+            <div class="flex flex-col items-center">
+                <button id="pause-btn" class="pause-btn">Pause ⏸️</button>
+            </div>
+
+            <div class="flex flex-col items-end">
+                <span class="text-white font-bold text-shadow mb-1">狗堡 HP 🏰</span>
+                <div class="health-bar-container enemy-health"><div id="enemy-hp-bar" class="health-bar"></div></div>
+                <div class="text-white text-sm mt-2 font-bold bg-gray-800 bg-opacity-50 px-2 py-1 rounded">
+                    ⏱️ <span id="timer-text">00:00</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 底部召喚控制台 -->
+        <div class="controls" id="controls">
+            <!-- 動態生成按鈕 -->
+        </div>
+
+        <!-- 開始畫面 -->
+        <div id="start-screen" class="overlay">
+            <h1 class="title-text text-yellow-400">🐾 貓咪大戰爭 🐾</h1>
+            <p class="mb-6 text-lg text-center px-4">召喚貓咪保護你的城堡，並摧毀邪惡狗狗的基地！<br>金幣會隨時間增加。</p>
+            <p class="mb-6 text-sm text-gray-300">最高紀錄: <span id="best-record">無</span></p>
+            <button id="start-btn" class="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-8 rounded-full border-4 border-white text-xl shadow-lg transition transform hover:scale-105">
+                Start Game 🚀
+            </button>
+        </div>
+
+        <!-- 結束畫面 -->
+        <div id="game-over-screen" class="overlay hidden">
+            <h1 id="go-title" class="title-text">Victory!</h1>
+            <p id="go-stats" class="text-xl mb-2">遊玩時間: 00:00</p>
+            <p id="go-kills" class="text-lg mb-6">擊殺數量: 0</p>
+            <button id="restart-btn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-8 rounded-full border-4 border-white text-xl shadow-lg transition transform hover:scale-105">
+                Play Again 🔄
+            </button>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * Web Audio API 音效合成引擎
+         * 不依賴外部檔案，使用振盪器生成 8-bit 風格音效
+         */
+        class AudioEngine {
+            constructor() {
+                this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                this.masterGain = this.ctx.createGain();
+                this.masterGain.gain.value = 0.3; // 預設音量
+                this.masterGain.connect(this.ctx.destination);
+                this.enabled = true;
+            }
+
+            resume() {
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            playTone(freq, type, duration, vol = 1, slideToFreq = null) {
+                if (!this.enabled) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                
+                if (slideToFreq) {
+                    osc.frequency.exponentialRampToValueAtTime(slideToFreq, this.ctx.currentTime + duration);
+                }
+
+                gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
+
+                osc.connect(gain);
+                gain.connect(this.masterGain);
+
+                osc.start();
+                osc.stop(this.ctx.currentTime + duration);
+            }
+
+            playSpawn() { this.playTone(600, 'square', 0.1, 0.5, 800); }
+            playHit() { this.playTone(150, 'sawtooth', 0.1, 0.8, 50); }
+            playBaseHit() { this.playTone(100, 'square', 0.2, 1, 30); }
+            playWin() { 
+                [400, 500, 600, 800].forEach((freq, i) => {
+                    setTimeout(() => this.playTone(freq, 'square', 0.2, 0.5), i * 150);
+                });
+            }
+            playLose() {
+                [300, 250, 200, 150].forEach((freq, i) => {
+                    setTimeout(() => this.playTone(freq, 'sawtooth', 0.3, 0.5), i * 200);
+                });
+            }
+        }
+
+        class Entity {
+            constructor(x, y, hp, team) {
+                this.x = x;
+                this.y = y;
+                this.maxHp = hp;
+                this.hp = hp;
+                this.team = team; // 'player' or 'enemy'
+                this.dead = false;
+            }
+            takeDamage(amount) {
+                this.hp -= amount;
+                if (this.hp <= 0) {
+                    this.hp = 0;
+                    this.dead = true;
+                }
+                this.isHit = true;
+                this.hitTimer = 10; // 呈現受擊特效的幀數
+            }
+        }
+
+        class Base extends Entity {
+            constructor(x, y, team) {
+                super(x, y, 1000, team); // 基地血量 1000
+                this.emoji = '🏰';
+                this.size = 80;
+            }
+            
+            draw(ctx) {
+                ctx.save();
+                ctx.font = `${this.size}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'bottom';
+                
+                // 受擊震動特效
+                let dx = 0, dy = 0;
+                if (this.isHit && this.hitTimer > 0) {
+                    dx = (Math.random() - 0.5) * 10;
+                    dy = (Math.random() - 0.5) * 10;
+                    this.hitTimer--;
+                }
+                
+                ctx.fillText(this.emoji, this.x + dx, this.y + dy);
+                ctx.restore();
+            }
+        }
+
+        class Unit extends Entity {
+            constructor(x, y, config, team) {
+                super(x, y, config.hp, team);
+                this.name = config.name;
+                this.emoji = config.emoji;
+                this.speed = team === 'player' ? config.speed : -config.speed;
+                this.atk = config.atk;
+                this.range = config.range;
+                this.atkSpeed = config.atkSpeed; // 攻擊間隔(ms)
+                this.size = config.size || 40;
+                this.lastAttackTime = 0;
+                this.state = 'moving'; // 'moving', 'attacking'
+                this.walkCycle = 0;
+            }
+
+            update(dt, enemies) {
+                if (this.dead) return;
+
+                // 尋找最近的敵人
+                let closestEnemy = null;
+                let minDist = Infinity;
+                
+                for (const enemy of enemies) {
+                    if (enemy.dead) continue;
+                    // 根據朝向計算距離
+                    let dist = this.team === 'player' ? enemy.x - this.x : this.x - enemy.x;
+                    
+                    // 修正距離計算，將體積納入考量
+                    dist -= (this.size/2 + (enemy.size ? enemy.size/2 : 40));
+
+                    if (dist >= -20 && dist < minDist) {
+                        minDist = dist;
+                        closestEnemy = enemy;
+                    }
+                }
+
+                // 檢查是否在攻擊範圍內
+                if (closestEnemy && minDist <= this.range) {
+                    this.state = 'attacking';
+                    const now = Date.now();
+                    if (now - this.lastAttackTime >= this.atkSpeed) {
+                        // 執行攻擊
+                        closestEnemy.takeDamage(this.atk);
+                        this.lastAttackTime = now;
+                        return { type: 'attack', target: closestEnemy, dmg: this.atk };
+                    }
+                } else {
+                    this.state = 'moving';
+                    this.x += this.speed * (dt / 16); // 根據幀率標準化速度
+                    this.walkCycle += (dt / 16) * 0.1;
+                }
+                return null;
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                
+                // 受擊發紅
+                if (this.isHit && this.hitTimer > 0) {
+                    ctx.filter = 'drop-shadow(0 0 10px red) sepia(1) hue-rotate(-50deg) saturate(5)';
+                    this.hitTimer--;
+                }
+
+                // 走路動畫 (輕微上下跳動)
+                let yOffset = 0;
+                if (this.state === 'moving') {
+                    yOffset = Math.abs(Math.sin(this.walkCycle)) * -10;
+                } else if (this.state === 'attacking') {
+                    // 攻擊動畫 (往前衝一下)
+                    const timeSinceAtk = Date.now() - this.lastAttackTime;
+                    if (timeSinceAtk < 100) {
+                        ctx.translate(this.team === 'player' ? 10 : -10, 0);
+                    }
+                }
+
+                // 繪製 Emoji
+                ctx.font = `${this.size}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'bottom';
+                
+                // 翻轉敵方圖片 (如果是需要翻轉的符號，但 Emoji 通常不受影響，這裡還是做標準處理)
+                if (this.team === 'enemy') {
+                    ctx.scale(-1, 1);
+                }
+                
+                ctx.fillText(this.emoji, 0, yOffset);
+                ctx.restore();
+            }
+        }
+
+        class FloatingText {
+            constructor(x, y, text, color) {
+                this.x = x;
+                this.y = y;
+                this.text = text;
+                this.color = color;
+                this.life = 1.0;
+                this.vy = -1;
+            }
+            update(dt) {
+                this.y += this.vy * (dt/16);
+                this.life -= 0.02 * (dt/16);
+            }
+            draw(ctx) {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, this.life);
+                ctx.fillStyle = this.color;
+                ctx.font = 'bold 20px Arial';
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = 2;
+                ctx.textAlign = 'center';
+                ctx.strokeText(this.text, this.x, this.y);
+                ctx.fillText(this.text, this.x, this.y);
+                ctx.restore();
+            }
+        }
+
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 3 + 1;
+                this.vx = Math.cos(angle) * speed;
+                this.vy = Math.sin(angle) * speed;
+                this.life = 1.0;
+                this.size = Math.random() * 5 + 3;
+            }
+            update(dt) {
+                this.x += this.vx * (dt/16);
+                this.y += this.vy * (dt/16);
+                this.life -= 0.03 * (dt/16);
+            }
+            draw(ctx) {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, this.life);
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI*2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        const UNIT_CONFIGS = {
+            player: [
+                { id: 'cat_basic', name: '基礎貓', emoji: '🐱', cost: 15, hp: 50, atk: 15, range: 30, speed: 1.5, atkSpeed: 1000, cd: 2000 },
+                { id: 'cat_tank', name: '坦克貓', emoji: '🛡️', cost: 40, hp: 250, atk: 5, range: 35, speed: 0.8, atkSpeed: 1500, cd: 5000, size: 50 },
+                { id: 'cat_ninja', name: '忍者貓', emoji: '🥷', cost: 60, hp: 40, atk: 30, range: 40, speed: 2.5, atkSpeed: 500, cd: 4000 },
+                { id: 'cat_mage', name: '法師貓', emoji: '🧙‍♂️', cost: 100, hp: 80, atk: 50, range: 150, speed: 1.0, atkSpeed: 2000, cd: 8000 }
+            ],
+            enemy: [
+                { id: 'dog_basic', name: '小黃狗', emoji: '🐶', hp: 40, atk: 10, range: 30, speed: 1.2, atkSpeed: 1200 },
+                { id: 'dog_wolf', name: '大野狼', emoji: '🐺', hp: 150, atk: 25, range: 40, speed: 0.9, atkSpeed: 1800, size: 50 },
+                { id: 'dog_fox', name: '快狐狸', emoji: '🦊', hp: 30, atk: 15, range: 30, speed: 2.2, atkSpeed: 800 },
+                { id: 'dog_boss', name: '惡魔犬', emoji: '👹', hp: 500, atk: 80, range: 50, speed: 0.5, atkSpeed: 2500, size: 70 }
+            ]
+        };
+
+        class Game {
+            constructor(canvas) {
+                this.canvas = canvas;
+                this.ctx = canvas.getContext('2d');
+                this.audio = new AudioEngine();
+                
+                // 狀態與資料
+                this.state = 'start'; // start, playing, paused, gameover
+                this.lastTime = 0;
+                this.playerUnits = [];
+                this.enemyUnits = [];
+                this.vfx = [];
+                
+                // 經濟系統
+                this.wallet = 0;
+                this.maxWallet = 100;
+                this.incomeRate = 5; // 每秒增加金錢
+                
+                // 敵人生成機制
+                this.enemySpawnTimer = 0;
+                this.difficultyLevel = 1;
+                
+                // 統計
+                this.startTime = 0;
+                this.playTime = 0;
+                this.kills = 0;
+
+                // 單位冷卻追蹤 { unitId: lastSpawnTime }
+                this.cooldowns = {};
+
+                this.setupUI();
+                this.loadRecord();
+            }
+
+            setupUI() {
+                // 生成按鈕
+                const controlsDiv = document.getElementById('controls');
+                controlsDiv.innerHTML = '';
+                UNIT_CONFIGS.player.forEach((config, index) => {
+                    const btn = document.createElement('button');
+                    btn.className = 'unit-btn';
+                    btn.id = `btn-${config.id}`;
+                    btn.innerHTML = `
+                        ${config.emoji}
+                        <span class="unit-cost">$${config.cost}</span>
+                        <div class="cooldown-overlay" id="cd-${config.id}"></div>
+                    `;
+                    btn.onclick = () => this.spawnPlayerUnit(config);
+                    controlsDiv.appendChild(btn);
+                    this.cooldowns[config.id] = 0;
+                });
+
+                // 綁定全域按鈕事件
+                document.getElementById('start-btn').onclick = () => this.start();
+                document.getElementById('restart-btn').onclick = () => this.start();
+                document.getElementById('pause-btn').onclick = () => this.togglePause();
+            }
+
+            loadRecord() {
+                const record = localStorage.getItem('battleCatsBestTime');
+                if (record) {
+                    const minutes = Math.floor(record / 60000).toString().padStart(2, '0');
+                    const seconds = Math.floor((record % 60000) / 1000).toString().padStart(2, '0');
+                    document.getElementById('best-record').innerText = `${minutes}:${seconds}`;
+                }
+            }
+
+            saveRecord() {
+                const currentRecord = localStorage.getItem('battleCatsBestTime');
+                if (!currentRecord || this.playTime < parseInt(currentRecord)) {
+                    localStorage.setItem('battleCatsBestTime', this.playTime.toString());
+                }
+            }
+
+            start() {
+                this.audio.resume();
+                this.state = 'playing';
+                
+                // 重置參數
+                this.playerBase = new Base(80, this.canvas.height - 50, 'player');
+                this.enemyBase = new Base(this.canvas.width - 80, this.canvas.height - 50, 'enemy');
+                this.playerUnits = [];
+                this.enemyUnits = [];
+                this.vfx = [];
+                
+                this.wallet = 0;
+                this.difficultyLevel = 1;
+                this.enemySpawnTimer = 0;
+                
+                this.startTime = Date.now();
+                this.playTime = 0;
+                this.kills = 0;
+                
+                // 重置冷卻
+                for (let key in this.cooldowns) this.cooldowns[key] = 0;
+
+                // 隱藏選單
+                document.getElementById('start-screen').classList.add('hidden');
+                document.getElementById('game-over-screen').classList.add('hidden');
+                document.getElementById('pause-btn').innerText = 'Pause ⏸️';
+
+                this.lastTime = performance.now();
+                requestAnimationFrame((t) => this.loop(t));
+            }
+
+            togglePause() {
+                if (this.state === 'playing') {
+                    this.state = 'paused';
+                    document.getElementById('pause-btn').innerText = 'Resume ▶️';
+                } else if (this.state === 'paused') {
+                    this.state = 'playing';
+                    this.lastTime = performance.now();
+                    document.getElementById('pause-btn').innerText = 'Pause ⏸️';
+                    requestAnimationFrame((t) => this.loop(t));
+                }
+            }
+
+            gameOver(isVictory) {
+                this.state = 'gameover';
+                document.getElementById('game-over-screen').classList.remove('hidden');
+                document.getElementById('go-title').innerText = isVictory ? '🎉 Victory! 🎉' : '💀 Defeat! 💀';
+                document.getElementById('go-title').style.color = isVictory ? '#f1c40f' : '#e74c3c';
+                
+                const minutes = Math.floor(this.playTime / 60000).toString().padStart(2, '0');
+                const seconds = Math.floor((this.playTime % 60000) / 1000).toString().padStart(2, '0');
+                document.getElementById('go-stats').innerText = `遊玩時間: ${minutes}:${seconds}`;
+                document.getElementById('go-kills').innerText = `擊殺敵軍: ${this.kills}`;
+
+                if (isVictory) {
+                    this.audio.playWin();
+                    this.saveRecord();
+                } else {
+                    this.audio.playLose();
+                }
+            }
+
+            spawnPlayerUnit(config) {
+                const now = Date.now();
+                if (this.wallet >= config.cost && now - this.cooldowns[config.id] >= config.cd) {
+                    this.wallet -= config.cost;
+                    this.cooldowns[config.id] = now;
+                    this.playerUnits.push(new Unit(this.playerBase.x, this.canvas.height - 50, config, 'player'));
+                    this.audio.playSpawn();
+                    this.spawnParticles(this.playerBase.x, this.canvas.height - 50, '#ffffff');
+                }
+            }
+
+            updateEnemySpawner(dt) {
+                this.enemySpawnTimer += dt;
+                
+                // 難度隨時間增加
+                this.difficultyLevel = 1 + Math.floor(this.playTime / 15000); // 每 15 秒升級
+                
+                let spawnInterval = Math.max(1000, 4000 - this.difficultyLevel * 300);
+
+                if (this.enemySpawnTimer > spawnInterval) {
+                    this.enemySpawnTimer = 0;
+                    
+                    // 根據難度決定生成的敵人
+                    let pool = [UNIT_CONFIGS.enemy[0]]; // 必定有基本怪
+                    if (this.difficultyLevel > 2) pool.push(UNIT_CONFIGS.enemy[1], UNIT_CONFIGS.enemy[2]);
+                    if (this.difficultyLevel > 5) pool.push(UNIT_CONFIGS.enemy[3]);
+                    
+                    // 機率選擇
+                    const config = pool[Math.floor(Math.random() * pool.length)];
+                    this.enemyUnits.push(new Unit(this.enemyBase.x, this.canvas.height - 50, config, 'enemy'));
+                }
+            }
+
+            spawnParticles(x, y, color) {
+                for (let i=0; i<15; i++) {
+                    this.vfx.push(new Particle(x, y, color));
+                }
+            }
+
+            addDamageText(x, y, amount, color) {
+                this.vfx.push(new FloatingText(x, y - 40, `-${amount}`, color));
+            }
+
+            update(dt) {
+                this.playTime = Date.now() - this.startTime;
+                
+                // 經濟更新
+                this.wallet += this.incomeRate * (dt / 1000);
+                if (this.wallet > this.maxWallet) this.wallet = this.maxWallet;
+
+                this.updateEnemySpawner(dt);
+
+                // 更新實體與戰鬥
+                const processCombat = (units, targets, baseTarget, allyColor, enemyColor) => {
+                    for (let i = units.length - 1; i >= 0; i--) {
+                        const u = units[i];
+                        const possibleTargets = [...targets, baseTarget];
+                        const action = u.update(dt, possibleTargets);
+                        
+                        if (action && action.type === 'attack') {
+                            this.audio.playHit();
+                            this.addDamageText(action.target.x, action.target.y, action.dmg, enemyColor);
+                            
+                            // 檢查目標是否死亡
+                            if (action.target.dead && targets.includes(action.target)) {
+                                this.spawnParticles(action.target.x, action.target.y, enemyColor);
+                                if (u.team === 'player') {
+                                    this.kills++;
+                                    this.wallet += 10; // 擊殺獎勵
+                                }
+                            }
+                        }
+                    }
+                };
+
+                processCombat(this.playerUnits, this.enemyUnits, this.enemyBase, '#3498db', '#e74c3c');
+                processCombat(this.enemyUnits, this.playerUnits, this.playerBase, '#e74c3c', '#3498db');
+
+                // 移除死亡單位
+                this.playerUnits = this.playerUnits.filter(u => !u.dead);
+                this.enemyUnits = this.enemyUnits.filter(u => !u.dead);
+
+                // 更新特效
+                for (let i = this.vfx.length - 1; i >= 0; i--) {
+                    this.vfx[i].update(dt);
+                    if (this.vfx[i].life <= 0) this.vfx.splice(i, 1);
+                }
+
+                // 勝利條件判斷
+                if (this.enemyBase.dead) {
+                    this.spawnParticles(this.enemyBase.x, this.enemyBase.y, '#e74c3c');
+                    this.audio.playBaseHit();
+                    this.gameOver(true);
+                } else if (this.playerBase.dead) {
+                    this.spawnParticles(this.playerBase.x, this.playerBase.y, '#3498db');
+                    this.audio.playBaseHit();
+                    this.gameOver(false);
+                }
+
+                this.updateDOM();
+            }
+
+            updateDOM() {
+                // 更新 HUD
+                document.getElementById('wallet-text').innerText = `${Math.floor(this.wallet)} / ${this.maxWallet}`;
+                
+                const pPct = Math.max(0, (this.playerBase.hp / this.playerBase.maxHp) * 100);
+                document.getElementById('player-hp-bar').style.width = `${pPct}%`;
+                
+                const ePct = Math.max(0, (this.enemyBase.hp / this.enemyBase.maxHp) * 100);
+                document.getElementById('enemy-hp-bar').style.width = `${ePct}%`;
+
+                const minutes = Math.floor(this.playTime / 60000).toString().padStart(2, '0');
+                const seconds = Math.floor((this.playTime % 60000) / 1000).toString().padStart(2, '0');
+                document.getElementById('timer-text').innerText = `${minutes}:${seconds}`;
+
+                // 更新按鈕狀態 (金錢與冷卻)
+                const now = Date.now();
+                UNIT_CONFIGS.player.forEach(config => {
+                    const btn = document.getElementById(`btn-${config.id}`);
+                    const cdOverlay = document.getElementById(`cd-${config.id}`);
+                    
+                    const timeSinceSpawn = now - this.cooldowns[config.id];
+                    let isCD = timeSinceSpawn < config.cd;
+                    
+                    if (isCD) {
+                        const cdPct = 100 - (timeSinceSpawn / config.cd) * 100;
+                        cdOverlay.style.height = `${cdPct}%`;
+                    } else {
+                        cdOverlay.style.height = '0%';
+                    }
+
+                    btn.disabled = isCD || this.wallet < config.cost;
+                });
+            }
+
+            draw() {
+                // 清除畫布
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+                // 畫背景草地線
+                this.ctx.fillStyle = 'rgba(0,0,0,0.2)';
+                this.ctx.fillRect(0, this.canvas.height - 50, this.canvas.width, 50);
+
+                // 繪製基地
+                this.playerBase.draw(this.ctx);
+                this.enemyBase.draw(this.ctx);
+
+                // 繪製單位 (根據 Y 排序確保重疊正確，雖在此皆為一維)
+                const allUnits = [...this.playerUnits, ...this.enemyUnits];
+                allUnits.forEach(u => u.draw(this.ctx));
+
+                // 繪製特效
+                this.vfx.forEach(v => v.draw(this.ctx));
+            }
+
+            loop(timestamp) {
+                if (this.state !== 'playing') return;
+
+                const dt = timestamp - this.lastTime;
+                this.lastTime = timestamp;
+
+                // 防止分頁背景造成的巨大 dt
+                if (dt < 100) {
+                    this.update(dt);
+                    this.draw();
+                }
+
+                requestAnimationFrame((t) => this.loop(t));
+            }
+        }
+
+        // 初始化遊戲
+        window.onload = () => {
+            const canvas = document.getElementById('gameCanvas');
+            const game = new Game(canvas);
+            
+            // 響應式處理 (畫布內部解析度固定，由 CSS 控制縮放)
+            // 防止 iOS 彈性捲動
+            document.body.addEventListener('touchmove', function(e) {
+                e.preventDefault();
+            }, { passive: false });
+        };
+    </script>
+</body>
+</html>

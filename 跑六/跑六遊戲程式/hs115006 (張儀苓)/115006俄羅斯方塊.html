@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="h-full dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>經典霓虹方塊拼圖 Neon Block Puzzle</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            display: ['Orbitron', 'sans-serif'],
+          },
+          colors: {
+            cyberDark: '#0d0e15',
+            cyberPanel: '#161925',
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      background-color: #08090f;
+      color: #e2e8f0;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
+    }
+
+    .shake {
+      animation: shake 0.18s cubic-bezier(.36,.07,.19,.97) both;
+    }
+
+    @keyframes shake {
+      10%, 90% { transform: translate3d(-2px, 1px, 0); }
+      20%, 80% { transform: translate3d(3px, -2px, 0); }
+      30%, 50%, 70% { transform: translate3d(-4px, 2px, 0); }
+      40%, 60% { transform: translate3d(4px, -1px, 0); }
+    }
+
+    .neon-border {
+      box-shadow: 0 0 20px rgba(0, 240, 240, 0.25), inset 0 0 15px rgba(0, 240, 240, 0.15);
+      border: 2px solid rgba(0, 240, 240, 0.4);
+    }
+
+    .panel-box {
+      background: rgba(22, 25, 37, 0.85);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .tray-slot {
+      background: rgba(13, 14, 21, 0.7);
+      border: 1px dashed rgba(255, 255, 255, 0.15);
+      transition: all 0.2s ease;
+      cursor: grab;
+    }
+    .tray-slot:active {
+      cursor: grabbing;
+    }
+    .tray-slot.empty {
+      opacity: 0.3;
+      cursor: default;
+      border-style: dotted;
+    }
+
+    /* Floating drag canvas overlay */
+    #dragCanvas {
+      position: fixed;
+      pointer-events: none;
+      z-index: 100;
+      display: none;
+      transform: translate(-50%, -50%);
+      filter: drop-shadow(0 10px 15px rgba(0,0,0,0.5));
+    }
+  </style>
+</head>
+<body class="h-full flex flex-col justify-between overflow-hidden font-sans select-none">
+
+  <!-- Top Navigation / Header -->
+  <header class="w-full py-2.5 px-4 flex justify-between items-center border-b border-gray-800 bg-cyberPanel/50 backdrop-blur-md">
+    <div class="flex items-center gap-2">
+      <i class="fa-solid fa-shapes text-cyan-400 text-2xl animate-pulse"></i>
+      <h1 class="font-display font-black text-xl tracking-widest bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-500">
+        NEON BLOCK
+      </h1>
+    </div>
+    <div class="flex items-center gap-2">
+      <button id="btnAudioToggle" class="px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 border border-gray-700 text-xs font-semibold text-gray-300 flex items-center gap-1.5 transition">
+        <i id="audioIcon" class="fa-solid fa-volume-high text-cyan-400"></i>
+        <span id="audioText">音效 ON</span>
+      </button>
+      <button id="btnRestart" class="px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 border border-gray-700 text-xs font-semibold text-gray-300 flex items-center gap-1.5 transition">
+        <i class="fa-solid fa-rotate-right text-amber-400"></i>
+        <span>重來</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Game Container -->
+  <main class="flex-1 flex flex-col items-center justify-between p-2 sm:p-4 max-w-lg mx-auto w-full">
+    
+    <!-- Top Stats Panel -->
+    <div class="w-full grid grid-cols-3 gap-2 my-1">
+      <div class="panel-box p-2 rounded-xl text-center">
+        <div class="text-[10px] font-display text-gray-400">SCORE</div>
+        <div id="scoreDisplay" class="font-display text-xl font-black text-cyan-400 truncate">0</div>
+      </div>
+      <div class="panel-box p-2 rounded-xl text-center">
+        <div class="text-[10px] font-display text-gray-400">HIGH</div>
+        <div id="highScoreDisplay" class="font-display text-xl font-bold text-yellow-400 truncate">0</div>
+      </div>
+      <div class="panel-box p-2 rounded-xl text-center">
+        <div class="text-[10px] font-display text-gray-400">CLEARED</div>
+        <div id="linesDisplay" class="font-display text-xl font-bold text-purple-400 truncate">0</div>
+      </div>
+    </div>
+
+    <!-- Center Canvas Game Grid (10x10) -->
+    <div id="canvasContainer" class="relative my-auto rounded-xl overflow-hidden neon-border bg-cyberDark shadow-2xl">
+      <canvas id="gameCanvas" width="340" height="340" class="block"></canvas>
+
+      <!-- Overlay: Start Screen -->
+      <div id="startOverlay" class="absolute inset-0 bg-cyberDark/95 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-20">
+        <i class="fa-solid fa-cubes text-5xl text-cyan-400 mb-4 animate-bounce"></i>
+        <h2 class="font-display text-2xl font-black text-white mb-2">霓虹方塊拼圖</h2>
+        <p class="text-xs text-gray-400 mb-6">拖曳下方方塊至棋盤中<br>填滿任意橫列或直行即可消除！</p>
+        <button id="btnStartGame" class="w-44 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 font-display font-bold text-white shadow-lg shadow-cyan-500/30 transition transform hover:scale-105 active:scale-95">
+          開始遊戲 START
+        </button>
+      </div>
+
+      <!-- Overlay: Game Over Screen -->
+      <div id="gameOverOverlay" class="hidden absolute inset-0 bg-cyberDark/95 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-20">
+        <div class="w-14 h-14 rounded-full bg-red-500/20 border border-red-500/50 flex items-center justify-center mb-2">
+          <i class="fa-solid fa-skull text-2xl text-red-500"></i>
+        </div>
+        <h2 class="font-display text-2xl font-black text-red-500 mb-1">GAME OVER</h2>
+        <p id="newHighRecordText" class="text-xs font-bold text-yellow-400 mb-3 hidden animate-pulse">🎉 刷出新最高紀錄！</p>
+        
+        <div class="bg-gray-900/80 p-3 rounded-xl border border-gray-800 w-full max-w-xs mb-4 space-y-1">
+          <div class="flex justify-between text-xs text-gray-400">
+            <span>本次得分</span>
+            <span id="finalScore" class="font-display font-bold text-white text-sm">0</span>
+          </div>
+          <div class="flex justify-between text-xs text-gray-400">
+            <span>最高紀錄</span>
+            <span id="finalHighScore" class="font-display font-bold text-yellow-400 text-sm">0</span>
+          </div>
+        </div>
+
+        <button id="btnRestartGame" class="w-44 py-3 rounded-xl bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-400 hover:to-pink-500 font-display font-bold text-white shadow-lg shadow-red-500/30 transition transform hover:scale-105 active:scale-95">
+          再玩一次 RESTART
+        </button>
+      </div>
+    </div>
+
+    <!-- Bottom Tray: 3 Draggable Piece Options -->
+    <div id="trayContainer" class="w-full grid grid-cols-3 gap-2.5 my-2">
+      <div id="slot0" class="tray-slot h-24 rounded-xl flex items-center justify-center p-1">
+        <canvas id="trayCanvas0" width="90" height="90"></canvas>
+      </div>
+      <div id="slot1" class="tray-slot h-24 rounded-xl flex items-center justify-center p-1">
+        <canvas id="trayCanvas1" width="90" height="90"></canvas>
+      </div>
+      <div id="slot2" class="tray-slot h-24 rounded-xl flex items-center justify-center p-1">
+        <canvas id="trayCanvas2" width="90" height="90"></canvas>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Floating Drag Avatar Canvas -->
+  <canvas id="dragCanvas" width="160" height="160"></canvas>
+
+  <footer class="py-1.5 text-center text-gray-600 text-[10px]">
+    霓虹方塊拼圖 Block Puzzle &copy; HTML5 Canvas Game
+  </footer>
+
+  <script>
+    /* ===================================================================
+       1. WEB AUDIO API SYNTHESIZER
+       =================================================================== */
+    class SoundEffects {
+      constructor() {
+        this.ctx = null;
+        this.muted = false;
+      }
+
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if (AudioContext) this.ctx = new AudioContext();
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      }
+
+      playTone(freq, type, duration, startVol = 0.1, endVol = 0) {
+        if (this.muted || !this.ctx) return;
+        try {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+          gain.gain.setValueAtTime(startVol, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(Math.max(endVol, 0.0001), this.ctx.currentTime + duration);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start();
+          osc.stop(this.ctx.currentTime + duration);
+        } catch (e) {}
+      }
+
+      pickup() {
+        this.playTone(400, 'sine', 0.06, 0.08);
+      }
+
+      place() {
+        this.playTone(220, 'triangle', 0.08, 0.15);
+      }
+
+      clear(combo = 1) {
+        if (this.muted || !this.ctx) return;
+        const baseFreq = 523.25; // C5
+        const notes = [baseFreq, baseFreq * 1.25, baseFreq * 1.5, baseFreq * 2];
+        notes.forEach((freq, idx) => {
+          setTimeout(() => {
+            this.playTone(freq * combo, 'square', 0.1, 0.12, 0.01);
+          }, idx * 45);
+        });
+      }
+
+      gameOver() {
+        if (this.muted || !this.ctx) return;
+        const freqs = [300, 250, 200, 140];
+        freqs.forEach((freq, idx) => {
+          setTimeout(() => {
+            this.playTone(freq, 'sawtooth', 0.2, 0.15, 0.01);
+          }, idx * 120);
+        });
+      }
+    }
+
+    const soundFX = new SoundEffects();
+
+    /* ===================================================================
+       2. GAME CONSTANTS & SHAPES LIBRARY
+       =================================================================== */
+    const GRID_SIZE = 10; // 10x10 Grid
+    let CELL_SIZE = 34;   // Calculated dynamically based on canvas width
+
+    // Block shapes definitions
+    const SHAPE_DEFINITIONS = [
+      // Single
+      [[1]],
+      // Lines
+      [[1, 1]],
+      [[1], [1]],
+      [[1, 1, 1]],
+      [[1], [1], [1]],
+      [[1, 1, 1, 1]],
+      [[1], [1], [1], [1]],
+      [[1, 1, 1, 1, 1]],
+      [[1], [1], [1], [1], [1]],
+      // Squares
+      [[1, 1], [1, 1]],
+      [[1, 1, 1], [1, 1, 1], [1, 1, 1]],
+      // L & J Shapes
+      [[1, 0], [1, 1]],
+      [[0, 1], [1, 1]],
+      [[1, 1], [1, 0]],
+      [[1, 1], [0, 1]],
+      [[1, 0, 0], [1, 0, 0], [1, 1, 1]],
+      [[0, 0, 1], [0, 0, 1], [1, 1, 1]],
+      // T Shapes
+      [[1, 1, 1], [0, 1, 0]],
+      [[0, 1, 0], [1, 1, 1]],
+      [[1, 0], [1, 1], [1, 0]],
+      [[0, 1], [1, 1], [0, 1]]
+    ];
+
+    const COLORS = [
+      { main: '#00f0f0', glow: 'rgba(0, 240, 240, 0.8)', border: '#80f8f8' }, // Cyan
+      { main: '#2060ff', glow: 'rgba(32, 96, 255, 0.8)', border: '#80a0ff' }, // Blue
+      { main: '#ff9000', glow: 'rgba(255, 144, 0, 0.8)', border: '#ffc080' }, // Orange
+      { main: '#ffe000', glow: 'rgba(255, 224, 0, 0.8)', border: '#fff080' }, // Yellow
+      { main: '#00e040', glow: 'rgba(0, 224, 64, 0.8)', border: '#80f0a0' },  // Green
+      { main: '#b020ff', glow: 'rgba(176, 32, 255, 0.8)', border: '#e080ff' }, // Purple
+      { main: '#ff2040', glow: 'rgba(255, 32, 64, 0.8)', border: '#ff8090' }   // Red
+    ];
+
+    /* ===================================================================
+       3. GAME STATE & PARTICLE SYSTEM
+       =================================================================== */
+    let canvas, ctx;
+    let dragCanvas, dragCtx;
+    let trayCanvases = [];
+    let trayCtxs = [];
+
+    let grid = Array.from({ length: GRID_SIZE }, () => Array(GRID_SIZE).fill(0));
+    let trayPieces = [null, null, null];
+
+    let score = 0;
+    let clearedLinesCount = 0;
+    let highScore = parseInt(localStorage.getItem('block_puzzle_high_score') || '0', 10);
+
+    let isGameOver = false;
+    let isPlaying = false;
+    let particles = [];
+
+    // Drag state
+    let activeDrag = null; // { slotIndex, shape, colorIdx, offsetX, offsetY }
+
+    class Particle {
+      constructor(x, y, color) {
+        this.x = x;
+        this.y = y;
+        this.color = color;
+        this.vx = (Math.random() - 0.5) * 7;
+        this.vy = (Math.random() - 0.5) * 7;
+        this.size = Math.random() * 4 + 2;
+        this.alpha = 1;
+        this.decay = Math.random() * 0.04 + 0.02;
+      }
+
+      update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.alpha -= this.decay;
+      }
+
+      draw(context) {
+        context.save();
+        context.globalAlpha = Math.max(0, this.alpha);
+        context.fillStyle = this.color;
+        context.shadowBlur = 6;
+        context.shadowColor = this.color;
+        context.fillRect(this.x, this.y, this.size, this.size);
+        context.restore();
+      }
+    }
+
+    /* ===================================================================
+       4. PIECE GENERATION & BOARD RENDERING
+       =================================================================== */
+    function getRandomPiece() {
+      const shapeIdx = Math.floor(Math.random() * SHAPE_DEFINITIONS.length);
+      const colorIdx = Math.floor(Math.random() * COLORS.length);
+      return {
+        matrix: SHAPE_DEFINITIONS[shapeIdx],
+        colorIdx: colorIdx
+      };
+    }
+
+    function fillTray() {
+      for (let i = 0; i < 3; i++) {
+        trayPieces[i] = getRandomPiece();
+      }
+      renderTray();
+      checkGameOver();
+    }
+
+    function drawCell(context, col, row, colorIdx, cellSize, isGhost = false) {
+      const color = COLORS[colorIdx];
+      const px = col * cellSize;
+      const py = row * cellSize;
+
+      if (isGhost) {
+        context.save();
+        context.strokeStyle = color.main;
+        context.lineWidth = 2;
+        context.shadowColor = color.main;
+        context.shadowBlur = 6;
+        context.strokeRect(px + 2, py + 2, cellSize - 4, cellSize - 4);
+        context.fillStyle = color.glow;
+        context.globalAlpha = 0.2;
+        context.fillRect(px + 2, py + 2, cellSize - 4, cellSize - 4);
+        context.restore();
+        return;
+      }
+
+      context.save();
+      context.fillStyle = color.main;
+      context.shadowColor = color.glow;
+      context.shadowBlur = 8;
+      context.fillRect(px + 1, py + 1, cellSize - 2, cellSize - 2);
+
+      context.strokeStyle = color.border;
+      context.lineWidth = 1;
+      context.strokeRect(px + 3, py + 3, cellSize - 6, cellSize - 6);
+      context.restore();
+    }
+
+    function drawGridLines() {
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= GRID_SIZE; i++) {
+        ctx.beginPath();
+        ctx.moveTo(0, i * CELL_SIZE);
+        ctx.lineTo(GRID_SIZE * CELL_SIZE, i * CELL_SIZE);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(i * CELL_SIZE, 0);
+        ctx.lineTo(i * CELL_SIZE, GRID_SIZE * CELL_SIZE);
+        ctx.stroke();
+      }
+    }
+
+    /* ===================================================================
+       5. MAIN RENDER LOOP & PLACEMENT VALIDATION
+       =================================================================== */
+    function renderBoard(hoverCol = -1, hoverRow = -1) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawGridLines();
+
+      // Draw placed blocks
+      for (let r = 0; r < GRID_SIZE; r++) {
+        for (let c = 0; c < GRID_SIZE; c++) {
+          if (grid[r][c] !== 0) {
+            drawCell(ctx, c, r, grid[r][c] - 1, CELL_SIZE);
+          }
+        }
+      }
+
+      // Draw hover ghost if dragging over grid
+      if (activeDrag && hoverCol >= 0 && hoverRow >= 0) {
+        const piece = activeDrag.piece;
+        if (canPlacePiece(piece.matrix, hoverCol, hoverRow)) {
+          const rows = piece.matrix.length;
+          const cols = piece.matrix[0].length;
+          for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+              if (piece.matrix[r][c] !== 0) {
+                drawCell(ctx, hoverCol + c, hoverRow + r, piece.colorIdx, CELL_SIZE, true);
+              }
+            }
+          }
+        }
+      }
+
+      // Update & Draw Particles
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.update();
+        p.draw(ctx);
+        if (p.alpha <= 0) particles.splice(i, 1);
+      }
+    }
+
+    function renderTray() {
+      for (let i = 0; i < 3; i++) {
+        const tCtx = trayCtxs[i];
+        const tCanvas = trayCanvases[i];
+        const slotEl = document.getElementById(`slot${i}`);
+
+        tCtx.clearRect(0, 0, tCanvas.width, tCanvas.height);
+        const piece = trayPieces[i];
+
+        if (!piece) {
+          slotEl.classList.add('empty');
+          continue;
+        }
+        slotEl.classList.remove('empty');
+
+        const matrix = piece.matrix;
+        const rows = matrix.length;
+        const cols = matrix[0].length;
+        const miniCell = 18;
+
+        const offsetX = (tCanvas.width - cols * miniCell) / 2;
+        const offsetY = (tCanvas.height - rows * miniCell) / 2;
+
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            if (matrix[r][c] !== 0) {
+              const color = COLORS[piece.colorIdx];
+              tCtx.save();
+              tCtx.fillStyle = color.main;
+              tCtx.shadowColor = color.glow;
+              tCtx.shadowBlur = 4;
+              tCtx.fillRect(offsetX + c * miniCell + 1, offsetY + r * miniCell + 1, miniCell - 2, miniCell - 2);
+              tCtx.restore();
+            }
+          }
+        }
+      }
+    }
+
+    function canPlacePiece(matrix, targetCol, targetRow) {
+      const rows = matrix.length;
+      const cols = matrix[0].length;
+
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          if (matrix[r][c] !== 0) {
+            const gridCol = targetCol + c;
+            const gridRow = targetRow + r;
+
+            if (gridCol < 0 || gridCol >= GRID_SIZE || gridRow < 0 || gridRow >= GRID_SIZE) {
+              return false;
+            }
+            if (grid[gridRow][gridCol] !== 0) {
+              return false;
+            }
+          }
+        }
+      }
+      return true;
+    }
+
+    /* ===================================================================
+       6. LINE CLEARING, SCORING & GAME OVER CHECKS
+       =================================================================== */
+    function placePiece(slotIndex, targetCol, targetRow) {
+      const piece = trayPieces[slotIndex];
+      const matrix = piece.matrix;
+      const rows = matrix.length;
+      const cols = matrix[0].length;
+      let blockCount = 0;
+
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          if (matrix[r][c] !== 0) {
+            grid[targetRow + r][targetCol + c] = piece.colorIdx + 1;
+            blockCount++;
+          }
+        }
+      }
+
+      score += blockCount * 10;
+      soundFX.place();
+      trayPieces[slotIndex] = null;
+
+      checkAndClearLines();
+      updateScoreUI();
+
+      // If all 3 tray pieces used, spawn new ones
+      if (trayPieces.every(p => p === null)) {
+        fillTray();
+      } else {
+        renderTray();
+        checkGameOver();
+      }
+    }
+
+    function checkAndClearLines() {
+      const fullRows = [];
+      const fullCols = [];
+
+      // Check full rows
+      for (let r = 0; r < GRID_SIZE; r++) {
+        if (grid[r].every(cell => cell !== 0)) {
+          fullRows.push(r);
+        }
+      }
+
+      // Check full columns
+      for (let c = 0; c < GRID_SIZE; c++) {
+        let isFull = true;
+        for (let r = 0; r < GRID_SIZE; r++) {
+          if (grid[r][c] === 0) {
+            isFull = false;
+            break;
+          }
+        }
+        if (isFull) fullCols.push(c);
+      }
+
+      const totalLines = fullRows.length + fullCols.length;
+      if (totalLines === 0) return;
+
+      // Spawn particles & clear cells
+      const cellsToClear = new Set();
+      fullRows.forEach(r => {
+        for (let c = 0; c < GRID_SIZE; c++) cellsToClear.add(`${r},${c}`);
+      });
+      fullCols.forEach(c => {
+        for (let r = 0; r < GRID_SIZE; r++) cellsToClear.add(`${r},${c}`);
+      });
+
+      cellsToClear.forEach(key => {
+        const [r, c] = key.split(',').map(Number);
+        const colorIdx = grid[r][c] - 1;
+        const color = (colorIdx >= 0 && colorIdx < COLORS.length) ? COLORS[colorIdx].main : '#00f0f0';
+        
+        for (let p = 0; p < 6; p++) {
+          particles.push(new Particle(c * CELL_SIZE + CELL_SIZE/2, r * CELL_SIZE + CELL_SIZE/2, color));
+        }
+        grid[r][c] = 0;
+      });
+
+      clearedLinesCount += totalLines;
+      const bonusScore = totalLines * 100 * totalLines; // Exponential combo bonus
+      score += bonusScore;
+
+      soundFX.clear(totalLines);
+      triggerScreenShake();
+      showClearAnnouncement(totalLines);
+    }
+
+    function checkGameOver() {
+      const activePieces = trayPieces.filter(p => p !== null);
+      if (activePieces.length === 0) return;
+
+      let canFitAny = false;
+      for (let piece of activePieces) {
+        for (let r = 0; r < GRID_SIZE; r++) {
+          for (let c = 0; c < GRID_SIZE; c++) {
+            if (canPlacePiece(piece.matrix, c, r)) {
+              canFitAny = true;
+              break;
+            }
+          }
+          if (canFitAny) break;
+        }
+        if (canFitAny) break;
+      }
+
+      if (!canFitAny) {
+        triggerGameOver();
+      }
+    }
+
+    /* ===================================================================
+       7. DRAG & DROP INTERACTION (TOUCH & MOUSE)
+       =================================================================== */
+    function getGridPosFromPointer(clientX, clientY) {
+      if (!activeDrag) return { col: -1, row: -1 };
+
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = rect.width / GRID_SIZE;
+      const scaleY = rect.height / GRID_SIZE;
+
+      const matrix = activeDrag.piece.matrix;
+      const pieceCols = matrix[0].length;
+      const pieceRows = matrix.length;
+
+      // Align piece center with pointer position
+      const targetX = clientX - (pieceCols * scaleX) / 2;
+      const targetY = clientY - (pieceRows * scaleY) / 2;
+
+      const col = Math.round((targetX - rect.left) / scaleX);
+      const row = Math.round((targetY - rect.top) / scaleY);
+
+      return { col, row };
+    }
+
+    function setupDragListeners() {
+      const handlePointerDown = (e, slotIdx) => {
+        if (!isPlaying || isGameOver || !trayPieces[slotIdx]) return;
+        e.preventDefault();
+
+        soundFX.init();
+        soundFX.pickup();
+
+        const piece = trayPieces[slotIdx];
+        const matrix = piece.matrix;
+        const rows = matrix.length;
+        const cols = matrix[0].length;
+
+        // Render dragging piece to floating avatar canvas
+        const dragCellSize = CELL_SIZE;
+        dragCanvas.width = cols * dragCellSize;
+        dragCanvas.height = rows * dragCellSize;
+        dragCtx.clearRect(0, 0, dragCanvas.width, dragCanvas.height);
+
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            if (matrix[r][c] !== 0) {
+              drawCell(dragCtx, c, r, piece.colorIdx, dragCellSize);
+            }
+          }
+        }
+
+        // Touch offset so finger doesn't block placement vision
+        const offsetY = e.pointerType === 'touch' ? -65 : -25;
+
+        activeDrag = {
+          slotIndex: slotIdx,
+          piece: piece,
+          offsetY: offsetY
+        };
+
+        updateDragAvatar(e.clientX, e.clientY + offsetY);
+        dragCanvas.style.display = 'block';
+      };
+
+      for (let i = 0; i < 3; i++) {
+        const slotEl = document.getElementById(`slot${i}`);
+        slotEl.addEventListener('pointerdown', (e) => handlePointerDown(e, i));
+      }
+
+      window.addEventListener('pointermove', (e) => {
+        if (!activeDrag) return;
+        e.preventDefault();
+
+        const targetY = e.clientY + activeDrag.offsetY;
+        updateDragAvatar(e.clientX, targetY);
+
+        const { col, row } = getGridPosFromPointer(e.clientX, targetY);
+        if (canPlacePiece(activeDrag.piece.matrix, col, row)) {
+          renderBoard(col, row);
+        } else {
+          renderBoard(-1, -1);
+        }
+      }, { passive: false });
+
+      window.addEventListener('pointerup', (e) => {
+        if (!activeDrag) return;
+
+        const targetY = e.clientY + activeDrag.offsetY;
+        const { col, row } = getGridPosFromPointer(e.clientX, targetY);
+
+        if (canPlacePiece(activeDrag.piece.matrix, col, row)) {
+          placePiece(activeDrag.slotIndex, col, row);
+        }
+
+        activeDrag = null;
+        dragCanvas.style.display = 'none';
+        renderBoard();
+      });
+    }
+
+    function updateDragAvatar(x, y) {
+      dragCanvas.style.left = `${x}px`;
+      dragCanvas.style.top = `${y}px`;
+    }
+
+    /* ===================================================================
+       8. UI NOTIFICATIONS & GAME CONTROLS
+       =================================================================== */
+    function updateScoreUI() {
+      document.getElementById('scoreDisplay').innerText = score.toLocaleString();
+      document.getElementById('linesDisplay').innerText = clearedLinesCount;
+
+      if (score > highScore) {
+        highScore = score;
+        localStorage.setItem('block_puzzle_high_score', highScore.toString());
+      }
+      document.getElementById('highScoreDisplay').innerText = highScore.toLocaleString();
+    }
+
+    function showClearAnnouncement(count) {
+      const labels = ['', 'SINGLE!', 'DOUBLE COMBO!', 'TRIPLE CLEAR!', '⚡ MEGA CLEAR! ⚡'];
+      const text = labels[count] || `${count} LINES COMBO!`;
+      const container = document.getElementById('canvasContainer');
+      
+      const popup = document.createElement('div');
+      popup.className = 'absolute inset-x-0 top-1/3 flex justify-center items-center pointer-events-none z-30 transition-all duration-300 transform scale-110';
+      popup.innerHTML = `<span class="px-4 py-2 rounded-xl bg-cyan-500/20 border border-cyan-400 text-cyan-300 font-display font-black text-lg shadow-lg shadow-cyan-500/50 backdrop-blur-sm animate-pulse">${text}</span>`;
+      
+      container.appendChild(popup);
+      setTimeout(() => {
+        if (popup.parentNode) popup.parentNode.removeChild(popup);
+      }, 800);
+    }
+
+    function triggerScreenShake() {
+      const container = document.getElementById('canvasContainer');
+      container.classList.remove('shake');
+      void container.offsetWidth;
+      container.classList.add('shake');
+    }
+
+    function startGame() {
+      soundFX.init();
+      grid = Array.from({ length: GRID_SIZE }, () => Array(GRID_SIZE).fill(0));
+      score = 0;
+      clearedLinesCount = 0;
+      isGameOver = false;
+      isPlaying = true;
+      particles = [];
+
+      updateScoreUI();
+      document.getElementById('startOverlay').classList.add('hidden');
+      document.getElementById('gameOverOverlay').classList.add('hidden');
+      document.getElementById('newHighRecordText').classList.add('hidden');
+
+      fillTray();
+      renderBoard();
+      requestAnimationFrame(gameLoop);
+    }
+
+    function triggerGameOver() {
+      isGameOver = true;
+      isPlaying = false;
+      soundFX.gameOver();
+
+      document.getElementById('finalScore').innerText = score.toLocaleString();
+      document.getElementById('finalHighScore').innerText = highScore.toLocaleString();
+      
+      if (score >= highScore && score > 0) {
+        document.getElementById('newHighRecordText').classList.remove('hidden');
+      }
+
+      document.getElementById('gameOverOverlay').classList.remove('hidden');
+    }
+
+    function gameLoop() {
+      if (isPlaying) {
+        renderBoard();
+        requestAnimationFrame(gameLoop);
+      }
+    }
+
+    /* ===================================================================
+       9. INITIALIZATION
+       =================================================================== */
+    window.onload = function () {
+      canvas = document.getElementById('gameCanvas');
+      ctx = canvas.getContext('2d');
+
+      dragCanvas = document.getElementById('dragCanvas');
+      dragCtx = dragCanvas.getContext('2d');
+
+      for (let i = 0; i < 3; i++) {
+        const tCanvas = document.getElementById(`trayCanvas${i}`);
+        trayCanvases.push(tCanvas);
+        trayCtxs.push(tCanvas.getContext('2d'));
+      }
+
+      CELL_SIZE = canvas.width / GRID_SIZE;
+      document.getElementById('highScoreDisplay').innerText = highScore.toLocaleString();
+
+      // Bind UI event buttons
+      document.getElementById('btnStartGame').addEventListener('click', startGame);
+      document.getElementById('btnRestartGame').addEventListener('click', startGame);
+      document.getElementById('btnRestart').addEventListener('click', startGame);
+
+      const btnAudioToggle = document.getElementById('btnAudioToggle');
+      btnAudioToggle.addEventListener('click', () => {
+        soundFX.init();
+        soundFX.muted = !soundFX.muted;
+        document.getElementById('audioText').innerText = soundFX.muted ? '音效 OFF' : '音效 ON';
+        document.getElementById('audioIcon').className = soundFX.muted ? 'fa-solid fa-volume-xmark text-gray-500' : 'fa-solid fa-volume-high text-cyan-400';
+      });
+
+      setupDragListeners();
+      renderBoard();
+    };
+  </script>
+</body>
+</html>

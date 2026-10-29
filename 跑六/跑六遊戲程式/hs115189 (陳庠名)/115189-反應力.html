@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>反應力測試</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            /* 防止行動裝置雙擊放大及選取文字 */
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            background-color: #2563eb; /* 預設藍色 */
+        }
+        
+        /* 避免顏色漸變，確保反應時間的視覺提示是瞬間的 */
+        #gameArea {
+            transition: none; 
+        }
+    </style>
+</head>
+<body class="h-screen w-screen">
+
+    <div id="gameArea" class="w-full h-full flex flex-col items-center justify-center cursor-pointer text-white bg-blue-600">
+        
+        <!-- 頂部最佳紀錄 -->
+        <div class="absolute top-6 right-8 text-xl md:text-2xl font-bold opacity-80 tracking-wide">
+            最佳紀錄: <span id="bestTimeDisplay" class="text-yellow-300">-</span> ms
+        </div>
+
+        <!-- 中央提示文字 -->
+        <div class="flex flex-col items-center px-4 text-center">
+            <h1 id="mainText" class="text-5xl md:text-8xl font-black mb-6 drop-shadow-lg">
+                反應力測試
+            </h1>
+            <p id="subText" class="text-xl md:text-3xl font-medium opacity-90">
+                點擊畫面任何地方開始
+            </p>
+        </div>
+
+        <!-- 底部提示 -->
+        <div id="instruction" class="absolute bottom-8 text-sm md:text-base text-gray-200 opacity-60">
+            請在畫面變成綠色時，以最快速度點擊螢幕
+        </div>
+    </div>
+
+    <script>
+        // --- DOM 元素 ---
+        const gameArea = document.getElementById('gameArea');
+        const mainText = document.getElementById('mainText');
+        const subText = document.getElementById('subText');
+        const bestTimeDisplay = document.getElementById('bestTimeDisplay');
+        const instruction = document.getElementById('instruction');
+
+        // --- 遊戲狀態變數 ---
+        // 狀態包含：IDLE (閒置), WAITING (等待變綠), READY (綠色可點擊), RESULT (顯示結果), EARLY (太早點擊)
+        let gameState = 'IDLE'; 
+        let timeoutId = null;
+        let startTime = 0;
+        
+        // 讀取最高分紀錄 (反應時間越低越好)
+        let bestTime = localStorage.getItem('reactionBestTime');
+        if (bestTime) {
+            bestTimeDisplay.textContent = bestTime;
+        }
+
+        // --- 音效處理 ---
+        let audioCtx;
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        function playBeep(frequency, type = 'sine') {
+            if (!audioCtx) return;
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            
+            oscillator.type = type;
+            oscillator.frequency.setValueAtTime(frequency, audioCtx.currentTime);
+            
+            gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            
+            oscillator.start();
+            oscillator.stop(audioCtx.currentTime + 0.1);
+        }
+
+        // --- 核心遊戲邏輯 ---
+        function handleInteraction(e) {
+            if (e) e.preventDefault();
+            initAudio();
+
+            switch (gameState) {
+                case 'IDLE':
+                case 'RESULT':
+                case 'EARLY':
+                    startWaiting();
+                    break;
+                case 'WAITING':
+                    tooEarly();
+                    break;
+                case 'READY':
+                    recordTime();
+                    break;
+            }
+        }
+
+        function startWaiting() {
+            gameState = 'WAITING';
+            
+            // 變更畫面為紅色
+            gameArea.classList.remove('bg-blue-600', 'bg-green-500');
+            gameArea.classList.add('bg-red-500');
+            
+            mainText.textContent = '準備...';
+            subText.textContent = '等待畫面變為綠色';
+            instruction.classList.add('hidden');
+
+            // 設定隨機等待時間 (2000ms ~ 5000ms)
+            const randomDelay = Math.floor(Math.random() * 3000) + 2000;
+            timeoutId = setTimeout(turnGreen, randomDelay);
+        }
+
+        function turnGreen() {
+            gameState = 'READY';
+            
+            // 變更畫面為綠色
+            gameArea.classList.remove('bg-red-500');
+            gameArea.classList.add('bg-green-500');
+            
+            mainText.textContent = '點擊！';
+            subText.textContent = '';
+            
+            playBeep(800, 'square'); // 提示音
+            startTime = Date.now(); // 記錄開始時間
+        }
+
+        function tooEarly() {
+            gameState = 'EARLY';
+            clearTimeout(timeoutId); // 取消變綠色的計時器
+            
+            // 變更畫面回藍色
+            gameArea.classList.remove('bg-red-500', 'bg-green-500');
+            gameArea.classList.add('bg-blue-600');
+            
+            mainText.textContent = '太早了！';
+            subText.textContent = '點擊畫面重試';
+            instruction.classList.remove('hidden');
+        }
+
+        function recordTime() {
+            const reactionTime = Date.now() - startTime;
+            gameState = 'RESULT';
+            
+            // 變更畫面回藍色
+            gameArea.classList.remove('bg-red-500', 'bg-green-500');
+            gameArea.classList.add('bg-blue-600');
+            
+            mainText.textContent = `${reactionTime} ms`;
+            
+            // 檢查是否打破紀錄 (反應時間越小越好)
+            if (!bestTime || reactionTime < parseInt(bestTime)) {
+                bestTime = reactionTime;
+                localStorage.setItem('reactionBestTime', bestTime);
+                bestTimeDisplay.textContent = bestTime;
+                subText.innerHTML = '🎉 <span class="text-yellow-300 font-bold">新紀錄！</span> 點擊畫面再次挑戰';
+                playBeep(1200); // 破紀錄音效
+            } else {
+                subText.textContent = '點擊畫面再次挑戰';
+            }
+            
+            instruction.classList.remove('hidden');
+        }
+
+        // --- 事件綁定 ---
+        // 使用 pointerdown 來確保手機與滑鼠都能快速觸發，不受點擊延遲影響
+        gameArea.addEventListener('pointerdown', handleInteraction);
+        
+        // 額外防護：避免鍵盤操作干擾，支援空白鍵觸發
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                handleInteraction();
+            }
+        });
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>極速手速測試 | Click Speed Test (CPS)</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=Noto+Sans+TC:wght@400;700;900&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        orbitron: ['Orbitron', 'sans-serif'],
+                        noto: ['Noto Sans TC', 'sans-serif'],
+                    },
+                    colors: {
+                        arcade: {
+                            bg: '#0B0F19',
+                            card: '#161F33',
+                            accent: '#00F0FF',
+                            pink: '#FF007A',
+                            gold: '#FFD700',
+                            purple: '#A855F7'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Custom styles & animations */
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #0B0F19;
+            color: #FFFFFF;
+            touch-action: manipulation;
+            user-select: none;
+            -webkit-user-select: none;
+            overflow-x: hidden;
+        }
+
+        .font-orbitron {
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        /* Glassmorphism Effect */
+        .glass-card {
+            background: rgba(22, 31, 51, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Pulse glow animation for ambient design */
+        @keyframes ambientGlow {
+            0%, 100% { opacity: 0.3; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(1.05); }
+        }
+        .ambient-bg {
+            animation: ambientGlow 8s infinite ease-in-out;
+        }
+
+        /* Click Target Dynamic Glow Levels */
+        .click-btn {
+            transition: all 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            touch-action: none;
+        }
+
+        .click-btn:active {
+            transform: scale(0.92) !important;
+        }
+
+        /* Tier Glow Styles */
+        .glow-tier-0 {
+            box-shadow: 0 0 25px rgba(0, 240, 255, 0.4), inset 0 0 15px rgba(0, 240, 255, 0.2);
+            border-color: #00F0FF;
+        }
+        .glow-tier-1 {
+            box-shadow: 0 0 35px rgba(168, 85, 247, 0.6), inset 0 0 20px rgba(168, 85, 247, 0.3);
+            border-color: #A855F7;
+        }
+        .glow-tier-2 {
+            box-shadow: 0 0 50px rgba(255, 0, 122, 0.8), inset 0 0 25px rgba(255, 0, 122, 0.4);
+            border-color: #FF007A;
+        }
+        .glow-tier-3 {
+            box-shadow: 0 0 70px rgba(255, 215, 0, 1), 0 0 30px rgba(255, 215, 0, 0.6), inset 0 0 30px rgba(255, 215, 0, 0.5);
+            border-color: #FFD700;
+            animation: superGlow 0.4s infinite alternate;
+        }
+
+        @keyframes superGlow {
+            from { filter: brightness(1); }
+            to { filter: brightness(1.3); }
+        }
+
+        /* Dynamic Floating Text (+1) */
+        .float-text {
+            position: absolute;
+            pointer-events: none;
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900;
+            animation: floatUpFade 0.6s cubic-bezier(0.1, 0.8, 0.3, 1) FORWARDS;
+            z-index: 50;
+        }
+
+        @keyframes floatUpFade {
+            0% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(0.8) translateY(0);
+            }
+            50% {
+                transform: translate(-50%, -50%) scale(1.3) translateY(-25px);
+            }
+            100% {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(1) translateY(-50px);
+            }
+        }
+
+        /* Particle Canvas Overlay */
+        #particleCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 40;
+        }
+
+        /* Modal backdrop blur */
+        .modal-active {
+            display: flex !important;
+            animation: fadeIn 0.3s ease-out forwards;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between items-center p-4 relative overflow-hidden">
+
+    <!-- Ambient Dynamic Background Gradients -->
+    <div class="absolute -top-32 -left-32 w-96 h-96 bg-arcade-accent rounded-full opacity-20 filter blur-3xl pointer-events-none ambient-bg"></div>
+    <div class="absolute -bottom-32 -right-32 w-96 h-96 bg-arcade-pink rounded-full opacity-20 filter blur-3xl pointer-events-none ambient-bg" style="animation-delay: -4s;"></div>
+
+    <!-- Canvas for Dynamic Click Burst Particles -->
+    <canvas id="particleCanvas"></canvas>
+
+    <!-- Header Section -->
+    <header class="w-full max-w-xl flex justify-between items-center z-10 my-2">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-arcade-accent to-arcade-purple flex items-center justify-center text-black font-black text-xl shadow-lg">
+                <i class="fa-solid fa-bolt"></i>
+            </div>
+            <div>
+                <h1 class="text-xl md:text-2xl font-black font-orbitron tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-arcade-accent via-white to-arcade-pink">
+                    CPS TESTER
+                </h1>
+                <p class="text-xs text-gray-400">極速點擊手速極限挑戰</p>
+            </div>
+        </div>
+
+        <!-- Mute Sound Toggle Button -->
+        <button id="soundToggleBtn" class="glass-card px-3 py-2 rounded-xl text-gray-300 hover:text-white transition flex items-center gap-2 text-sm">
+            <i class="fa-solid fa-volume-high text-arcade-accent" id="soundIcon"></i>
+            <span id="soundText" class="hidden sm:inline">音效開啟</span>
+        </button>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="w-full max-w-xl flex flex-col items-center gap-5 z-10 my-auto">
+
+        <!-- Top Status Bar (Time / Clicks / CPS) -->
+        <div class="w-full grid grid-cols-3 gap-3">
+            <div class="glass-card p-3 rounded-2xl flex flex-col items-center justify-center border-l-4 border-arcade-accent">
+                <span class="text-xs text-gray-400 font-bold mb-1">剩餘時間</span>
+                <span id="timeDisplay" class="text-2xl md:text-3xl font-black font-orbitron text-arcade-accent">10.0s</span>
+            </div>
+            <div class="glass-card p-3 rounded-2xl flex flex-col items-center justify-center border-l-4 border-arcade-pink">
+                <span class="text-xs text-gray-400 font-bold mb-1">總點擊數</span>
+                <span id="scoreDisplay" class="text-2xl md:text-3xl font-black font-orbitron text-white">0</span>
+            </div>
+            <div class="glass-card p-3 rounded-2xl flex flex-col items-center justify-center border-l-4 border-arcade-gold">
+                <span class="text-xs text-gray-400 font-bold mb-1">即時 CPS</span>
+                <span id="cpsDisplay" class="text-2xl md:text-3xl font-black font-orbitron text-arcade-gold">0.0</span>
+            </div>
+        </div>
+
+        <!-- Mode Selector Buttons -->
+        <div class="glass-card p-1.5 rounded-2xl flex w-full gap-1 text-sm font-orbitron font-bold">
+            <button data-time="5" class="mode-btn flex-1 py-2.5 rounded-xl transition-all duration-200 text-gray-400 hover:text-white">5 秒模式</button>
+            <button data-time="10" class="mode-btn flex-1 py-2.5 rounded-xl transition-all duration-200 text-gray-400 hover:text-white active-mode">10 秒模式</button>
+            <button data-time="30" class="mode-btn flex-1 py-2.5 rounded-xl transition-all duration-200 text-gray-400 hover:text-white">30 秒模式</button>
+        </div>
+
+        <!-- Main Interactive Click Area Button -->
+        <div class="relative w-full aspect-square max-w-[340px] flex items-center justify-center my-2">
+            <!-- Pulsing Rings -->
+            <div id="ringOuter" class="absolute inset-0 rounded-full border-2 border-arcade-accent opacity-20 transition-all duration-300"></div>
+            <div id="ringInner" class="absolute inset-4 rounded-full border border-dashed border-arcade-purple opacity-30 animate-spin-slow"></div>
+
+            <!-- Central Big Click Target Button -->
+            <button id="clickArea" class="click-btn w-64 h-64 md:w-72 md:h-72 rounded-full bg-arcade-card border-4 border-arcade-accent flex flex-col items-center justify-center gap-2 cursor-pointer shadow-2xl relative overflow-hidden glow-tier-0">
+                
+                <!-- Idle State Content -->
+                <div id="idleStateUI" class="flex flex-col items-center gap-2">
+                    <i class="fa-solid fa-hand-pointer text-4xl text-arcade-accent animate-bounce mb-1"></i>
+                    <span class="text-xl font-black text-white font-noto tracking-wide">點擊此處開始</span>
+                    <span class="text-xs text-gray-400 bg-black/40 px-3 py-1 rounded-full border border-white/10">首下點擊即刻倒數</span>
+                </div>
+
+                <!-- Active Playing State Content -->
+                <div id="playingStateUI" class="hidden flex-col items-center">
+                    <span class="text-xs uppercase tracking-widest text-gray-400 font-bold mb-1">瘋狂連點中！</span>
+                    <span id="activeClickCounter" class="text-6xl font-black font-orbitron text-white">0</span>
+                    <span id="comboBadge" class="mt-2 text-xs font-black font-orbitron px-3 py-1 rounded-full bg-arcade-accent/20 text-arcade-accent border border-arcade-accent/30">
+                        SPEED: 0.0 CPS
+                    </span>
+                </div>
+            </button>
+        </div>
+
+        <!-- High Score Card for Current Mode -->
+        <div class="glass-card w-full px-5 py-3 rounded-2xl flex justify-between items-center text-sm">
+            <div class="flex items-center gap-2 text-gray-300">
+                <i class="fa-solid fa-trophy text-arcade-gold text-base"></i>
+                <span>此模式最高紀錄：</span>
+            </div>
+            <div class="font-orbitron font-bold text-white text-base">
+                <span id="highScoreClicks" class="text-arcade-gold">0</span> 次 
+                <span class="text-xs text-gray-500 font-normal">|</span> 
+                <span id="highScoreCPS" class="text-arcade-accent">0.0</span> CPS
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="w-full max-w-xl text-center text-xs text-gray-500 py-2 z-10">
+        HTML5 / Canvas / Web Audio API • 瘋狂手速極限測試
+    </footer>
+
+    <!-- Game Over Modal Window -->
+    <div id="gameOverModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 hidden items-center justify-center p-4">
+        <div class="glass-card w-full max-w-md p-6 md:p-8 rounded-3xl border border-white/20 flex flex-col items-center text-center relative overflow-hidden shadow-2xl">
+            <!-- Modal Header Badge -->
+            <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-arcade-pink to-arcade-gold flex items-center justify-center text-black font-black text-3xl shadow-lg mb-4 animate-bounce">
+                <i class="fa-solid fa-crown"></i>
+            </div>
+
+            <h2 class="text-2xl font-black font-noto text-white mb-1">測試結束！</h2>
+            <p class="text-xs text-gray-400 mb-6">您的極速手速結果報告</p>
+
+            <!-- Player Rank Title Banner -->
+            <div id="rankTitleBadge" class="w-full py-2.5 px-4 rounded-xl font-black text-lg md:text-xl font-noto tracking-wider mb-6 bg-gradient-to-r from-arcade-accent via-arcade-purple to-arcade-pink text-white shadow-md">
+                神級手速大師
+            </div>
+
+            <!-- Stats Grid -->
+            <div class="grid grid-cols-2 gap-3 w-full mb-6">
+                <div class="bg-black/40 p-3 rounded-2xl border border-white/5 flex flex-col items-center">
+                    <span class="text-xs text-gray-400 mb-1">點擊總數</span>
+                    <span id="modalTotalClicks" class="text-3xl font-black font-orbitron text-white">0</span>
+                    <span class="text-[10px] text-gray-500 mt-1">Clicks</span>
+                </div>
+                <div class="bg-black/40 p-3 rounded-2xl border border-white/5 flex flex-col items-center">
+                    <span class="text-xs text-gray-400 mb-1">平均 CPS</span>
+                    <span id="modalAvgCPS" class="text-3xl font-black font-orbitron text-arcade-gold">0.0</span>
+                    <span class="text-[10px] text-gray-500 mt-1">Clicks / Sec</span>
+                </div>
+            </div>
+
+            <!-- High Score Notice -->
+            <div id="newRecordNotice" class="hidden text-xs font-bold text-arcade-gold mb-6 flex items-center gap-1.5 animate-pulse">
+                <i class="fa-solid fa-fire"></i> 恭喜刷新此模式的最高紀錄！
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex gap-3 w-full">
+                <button id="restartBtn" class="flex-1 py-3.5 rounded-xl font-bold font-noto bg-gradient-to-r from-arcade-accent to-blue-600 text-black hover:brightness-110 active:scale-95 transition flex items-center justify-center gap-2 shadow-lg">
+                    <i class="fa-solid fa-rotate-right"></i> 再試一次
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* ===================================================================
+           1. GAME STATE & VARIABLES
+           =================================================================== */
+        const gameState = {
+            status: 'IDLE', // 'IDLE', 'PLAYING', 'FINISHED'
+            selectedTime: 10, // Default 10 seconds
+            timeLeft: 10.0,
+            clicks: 0,
+            startTime: null,
+            timerInterval: null,
+            cpsHistory: [], // Array of timestamp records for CPS calculation
+            soundMuted: false,
+            highScores: {
+                5: { clicks: 0, cps: 0 },
+                10: { clicks: 0, cps: 0 },
+                30: { clicks: 0, cps: 0 }
+            }
+        };
+
+        /* ===================================================================
+           2. DOM ELEMENTS SELECTION
+           =================================================================== */
+        const timeDisplay = document.getElementById('timeDisplay');
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const cpsDisplay = document.getElementById('cpsDisplay');
+        const activeClickCounter = document.getElementById('activeClickCounter');
+        const clickArea = document.getElementById('clickArea');
+        const idleStateUI = document.getElementById('idleStateUI');
+        const playingStateUI = document.getElementById('playingStateUI');
+        const comboBadge = document.getElementById('comboBadge');
+        const modeBtns = document.querySelectorAll('.mode-btn');
+        const ringOuter = document.getElementById('ringOuter');
+
+        const highScoreClicks = document.getElementById('highScoreClicks');
+        const highScoreCPS = document.getElementById('highScoreCPS');
+
+        const gameOverModal = document.getElementById('gameOverModal');
+        const modalTotalClicks = document.getElementById('modalTotalClicks');
+        const modalAvgCPS = document.getElementById('modalAvgCPS');
+        const rankTitleBadge = document.getElementById('rankTitleBadge');
+        const newRecordNotice = document.getElementById('newRecordNotice');
+        const restartBtn = document.getElementById('restartBtn');
+
+        const soundToggleBtn = document.getElementById('soundToggleBtn');
+        const soundIcon = document.getElementById('soundIcon');
+        const soundText = document.getElementById('soundText');
+
+        /* Particle Canvas */
+        const canvas = document.getElementById('particleCanvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+
+        /* ===================================================================
+           3. WEB AUDIO API SYNTHESIZER (No external MP3 required)
+           =================================================================== */
+        let audioCtx = null;
+
+        function initAudioContext() {
+            if (!audioCtx) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                audioCtx = new AudioContext();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function playSound(type) {
+            if (gameState.soundMuted) return;
+            initAudioContext();
+            if (!audioCtx) return;
+
+            const now = audioCtx.currentTime;
+
+            if (type === 'click') {
+                // Short crisp pop sound with frequency ramp
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                
+                // Pitch varies slightly based on current CPS
+                const currentCPS = parseFloat(cpsDisplay.textContent) || 0;
+                const baseFreq = 300 + Math.min(currentCPS * 30, 600);
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(baseFreq, now);
+                osc.frequency.exponentialRampToValueAtTime(baseFreq * 2.5, now + 0.05);
+
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                osc.start(now);
+                osc.stop(now + 0.05);
+
+            } else if (type === 'beep') {
+                // Countdown Warning Beep
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(880, now); // A5 note
+
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                osc.start(now);
+                osc.stop(now + 0.1);
+
+            } else if (type === 'fanfare') {
+                // Victory Fanfare Chords
+                const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+                notes.forEach((freq, idx) => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, now + idx * 0.08);
+
+                    gain.gain.setValueAtTime(0.2, now + idx * 0.08);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.3);
+
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+
+                    osc.start(now + idx * 0.08);
+                    osc.stop(now + idx * 0.08 + 0.3);
+                });
+            }
+        }
+
+        /* ===================================================================
+           4. PARTICLE ENGINE & CANVAS ANIMATION
+           =================================================================== */
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.radius = Math.random() * 4 + 2;
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 6 + 2;
+                this.vx = Math.cos(angle) * speed;
+                this.vy = Math.sin(angle) * speed;
+                this.alpha = 1;
+                this.decay = Math.random() * 0.03 + 0.02;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.alpha -= this.decay;
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.globalAlpha = Math.max(this.alpha, 0);
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.shadowColor = this.color;
+                ctx.shadowBlur = 8;
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        function createBurst(x, y, tierColor) {
+            const particleCount = 12;
+            for (let i = 0; i < particleCount; i++) {
+                particles.push(new Particle(x, y, tierColor));
+            }
+        }
+
+        function animateParticles() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            for (let i = particles.length - 1; i >= 0; i--) {
+                particles[i].update();
+                particles[i].draw(ctx);
+                if (particles[i].alpha <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+            requestAnimationFrame(animateParticles);
+        }
+        animateParticles();
+
+        /* ===================================================================
+           5. FLOATING +1 TEXT CREATOR
+           =================================================================== */
+        function createFloatingText(x, y) {
+            const el = document.createElement('div');
+            el.className = 'float-text text-arcade-accent text-xl md:text-2xl';
+            el.textContent = '+1';
+            el.style.left = `${x}px`;
+            el.style.top = `${y}px`;
+
+            document.body.appendChild(el);
+
+            setTimeout(() => {
+                if (el && el.parentNode) {
+                    el.parentNode.removeChild(el);
+                }
+            }, 600);
+        }
+
+        /* ===================================================================
+           6. LOCAL STORAGE & HIGH SCORE MANAGERS
+           =================================================================== */
+        function loadHighScores() {
+            const saved = localStorage.getItem('cps_tester_highscores');
+            if (saved) {
+                try {
+                    gameState.highScores = JSON.parse(saved);
+                } catch (e) {
+                    console.error('Failed to parse high scores', e);
+                }
+            }
+            updateHighScoreDisplay();
+        }
+
+        function saveHighScores() {
+            localStorage.setItem('cps_tester_highscores', JSON.stringify(gameState.highScores));
+        }
+
+        function updateHighScoreDisplay() {
+            const currentRecord = gameState.highScores[gameState.selectedTime] || { clicks: 0, cps: 0 };
+            highScoreClicks.textContent = currentRecord.clicks;
+            highScoreCPS.textContent = currentRecord.cps.toFixed(1);
+        }
+
+        /* ===================================================================
+           7. MODE SWITCHING & STATE CONTROL
+           =================================================================== */
+        function setMode(seconds) {
+            if (gameState.status === 'PLAYING') return;
+
+            gameState.selectedTime = seconds;
+            gameState.timeLeft = seconds;
+            
+            // Highlight active button
+            modeBtns.forEach(btn => {
+                const btnTime = parseInt(btn.getAttribute('data-time'));
+                if (btnTime === seconds) {
+                    btn.classList.add('bg-arcade-accent', 'text-black', 'shadow-lg');
+                    btn.classList.remove('text-gray-400');
+                } else {
+                    btn.classList.remove('bg-arcade-accent', 'text-black', 'shadow-lg');
+                    btn.classList.add('text-gray-400');
+                }
+            });
+
+            resetGame();
+        }
+
+        function resetGame() {
+            clearInterval(gameState.timerInterval);
+            gameState.status = 'IDLE';
+            gameState.clicks = 0;
+            gameState.timeLeft = gameState.selectedTime;
+            gameState.cpsHistory = [];
+
+            timeDisplay.textContent = `${gameState.selectedTime.toFixed(1)}s`;
+            scoreDisplay.textContent = '0';
+            cpsDisplay.textContent = '0.0';
+            activeClickCounter.textContent = '0';
+
+            idleStateUI.classList.remove('hidden');
+            idleStateUI.classList.add('flex');
+            playingStateUI.classList.remove('flex');
+            playingStateUI.classList.add('hidden');
+
+            updateGlowTier(0);
+            updateHighScoreDisplay();
+            gameOverModal.classList.remove('modal-active');
+            gameOverModal.classList.add('hidden');
+        }
+
+        /* ===================================================================
+           8. CORE GAME LOGIC & CPS COMPUTATION
+           =================================================================== */
+        function calculateRealtimeCPS() {
+            const now = performance.now();
+            // Filter timestamps within the last 1 second (1000ms)
+            gameState.cpsHistory = gameState.cpsHistory.filter(t => now - t <= 1000);
+            return gameState.cpsHistory.length;
+        }
+
+        function updateGlowTier(cps) {
+            clickArea.classList.remove('glow-tier-0', 'glow-tier-1', 'glow-tier-2', 'glow-tier-3');
+            let tierColor = '#00F0FF';
+
+            if (cps >= 12) {
+                clickArea.classList.add('glow-tier-3');
+                comboBadge.textContent = 'OVERDRIVE ULTRA!';
+                comboBadge.className = 'mt-2 text-xs font-black font-orbitron px-3 py-1 rounded-full bg-arcade-gold/20 text-arcade-gold border border-arcade-gold/40 animate-pulse';
+                tierColor = '#FFD700';
+            } else if (cps >= 8) {
+                clickArea.classList.add('glow-tier-2');
+                comboBadge.textContent = 'SPEED MONSTER!';
+                comboBadge.className = 'mt-2 text-xs font-black font-orbitron px-3 py-1 rounded-full bg-arcade-pink/20 text-arcade-pink border border-arcade-pink/40';
+                tierColor = '#FF007A';
+            } else if (cps >= 5) {
+                clickArea.classList.add('glow-tier-1');
+                comboBadge.textContent = 'FAST PACED';
+                comboBadge.className = 'mt-2 text-xs font-black font-orbitron px-3 py-1 rounded-full bg-arcade-purple/20 text-arcade-purple border border-arcade-purple/40';
+                tierColor = '#A855F7';
+            } else {
+                clickArea.classList.add('glow-tier-0');
+                comboBadge.textContent = `SPEED: ${cps.toFixed(1)} CPS`;
+                comboBadge.className = 'mt-2 text-xs font-black font-orbitron px-3 py-1 rounded-full bg-arcade-accent/20 text-arcade-accent border border-arcade-accent/30';
+            }
+
+            return tierColor;
+        }
+
+        function handleUserClick(e) {
+            e.preventDefault();
+
+            // First click triggers the game start
+            if (gameState.status === 'IDLE') {
+                startGame();
+            }
+
+            if (gameState.status !== 'PLAYING') return;
+
+            // Increment count
+            gameState.clicks++;
+            const now = performance.now();
+            gameState.cpsHistory.push(now);
+
+            // Calculate live CPS
+            const currentCPS = calculateRealtimeCPS();
+
+            // Dynamic visual feedback
+            scoreDisplay.textContent = gameState.clicks;
+            activeClickCounter.textContent = gameState.clicks;
+            cpsDisplay.textContent = currentCPS.toFixed(1);
+
+            const tierColor = updateGlowTier(currentCPS);
+
+            // Get pointer coordinate for particles and floating text
+            let posX = window.innerWidth / 2;
+            let posY = window.innerHeight / 2;
+
+            if (e.clientX && e.clientY) {
+                posX = e.clientX;
+                posY = e.clientY;
+            } else if (e.touches && e.touches[0]) {
+                posX = e.touches[0].clientX;
+                posY = e.touches[0].clientY;
+            }
+
+            createFloatingText(posX, posY);
+            createBurst(posX, posY, tierColor);
+            playSound('click');
+        }
+
+        function startGame() {
+            gameState.status = 'PLAYING';
+            gameState.startTime = performance.now();
+
+            idleStateUI.classList.remove('flex');
+            idleStateUI.classList.add('hidden');
+            playingStateUI.classList.remove('hidden');
+            playingStateUI.classList.add('flex');
+
+            // High Precision Countdown Timer
+            gameState.timerInterval = setInterval(() => {
+                const elapsed = (performance.now() - gameState.startTime) / 1000;
+                gameState.timeLeft = Math.max(0, gameState.selectedTime - elapsed);
+
+                timeDisplay.textContent = `${gameState.timeLeft.toFixed(1)}s`;
+
+                // Countdown Beep for last 3 seconds
+                if (gameState.timeLeft <= 3.0 && gameState.timeLeft > 0.1) {
+                    if (Math.floor(gameState.timeLeft * 10) % 10 === 0) {
+                        playSound('beep');
+                    }
+                }
+
+                if (gameState.timeLeft <= 0) {
+                    endGame();
+                }
+            }, 50);
+        }
+
+        function getRankTitle(cps) {
+            if (cps >= 13) return { title: '⚡ 宇宙神速級 (GOD SPEED)', color: 'from-amber-400 via-rose-500 to-purple-600' };
+            if (cps >= 10) return { title: '🔥 閃電連擊大師 (LIGHTNING)', color: 'from-arcade-pink to-arcade-purple' };
+            if (cps >= 8)  return { title: '🎯 瘋狂高對決手 (CRAZY CLICKER)', color: 'from-arcade-accent to-blue-500' };
+            if (cps >= 6)  return { title: '⚡ 敏捷玩家 (AGILE PLAYER)', color: 'from-emerald-400 to-teal-600' };
+            if (cps >= 4)  return { title: '👍 穩健選手 (STEADY HAND)', color: 'from-blue-400 to-indigo-600' };
+            return { title: '🐢 散步級新手 (SLOTHY HAND)', color: 'from-gray-400 to-slate-600' };
+        }
+
+        function endGame() {
+            clearInterval(gameState.timerInterval);
+            gameState.status = 'FINISHED';
+            timeDisplay.textContent = '0.0s';
+
+            const avgCPS = gameState.clicks / gameState.selectedTime;
+            const rank = getRankTitle(avgCPS);
+
+            // Check High Score
+            const currentRecord = gameState.highScores[gameState.selectedTime] || { clicks: 0, cps: 0 };
+            let isNewRecord = false;
+
+            if (gameState.clicks > currentRecord.clicks) {
+                gameState.highScores[gameState.selectedTime] = {
+                    clicks: gameState.clicks,
+                    cps: parseFloat(avgCPS.toFixed(1))
+                };
+                saveHighScores();
+                updateHighScoreDisplay();
+                isNewRecord = true;
+            }
+
+            // Update Modal UI
+            modalTotalClicks.textContent = gameState.clicks;
+            modalAvgCPS.textContent = avgCPS.toFixed(1);
+            rankTitleBadge.textContent = rank.title;
+            rankTitleBadge.className = `w-full py-2.5 px-4 rounded-xl font-black text-lg md:text-xl font-noto tracking-wider mb-6 text-white shadow-md bg-gradient-to-r ${rank.color}`;
+
+            if (isNewRecord) {
+                newRecordNotice.classList.remove('hidden');
+            } else {
+                newRecordNotice.classList.add('hidden');
+            }
+
+            // Show Game Over Modal
+            gameOverModal.classList.remove('hidden');
+            gameOverModal.classList.add('modal-active');
+
+            playSound('fanfare');
+        }
+
+        /* ===================================================================
+           9. EVENT LISTENERS & INITIALIZATION
+           =================================================================== */
+        // Click / Touch Event Listeners for Game Area
+        clickArea.addEventListener('pointerdown', handleUserClick);
+
+        // Prevent context menu or zoom on fast double tap
+        clickArea.addEventListener('contextmenu', e => e.preventDefault());
+
+        // Mode Selector Buttons
+        modeBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const time = parseInt(btn.getAttribute('data-time'));
+                setMode(time);
+            });
+        });
+
+        // Restart Button in Modal
+        restartBtn.addEventListener('click', resetGame);
+
+        // Sound Mute Toggle
+        soundToggleBtn.addEventListener('click', () => {
+            gameState.soundMuted = !gameState.soundMuted;
+            if (gameState.soundMuted) {
+                soundIcon.className = 'fa-solid fa-volume-xmark text-gray-500';
+                soundText.textContent = '靜音';
+            } else {
+                soundIcon.className = 'fa-solid fa-volume-high text-arcade-accent';
+                soundText.textContent = '音效開啟';
+                initAudioContext();
+            }
+        });
+
+        // Initialize App
+        loadHighScores();
+        setMode(10);
+    </script>
+</body>
+</html>

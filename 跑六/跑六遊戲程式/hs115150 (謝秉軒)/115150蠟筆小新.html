@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>蠟筆小新：巧克比大冒險</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Zen+Maru+Gothic:wght@700;900&display=swap');
+
+        body {
+            font-family: 'Zen Maru Gothic', 'Fredoka', sans-serif;
+            background: linear-gradient(135deg, #fef08a 0%, #fde047 50%, #eab308 100%);
+            touch-action: manipulation;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .comic-border {
+            border: 4px solid #1e293b;
+            box-shadow: 4px 6px 0px #1e293b;
+        }
+
+        .comic-btn {
+            border: 3px solid #1e293b;
+            box-shadow: 0px 4px 0px #1e293b;
+            transition: all 0.1s ease;
+        }
+
+        .comic-btn:active {
+            transform: translateY(3px);
+            box-shadow: 0px 1px 0px #1e293b;
+        }
+
+        #gameCanvas {
+            background-color: #87ceeb;
+            border: 4px solid #1e293b;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
+        }
+
+        .hp-bar-fill {
+            transition: width 0.2s ease-out;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-2 sm:p-4 text-slate-800 overflow-hidden">
+
+    <!-- Main Game Wrapper -->
+    <div class="relative w-full max-w-4xl flex flex-col items-center">
+        
+        <!-- HUD Header -->
+        <div id="hud" class="w-full bg-red-500 p-2.5 sm:p-3 rounded-2xl comic-border mb-2.5 flex justify-between items-center text-white font-black text-sm sm:text-base">
+            <!-- Level & Score -->
+            <div class="flex items-center gap-2 sm:gap-4">
+                <div class="bg-amber-300 text-amber-950 px-3 py-1 rounded-xl border-2 border-slate-900 text-xs sm:text-sm font-black">
+                    <span id="levelDisplay">第 1 關：春日部小巷</span>
+                </div>
+                <div class="flex items-center gap-1.5 bg-white text-slate-900 px-3 py-1 rounded-xl border-2 border-slate-900">
+                    <i class="fa-solid fa-star text-amber-500"></i>
+                    <span>得分: <span id="scoreDisplay" class="text-red-600 font-extrabold">0</span></span>
+                </div>
+            </div>
+
+            <!-- HP Bar & Pause -->
+            <div class="flex items-center gap-2 sm:gap-3">
+                <div class="flex items-center gap-2 bg-slate-900/40 px-2.5 py-1 rounded-xl border-2 border-slate-900">
+                    <span class="text-xs text-amber-200">HP</span>
+                    <div class="w-24 sm:w-32 bg-slate-800 h-4 rounded-full border-2 border-white overflow-hidden p-0.5">
+                        <div id="hpFill" class="hp-bar-fill h-full bg-emerald-400 rounded-full w-full"></div>
+                    </div>
+                </div>
+                <button id="pauseBtn" class="bg-amber-400 text-slate-900 px-3 py-1.5 rounded-xl comic-btn hover:bg-amber-300">
+                    <i class="fa-solid fa-pause"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Boss Health Bar Overlay (Visible only in Level 3) -->
+        <div id="bossHud" class="hidden w-full bg-purple-900 p-2 rounded-xl comic-border mb-2 flex items-center gap-3 text-white">
+            <span class="text-xs sm:text-sm font-black text-purple-200 whitespace-nowrap">👑 巨大青椒 Boss:</span>
+            <div class="w-full bg-slate-800 h-4 rounded-full border-2 border-purple-400 overflow-hidden p-0.5">
+                <div id="bossHpFill" class="hp-bar-fill h-full bg-purple-500 rounded-full w-full"></div>
+            </div>
+        </div>
+
+        <!-- Canvas Frame -->
+        <div class="relative w-full aspect-[16/9] max-h-[65vh] flex justify-center items-center">
+            <canvas id="gameCanvas" width="800" height="450" class="w-full h-full rounded-2xl object-contain"></canvas>
+
+            <!-- Start Screen Overlay -->
+            <div id="startScreen" class="absolute inset-0 bg-amber-300/95 backdrop-blur-sm rounded-2xl flex flex-col items-center justify-center p-6 text-center comic-border">
+                <div class="text-5xl sm:text-6xl mb-1 animate-bounce">🖍️👦🏻</div>
+                <h1 class="text-3xl sm:text-5xl font-black text-red-600 drop-shadow mb-1">蠟筆小新：巧克比大冒險</h1>
+                <p class="text-sm sm:text-base text-amber-950 font-extrabold mb-4">操控持槍小新發射光波，吃巧克比餅乾、避開青椒與美冴拳頭！</p>
+
+                <div class="bg-amber-100 p-3 rounded-xl border-2 border-amber-500 mb-5 max-w-lg text-left text-xs sm:text-sm text-amber-950 space-y-1">
+                    <p>• <b>方向鍵 A/D 或 🛈/🛇</b>：左右移動小新</p>
+                    <p>• <b>Space / 上鍵 / W</b>：跳躍 (支援二段跳)</p>
+                    <p>• <b>J 鍵 / 🔫 發射鈕</b>：手持光波槍擊飛青椒與打 Boss！</p>
+                    <p>• <b>道具</b>：🐊 巧克比(+10分) | 🎴 動感卡片(+20分) | 🐶 小白(無敵防護罩)</p>
+                </div>
+
+                <div class="flex gap-4">
+                    <button id="startBtn" class="bg-red-500 text-white text-lg sm:text-xl font-black px-8 py-3 rounded-full comic-btn hover:bg-red-600 flex items-center gap-2">
+                        <i class="fa-solid fa-play"></i> 開始大冒險！
+                    </button>
+                </div>
+            </div>
+
+            <!-- Level Clear Overlay -->
+            <div id="levelClearModal" class="hidden absolute inset-0 bg-amber-400/95 backdrop-blur-md rounded-2xl flex flex-col items-center justify-center p-6 text-center comic-border">
+                <div class="text-6xl mb-2 animate-spin">🌟</div>
+                <h2 id="levelClearTitle" class="text-3xl sm:text-4xl font-black text-red-600 mb-2">第 1 關 通關成功！</h2>
+                <p id="levelClearDesc" class="text-amber-950 font-bold mb-4">巧克比真好吃！準備好進入下一步了嗎？</p>
+                <button id="nextLevelBtn" class="bg-emerald-500 text-white text-lg font-black px-8 py-3 rounded-full comic-btn hover:bg-emerald-600 flex items-center gap-2">
+                    <i class="fa-solid fa-arrow-right"></i> 進入下一關！
+                </button>
+            </div>
+
+            <!-- Pause Screen Overlay -->
+            <div id="pauseScreen" class="hidden absolute inset-0 bg-slate-900/80 backdrop-blur-sm rounded-2xl flex flex-col items-center justify-center text-white">
+                <h2 class="text-4xl font-black mb-4 text-amber-300">遊戲暫停中 💤</h2>
+                <button id="resumeBtn" class="bg-emerald-500 text-white text-lg font-bold px-8 py-3 rounded-xl comic-btn hover:bg-emerald-600">
+                    繼續冒險
+                </button>
+            </div>
+
+            <!-- Game Over Overlay -->
+            <div id="gameOverScreen" class="hidden absolute inset-0 bg-slate-950/90 backdrop-blur-md rounded-2xl flex flex-col items-center justify-center p-6 text-center text-white comic-border">
+                <div class="text-6xl mb-2">🫑😱</div>
+                <h2 class="text-4xl sm:text-5xl font-black text-red-500 mb-2">被青椒嚇倒了！</h2>
+                <p class="text-slate-300 text-base mb-4">美冴：小新！不准挑食！</p>
+
+                <div class="bg-slate-800 p-4 rounded-xl border-2 border-slate-700 mb-6 w-64 space-y-2">
+                    <div class="flex justify-between text-sm">
+                        <span class="text-slate-400">最終得分:</span>
+                        <span id="finalScore" class="font-bold text-amber-300 text-base">0</span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="text-slate-400">最高紀錄:</span>
+                        <span id="finalHighScore" class="font-bold text-pink-400 text-base">0</span>
+                    </div>
+                </div>
+
+                <button id="restartBtn" class="bg-amber-400 text-slate-950 text-xl font-black px-8 py-3 rounded-full comic-btn hover:bg-amber-300 flex items-center gap-2">
+                    <i class="fa-solid fa-rotate-right"></i> 重新開始！
+                </button>
+            </div>
+
+            <!-- Victory Overlay -->
+            <div id="victoryScreen" class="hidden absolute inset-0 bg-amber-300/95 backdrop-blur-md rounded-2xl flex flex-col items-center justify-center p-6 text-center comic-border">
+                <div class="text-6xl mb-2">🦸‍♂️🎉</div>
+                <h2 class="text-4xl sm:text-5xl font-black text-red-600 mb-2">拯救了春日部！</h2>
+                <p class="text-amber-950 text-lg font-black mb-4">哈哈哈哈～動感光波全開！動感超人誇獎了小新！</p>
+                
+                <div class="bg-white p-4 rounded-2xl border-4 border-amber-500 mb-6 w-72">
+                    <p class="text-slate-600 font-bold">獲得榮譽稱號：</p>
+                    <p class="text-2xl font-black text-red-500 mt-1">「巧克比英雄小新」</p>
+                    <p class="text-sm font-extrabold text-amber-700 mt-2">最高得分: <span id="victoryScore">0</span></p>
+                </div>
+
+                <button id="victoryRestartBtn" class="bg-red-500 text-white text-xl font-black px-8 py-3 rounded-full comic-btn hover:bg-red-600">
+                    再次挑戰！
+                </button>
+            </div>
+        </div>
+
+        <!-- Touch Controls Bar -->
+        <div class="w-full flex justify-between items-center mt-3 gap-2">
+            <div class="flex gap-2 flex-1">
+                <button id="btnLeft" class="flex-1 py-3 bg-amber-400 text-slate-950 font-black rounded-xl comic-btn text-xl active:bg-amber-500">
+                    <i class="fa-solid fa-arrow-left"></i>
+                </button>
+                <button id="btnRight" class="flex-1 py-3 bg-amber-400 text-slate-950 font-black rounded-xl comic-btn text-xl active:bg-amber-500">
+                    <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </div>
+            <div class="flex gap-2 flex-1">
+                <button id="btnJump" class="flex-1 py-3 bg-sky-500 text-white font-black rounded-xl comic-btn text-lg active:bg-sky-600">
+                    <i class="fa-solid fa-angles-up"></i> 跳躍
+                </button>
+                <button id="btnShoot" class="flex-1 py-3 bg-red-500 text-white font-black rounded-xl comic-btn text-lg active:bg-red-600">
+                    <i class="fa-solid fa-gun"></i> 發射 (J)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Web Audio API Synthesizer
+        class GameSoundEngine {
+            constructor() {
+                this.ctx = null;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            playJump() {
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(300, now);
+                osc.frequency.exponentialRampToValueAtTime(700, now + 0.15);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.15);
+            }
+
+            playCollect() {
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                [800, 1200].forEach((freq, i) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, now + i * 0.08);
+                    gain.gain.setValueAtTime(0.2, now + i * 0.08);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.08 + 0.12);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now + i * 0.08);
+                    osc.stop(now + i * 0.08 + 0.12);
+                });
+            }
+
+            playShoot() {
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(880, now);
+                osc.frequency.exponentialRampToValueAtTime(220, now + 0.15);
+                gain.gain.setValueAtTime(0.25, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.15);
+            }
+
+            playHurt() {
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(180, now);
+                osc.frequency.linearRampToValueAtTime(80, now + 0.2);
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.linearRampToValueAtTime(0.01, now + 0.2);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.2);
+            }
+
+            playShield() {
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(400, now);
+                osc.frequency.exponentialRampToValueAtTime(1000, now + 0.25);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.linearRampToValueAtTime(0.01, now + 0.25);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.25);
+            }
+        }
+
+        const sound = new GameSoundEngine();
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const CANVAS_W = 800;
+        const CANVAS_H = 450;
+        const GROUND_Y = 370;
+
+        let gameState = 'START'; // START, PLAYING, PAUSED, LEVEL_CLEAR, GAMEOVER, VICTORY
+        let currentLevel = 1;
+        let score = 0;
+        let highScore = parseInt(localStorage.getItem('shinchan_high_score') || '0');
+        let cameraShake = 0;
+
+        // Player (Shin-chan)
+        const player = {
+            x: 100,
+            y: GROUND_Y - 50,
+            width: 42,
+            height: 52,
+            vx: 0,
+            vy: 0,
+            speed: 6,
+            jumpPower: -12.5,
+            isJumping: false,
+            canDoubleJump: true,
+            facing: 'right',
+            hp: 100,
+            hasShield: false,
+            shieldTimer: 0,
+            shootCooldown: 0
+        };
+
+        // Boss (Level 3)
+        const boss = {
+            x: 600,
+            y: 120,
+            width: 120,
+            height: 120,
+            hp: 100,
+            maxHp: 100,
+            vy: 2,
+            direction: 1,
+            shootTimer: 0
+        };
+
+        // Collections
+        let items = [];
+        let obstacles = [];
+        let bullets = [];
+        let particles = [];
+        let keys = {};
+
+        // Key controls
+        window.addEventListener('keydown', (e) => {
+            keys[e.code] = true;
+            if ((e.code === 'Space' || e.code === 'KeyW' || e.code === 'ArrowUp') && gameState === 'PLAYING') {
+                e.preventDefault();
+                jumpPlayer();
+            }
+            if (e.code === 'KeyJ' && gameState === 'PLAYING') {
+                shootBullet();
+            }
+            if (e.code === 'KeyP') {
+                togglePause();
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            keys[e.code] = false;
+        });
+
+        // Touch buttons
+        const setupTouchBtn = (id, keyName) => {
+            const btn = document.getElementById(id);
+            btn.addEventListener('touchstart', (e) => { e.preventDefault(); sound.init(); keys[keyName] = true; });
+            btn.addEventListener('touchend', (e) => { e.preventDefault(); keys[keyName] = false; });
+            btn.addEventListener('mousedown', () => { sound.init(); keys[keyName] = true; });
+            btn.addEventListener('mouseup', () => { keys[keyName] = false; });
+        };
+
+        setupTouchBtn('btnLeft', 'ArrowLeft');
+        setupTouchBtn('btnRight', 'ArrowRight');
+
+        document.getElementById('btnJump').onclick = () => { sound.init(); jumpPlayer(); };
+        document.getElementById('btnShoot').onclick = () => { sound.init(); shootBullet(); };
+
+        document.getElementById('startBtn').onclick = () => startGame();
+        document.getElementById('pauseBtn').onclick = () => togglePause();
+        document.getElementById('resumeBtn').onclick = () => togglePause();
+        document.getElementById('restartBtn').onclick = () => resetGame();
+        document.getElementById('nextLevelBtn').onclick = () => startNextLevel();
+        document.getElementById('victoryRestartBtn').onclick = () => resetGame();
+
+        function jumpPlayer() {
+            if (!player.isJumping) {
+                player.vy = player.jumpPower;
+                player.isJumping = true;
+                player.canDoubleJump = true;
+                sound.playJump();
+                createDust(player.x + player.width / 2, player.y + player.height);
+            } else if (player.canDoubleJump) {
+                player.vy = player.jumpPower * 0.85;
+                player.canDoubleJump = false;
+                sound.playJump();
+                createSparkles(player.x + player.width / 2, player.y + player.height, '#fef08a', 8);
+            }
+        }
+
+        function shootBullet() {
+            if (player.shootCooldown > 0) return;
+            sound.init();
+            sound.playShoot();
+            player.shootCooldown = 12;
+
+            const dir = player.facing === 'right' ? 1 : -1;
+            bullets.push({
+                x: player.x + (player.facing === 'right' ? player.width + 5 : -15),
+                y: player.y + 22,
+                vx: dir * 14,
+                radius: 6
+            });
+        }
+
+        function drawShinChan(ctx, p) {
+            ctx.save();
+            ctx.translate(p.x + p.width / 2, p.y + p.height / 2);
+            if (p.facing === 'left') ctx.scale(-1, 1);
+
+            // Shield Aura
+            if (p.hasShield) {
+                ctx.beginPath();
+                ctx.arc(0, 0, 36, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(56, 189, 248, ${0.3 + Math.sin(Date.now() / 100) * 0.15})`;
+                ctx.fill();
+                ctx.strokeStyle = '#0284c7';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+            }
+
+            // Head (Shin-chan signature cheek shape)
+            ctx.fillStyle = '#ffdbac';
+            ctx.beginPath();
+            ctx.ellipse(0, -10, 18, 16, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 2.5;
+            ctx.stroke();
+
+            // Chubby Cheek
+            ctx.beginPath();
+            ctx.arc(10, -6, 10, 0, Math.PI * 2);
+            ctx.fillStyle = '#ffdbac';
+            ctx.fill();
+            ctx.stroke();
+
+            // Hair (Black cropped top)
+            ctx.fillStyle = '#1e293b';
+            ctx.beginPath();
+            ctx.arc(-2, -18, 15, Math.PI, Math.PI * 2);
+            ctx.fill();
+
+            // Big Eyebrows
+            ctx.fillStyle = '#1e293b';
+            ctx.beginPath();
+            ctx.roundRect(2, -22, 12, 4, 2);
+            ctx.fill();
+
+            // Eyes
+            ctx.beginPath();
+            ctx.arc(8, -12, 3, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Red Shirt Body
+            ctx.fillStyle = '#ef4444';
+            ctx.beginPath();
+            ctx.roundRect(-12, 4, 24, 20, 4);
+            ctx.fill();
+            ctx.stroke();
+
+            // Yellow Shorts
+            ctx.fillStyle = '#facc15';
+            ctx.beginPath();
+            ctx.roundRect(-11, 22, 22, 12, 3);
+            ctx.fill();
+            ctx.stroke();
+
+            // Legs
+            ctx.fillStyle = '#ffdbac';
+            ctx.fillRect(-8, 34, 6, 8);
+            ctx.fillRect(2, 34, 6, 8);
+
+            // Action Toy Laser Gun
+            ctx.fillStyle = '#0284c7';
+            ctx.fillRect(8, 6, 18, 6);
+            ctx.fillStyle = '#f43f5e';
+            ctx.fillRect(20, 3, 6, 12);
+            ctx.fillStyle = '#facc15';
+            ctx.beginPath();
+            ctx.arc(26, 9, 4, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        function drawChocobi(ctx, item) {
+            ctx.save();
+            ctx.translate(item.x, item.y);
+            ctx.rotate(Math.sin(Date.now() / 200) * 0.1);
+
+            // Green Hexagonal Box
+            ctx.fillStyle = '#22c55e';
+            ctx.strokeStyle = '#14532d';
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            ctx.roundRect(-14, -18, 28, 36, 6);
+            ctx.fill();
+            ctx.stroke();
+
+            // Pink Star / Crocodile mascot face
+            ctx.fillStyle = '#ec4899';
+            ctx.beginPath();
+            ctx.arc(0, -2, 8, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        function drawActionCard(ctx, item) {
+            ctx.save();
+            ctx.translate(item.x, item.y);
+            ctx.fillStyle = '#f59e0b';
+            ctx.strokeStyle = '#78350f';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.roundRect(-12, -16, 24, 32, 4);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = '#0284c7';
+            ctx.font = 'bold 12px sans-serif';
+            ctx.fillText('⚡', -5, 4);
+            ctx.restore();
+        }
+
+        function drawShiro(ctx, item) {
+            ctx.save();
+            ctx.translate(item.x, item.y);
+            // Fluffy white dog head
+            ctx.fillStyle = '#ffffff';
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(0, 0, 15, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            // Ears
+            ctx.beginPath();
+            ctx.arc(-12, -8, 6, 0, Math.PI * 2);
+            ctx.arc(12, -8, 6, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            // Eyes & Nose
+            ctx.fillStyle = '#1e293b';
+            ctx.beginPath();
+            ctx.arc(-5, -2, 2, 0, Math.PI * 2);
+            ctx.arc(5, -2, 2, 0, Math.PI * 2);
+            ctx.arc(0, 3, 3, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        function drawObstacle(ctx, obs) {
+            ctx.save();
+            ctx.translate(obs.x, obs.y);
+
+            if (obs.type === 'pepper') {
+                ctx.fillStyle = '#15803d';
+                ctx.strokeStyle = '#14532d';
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.ellipse(0, 0, 14, 20, 0.2, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                // Stem
+                ctx.fillStyle = '#86efac';
+                ctx.fillRect(-2, -24, 4, 8);
+            } else if (obs.type === 'fist') {
+                ctx.fillStyle = '#ef4444';
+                ctx.strokeStyle = '#7f1d1d';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(0, 0, 18, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 14px sans-serif';
+                ctx.fillText('💢', -7, 5);
+            } else if (obs.type === 'ball') {
+                ctx.rotate((Date.now() / 150) % (Math.PI * 2));
+                ctx.fillStyle = '#ffffff';
+                ctx.strokeStyle = '#1e293b';
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.arc(0, 0, 16, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.fillStyle = '#1e293b';
+                ctx.beginPath();
+                ctx.arc(0, 0, 6, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            ctx.restore();
+        }
+
+        function drawBoss(ctx, b) {
+            ctx.save();
+            ctx.translate(b.x + b.width / 2, b.y + b.height / 2);
+
+            // Giant Angry Green Pepper Boss
+            ctx.fillStyle = '#166534';
+            ctx.strokeStyle = '#052e16';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 50, 58, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            // Crown
+            ctx.fillStyle = '#facc15';
+            ctx.beginPath();
+            ctx.moveTo(-25, -55);
+            ctx.lineTo(-15, -75);
+            ctx.lineTo(0, -60);
+            ctx.lineTo(15, -75);
+            ctx.lineTo(25, -55);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Angry Eyes
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(-18, -15, 12, 0, Math.PI * 2);
+            ctx.arc(18, -15, 12, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#ef4444';
+            ctx.beginPath();
+            ctx.arc(-14, -15, 5, 0, Math.PI * 2);
+            ctx.arc(14, -15, 5, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        function createDust(x, y) {
+            for (let i = 0; i < 6; i++) {
+                particles.push({
+                    x, y,
+                    vx: (Math.random() - 0.5) * 4,
+                    vy: (Math.random() - 0.5) * 2,
+                    size: 4 + Math.random() * 4,
+                    color: '#e2e8f0',
+                    life: 1.0
+                });
+            }
+        }
+
+        function createSparkles(x, y, color, count = 10) {
+            for (let i = 0; i < count; i++) {
+                particles.push({
+                    x, y,
+                    vx: (Math.random() - 0.5) * 8,
+                    vy: (Math.random() - 0.5) * 8,
+                    size: 4 + Math.random() * 6,
+                    color,
+                    life: 1.0
+                });
+            }
+        }
+
+        function spawnEntities() {
+            if (gameState !== 'PLAYING') return;
+
+            // Spawn Items
+            if (Math.random() < 0.025) {
+                const rand = Math.random();
+                let type = 'chocobi';
+                if (rand > 0.7 && rand < 0.9) type = 'card';
+                if (rand >= 0.9 && currentLevel >= 2) type = 'shiro';
+
+                items.push({
+                    x: CANVAS_W + 30,
+                    y: GROUND_Y - 40 - Math.random() * 120,
+                    radius: 16,
+                    type
+                });
+            }
+
+            // Spawn Obstacles (Level 1 & Level 2)
+            if (currentLevel < 3 && Math.random() < 0.02) {
+                const types = currentLevel === 1 ? ['pepper', 'fist'] : ['pepper', 'ball'];
+                const type = types[Math.floor(Math.random() * types.length)];
+                obstacles.push({
+                    x: CANVAS_W + 30,
+                    y: type === 'ball' ? GROUND_Y - 16 : GROUND_Y - 30 - Math.random() * 100,
+                    radius: 16,
+                    type,
+                    vx: currentLevel === 2 ? -6.5 : -5
+                });
+            }
+        }
+
+        function update(deltaTime) {
+            if (gameState !== 'PLAYING') return;
+
+            if (player.shootCooldown > 0) player.shootCooldown--;
+            if (player.hasShield) {
+                player.shieldTimer -= deltaTime;
+                if (player.shieldTimer <= 0) player.hasShield = false;
+            }
+
+            // Player Horizontal Movement
+            if (keys['ArrowLeft'] || keys['KeyA']) {
+                player.vx = -player.speed;
+                player.facing = 'left';
+            } else if (keys['ArrowRight'] || keys['KeyD']) {
+                player.vx = player.speed;
+                player.facing = 'right';
+            } else {
+                player.vx = 0;
+            }
+
+            player.x += player.vx;
+            player.y += player.vy;
+            player.vy += 0.65; // Gravity
+
+            // Ground Collision
+            if (player.y >= GROUND_Y - player.height) {
+                player.y = GROUND_Y - player.height;
+                player.vy = 0;
+                player.isJumping = false;
+            }
+
+            // Boundaries
+            if (player.x < 10) player.x = 10;
+            if (player.x > CANVAS_W - player.width - 10) player.x = CANVAS_W - player.width - 10;
+
+            // Bullets Update
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                let b = bullets[i];
+                b.x += b.vx;
+
+                // Hit Obstacles
+                for (let j = obstacles.length - 1; j >= 0; j--) {
+                    let obs = obstacles[j];
+                    if (Math.hypot(b.x - obs.x, b.y - obs.y) < b.radius + obs.radius) {
+                        createSparkles(obs.x, obs.y, '#22c55e', 12);
+                        obstacles.splice(j, 1);
+                        bullets.splice(i, 1);
+                        score += 5;
+                        document.getElementById('scoreDisplay').innerText = score;
+                        break;
+                    }
+                }
+
+                // Hit Boss (Level 3)
+                if (currentLevel === 3 && bullets[i]) {
+                    if (b.x >= boss.x && b.x <= boss.x + boss.width && b.y >= boss.y && b.y <= boss.y + boss.height) {
+                        boss.hp -= 4;
+                        createSparkles(b.x, b.y, '#ef4444', 10);
+                        bullets.splice(i, 1);
+                        document.getElementById('bossHpFill').style.width = Math.max(0, (boss.hp / boss.maxHp) * 100) + '%';
+
+                        if (boss.hp <= 0) {
+                            victoryGame();
+                        }
+                    }
+                }
+
+                if (bullets[i] && (b.x > CANVAS_W + 20 || b.x < -20)) {
+                    bullets.splice(i, 1);
+                }
+            }
+
+            // Items Update
+            for (let i = items.length - 1; i >= 0; i--) {
+                let item = items[i];
+                item.x -= 4;
+
+                // Player pickup
+                if (Math.hypot((player.x + player.width / 2) - item.x, (player.y + player.height / 2) - item.y) < player.width / 2 + item.radius) {
+                    if (item.type === 'chocobi') {
+                        score += 10;
+                        sound.playCollect();
+                        createSparkles(item.x, item.y, '#22c55e', 10);
+                    } else if (item.type === 'card') {
+                        score += 20;
+                        sound.playCollect();
+                        createSparkles(item.x, item.y, '#f59e0b', 12);
+                    } else if (item.type === 'shiro') {
+                        player.hasShield = true;
+                        player.shieldTimer = 5.0; // 5 seconds
+                        sound.playShield();
+                        createSparkles(item.x, item.y, '#0284c7', 15);
+                    }
+
+                    document.getElementById('scoreDisplay').innerText = score;
+                    items.splice(i, 1);
+                    checkLevelProgress();
+                    continue;
+                }
+
+                if (item.x < -30) items.splice(i, 1);
+            }
+
+            // Obstacles Update
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                let obs = obstacles[i];
+                obs.x += obs.vx;
+
+                // Player collision
+                if (Math.hypot((player.x + player.width / 2) - obs.x, (player.y + player.height / 2) - obs.y) < player.width / 2.5 + obs.radius) {
+                    if (player.hasShield) {
+                        player.hasShield = false;
+                        sound.playHurt();
+                        createSparkles(obs.x, obs.y, '#0284c7', 15);
+                    } else {
+                        takeDamage(obs.type === 'fist' ? 30 : 20);
+                        createSparkles(obs.x, obs.y, '#ef4444', 15);
+                    }
+                    obstacles.splice(i, 1);
+                    continue;
+                }
+
+                if (obs.x < -30) obstacles.splice(i, 1);
+            }
+
+            // Boss Movement & Pepper Rain (Level 3)
+            if (currentLevel === 3) {
+                boss.y += boss.vy * boss.direction;
+                if (boss.y < 50 || boss.y > 220) boss.direction *= -1;
+
+                boss.shootTimer += deltaTime;
+                if (boss.shootTimer > 1.2) {
+                    boss.shootTimer = 0;
+                    obstacles.push({
+                        x: boss.x + boss.width / 2,
+                        y: boss.y + boss.height,
+                        radius: 16,
+                        type: 'pepper',
+                        vx: -4 - Math.random() * 3
+                    });
+                }
+            }
+
+            // Particles Update
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life -= 0.04;
+                if (p.life <= 0) particles.splice(i, 1);
+            }
+
+            if (cameraShake > 0) cameraShake--;
+
+            spawnEntities();
+        }
+
+        function takeDamage(amount) {
+            player.hp = Math.max(0, player.hp - amount);
+            document.getElementById('hpFill').style.width = player.hp + '%';
+            sound.playHurt();
+            cameraShake = 12;
+
+            if (player.hp <= 0) {
+                gameOver();
+            }
+        }
+
+        function checkLevelProgress() {
+            if (currentLevel === 1 && score >= 100) {
+                levelClear();
+            } else if (currentLevel === 2 && score >= 250) {
+                levelClear();
+            }
+        }
+
+        function render() {
+            ctx.save();
+
+            if (cameraShake > 0) {
+                ctx.translate((Math.random() - 0.5) * 8, (Math.random() - 0.5) * 8);
+            }
+
+            // Sky Background
+            const skyGrad = ctx.createLinearGradient(0, 0, 0, CANVAS_H);
+            if (currentLevel === 3) {
+                skyGrad.addColorStop(0, '#4c1d95');
+                skyGrad.addColorStop(1, '#831843');
+            } else {
+                skyGrad.addColorStop(0, '#38bdf8');
+                skyGrad.addColorStop(1, '#bae6fd');
+            }
+            ctx.fillStyle = skyGrad;
+            ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+            // Ground
+            ctx.fillStyle = '#16a34a';
+            ctx.fillRect(0, GROUND_Y, CANVAS_W, CANVAS_H - GROUND_Y);
+            ctx.fillStyle = '#15803d';
+            ctx.fillRect(0, GROUND_Y, CANVAS_W, 10);
+
+            // Render Items
+            items.forEach(item => {
+                if (item.type === 'chocobi') drawChocobi(ctx, item);
+                else if (item.type === 'card') drawActionCard(ctx, item);
+                else if (item.type === 'shiro') drawShiro(ctx, item);
+            });
+
+            // Render Obstacles
+            obstacles.forEach(obs => drawObstacle(ctx, obs));
+
+            // Render Bullets
+            ctx.fillStyle = '#fef08a';
+            bullets.forEach(b => {
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            // Render Boss (Level 3)
+            if (currentLevel === 3) {
+                drawBoss(ctx, boss);
+            }
+
+            // Render Player
+            drawShinChan(ctx, player);
+
+            // Render Particles
+            particles.forEach(p => {
+                ctx.fillStyle = p.color;
+                ctx.globalAlpha = p.life;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            ctx.globalAlpha = 1.0;
+
+            ctx.restore();
+        }
+
+        let lastTime = 0;
+        function gameLoop(timestamp) {
+            const deltaTime = (timestamp - lastTime) / 1000 || 0;
+            lastTime = timestamp;
+
+            update(deltaTime);
+            render();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function startGame() {
+            document.getElementById('startScreen').classList.add('hidden');
+            document.getElementById('victoryScreen').classList.add('hidden');
+            document.getElementById('gameOverScreen').classList.add('hidden');
+            gameState = 'PLAYING';
+            currentLevel = 1;
+            score = 0;
+            player.hp = 100;
+            document.getElementById('hpFill').style.width = '100%';
+            document.getElementById('scoreDisplay').innerText = '0';
+            document.getElementById('levelDisplay').innerText = '第 1 關：春日部小巷';
+
+            resetEntities();
+        }
+
+        function resetEntities() {
+            player.x = 100;
+            player.y = GROUND_Y - player.height;
+            player.vx = 0;
+            player.vy = 0;
+            player.hasShield = false;
+
+            items = [];
+            obstacles = [];
+            bullets = [];
+            particles = [];
+        }
+
+        function levelClear() {
+            gameState = 'LEVEL_CLEAR';
+            document.getElementById('levelClearTitle').innerText = `第 ${currentLevel} 關 通關成功！`;
+            document.getElementById('levelClearModal').classList.remove('hidden');
+        }
+
+        function startNextLevel() {
+            currentLevel++;
+            document.getElementById('levelClearModal').classList.add('hidden');
+            gameState = 'PLAYING';
+
+            resetEntities();
+
+            if (currentLevel === 2) {
+                document.getElementById('levelDisplay').innerText = '第 2 關：雙葉幼稚園';
+            } else if (currentLevel === 3) {
+                document.getElementById('levelDisplay').innerText = '第 3 關：動感決戰場';
+                document.getElementById('bossHud').classList.remove('hidden');
+                boss.hp = 100;
+                document.getElementById('bossHpFill').style.width = '100%';
+            }
+        }
+
+        function togglePause() {
+            if (gameState === 'PLAYING') {
+                gameState = 'PAUSED';
+                document.getElementById('pauseScreen').classList.remove('hidden');
+            } else if (gameState === 'PAUSED') {
+                gameState = 'PLAYING';
+                document.getElementById('pauseScreen').classList.add('hidden');
+            }
+        }
+
+        function gameOver() {
+            gameState = 'GAMEOVER';
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('shinchan_high_score', highScore);
+            }
+            document.getElementById('finalScore').innerText = score;
+            document.getElementById('finalHighScore').innerText = highScore;
+            document.getElementById('gameOverScreen').classList.remove('hidden');
+        }
+
+        function victoryGame() {
+            gameState = 'VICTORY';
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('shinchan_high_score', highScore);
+            }
+            document.getElementById('victoryScore').innerText = score;
+            document.getElementById('victoryScreen').classList.remove('hidden');
+        }
+
+        function resetGame() {
+            document.getElementById('bossHud').classList.add('hidden');
+            startGame();
+        }
+
+        window.onload = () => {
+            requestAnimationFrame(gameLoop);
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>迷宮地牢大冒險：終極探索 (Maze Dungeon Adventure)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Noto+Sans+TC:wght@500;700;900&display=swap');
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #050811;
+            color: #f1f5f9;
+            overflow: hidden;
+        }
+
+        .font-cinzel {
+            font-family: 'Cinzel', serif;
+        }
+
+        /* 經典主題顏色設為 CSS 變數 */
+        :root {
+            --bg-color: #090d16;
+            --wall-color: #1e293b;
+            --path-color: #0f172a;
+            --accent-glow: #38bdf8;
+            --portal-glow: #a855f7;
+        }
+
+        /* 霓虹邊框與光芒效果 */
+        .neon-border {
+            border: 2px solid var(--accent-glow);
+            box-shadow: 0 0 15px rgba(56, 189, 248, 0.3), inset 0 0 10px rgba(56, 189, 248, 0.15);
+        }
+
+        .neon-text {
+            text-shadow: 0 0 10px var(--accent-glow), 0 0 20px var(--accent-glow);
+        }
+
+        .pulse-btn {
+            transition: all 0.2s ease-in-out;
+        }
+
+        .pulse-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+
+        .pulse-btn:active {
+            transform: translateY(1px);
+        }
+
+        /* 觸控 D-Pad 按鈕 */
+        .dpad-btn {
+            background: rgba(30, 41, 59, 0.8);
+            border: 1.5px solid rgba(56, 189, 248, 0.5);
+            backdrop-filter: blur(4px);
+            transition: background 0.1s;
+        }
+
+        .dpad-btn:active {
+            background: rgba(56, 189, 248, 0.4);
+        }
+
+        /* 畫面震動 */
+        .shake {
+            animation: screenShake 0.3s cubic-bezier(.36,.07,.19,.97) both;
+        }
+
+        @keyframes screenShake {
+            10%, 90% { transform: translate3d(-2px, 1px, 0); }
+            20%, 80% { transform: translate3d(4px, -2px, 0); }
+            30%, 50%, 70% { transform: translate3d(-5px, 3px, 0); }
+            40%, 60% { transform: translate3d(5px, -3px, 0); }
+        }
+    </style>
+</head>
+<body class="w-screen h-screen flex flex-col justify-between p-2 sm:p-4 select-none relative bg-slate-950">
+
+    <!-- 頂部 HUD 狀態資訊欄 -->
+    <header class="w-full max-w-5xl mx-auto neon-border rounded-xl bg-slate-950/90 p-2.5 sm:p-3 backdrop-blur-md z-20 flex flex-col gap-2">
+        <div class="flex justify-between items-center text-xs sm:text-sm font-bold gap-2">
+            <!-- 生命/護盾條與角色頭像 -->
+            <div class="flex items-center gap-2 flex-1 max-w-[200px] sm:max-w-xs">
+                <span id="playerAvatar" class="text-xl p-1 bg-slate-900 border border-cyan-500/50 rounded-lg shadow-sm">🧙‍♂️</span>
+                <div class="flex flex-col flex-1 gap-0.5">
+                    <div class="flex justify-between items-center text-[11px]">
+                        <span id="heroClassName" class="text-cyan-300 font-bold">大法師</span>
+                        <span id="hpText" class="text-rose-300 font-mono">100/100</span>
+                    </div>
+                    <div class="h-2.5 bg-slate-900 rounded-full border border-rose-500/50 overflow-hidden">
+                        <div id="hpBar" class="h-full bg-gradient-to-r from-rose-600 to-pink-400 w-full transition-all duration-200"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 計時器與關卡數 -->
+            <div class="flex items-center gap-3 text-xs sm:text-sm">
+                <div class="flex items-center gap-1 bg-slate-900/80 px-2.5 py-1 rounded-lg border border-slate-800">
+                    <span>⏱️ 時間:</span>
+                    <span id="timerText" class="text-amber-400 font-mono font-bold">00:00</span>
+                </div>
+                <div class="flex items-center gap-1 bg-slate-900/80 px-2.5 py-1 rounded-lg border border-slate-800">
+                    <span>🚩 關卡:</span>
+                    <span id="levelText" class="text-cyan-400 font-bold">1</span>
+                </div>
+            </div>
+
+            <!-- 得分與鑰匙數量 -->
+            <div class="flex items-center gap-2 text-xs">
+                <div class="flex items-center gap-1 text-amber-300">
+                    <span>💎</span>
+                    <span id="gemText" class="font-bold text-sm">0</span>
+                </div>
+                <div class="flex items-center gap-1 text-yellow-400 ml-1">
+                    <span>🔑</span>
+                    <span id="keyText" class="font-bold text-sm">0/0</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 輔助設定與提醒列 -->
+        <div class="flex justify-between items-center text-xs pt-1.5 border-t border-slate-800 text-slate-300">
+            <div id="statusAlert" class="text-cyan-300 font-bold animate-pulse truncate max-w-xs sm:max-w-md">
+                🧭 尋找鑰匙 🔑 開啟終點傳送門 🌀！
+            </div>
+            <div class="flex gap-2 items-center">
+                <button id="themeToggleBtn" onclick="cycleTheme()" class="px-2 py-0.5 bg-slate-900 hover:bg-slate-800 border border-cyan-500/50 rounded text-cyan-300 text-[11px]">🎨 主題: <span id="themeName">賽博霓虹</span></button>
+                <button id="fogToggleBtn" onclick="toggleFog()" class="px-2 py-0.5 bg-slate-900 hover:bg-slate-800 border border-purple-500/50 rounded text-purple-300 text-[11px]">🌫️ 迷霧: <span id="fogStatus">開啟</span></button>
+                <button onclick="toggleAudio()" id="audioBtn" class="px-2 py-0.5 bg-slate-900 hover:bg-slate-800 border border-slate-700 rounded text-slate-300 text-[11px]">🔊 音效</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- 中間遊戲畫布區域 -->
+    <main id="sceneContainer" class="relative w-full max-w-5xl mx-auto flex-1 my-2 neon-border rounded-2xl overflow-hidden bg-slate-950 shadow-2xl flex items-center justify-center">
+        <canvas id="gameCanvas" class="w-full h-full block cursor-pointer"></canvas>
+
+        <!-- 迷你地圖 (Minimap Overlay) -->
+        <div id="minimapContainer" class="absolute top-3 right-3 border-2 border-cyan-500/60 rounded-lg bg-slate-950/90 p-1 shadow-lg pointer-events-none hidden sm:block">
+            <canvas id="minimapCanvas" width="100" height="100" class="rounded"></canvas>
+        </div>
+    </main>
+
+    <!-- 底部控制按鈕區 -->
+    <footer class="w-full max-w-5xl mx-auto z-20 flex justify-between items-center gap-2">
+        <!-- 虛擬十字搖桿 / D-Pad (手機移動專用) -->
+        <div class="flex items-center justify-center gap-1 sm:hidden mx-auto my-1">
+            <div class="grid grid-cols-3 gap-1 w-36 h-36">
+                <div></div>
+                <button onclick="movePlayer(0, -1)" class="dpad-btn rounded-t-xl flex items-center justify-center text-xl text-cyan-300 font-bold">▲</button>
+                <div></div>
+                <button onclick="movePlayer(-1, 0)" class="dpad-btn rounded-l-xl flex items-center justify-center text-xl text-cyan-300 font-bold">◄</button>
+                <button onclick="useFlashlightPowerup()" class="dpad-btn rounded-md flex items-center justify-center text-xs text-amber-300 font-bold">🔦</button>
+                <button onclick="movePlayer(1, 0)" class="dpad-btn rounded-r-xl flex items-center justify-center text-xl text-cyan-300 font-bold">►</button>
+                <div></div>
+                <button onclick="movePlayer(0, 1)" class="dpad-btn rounded-b-xl flex items-center justify-center text-xl text-cyan-300 font-bold">▼</button>
+                <div></div>
+            </div>
+        </div>
+
+        <!-- 桌面提示說明 -->
+        <div class="hidden sm:flex justify-between items-center w-full text-xs text-slate-400 bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
+            <div class="flex gap-4">
+                <span>🎮 <b>方向鍵 / WASD</b>：移動角色</span>
+                <span>🔦 <b>空白鍵 (Space)</b>：使用手電筒波衝</span>
+                <span>🖱️ <b>點擊相鄰格</b>：快速移動</span>
+            </div>
+            <button onclick="restartLevel()" class="px-3 py-1 bg-rose-950/80 hover:bg-rose-900 border border-rose-500/50 rounded-lg text-rose-300 font-bold">
+                🔄 重置本關
+            </button>
+        </div>
+    </footer>
+
+    <!-- Modal 1: 遊戲開始與難度選擇 Modal -->
+    <div id="startModal" class="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center z-50 p-4">
+        <div class="neon-border bg-slate-950 rounded-2xl p-6 max-w-md w-full text-center shadow-2xl relative">
+            <h1 class="text-3xl sm:text-4xl font-black font-cinzel text-cyan-400 neon-text mb-1">MAZE DUNGEON</h1>
+            <h2 class="text-sm font-bold text-slate-300 mb-5">迷宮地牢大冒險：終極探索</h2>
+
+            <div class="text-left bg-slate-900/90 p-4 rounded-xl text-xs space-y-2.5 border border-cyan-900/60 text-slate-200 mb-6">
+                <p class="flex items-center gap-2">🧩 <b>【生成演算法】</b>：隨機生成絕對可解的複雜迷宮！</p>
+                <p class="flex items-center gap-2">🔑 <b>【解鎖傳送門】</b>：收集地牢中隱藏的所有金鑰匙 🔑 開啟出口 🌀。</p>
+                <p class="flex items-center gap-2">🌫️ <b>【迷霧探險】</b>：視野範圍有限，小心隨機巡邏的黑影怪 👾 與陷阱！</p>
+                <p class="flex items-center gap-2">💎 <b>【寶藏與道具】</b>：拾取藍寶石增加分數，使用手電筒 🔦 瞬間照亮迷宮！</p>
+            </div>
+
+            <!-- 選擇難度 -->
+            <div class="mb-4">
+                <label class="block text-xs font-bold text-slate-400 mb-2">選擇迷宮規模 (難度)</label>
+                <div class="grid grid-cols-3 gap-2">
+                    <button onclick="selectDifficulty('easy')" id="diff-easy" class="diff-btn py-2 bg-slate-900 border-2 border-emerald-500 rounded-xl text-emerald-400 text-xs font-bold">簡單 (13x13)</button>
+                    <button onclick="selectDifficulty('medium')" id="diff-medium" class="diff-btn py-2 bg-slate-900 border border-slate-700 rounded-xl text-slate-400 text-xs font-bold">普通 (21x21)</button>
+                    <button onclick="selectDifficulty('hard')" id="diff-hard" class="diff-btn py-2 bg-slate-900 border border-slate-700 rounded-xl text-slate-400 text-xs font-bold">困難 (31x31)</button>
+                </div>
+            </div>
+
+            <!-- 選擇冒險英雄 -->
+            <div class="mb-6 text-left">
+                <label class="block text-xs font-bold text-slate-400 mb-2">選擇登場英雄 (Hero Class)</label>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <button onclick="selectHero(0)" id="hero-btn-0" class="hero-select-btn p-2.5 rounded-xl border-2 border-cyan-500 bg-slate-900/90 text-left transition-all hover:border-cyan-400">
+                        <div class="flex items-center gap-1.5 mb-1">
+                            <span class="text-2xl">🧙‍♂️</span>
+                            <div>
+                                <div class="text-xs font-black text-cyan-300">大法師</div>
+                                <div class="text-[9px] text-slate-400">廣視野/強探照</div>
+                            </div>
+                        </div>
+                    </button>
+                    <button onclick="selectHero(1)" id="hero-btn-1" class="hero-select-btn p-2.5 rounded-xl border border-slate-800 bg-slate-900/50 text-left transition-all hover:border-slate-600">
+                        <div class="flex items-center gap-1.5 mb-1">
+                            <span class="text-2xl">🛡️</span>
+                            <div>
+                                <div class="text-xs font-black text-amber-300">聖騎士</div>
+                                <div class="text-[9px] text-slate-400">150HP/30%減傷</div>
+                            </div>
+                        </div>
+                    </button>
+                    <button onclick="selectHero(2)" id="hero-btn-2" class="hero-select-btn p-2.5 rounded-xl border border-slate-800 bg-slate-900/50 text-left transition-all hover:border-slate-600">
+                        <div class="flex items-center gap-1.5 mb-1">
+                            <span class="text-2xl">🥷</span>
+                            <div>
+                                <div class="text-xs font-black text-purple-300">影武者</div>
+                                <div class="text-[9px] text-slate-400">寶石1.5倍加成</div>
+                            </div>
+                        </div>
+                    </button>
+                    <button onclick="selectHero(3)" id="hero-btn-3" class="hero-select-btn p-2.5 rounded-xl border border-slate-800 bg-slate-900/50 text-left transition-all hover:border-slate-600">
+                        <div class="flex items-center gap-1.5 mb-1">
+                            <span class="text-2xl">🏹</span>
+                            <div>
+                                <div class="text-xs font-black text-emerald-300">精靈遊俠</div>
+                                <div class="text-[9px] text-slate-400">鑰匙寶藏感應</div>
+                            </div>
+                        </div>
+                    </button>
+                </div>
+            </div>
+
+            <button onclick="startGame()" class="w-full py-3.5 bg-gradient-to-r from-cyan-500 via-sky-400 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black text-base rounded-xl shadow-lg pulse-btn cursor-pointer">
+                🚀 開始探索 (ENTER DUNGEON)
+            </button>
+        </div>
+    </div>
+
+    <!-- Modal 2: 關卡完成 Modal -->
+    <div id="levelCompleteModal" class="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center z-50 p-4 hidden">
+        <div class="neon-border bg-slate-950 rounded-2xl p-6 max-w-md w-full text-center shadow-2xl">
+            <h2 class="text-3xl font-black text-emerald-400 neon-text mb-2">🎉 順利逃出迷宮！</h2>
+            <p class="text-xs text-slate-300 mb-4">你成功找到了傳送門，並戰勝了迷霧！</p>
+
+            <div class="bg-slate-900 p-4 rounded-xl text-slate-200 text-xs space-y-2 mb-6 border border-slate-800">
+                <div class="flex justify-between"><span>本關耗時:</span> <span id="clearTimeText" class="text-amber-400 font-bold">00:00</span></div>
+                <div class="flex justify-between"><span>收集寶石:</span> <span id="clearGemText" class="text-cyan-400 font-bold">0</span></div>
+                <div class="flex justify-between border-t border-slate-800 pt-2"><span>累計總分:</span> <span id="clearScoreText" class="text-yellow-400 font-bold text-sm">0</span></div>
+            </div>
+
+            <button onclick="nextLevel()" class="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-black rounded-xl cursor-pointer pulse-btn">
+                ➡️ 挑戰下一關 (NEXT LEVEL)
+            </button>
+        </div>
+    </div>
+
+    <!-- Modal 3: 遊戲結束 Modal -->
+    <div id="gameOverModal" class="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center z-50 p-4 hidden">
+        <div class="neon-border bg-slate-950 rounded-2xl p-6 max-w-md w-full text-center shadow-2xl">
+            <h2 class="text-3xl font-black text-rose-500 neon-text mb-2">💀 陷落於地牢...</h2>
+            <p class="text-xs text-slate-300 mb-4">你的生命值耗盡，迷宮吞噬了你的身影。</p>
+
+            <div class="bg-slate-900 p-4 rounded-xl text-slate-200 text-xs space-y-2 mb-6 border border-slate-800">
+                <div class="flex justify-between"><span>到達關卡:</span> <span id="deadLevelText" class="text-cyan-400 font-bold">1</span></div>
+                <div class="flex justify-between"><span>最終得分:</span> <span id="deadScoreText" class="text-amber-400 font-bold">0</span></div>
+            </div>
+
+            <button onclick="restartGameTotal()" class="w-full py-3.5 bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-400 hover:to-pink-400 text-slate-950 font-black rounded-xl cursor-pointer pulse-btn">
+                🔄 重新開始冒險 (RESTART)
+            </button>
+        </div>
+    </div>
+
+    <script>
+        /* ==========================================================================
+           1. 英雄角色定義與主題風格 (Hero Classes & Themes)
+           ========================================================================== */
+        const HEROES = [
+            { id: 'wizard', name: '大法師', avatar: '🧙‍♂️', hp: 100, maxHp: 100, visionBonus: 1.3, dmgReduce: 0, scoreMult: 1.0 },
+            { id: 'paladin', name: '聖騎士', avatar: '🛡️', hp: 150, maxHp: 150, visionBonus: 1.0, dmgReduce: 0.3, scoreMult: 1.0 },
+            { id: 'rogue', name: '影武者', avatar: '🥷', hp: 90, maxHp: 90, visionBonus: 1.0, dmgReduce: 0, scoreMult: 1.5 },
+            { id: 'ranger', name: '精靈遊俠', avatar: '🏹', hp: 110, maxHp: 110, visionBonus: 1.1, dmgReduce: 0, scoreMult: 1.1 }
+        ];
+
+        let selectedHeroIdx = 0;
+
+        function selectHero(idx) {
+            selectedHeroIdx = idx;
+            HEROES.forEach((h, i) => {
+                const btn = document.getElementById(`hero-btn-${i}`);
+                if (btn) {
+                    if (i === idx) {
+                        btn.className = "hero-select-btn p-2.5 rounded-xl border-2 border-cyan-500 bg-slate-900/90 text-left transition-all hover:border-cyan-400";
+                    } else {
+                        btn.className = "hero-select-btn p-2.5 rounded-xl border border-slate-800 bg-slate-900/50 text-left transition-all hover:border-slate-600";
+                    }
+                }
+            });
+        }
+
+        const THEMES = [
+            { id: 'cyberpunk', name: '賽博霓虹', bg: '#050814', wall: '#1e293b', path: '#0f172a', accent: '#38bdf8', player: '#00f0ff', exit: '#a855f7' },
+            { id: 'dungeon', name: '暗黑地牢', bg: '#0c0a09', wall: '#292524', path: '#1c1917', accent: '#f97316', player: '#fbbf24', exit: '#eab308' },
+            { id: 'forest', name: '翡翠森林', bg: '#022c22', wall: '#065f46', path: '#044e3a', accent: '#34d399', player: '#a7f3d0', exit: '#6ee7b7' },
+            { id: 'cosmos', name: '深空星穹', bg: '#0f0728', wall: '#3b0764', path: '#1e1b4b', accent: '#c084fc', player: '#e879f9', exit: '#38bdf8' }
+        ];
+
+        let currentThemeIdx = 0;
+        let isFogEnabled = true;
+        let audioEnabled = true;
+
+        let difficulty = 'easy';
+        let mazeGridWidth = 13;
+        let mazeGridHeight = 13;
+
+        let level = 1;
+        let score = 0;
+        let playerHp = 100;
+        let keysCollected = 0;
+        let keysRequired = 2;
+        let gemsCollected = 0;
+
+        let secondsElapsed = 0;
+        let timerInterval = null;
+        let isGameActive = false;
+
+        let grid = [];
+        let visitedFog = [];
+        let player = { x: 1, y: 1, dir: 'down' };
+        let exitPos = { x: 1, y: 1 };
+        let items = [];
+        let enemies = [];
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const minimapCanvas = document.getElementById('minimapCanvas');
+        const minimapCtx = minimapCanvas.getContext('2d');
+
+        let audioCtx = null;
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function playSound(type) {
+            if (!audioEnabled || !audioCtx) return;
+            try {
+                const now = audioCtx.currentTime;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                if (type === 'step') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(150, now);
+                    osc.frequency.exponentialRampToValueAtTime(40, now + 0.05);
+                    gain.gain.setValueAtTime(0.1, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+                    osc.start(now); osc.stop(now + 0.05);
+                } else if (type === 'gem') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(523, now);
+                    osc.frequency.setValueAtTime(659, now + 0.08);
+                    gain.gain.setValueAtTime(0.15, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+                    osc.start(now); osc.stop(now + 0.2);
+                } else if (type === 'key') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(880, now);
+                    osc.frequency.setValueAtTime(1320, now + 0.1);
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+                    osc.start(now); osc.stop(now + 0.25);
+                } else if (type === 'hurt') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(120, now);
+                    osc.frequency.exponentialRampToValueAtTime(30, now + 0.2);
+                    gain.gain.setValueAtTime(0.3, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+                    osc.start(now); osc.stop(now + 0.2);
+                } else if (type === 'victory') {
+                    osc.type = 'sine';
+                    [523.25, 659.25, 783.99, 1046.5].forEach((freq, i) => {
+                        const o = audioCtx.createOscillator();
+                        const g = audioCtx.createGain();
+                        o.type = 'sine';
+                        o.frequency.setValueAtTime(freq, now + i * 0.1);
+                        g.gain.setValueAtTime(0.2, now + i * 0.1);
+                        g.gain.exponentialRampToValueAtTime(0.01, now + i * 0.1 + 0.3);
+                        o.connect(g); g.connect(audioCtx.destination);
+                        o.start(now + i * 0.1); o.stop(now + i * 0.1 + 0.3);
+                    });
+                }
+            } catch(e) {}
+        }
+
+        function toggleAudio() {
+            audioEnabled = !audioEnabled;
+            document.getElementById('audioBtn').textContent = audioEnabled ? '🔊 音效' : '🔇 靜音';
+        }
+
+        function selectDifficulty(diff) {
+            difficulty = diff;
+            document.querySelectorAll('.diff-btn').forEach(btn => {
+                btn.classList.remove('border-emerald-500', 'text-emerald-400', 'border-cyan-500', 'text-cyan-400', 'border-purple-500', 'text-purple-400');
+                btn.classList.add('border-slate-700', 'text-slate-400');
+            });
+            const activeBtn = document.getElementById(`diff-${diff}`);
+            activeBtn.classList.remove('border-slate-700', 'text-slate-400');
+
+            if (diff === 'easy') {
+                mazeGridWidth = 13; mazeGridHeight = 13;
+                activeBtn.classList.add('border-emerald-500', 'text-emerald-400');
+            } else if (diff === 'medium') {
+                mazeGridWidth = 21; mazeGridHeight = 21;
+                activeBtn.classList.add('border-cyan-500', 'text-cyan-400');
+            } else if (diff === 'hard') {
+                mazeGridWidth = 31; mazeGridHeight = 31;
+                activeBtn.classList.add('border-purple-500', 'text-purple-400');
+            }
+        }
+
+        function cycleTheme() {
+            currentThemeIdx = (currentThemeIdx + 1) % THEMES.length;
+            const theme = THEMES[currentThemeIdx];
+            document.getElementById('themeName').textContent = theme.name;
+            document.documentElement.style.setProperty('--accent-glow', theme.accent);
+            render();
+        }
+
+        function toggleFog() {
+            isFogEnabled = !isFogEnabled;
+            document.getElementById('fogStatus').textContent = isFogEnabled ? '開啟' : '關閉';
+            render();
+        }
+
+        function generateMaze(cols, rows) {
+            grid = Array(rows).fill(0).map(() => Array(cols).fill(1));
+            visitedFog = Array(rows).fill(0).map(() => Array(cols).fill(false));
+
+            function carvePath(cx, cy) {
+                grid[cy][cx] = 0;
+                const dirs = [
+                    [0, -2], [0, 2], [-2, 0], [2, 0]
+                ].sort(() => Math.random() - 0.5);
+
+                for (let [dx, dy] of dirs) {
+                    const nx = cx + dx;
+                    const ny = cy + dy;
+
+                    if (nx > 0 && nx < cols - 1 && ny > 0 && ny < rows - 1 && grid[ny][nx] === 1) {
+                        grid[cy + dy / 2][cx + dx / 2] = 0;
+                        carvePath(nx, ny);
+                    }
+                }
+            }
+
+            carvePath(1, 1);
+
+            player.x = 1; player.y = 1;
+            exitPos = { x: cols - 2, y: rows - 2 };
+            grid[exitPos.y][exitPos.x] = 0;
+
+            items = [];
+            keysRequired = difficulty === 'easy' ? 2 : (difficulty === 'medium' ? 3 : 4);
+            keysCollected = 0;
+
+            let emptyCells = [];
+            for (let r = 1; r < rows - 1; r++) {
+                for (let c = 1; c < cols - 1; c++) {
+                    if (grid[r][c] === 0 && !(c === 1 && r === 1) && !(c === exitPos.x && r === exitPos.y)) {
+                        emptyCells.push({ x: c, y: r });
+                    }
+                }
+            }
+            emptyCells.sort(() => Math.random() - 0.5);
+
+            for (let i = 0; i < keysRequired; i++) {
+                if (emptyCells.length > 0) {
+                    const cell = emptyCells.pop();
+                    items.push({ x: cell.x, y: cell.y, type: 'key' });
+                }
+            }
+
+            const gemCount = Math.floor(cols * 0.8);
+            for (let i = 0; i < gemCount; i++) {
+                if (emptyCells.length > 0) {
+                    const cell = emptyCells.pop();
+                    items.push({ x: cell.x, y: cell.y, type: 'gem' });
+                }
+            }
+
+            for (let i = 0; i < 2; i++) {
+                if (emptyCells.length > 0) {
+                    const cell = emptyCells.pop();
+                    items.push({ x: cell.x, y: cell.y, type: Math.random() < 0.5 ? 'hp' : 'flash' });
+                }
+            }
+
+            enemies = [];
+            const enemyCount = difficulty === 'easy' ? 1 : (difficulty === 'medium' ? 3 : 5);
+            for (let i = 0; i < enemyCount; i++) {
+                if (emptyCells.length > 0) {
+                    const cell = emptyCells.pop();
+                    enemies.push({ x: cell.x, y: cell.y, moveTimer: 0 });
+                }
+            }
+
+            updateFogVision();
+        }
+
+        function updateFogVision() {
+            const currentHero = HEROES[selectedHeroIdx];
+            const baseVision = 3 * currentHero.visionBonus;
+
+            for (let r = player.y - Math.ceil(baseVision); r <= player.y + Math.ceil(baseVision); r++) {
+                for (let c = player.x - Math.ceil(baseVision); c <= player.x + Math.ceil(baseVision); c++) {
+                    if (r >= 0 && r < mazeGridHeight && c >= 0 && c < mazeGridWidth) {
+                        const dist = Math.hypot(c - player.x, r - player.y);
+                        if (dist <= baseVision + 0.5) {
+                            visitedFog[r][c] = true;
+                        }
+                    }
+                }
+            }
+
+            if (currentHero.id === 'ranger') {
+                items.forEach(item => {
+                    if (item.type === 'key' && Math.hypot(item.x - player.x, item.y - player.y) <= 6) {
+                        visitedFog[item.y][item.x] = true;
+                    }
+                });
+            }
+        }
+
+        function useFlashlightPowerup() {
+            if (!isGameActive) return;
+            for (let r = 0; r < mazeGridHeight; r++) {
+                for (let c = 0; c < mazeGridWidth; c++) {
+                    if (Math.hypot(c - player.x, r - player.y) <= 7) {
+                        visitedFog[r][c] = true;
+                    }
+                }
+            }
+            playSound('victory');
+            document.getElementById('statusAlert').textContent = `🔦 探照燈破開了周圍的迷霧！`;
+            render();
+        }
+
+        function movePlayer(dx, dy) {
+            if (!isGameActive) return;
+
+            if (dx > 0) player.dir = 'right';
+            else if (dx < 0) player.dir = 'left';
+            else if (dy > 0) player.dir = 'down';
+            else if (dy < 0) player.dir = 'up';
+
+            const targetX = player.x + dx;
+            const targetY = player.y + dy;
+
+            if (targetX < 0 || targetX >= mazeGridWidth || targetY < 0 || targetY >= mazeGridHeight) return;
+            if (grid[targetY][targetX] === 1) return;
+
+            player.x = targetX;
+            player.y = targetY;
+            playSound('step');
+            updateFogVision();
+
+            const currentHero = HEROES[selectedHeroIdx];
+
+            for (let i = items.length - 1; i >= 0; i--) {
+                const item = items[i];
+                if (item.x === player.x && item.y === player.y) {
+                    if (item.type === 'key') {
+                        keysCollected++;
+                        playSound('key');
+                        document.getElementById('statusAlert').textContent = `🔑 獲得一把黃金鑰匙！(${keysCollected}/${keysRequired})`;
+                    } else if (item.type === 'gem') {
+                        gemsCollected++;
+                        score += Math.round(150 * currentHero.scoreMult);
+                        playSound('gem');
+                    } else if (item.type === 'hp') {
+                        playerHp = Math.min(currentHero.maxHp, playerHp + Math.round(currentHero.maxHp * 0.3));
+                        playSound('gem');
+                        document.getElementById('statusAlert').textContent = `🧪 飲用藥水，恢復生命值！`;
+                    } else if (item.type === 'flash') {
+                        useFlashlightPowerup();
+                    }
+                    items.splice(i, 1);
+                    updateHUD();
+                }
+            }
+
+            if (player.x === exitPos.x && player.y === exitPos.y) {
+                if (keysCollected >= keysRequired) {
+                    winLevel();
+                } else {
+                    document.getElementById('statusAlert').textContent = `🔒 傳送門鎖住了！還需要 ${keysRequired - keysCollected} 把鑰匙！`;
+                }
+            }
+
+            render();
+        }
+
+        function updateEnemies() {
+            if (!isGameActive) return;
+
+            const currentHero = HEROES[selectedHeroIdx];
+
+            enemies.forEach(enemy => {
+                enemy.moveTimer++;
+                if (enemy.moveTimer > 25) {
+                    enemy.moveTimer = 0;
+
+                    const possibleDirs = [
+                        { dx: 0, dy: -1 }, { dx: 0, dy: 1 },
+                        { dx: -1, dy: 0 }, { dx: 1, dy: 0 }
+                    ].filter(d => {
+                        const nx = enemy.x + d.dx;
+                        const ny = enemy.y + d.dy;
+                        return nx >= 0 && nx < mazeGridWidth && ny >= 0 && ny < mazeGridHeight && grid[ny][nx] === 0;
+                    });
+
+                    if (possibleDirs.length > 0) {
+                        const dir = possibleDirs[Math.floor(Math.random() * possibleDirs.length)];
+                        enemy.x += dir.dx;
+                        enemy.y += dir.dy;
+                    }
+                }
+
+                if (enemy.x === player.x && enemy.y === player.y) {
+                    const rawDamage = 18;
+                    const finalDamage = Math.round(rawDamage * (1 - currentHero.dmgReduce));
+                    playerHp -= finalDamage;
+
+                    playSound('hurt');
+                    document.getElementById('sceneContainer').classList.add('shake');
+                    setTimeout(() => document.getElementById('sceneContainer').classList.remove('shake'), 300);
+                    document.getElementById('statusAlert').textContent = `⚠️ 受到陰影怪物攻擊！失去 ${finalDamage} HP！`;
+                    if (playerHp <= 0) gameOver();
+                    updateHUD();
+                }
+            });
+        }
+
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+            render();
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+        function render() {
+            if (!ctx) return;
+            const theme = THEMES[currentThemeIdx];
+
+            ctx.fillStyle = theme.bg;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const cellSize = Math.floor(Math.min(canvas.width / mazeGridWidth, canvas.height / mazeGridHeight));
+            const offsetX = Math.floor((canvas.width - mazeGridWidth * cellSize) / 2);
+            const offsetY = Math.floor((canvas.height - mazeGridHeight * cellSize) / 2);
+
+            for (let r = 0; r < mazeGridHeight; r++) {
+                for (let c = 0; c < mazeGridWidth; c++) {
+                    const x = offsetX + c * cellSize;
+                    const y = offsetY + r * cellSize;
+
+                    if (isFogEnabled && !visitedFog[r][c]) {
+                        ctx.fillStyle = '#02040a';
+                        ctx.fillRect(x, y, cellSize, cellSize);
+                        continue;
+                    }
+
+                    if (grid[r][c] === 1) {
+                        ctx.fillStyle = theme.wall;
+                        ctx.fillRect(x, y, cellSize, cellSize);
+                        ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+                        ctx.strokeRect(x, y, cellSize, cellSize);
+                    } else {
+                        ctx.fillStyle = theme.path;
+                        ctx.fillRect(x, y, cellSize, cellSize);
+                    }
+                }
+            }
+
+            // 繪製出口 🌀
+            if (!isFogEnabled || visitedFog[exitPos.y][exitPos.x]) {
+                const ex = offsetX + exitPos.x * cellSize + cellSize / 2;
+                const ey = offsetY + exitPos.y * cellSize + cellSize / 2;
+                ctx.save();
+                ctx.font = `${cellSize * 0.7}px sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('🌀', ex, ey);
+                ctx.restore();
+            }
+
+            // 繪製道具 🔑 / 💎 / 🧪
+            items.forEach(item => {
+                if (!isFogEnabled || visitedFog[item.y][item.x]) {
+                    const ix = offsetX + item.x * cellSize + cellSize / 2;
+                    const iy = offsetY + item.y * cellSize + cellSize / 2;
+                    ctx.save();
+                    ctx.font = `${cellSize * 0.6}px sans-serif`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    let icon = '💎';
+                    if (item.type === 'key') icon = '🔑';
+                    if (item.type === 'hp') icon = '🧪';
+                    if (item.type === 'flash') icon = '🔦';
+                    ctx.fillText(icon, ix, iy);
+                    ctx.restore();
+                }
+            });
+
+            // 繪製怪物 👾
+            enemies.forEach(enemy => {
+                if (!isFogEnabled || visitedFog[enemy.y][enemy.x]) {
+                    const ex = offsetX + enemy.x * cellSize + cellSize / 2;
+                    const ey = offsetY + enemy.y * cellSize + cellSize / 2;
+                    ctx.save();
+                    ctx.font = `${cellSize * 0.65}px sans-serif`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('👾', ex, ey);
+                    ctx.restore();
+                }
+            });
+
+            // 繪製玩家角色
+            const px = offsetX + player.x * cellSize + cellSize / 2;
+            const py = offsetY + player.y * cellSize + cellSize / 2;
+            const currentHero = HEROES[selectedHeroIdx];
+
+            ctx.save();
+            ctx.shadowColor = theme.player;
+            ctx.shadowBlur = 15;
+            ctx.font = `${cellSize * 0.65}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(currentHero.avatar, px, py);
+            ctx.restore();
+
+            renderMinimap();
+        }
+
+        function renderMinimap() {
+            if (!minimapCtx) return;
+            const mw = minimapCanvas.width;
+            const mh = minimapCanvas.height;
+            minimapCtx.clearRect(0, 0, mw, mh);
+
+            const cw = mw / mazeGridWidth;
+            const ch = mh / mazeGridHeight;
+
+            for (let r = 0; r < mazeGridHeight; r++) {
+                for (let c = 0; c < mazeGridWidth; c++) {
+                    if (visitedFog[r][c] || !isFogEnabled) {
+                        minimapCtx.fillStyle = grid[r][c] === 1 ? '#334155' : '#0f172a';
+                        minimapCtx.fillRect(c * cw, r * ch, cw, ch);
+                    }
+                }
+            }
+
+            minimapCtx.fillStyle = '#a855f7';
+            minimapCtx.fillRect(exitPos.x * cw, exitPos.y * ch, cw, ch);
+
+            minimapCtx.fillStyle = '#38bdf8';
+            minimapCtx.fillRect(player.x * cw, player.y * ch, cw, ch);
+        }
+
+        function updateHUD() {
+            const currentHero = HEROES[selectedHeroIdx];
+            document.getElementById('playerAvatar').textContent = currentHero.avatar;
+            document.getElementById('heroClassName').textContent = currentHero.name;
+
+            const hpPct = Math.max(0, (playerHp / currentHero.maxHp) * 100);
+            document.getElementById('hpBar').style.width = `${hpPct}%`;
+            document.getElementById('hpText').textContent = `${Math.ceil(playerHp)}/${currentHero.maxHp}`;
+            document.getElementById('levelText').textContent = level;
+            document.getElementById('gemText').textContent = gemsCollected;
+            document.getElementById('keyText').textContent = `${keysCollected}/${keysRequired}`;
+        }
+
+        function startTimer() {
+            clearInterval(timerInterval);
+            secondsElapsed = 0;
+            timerInterval = setInterval(() => {
+                if (isGameActive) {
+                    secondsElapsed++;
+                    const m = String(Math.floor(secondsElapsed / 60)).padStart(2, '0');
+                    const s = String(secondsElapsed % 60).padStart(2, '0');
+                    document.getElementById('timerText').textContent = `${m}:${s}`;
+                }
+            }, 1000);
+        }
+
+        function gameLoop() {
+            if (isGameActive) {
+                updateEnemies();
+                render();
+            }
+            requestAnimationFrame(gameLoop);
+        }
+
+        function startGame() {
+            initAudio();
+            document.getElementById('startModal').classList.add('hidden');
+            document.getElementById('gameOverModal').classList.add('hidden');
+            document.getElementById('levelCompleteModal').classList.add('hidden');
+
+            const currentHero = HEROES[selectedHeroIdx];
+            score = 0;
+            level = 1;
+            playerHp = currentHero.hp;
+            gemsCollected = 0;
+
+            loadLevel();
+            isGameActive = true;
+            startTimer();
+        }
+
+        function loadLevel() {
+            generateMaze(mazeGridWidth, mazeGridHeight);
+            updateHUD();
+            resizeCanvas();
+            document.getElementById('statusAlert').textContent = `🚩 關卡 ${level}：尋找 ${keysRequired} 把鑰匙以解鎖傳送門！`;
+        }
+
+        function winLevel() {
+            isGameActive = false;
+            playSound('victory');
+            score += Math.max(0, 1000 - secondsElapsed * 10) + keysCollected * 200;
+
+            document.getElementById('clearTimeText').textContent = document.getElementById('timerText').textContent;
+            document.getElementById('clearGemText').textContent = gemsCollected;
+            document.getElementById('clearScoreText').textContent = score;
+            document.getElementById('levelCompleteModal').classList.remove('hidden');
+        }
+
+        function nextLevel() {
+            level++;
+            document.getElementById('levelCompleteModal').classList.add('hidden');
+            loadLevel();
+            isGameActive = true;
+        }
+
+        function restartLevel() {
+            loadLevel();
+            isGameActive = true;
+        }
+
+        function gameOver() {
+            isGameActive = false;
+            playSound('hurt');
+            document.getElementById('deadLevelText').textContent = level;
+            document.getElementById('deadScoreText').textContent = score;
+            document.getElementById('gameOverModal').classList.remove('hidden');
+        }
+
+        function restartGameTotal() {
+            startGame();
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (!isGameActive) return;
+
+            switch(e.key) {
+                case 'ArrowUp': case 'w': case 'W':
+                    movePlayer(0, -1); break;
+                case 'ArrowDown': case 's': case 'S':
+                    movePlayer(0, 1); break;
+                case 'ArrowLeft': case 'a': case 'A':
+                    movePlayer(-1, 0); break;
+                case 'ArrowRight': case 'd': case 'D':
+                    movePlayer(1, 0); break;
+                case ' ':
+                    useFlashlightPowerup(); break;
+            }
+        });
+
+        canvas.addEventListener('click', (e) => {
+            if (!isGameActive) return;
+            const rect = canvas.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+            const clickY = e.clientY - rect.top;
+
+            const cellSize = Math.min(canvas.width / mazeGridWidth, canvas.height / mazeGridHeight);
+            const offsetX = (canvas.width - mazeGridWidth * cellSize) / 2;
+            const offsetY = (canvas.height - mazeGridHeight * cellSize) / 2;
+
+            const targetC = Math.floor((clickX - offsetX) / cellSize);
+            const targetR = Math.floor((clickY - offsetY) / cellSize);
+
+            const dx = targetC - player.x;
+            const dy = targetR - player.y;
+
+            if (Math.abs(dx) + Math.abs(dy) === 1) {
+                movePlayer(dx, dy);
+            }
+        });
+
+        let touchStartX = 0;
+        let touchStartY = 0;
+
+        canvas.addEventListener('touchstart', (e) => {
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+        }, { passive: true });
+
+        canvas.addEventListener('touchend', (e) => {
+            if (!isGameActive) return;
+            const touchEndX = e.changedTouches[0].clientX;
+            const touchEndY = e.changedTouches[0].clientY;
+
+            const diffX = touchEndX - touchStartX;
+            const diffY = touchEndY - touchStartY;
+
+            if (Math.abs(diffX) > 30 || Math.abs(diffY) > 30) {
+                if (Math.abs(diffX) > Math.abs(diffY)) {
+                    movePlayer(diffX > 0 ? 1 : -1, 0);
+                } else {
+                    movePlayer(0, diffY > 0 ? 1 : -1);
+                }
+            }
+        }, { passive: true });
+
+        // 初始化
+        selectDifficulty('easy');
+        requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>

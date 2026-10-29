@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KWANGYA UNO - aespa Edition</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@500;700&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background: #080711;
+            color: #ffffff;
+            overflow-x: hidden;
+            user-select: none;
+        }
+
+        .font-orbitron {
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        /* Kwangya Neon Glow Effects */
+        .glow-red { box-shadow: 0 0 15px rgba(255, 42, 109, 0.6); }
+        .glow-blue { box-shadow: 0 0 15px rgba(5, 217, 232, 0.6); }
+        .glow-green { box-shadow: 0 0 15px rgba(0, 255, 159, 0.6); }
+        .glow-yellow { box-shadow: 0 0 15px rgba(255, 230, 0, 0.6); }
+        .glow-purple { box-shadow: 0 0 20px rgba(189, 0, 255, 0.8); }
+
+        .border-red-kwangya { border-color: #ff2a6d; }
+        .border-blue-kwangya { border-color: #05d9e8; }
+        .border-green-kwangya { border-color: #00ff9f; }
+        .border-yellow-kwangya { border-color: #ffe600; }
+
+        .bg-red-kwangya { background: linear-gradient(135deg, #7a0026, #ff2a6d); }
+        .bg-blue-kwangya { background: linear-gradient(135deg, #00567a, #05d9e8); }
+        .bg-green-kwangya { background: linear-gradient(135deg, #00663d, #00ff9f); }
+        .bg-yellow-kwangya { background: linear-gradient(135deg, #7a6e00, #ffe600); }
+        .bg-wild-kwangya { background: linear-gradient(135deg, #7b2cbf, #ff007f, #00f0ff, #ffee00); }
+
+        /* Glassmorphism containers */
+        .glass-panel {
+            background: rgba(20, 18, 38, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
+        /* UNO Card styles */
+        .uno-card {
+            transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            transform-origin: center bottom;
+        }
+
+        .uno-card:hover {
+            transform: translateY(-16px) scale(1.08);
+            z-index: 30;
+        }
+
+        .card-back {
+            background: linear-gradient(135deg, #110022 0%, #2e0854 50%, #000000 100%);
+            border: 2px solid #00f0ff;
+        }
+
+        /* Holographic Metallic Shimmer */
+        .holo-shimmer {
+            background: linear-gradient(115deg, transparent 20%, rgba(255,255,255,0.25) 40%, transparent 60%);
+            background-size: 200% 100%;
+            animation: shimmer 3s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(10, 10, 20, 0.5);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #3b0764;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between relative bg-slate-950">
+
+    <!-- Top Header -->
+    <header class="w-full glass-panel px-6 py-3 flex justify-between items-center border-b border-purple-900/50 z-20">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-fuchsia-600 to-cyan-400 flex items-center justify-center font-orbitron font-bold text-xl shadow-lg shadow-purple-500/30">
+                æ
+            </div>
+            <div>
+                <h1 class="font-orbitron font-extrabold text-xl tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-fuchsia-400 via-cyan-300 to-purple-400">
+                    KWANGYA UNO
+                </h1>
+                <p class="text-xs text-cyan-400/80 tracking-widest font-mono">5-PLAYER SYNK BATTLE FEAT. aespa</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-3 sm:gap-4">
+            <button onclick="toggleRulesModal()" class="px-3.5 py-1.5 rounded-full border border-cyan-500/50 hover:border-cyan-400 bg-cyan-950/40 hover:bg-cyan-900/50 text-cyan-300 text-xs sm:text-sm font-semibold transition flex items-center gap-1.5">
+                <i class="fa-solid fa-book-open"></i> 遊戲規則 / Lore
+            </button>
+            <div id="difficulty-badge" class="px-3 py-1 rounded-full bg-cyan-900/40 border border-cyan-500/40 text-cyan-300 text-xs font-mono font-bold">
+                難易度: 普通
+            </div>
+            <div id="game-status-badge" class="px-3 py-1 rounded-full bg-purple-900/40 border border-purple-500/40 text-purple-300 text-xs font-mono">
+                等待開始...
+            </div>
+        </div>
+    </header>
+
+    <!-- Game Board Canvas Container -->
+    <main class="flex-1 relative flex flex-col justify-between p-2 sm:p-4 max-w-7xl mx-auto w-full">
+        
+        <!-- TOP ROW: Bot 2 (Winter) & Bot 3 (Giselle) -->
+        <div class="flex justify-around items-center z-10 w-full max-w-4xl mx-auto gap-2">
+            <!-- WINTER -->
+            <div id="bot2-container" class="glass-panel px-3 py-2 rounded-2xl flex items-center gap-2 border border-slate-700/50 transition-all">
+                <div class="relative">
+                    <div class="w-10 h-10 rounded-full border-2 border-cyan-400 bg-slate-900 flex items-center justify-center text-cyan-300 font-bold">
+                        <i class="fa-solid fa-snowflake text-lg"></i>
+                    </div>
+                    <span id="bot2-turn-indicator" class="hidden absolute -top-1 -right-1 w-3.5 h-3.5 bg-cyan-400 rounded-full animate-ping"></span>
+                </div>
+                <div>
+                    <div class="font-orbitron font-bold text-xs text-cyan-300">WINTER</div>
+                    <div class="text-[10px] text-slate-400">Armamenter</div>
+                    <div class="text-[11px] text-slate-300">手牌: <span id="bot2-card-count" class="font-bold text-white">7</span></div>
+                </div>
+                <div id="bot2-hand" class="hidden sm:flex -space-x-6 ml-2 h-10 items-center"></div>
+            </div>
+
+            <!-- GISELLE -->
+            <div id="bot3-container" class="glass-panel px-3 py-2 rounded-2xl flex items-center gap-2 border border-slate-700/50 transition-all">
+                <div class="relative">
+                    <div class="w-10 h-10 rounded-full border-2 border-emerald-400 bg-slate-900 flex items-center justify-center text-emerald-300 font-bold">
+                        <i class="fa-solid fa-feather text-lg"></i>
+                    </div>
+                    <span id="bot3-turn-indicator" class="hidden absolute -top-1 -right-1 w-3.5 h-3.5 bg-emerald-400 rounded-full animate-ping"></span>
+                </div>
+                <div>
+                    <div class="font-orbitron font-bold text-xs text-emerald-300">GISELLE</div>
+                    <div class="text-[10px] text-slate-400">Xenoglossy</div>
+                    <div class="text-[11px] text-slate-300">手牌: <span id="bot3-card-count" class="font-bold text-white">7</span></div>
+                </div>
+                <div id="bot3-hand" class="hidden sm:flex -space-x-6 ml-2 h-10 items-center"></div>
+            </div>
+        </div>
+
+        <!-- MIDDLE SECTION: Bot 1 (Karina - Left), Center Pile, Bot 4 (Ningning - Right) -->
+        <div class="flex justify-between items-center my-2 relative">
+            
+            <!-- LEFT: Bot 1 (Karina) -->
+            <div id="bot1-container" class="glass-panel p-2.5 rounded-2xl flex flex-col items-center gap-1.5 border border-slate-700/50 transition-all w-28 sm:w-32">
+                <div class="relative">
+                    <div class="w-10 h-10 rounded-full border-2 border-fuchsia-500 bg-slate-900 flex items-center justify-center text-fuchsia-400 font-bold">
+                        <i class="fa-solid fa-heart text-lg"></i>
+                    </div>
+                    <span id="bot1-turn-indicator" class="hidden absolute -top-1 -right-1 w-3.5 h-3.5 bg-fuchsia-500 rounded-full animate-ping"></span>
+                </div>
+                <div class="text-center">
+                    <div class="font-orbitron font-bold text-xs text-fuchsia-400">KARINA</div>
+                    <div class="text-[10px] text-slate-400">Rocket Puncher</div>
+                    <div class="text-[11px] text-slate-300 mt-0.5">手牌: <span id="bot1-card-count" class="font-bold text-white">7</span></div>
+                </div>
+                <div id="bot1-hand" class="flex flex-col -space-y-10 my-1 items-center"></div>
+            </div>
+
+            <!-- CENTER GAME PILE -->
+            <div class="flex flex-col items-center justify-center relative">
+                
+                <!-- Direction & Active Color Aura -->
+                <div id="kwangya-aura" class="absolute w-64 h-64 rounded-full bg-purple-600/10 blur-3xl transition-all duration-700"></div>
+
+                <div class="flex items-center gap-6 sm:gap-8 z-10">
+                    <!-- DRAW PILE -->
+                    <div onclick="playerDrawCard()" class="cursor-pointer group flex flex-col items-center">
+                        <div class="w-20 h-32 sm:w-24 sm:h-36 rounded-xl card-back flex flex-col items-center justify-center relative shadow-xl transform group-hover:scale-105 transition-all duration-300">
+                            <div class="w-9 h-9 rounded-full border border-cyan-400/50 flex items-center justify-center text-cyan-300 font-orbitron font-bold text-sm">
+                                æ
+                            </div>
+                            <span class="text-[10px] text-cyan-400 tracking-widest mt-2 font-mono">DRAW</span>
+                            <!-- Stack illusion -->
+                            <div class="absolute -bottom-1 -right-1 w-full h-full rounded-xl border border-purple-500/30 -z-10 bg-purple-950"></div>
+                            <div class="absolute -bottom-2 -right-2 w-full h-full rounded-xl border border-purple-500/20 -z-20 bg-slate-900"></div>
+                        </div>
+                        <span class="text-xs text-slate-400 mt-2 font-mono group-hover:text-cyan-300">點擊摸牌</span>
+                    </div>
+
+                    <!-- DISCARD PILE (Current Play Card) -->
+                    <div class="flex flex-col items-center">
+                        <div id="discard-pile" class="w-20 h-32 sm:w-24 sm:h-36 rounded-xl flex items-center justify-center relative shadow-2xl transition-all duration-500">
+                            <!-- Populated dynamically -->
+                        </div>
+                        <span class="text-xs text-slate-400 mt-2 font-mono">棄牌堆</span>
+                    </div>
+                </div>
+
+                <!-- Active Indicator Bar -->
+                <div class="mt-4 flex items-center gap-3 sm:gap-4 glass-panel px-4 py-1.5 sm:px-6 sm:py-2 rounded-full z-10 border border-slate-700">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs text-slate-400 font-mono">當前屬性:</span>
+                        <div id="active-color-indicator" class="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-slate-600 border border-white/50 shadow-md transition-all"></div>
+                        <span id="active-color-text" class="text-xs font-bold font-orbitron text-slate-300">NONE</span>
+                    </div>
+                    <div class="w-px h-4 bg-slate-700"></div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs text-slate-400 font-mono">順序:</span>
+                        <span id="direction-indicator" class="text-xs font-bold text-cyan-400 flex items-center gap-1">
+                            順時針 <i class="fa-solid fa-rotate-right"></i>
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT: Bot 4 (Ningning) -->
+            <div id="bot4-container" class="glass-panel p-2.5 rounded-2xl flex flex-col items-center gap-1.5 border border-slate-700/50 transition-all w-28 sm:w-32">
+                <div class="relative">
+                    <div class="w-10 h-10 rounded-full border-2 border-yellow-400 bg-slate-900 flex items-center justify-center text-yellow-400 font-bold">
+                        <i class="fa-solid fa-fire text-lg"></i>
+                    </div>
+                    <span id="bot4-turn-indicator" class="hidden absolute -top-1 -right-1 w-3.5 h-3.5 bg-yellow-400 rounded-full animate-ping"></span>
+                </div>
+                <div class="text-center">
+                    <div class="font-orbitron font-bold text-xs text-yellow-400">NINGNING</div>
+                    <div class="text-[10px] text-slate-400">E-Hacker</div>
+                    <div class="text-[11px] text-slate-300 mt-0.5">手牌: <span id="bot4-card-count" class="font-bold text-white">7</span></div>
+                </div>
+                <div id="bot4-hand" class="flex flex-col -space-y-10 my-1 items-center"></div>
+            </div>
+
+        </div>
+
+        <!-- BOTTOM: Player Hand & Controls -->
+        <div class="flex flex-col items-center z-10 w-full mt-1">
+            <!-- Player Action Bar / UNO Shout -->
+            <div class="flex items-center justify-between w-full max-w-2xl mb-1 px-2">
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-full bg-gradient-to-r from-cyan-500 to-purple-600 flex items-center justify-center font-bold text-xs">
+                        æ
+                    </div>
+                    <div>
+                        <span class="font-orbitron font-bold text-sm text-white">NÆVIS / MY (PLAYER)</span>
+                        <span class="text-xs text-slate-400 ml-2">(SYNK Host)</span>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-3">
+                    <!-- SYNK / UNO Button -->
+                    <button id="uno-btn" onclick="triggerUnoShout()" class="px-5 py-2 rounded-full bg-gradient-to-r from-pink-600 via-purple-600 to-indigo-600 hover:from-pink-500 hover:to-indigo-500 font-orbitron font-extrabold text-xs tracking-wider text-white shadow-lg shadow-pink-500/30 transform hover:scale-105 active:scale-95 transition border border-pink-400/50">
+                        ⚡喊 "SYNK!" (UNO)
+                    </button>
+                </div>
+            </div>
+
+            <!-- Player's Cards Tray -->
+            <div id="player-hand" class="flex -space-x-8 hover:-space-x-5 transition-all duration-300 p-3 max-w-full overflow-x-auto min-h-[150px] items-end justify-center">
+                <!-- Cards dynamically generated -->
+            </div>
+        </div>
+    </main>
+
+    <!-- Log Console / Banner -->
+    <div class="glass-panel py-2 px-6 border-t border-purple-900/30 flex justify-between items-center text-xs font-mono text-slate-300 z-10">
+        <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
+            <span id="latest-log-text" class="text-cyan-300">歡迎來到 Kwangya！請在規則選單中點擊「開始對局」！</span>
+        </div>
+        <button onclick="toggleLogDrawer()" class="text-slate-400 hover:text-white underline">
+            對戰紀錄
+        </button>
+    </div>
+
+    <!-- 1. RULES MODAL -->
+    <div id="rules-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50">
+        <div class="glass-panel border-cyan-500/40 rounded-3xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl relative">
+            <div class="text-center border-b border-slate-700/80 pb-4 mb-4">
+                <div class="inline-block px-3 py-1 rounded-full bg-purple-900/50 border border-purple-400 text-purple-300 font-orbitron text-xs mb-2">
+                    KWANGYA RULES MANUAL
+                </div>
+                <h2 class="font-orbitron font-black text-2xl bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-fuchsia-400 to-yellow-300">
+                    aespa SYNK UNO 遊戲規則 (5人局)
+                </h2>
+                <p class="text-xs text-slate-400 mt-1">對手：Karina, Winter, Giselle, Ningning | 玩家：Nævis / MY</p>
+            </div>
+
+            <div class="space-y-4 text-sm text-slate-300 leading-relaxed">
+                <!-- Difficulty Selection Box -->
+                <div class="p-3.5 bg-slate-900/90 rounded-2xl border border-cyan-500/30">
+                    <h3 class="font-bold text-cyan-300 font-orbitron text-xs mb-2.5 flex items-center gap-2">
+                        <i class="fa-solid fa-sliders text-cyan-400"></i> 選擇對局難易度 (DIFFICULTY LEVEL)
+                    </h3>
+                    <div class="grid grid-cols-3 gap-2 text-center font-mono">
+                        <button id="diff-easy-btn" onclick="selectDifficulty('easy')" class="py-2 px-1 rounded-xl border border-slate-700 bg-slate-800/60 hover:bg-emerald-950/60 hover:border-emerald-500 text-xs transition">
+                            <div class="font-bold text-emerald-400">🟢 練習生 MY</div>
+                            <div class="text-[10px] text-slate-400 scale-90">簡單 (Easy)</div>
+                        </button>
+                        <button id="diff-normal-btn" onclick="selectDifficulty('normal')" class="py-2 px-1 rounded-xl border-2 border-cyan-400 bg-cyan-950/50 text-xs transition shadow-lg shadow-cyan-500/20">
+                            <div class="font-bold text-cyan-300">🟡 SYNK 100</div>
+                            <div class="text-[10px] text-cyan-200 scale-90">普通 (Normal)</div>
+                        </button>
+                        <button id="diff-hard-btn" onclick="selectDifficulty('hard')" class="py-2 px-1 rounded-xl border border-slate-700 bg-slate-800/60 hover:bg-red-950/60 hover:border-red-500 text-xs transition">
+                            <div class="font-bold text-red-400">🔴 曠野主宰</div>
+                            <div class="text-[10px] text-slate-400 scale-90">困難 (Hard)</div>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="p-3 bg-purple-950/40 rounded-xl border border-purple-800/40">
+                    <h3 class="font-bold text-cyan-300 font-orbitron mb-1 flex items-center gap-2">
+                        <i class="fa-solid fa-gamepad"></i> 基本規則 (Basic Rules)
+                    </h3>
+                    <ul class="list-disc list-inside space-y-1 text-xs text-slate-300">
+                        <li>每人起始手牌為 <b>7 張</b>，目標是率先清空手中所有牌。</li>
+                        <li>玩家出牌時，必須符合棄牌堆頂端牌的 <b>顏色 (Color)</b> 或 <b>數字/符號 (Number/Symbol)</b>。</li>
+                        <li>若無牌可出，可點擊左側「DRAW」摸一張牌。</li>
+                    </ul>
+                </div>
+
+                <div class="p-3 bg-indigo-950/40 rounded-xl border border-indigo-800/40">
+                    <h3 class="font-bold text-fuchsia-300 font-orbitron mb-1 flex items-center gap-2">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> aespa 特殊能量卡 (Special Cards)
+                    </h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                        <div class="p-2 bg-slate-900/60 rounded border border-slate-700">
+                            <span class="text-pink-400 font-bold">🚫 SYNK OUT (Skip)</span>
+                            <p class="text-[11px] text-slate-400">跳過下一位對手的回合。</p>
+                        </div>
+                        <div class="p-2 bg-slate-900/60 rounded border border-slate-700">
+                            <span class="text-cyan-400 font-bold">🔄 POS REVERSE (Reverse)</span>
+                            <p class="text-[11px] text-slate-400">反轉出牌順序（順時針 ↔ 逆時針）。</p>
+                        </div>
+                        <div class="p-2 bg-slate-900/60 rounded border border-slate-700">
+                            <span class="text-green-400 font-bold">🐍 BLACK MAMBA (+2)</span>
+                            <p class="text-[11px] text-slate-400">下一位玩家摸 2 張牌並跳過回合。</p>
+                        </div>
+                        <div class="p-2 bg-slate-900/60 rounded border border-slate-700">
+                            <span class="text-yellow-400 font-bold">🌟 SUPERNOVA (Wild)</span>
+                            <p class="text-[11px] text-slate-400">萬用牌！可任意切換目前曠野屬性顏色。</p>
+                        </div>
+                        <div class="p-2 bg-slate-900/60 rounded border border-slate-700 col-span-1 sm:col-span-2">
+                            <span class="text-purple-400 font-bold">💥 ARMAGEDDON (+4 Wild)</span>
+                            <p class="text-[11px] text-slate-400">強烈宇宙爆發！自選屬性顏色，並強制下家摸 4 張牌且跳過回合。</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-3 bg-pink-950/40 rounded-xl border border-pink-800/40">
+                    <h3 class="font-bold text-pink-300 font-orbitron mb-1 flex items-center gap-2">
+                        <i class="fa-solid fa-bolt"></i> 喊 "SYNK!" (UNO Alert)
+                    </h3>
+                    <p class="text-xs">
+                        當你手牌剩下 <b>最後 1 張</b> 時，必須立即按下 <span class="text-pink-400 font-bold">⚡喊 "SYNK!"</span> 按鈕！若忘記宣告且被抓包，將被懲罰額外摸 2 張牌！
+                    </p>
+                </div>
+            </div>
+
+            <div class="mt-6 flex justify-center">
+                <button onclick="startGame()" class="w-full sm:w-auto px-8 py-3 rounded-full bg-gradient-to-r from-cyan-500 via-fuchsia-500 to-yellow-400 text-slate-950 font-orbitron font-extrabold text-sm tracking-wider shadow-lg shadow-cyan-500/40 transform hover:scale-105 active:scale-95 transition">
+                    SYNK IN! 開始對局
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. COLOR PICKER MODAL -->
+    <div id="color-picker-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50">
+        <div class="glass-panel border-purple-500/50 rounded-3xl p-6 max-w-sm w-full text-center shadow-2xl">
+            <h3 class="font-orbitron font-bold text-lg text-white mb-1">切換曠野屬性</h3>
+            <p class="text-xs text-slate-400 mb-6">請指定下位玩家必須匹配的能量顏色</p>
+            
+            <div class="grid grid-cols-2 gap-4">
+                <button onclick="selectWildColor('red')" class="py-4 rounded-xl bg-red-kwangya hover:brightness-125 font-orbitron font-bold text-sm tracking-wider shadow-lg shadow-red-500/40 transition">
+                    RED (Karina)
+                </button>
+                <button onclick="selectWildColor('blue')" class="py-4 rounded-xl bg-blue-kwangya hover:brightness-125 font-orbitron font-bold text-sm tracking-wider shadow-lg shadow-cyan-500/40 transition">
+                    BLUE (Winter)
+                </button>
+                <button onclick="selectWildColor('green')" class="py-4 rounded-xl bg-green-kwangya hover:brightness-125 font-orbitron font-bold text-sm tracking-wider shadow-lg shadow-emerald-500/40 transition">
+                    GREEN (Giselle)
+                </button>
+                <button onclick="selectWildColor('yellow')" class="py-4 rounded-xl bg-yellow-kwangya hover:brightness-125 font-orbitron font-bold text-sm tracking-wider shadow-lg shadow-yellow-500/40 transition text-slate-950">
+                    YELLOW (Ningning)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. GAME OVER MODAL -->
+    <div id="game-over-modal" class="hidden fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 z-50">
+        <div class="glass-panel border-fuchsia-500/50 rounded-3xl p-8 max-w-md w-full text-center shadow-2xl relative">
+            <div id="winner-icon" class="w-20 h-20 mx-auto rounded-full bg-gradient-to-tr from-fuchsia-500 to-yellow-400 flex items-center justify-center text-3xl mb-4 shadow-xl">
+                🏆
+            </div>
+            <h2 id="winner-title" class="font-orbitron font-black text-2xl text-white mb-2">勝利！</h2>
+            <p id="winner-desc" class="text-sm text-slate-300 mb-6">你成功掌控了 Kwangya 能量場！</p>
+            <button onclick="resetAndStartGame()" class="px-8 py-3 rounded-full bg-gradient-to-r from-cyan-500 to-fuchsia-500 text-white font-orbitron font-bold text-sm tracking-wider shadow-lg shadow-fuchsia-500/40 transform hover:scale-105 active:scale-95 transition">
+                重新連接 SYNK
+            </button>
+        </div>
+    </div>
+
+    <!-- 4. LOG HISTORY DRAWER -->
+    <div id="log-drawer" class="hidden fixed bottom-12 right-4 w-80 glass-panel border border-slate-700 rounded-2xl p-4 max-h-64 overflow-y-auto shadow-2xl z-40">
+        <div class="flex justify-between items-center mb-2 pb-2 border-b border-slate-700">
+            <span class="font-orbitron text-xs font-bold text-cyan-300">KWANGYA LOGS</span>
+            <button onclick="toggleLogDrawer()" class="text-slate-400 text-xs hover:text-white">✕</button>
+        </div>
+        <div id="log-history-list" class="space-y-1.5 text-[11px] font-mono text-slate-300">
+            <!-- Logs insert here -->
+        </div>
+    </div>
+
+    <script>
+        /* ==========================================================================
+           GAME CONSTANTS & STATE (5-Player Table: Player + 4 aespa Members)
+           ========================================================================== */
+        const COLORS = ['red', 'blue', 'green', 'yellow'];
+        const COLOR_NAMES = {
+            red: 'RED (Karina)',
+            blue: 'BLUE (Winter)',
+            green: 'GREEN (Giselle)',
+            yellow: 'YELLOW (Ningning)',
+            wild: 'WILD'
+        };
+
+        const PLAYERS = [
+            { id: 0, name: 'NÆVIS / MY', isBot: false, avatar: 'Naevis' },
+            { id: 1, name: 'KARINA', isBot: true, avatar: 'Karina' },
+            { id: 2, name: 'WINTER', isBot: true, avatar: 'Winter' },
+            { id: 3, name: 'GISELLE', isBot: true, avatar: 'Giselle' },
+            { id: 4, name: 'NINGNING', isBot: true, avatar: 'Ningning' }
+        ];
+
+        let deck = [];
+        let discardPile = [];
+        let hands = [[], [], [], [], []];
+        let currentTurn = 0; // 0: Player, 1: Bot1 (Karina), 2: Bot2 (Winter), 3: Bot3 (Giselle), 4: Bot4 (Ningning)
+        let direction = 1; // 1: Clockwise, -1: Counter-clockwise
+        let currentColor = '';
+        let isGameStarted = false;
+        let hasPlayerShoutedUno = false;
+        let pendingWildCardIndex = null;
+        let gameDifficulty = 'normal'; // 'easy' | 'normal' | 'hard'
+
+        function createDeck() {
+            const newDeck = [];
+            
+            COLORS.forEach(color => {
+                // 0 card
+                newDeck.push({ color, type: 'number', value: 0 });
+                // 1-9 cards (2 of each)
+                for (let i = 1; i <= 9; i++) {
+                    newDeck.push({ color, type: 'number', value: i });
+                    newDeck.push({ color, type: 'number', value: i });
+                }
+                // Action cards (2 of each)
+                for (let i = 0; i < 2; i++) {
+                    newDeck.push({ color, type: 'skip', name: 'SYNK OUT' });
+                    newDeck.push({ color, type: 'reverse', name: 'POS REVERSE' });
+                    newDeck.push({ color, type: 'draw2', name: 'BLACK MAMBA' });
+                }
+            });
+
+            // Wild cards (4 of each)
+            for (let i = 0; i < 4; i++) {
+                newDeck.push({ color: 'wild', type: 'wild', name: 'SUPERNOVA' });
+                newDeck.push({ color: 'wild', type: 'wild4', name: 'ARMAGEDDON' });
+            }
+
+            return shuffle(newDeck);
+        }
+
+        function shuffle(array) {
+            const arr = [...array];
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        }
+
+        function initGame() {
+            deck = createDeck();
+            discardPile = [];
+            hands = [[], [], [], [], []];
+            currentTurn = 0;
+            direction = 1;
+            hasPlayerShoutedUno = false;
+            pendingWildCardIndex = null;
+
+            // Deal 7 cards each
+            for (let i = 0; i < 7; i++) {
+                for (let p = 0; p < 5; p++) {
+                    hands[p].push(deck.pop());
+                }
+            }
+
+            // Draw initial discard card (must not be wild for clean start)
+            let topCard = deck.pop();
+            while (topCard.color === 'wild') {
+                deck.unshift(topCard);
+                topCard = deck.pop();
+            }
+            discardPile.push(topCard);
+            currentColor = topCard.color;
+
+            addLog(`🎮 對局開始！頂端牌為 [${getCardName(topCard)}]`);
+        }
+
+        function toggleRulesModal() {
+            const modal = document.getElementById('rules-modal');
+            modal.classList.toggle('hidden');
+        }
+
+        function toggleLogDrawer() {
+            const drawer = document.getElementById('log-drawer');
+            drawer.classList.toggle('hidden');
+        }
+
+        function selectDifficulty(level) {
+            gameDifficulty = level;
+            
+            const btnEasy = document.getElementById('diff-easy-btn');
+            const btnNormal = document.getElementById('diff-normal-btn');
+            const btnHard = document.getElementById('diff-hard-btn');
+            const badge = document.getElementById('difficulty-badge');
+
+            // Reset styles
+            [btnEasy, btnNormal, btnHard].forEach(btn => {
+                btn.className = "py-2 px-1 rounded-xl border border-slate-700 bg-slate-800/60 hover:bg-slate-700 text-xs transition";
+            });
+
+            if (level === 'easy') {
+                btnEasy.className = "py-2 px-1 rounded-xl border-2 border-emerald-400 bg-emerald-950/50 text-xs transition shadow-lg shadow-emerald-500/20";
+                badge.innerText = "難易度: 練習生 MY (簡單)";
+                badge.className = "px-3 py-1 rounded-full bg-emerald-900/40 border border-emerald-500/40 text-emerald-300 text-xs font-mono font-bold";
+            } else if (level === 'normal') {
+                btnNormal.className = "py-2 px-1 rounded-xl border-2 border-cyan-400 bg-cyan-950/50 text-xs transition shadow-lg shadow-cyan-500/20";
+                badge.innerText = "難易度: SYNK 100 (普通)";
+                badge.className = "px-3 py-1 rounded-full bg-cyan-900/40 border border-cyan-500/40 text-cyan-300 text-xs font-mono font-bold";
+            } else if (level === 'hard') {
+                btnHard.className = "py-2 px-1 rounded-xl border-2 border-red-500 bg-red-950/50 text-xs transition shadow-lg shadow-red-500/20";
+                badge.innerText = "難易度: 曠野主宰 (困難)";
+                badge.className = "px-3 py-1 rounded-full bg-red-900/40 border border-red-500/40 text-red-300 text-xs font-mono font-bold";
+            }
+        }
+
+        function startGame() {
+            document.getElementById('rules-modal').classList.add('hidden');
+            if (!isGameStarted) {
+                initGame();
+                isGameStarted = true;
+            }
+            updateUI();
+            checkTurn();
+        }
+
+        function resetAndStartGame() {
+            document.getElementById('game-over-modal').classList.add('hidden');
+            initGame();
+            isGameStarted = true;
+            updateUI();
+            checkTurn();
+        }
+
+        function isValidPlay(card) {
+            const topCard = discardPile[discardPile.length - 1];
+            if (!topCard) return true;
+
+            if (card.color === 'wild') return true;
+            if (card.color === currentColor) return true;
+            if (card.type === 'number' && topCard.type === 'number' && card.value === topCard.value) return true;
+            if (card.type !== 'number' && card.type === topCard.type) return true;
+
+            return false;
+        }
+
+        function playerPlayCard(cardIdx) {
+            if (currentTurn !== 0) return;
+
+            const card = hands[0][cardIdx];
+            if (!isValidPlay(card)) {
+                addLog(`❌ 無法打出 [${getCardName(card)}]，屬性或數字不符合！`);
+                return;
+            }
+
+            if (card.color === 'wild') {
+                pendingWildCardIndex = cardIdx;
+                document.getElementById('color-picker-modal').classList.remove('hidden');
+            } else {
+                executePlayCard(0, cardIdx, card.color);
+            }
+        }
+
+        function selectWildColor(color) {
+            document.getElementById('color-picker-modal').classList.add('hidden');
+            if (pendingWildCardIndex !== null) {
+                executePlayCard(0, pendingWildCardIndex, color);
+                pendingWildCardIndex = null;
+            }
+        }
+
+        function playerDrawCard() {
+            if (currentTurn !== 0) return;
+
+            if (deck.length === 0) replenishDeck();
+
+            const drawnCard = deck.pop();
+            hands[0].push(drawnCard);
+            addLog(`NÆVIS / MY 摸了一張牌`);
+
+            if (isValidPlay(drawnCard)) {
+                addLog(`💡 剛摸到的 [${getCardName(drawnCard)}] 可打出！`);
+            } else {
+                nextTurn();
+            }
+            updateUI();
+        }
+
+        function executePlayCard(playerIdx, cardIdx, chosenColor) {
+            const card = hands[playerIdx].splice(cardIdx, 1)[0];
+            discardPile.push(card);
+            currentColor = chosenColor || card.color;
+
+            addLog(`${PLAYERS[playerIdx].name} 打出了 [${getCardName(card)}]${card.color === 'wild' ? ` -> 指定顏色: ${currentColor.toUpperCase()}` : ''}`);
+
+            // UNO Warning
+            if (hands[playerIdx].length === 1) {
+                if (playerIdx === 0) {
+                    if (!hasPlayerShoutedUno) {
+                        setTimeout(() => {
+                            if (!hasPlayerShoutedUno && hands[0].length === 1) {
+                                addLog(`⚠️ 玩家忘記喊 SYNK！懲罰摸 2 張牌！`);
+                                drawCardsForPlayer(0, 2);
+                                updateUI();
+                            }
+                        }, 2500);
+                    }
+                } else {
+                    addLog(`⚡ ${PLAYERS[playerIdx].name}: "SYNK!" (剩 1 張牌)`);
+                }
+            }
+
+            // Check Win Condition
+            if (hands[playerIdx].length === 0) {
+                handleGameOver(playerIdx);
+                return;
+            }
+
+            // Special Card Effects
+            let skipNext = false;
+            if (card.type === 'skip') {
+                skipNext = true;
+                addLog(`🚫 跳過下家回合！`);
+            } else if (card.type === 'reverse') {
+                direction *= -1;
+                addLog(`🔄 順序反轉！`);
+            } else if (card.type === 'draw2') {
+                const nextP = getNextPlayerIndex();
+                addLog(`🐍 ${PLAYERS[nextP].name} 被 BLACK MAMBA 攻擊！摸 2 張牌並被跳過`);
+                drawCardsForPlayer(nextP, 2);
+                skipNext = true;
+            } else if (card.type === 'wild4') {
+                const nextP = getNextPlayerIndex();
+                addLog(`💥 ${PLAYERS[nextP].name} 被 ARMAGEDDON 擊中！摸 4 張牌並被跳過`);
+                drawCardsForPlayer(nextP, 4);
+                skipNext = true;
+            }
+
+            hasPlayerShoutedUno = false;
+            nextTurn(skipNext);
+            updateUI();
+        }
+
+        function triggerUnoShout() {
+            if (hands[0].length <= 2) {
+                hasPlayerShoutedUno = true;
+                addLog(`⚡ NÆVIS / MY 高喊: "SYNK!"`);
+            } else {
+                addLog(`⚠️ 手牌大於 2 張時不需要喊 SYNK！`);
+            }
+        }
+
+        function drawCardsForPlayer(playerIdx, count) {
+            for (let i = 0; i < count; i++) {
+                if (deck.length === 0) replenishDeck();
+                hands[playerIdx].push(deck.pop());
+            }
+        }
+
+        function replenishDeck() {
+            if (discardPile.length <= 1) return;
+            const topCard = discardPile.pop();
+            deck = shuffle(discardPile);
+            discardPile = [topCard];
+            addLog(`🌀 洗牌完成，重新充填曠野卡牌庫！`);
+        }
+
+        function getNextPlayerIndex() {
+            return (currentTurn + direction + 5) % 5;
+        }
+
+        function nextTurn(skip = false) {
+            currentTurn = (currentTurn + (skip ? direction * 2 : direction) + 10) % 5;
+            updateUI();
+            checkTurn();
+        }
+
+        function checkTurn() {
+            if (!isGameStarted) return;
+
+            if (currentTurn !== 0) {
+                setTimeout(botPlayTurn, 1000);
+            }
+        }
+
+        function botPlayTurn() {
+            if (currentTurn === 0) return;
+
+            const botIdx = currentTurn;
+            const hand = hands[botIdx];
+
+            const validIndices = [];
+            hand.forEach((card, idx) => {
+                if (isValidPlay(card)) validIndices.push(idx);
+            });
+
+            if (validIndices.length > 0) {
+                let chosenIdx = validIndices[0];
+
+                if (gameDifficulty === 'easy') {
+                    // EASY MODE: Pick random valid card
+                    chosenIdx = validIndices[Math.floor(Math.random() * validIndices.length)];
+                } else if (gameDifficulty === 'normal') {
+                    // NORMAL MODE: Prefer non-wild matching cards first
+                    const nonWild = validIndices.filter(i => hand[i].color !== 'wild');
+                    if (nonWild.length > 0) {
+                        chosenIdx = nonWild[Math.floor(Math.random() * nonWild.length)];
+                    }
+                } else if (gameDifficulty === 'hard') {
+                    // HARD MODE: Tactical AI
+                    const nextP = getNextPlayerIndex();
+                    const nextPlayerHandCount = hands[nextP].length;
+
+                    // Tactical targeting: strike player about to win
+                    if (nextPlayerHandCount <= 2) {
+                        const attackCardIdx = validIndices.find(i => ['wild4', 'draw2', 'skip'].includes(hand[i].type));
+                        if (attackCardIdx !== undefined) chosenIdx = attackCardIdx;
+                    }
+
+                    if (chosenIdx === validIndices[0]) {
+                        const normalMatches = validIndices.filter(i => hand[i].color !== 'wild');
+                        if (normalMatches.length > 0) {
+                            chosenIdx = normalMatches[0];
+                        }
+                    }
+                }
+
+                const chosenCard = hand[chosenIdx];
+                let chosenColor = chosenCard.color;
+
+                if (chosenCard.color === 'wild') {
+                    if (gameDifficulty === 'easy') {
+                        chosenColor = COLORS[Math.floor(Math.random() * 4)];
+                    } else {
+                        // Pick most frequent color in hand
+                        const colorCounts = { red: 0, blue: 0, green: 0, yellow: 0 };
+                        hand.forEach(c => { if (c.color !== 'wild') colorCounts[c.color]++; });
+                        chosenColor = Object.keys(colorCounts).reduce((a, b) => colorCounts[a] > colorCounts[b] ? a : b);
+                    }
+                }
+
+                executePlayCard(botIdx, chosenIdx, chosenColor);
+            } else {
+                if (deck.length === 0) replenishDeck();
+                const drawnCard = deck.pop();
+                hand.push(drawnCard);
+                addLog(`${PLAYERS[botIdx].name} 無牌可出，摸了一張牌`);
+
+                if (isValidPlay(drawnCard)) {
+                    setTimeout(() => {
+                        const newIdx = hand.length - 1;
+                        let cColor = drawnCard.color;
+                        if (drawnCard.color === 'wild') cColor = COLORS[Math.floor(Math.random() * 4)];
+                        executePlayCard(botIdx, newIdx, cColor);
+                    }, 700);
+                } else {
+                    nextTurn();
+                }
+            }
+        }
+
+        function updateUI() {
+            PLAYERS.forEach((p) => {
+                const container = document.getElementById(p.id === 0 ? 'player-hand' : `bot${p.id}-container`);
+                const turnInd = document.getElementById(`bot${p.id}-turn-indicator`);
+                const cardCountEl = document.getElementById(`bot${p.id}-card-count`);
+
+                if (cardCountEl) cardCountEl.innerText = hands[p.id].length;
+
+                if (turnInd) {
+                    if (currentTurn === p.id) {
+                        turnInd.classList.remove('hidden');
+                        if (container) container.classList.add('border-cyan-400', 'glow-purple');
+                    } else {
+                        turnInd.classList.add('hidden');
+                        if (container) container.classList.remove('border-cyan-400', 'glow-purple');
+                    }
+                }
+            });
+
+            const badge = document.getElementById('game-status-badge');
+            badge.innerText = `當前回合: ${PLAYERS[currentTurn].name}`;
+
+            const dirInd = document.getElementById('direction-indicator');
+            dirInd.innerHTML = direction === 1 
+                ? '順時針 <i class="fa-solid fa-rotate-right"></i>' 
+                : '逆時針 <i class="fa-solid fa-rotate-left"></i>';
+
+            const colorInd = document.getElementById('active-color-indicator');
+            const colorText = document.getElementById('active-color-text');
+
+            colorInd.className = `w-4 h-4 sm:w-5 sm:h-5 rounded-full border border-white/50 shadow-md transition-all bg-${currentColor}-kwangya`;
+            colorText.innerText = currentColor ? currentColor.toUpperCase() : 'NONE';
+
+            const topCard = discardPile[discardPile.length - 1];
+            const discardEl = document.getElementById('discard-pile');
+            if (topCard) {
+                discardEl.innerHTML = createCardHTML(topCard, true);
+            }
+
+            const playerHandEl = document.getElementById('player-hand');
+            playerHandEl.innerHTML = '';
+            hands[0].forEach((card, idx) => {
+                const cardDiv = document.createElement('div');
+                cardDiv.className = 'uno-card cursor-pointer transform';
+                cardDiv.innerHTML = createCardHTML(card, false);
+                cardDiv.onclick = () => playerPlayCard(idx);
+                playerHandEl.appendChild(cardDiv);
+            });
+
+            [1, 2, 3, 4].forEach(botId => {
+                const botHandEl = document.getElementById(`bot${botId}-hand`);
+                if (botHandEl) {
+                    botHandEl.innerHTML = '';
+                    const count = Math.min(hands[botId].length, 8);
+                    for (let i = 0; i < count; i++) {
+                        const back = document.createElement('div');
+                        back.className = 'w-6 h-9 rounded card-back shadow';
+                        botHandEl.appendChild(back);
+                    }
+                }
+            });
+        }
+
+        function createCardHTML(card, isLarge = false) {
+            const isWild = card.color === 'wild';
+            const cardBg = isWild ? 'bg-wild-kwangya' : `bg-${card.color}-kwangya`;
+            const borderGlow = isWild ? 'glow-purple border-purple-300' : `border-${card.color}-kwangya`;
+
+            let displaySymbol = card.value !== undefined ? card.value : '';
+            if (card.type === 'skip') displaySymbol = '<i class="fa-solid fa-ban"></i>';
+            if (card.type === 'reverse') displaySymbol = '<i class="fa-solid fa-arrows-rotate"></i>';
+            if (card.type === 'draw2') displaySymbol = '+2';
+            if (card.type === 'wild') displaySymbol = 'æ';
+            if (card.type === 'wild4') displaySymbol = '+4';
+
+            const sizeClasses = isLarge 
+                ? 'w-24 h-36 sm:w-28 sm:h-40 rounded-xl text-2xl' 
+                : 'w-16 h-28 sm:w-20 sm:h-32 rounded-lg text-lg';
+
+            return `
+                <div class="${sizeClasses} ${cardBg} border-2 ${borderGlow} flex flex-col justify-between p-2 relative shadow-lg overflow-hidden holo-shimmer text-white select-none">
+                    <div class="flex justify-between items-center text-[10px] sm:text-xs font-orbitron font-bold">
+                        <span>${card.type === 'number' ? card.value : card.name || ''}</span>
+                        <span>æ</span>
+                    </div>
+
+                    <div class="self-center font-orbitron font-black text-2xl sm:text-3xl drop-shadow-md">
+                        ${displaySymbol}
+                    </div>
+
+                    <div class="flex justify-between items-center text-[9px] sm:text-[10px] font-mono tracking-tighter opacity-80">
+                        <span>KWANGYA</span>
+                        <span>${card.type === 'number' ? card.value : 'SPECIAL'}</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        function getCardName(card) {
+            if (card.color === 'wild') return card.name;
+            const colorName = card.color.toUpperCase();
+            if (card.type === 'number') return `${colorName} ${card.value}`;
+            return `${colorName} ${card.name}`;
+        }
+
+        function addLog(msg) {
+            const logText = document.getElementById('latest-log-text');
+            const historyList = document.getElementById('log-history-list');
+
+            logText.innerText = msg;
+
+            const logItem = document.createElement('div');
+            logItem.className = 'border-b border-slate-800 pb-1 text-slate-300';
+            logItem.innerText = `> ${msg}`;
+            historyList.prepend(logItem);
+        }
+
+        function handleGameOver(winnerIdx) {
+            isGameStarted = false;
+            const winner = PLAYERS[winnerIdx];
+            const modal = document.getElementById('game-over-modal');
+            const title = document.getElementById('winner-title');
+            const desc = document.getElementById('winner-desc');
+            const icon = document.getElementById('winner-icon');
+
+            if (winnerIdx === 0) {
+                title.innerText = "SYNK CLEAR! 你贏了！";
+                desc.innerText = "成功擺脫 Black Mamba，統治 Kwangya 音樂殿堂！";
+                icon.innerHTML = "👑";
+            } else {
+                title.innerText = `${winner.name} 獲得勝利！`;
+                desc.innerText = "Kwangya 能量連線中斷，再試一次重新連接吧！";
+                icon.innerHTML = "⚡";
+            }
+
+            modal.classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>

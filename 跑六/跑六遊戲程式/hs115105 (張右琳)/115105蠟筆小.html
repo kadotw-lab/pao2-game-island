@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>春日部防衛隊！數獨大挑戰 (Shin-chan Sudoku)</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Noto+Sans+TC:wght@500;700;900&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --color-chocobi: #7BC67A;
+            --color-shin-red: #FF4D4D;
+            --color-shorts-yellow: #FFD13B;
+            --color-action-blue: #2B88D8;
+            --color-bg-cream: #FFFDF0;
+            --color-dark: #2C3E50;
+        }
+
+        body {
+            font-family: 'Fredoka', 'Noto Sans TC', sans-serif;
+            background-color: var(--color-bg-cream);
+            background-image: radial-gradient(#e2ebf0 1.5px, transparent 1.5px);
+            background-size: 24px 24px;
+            color: var(--color-dark);
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+
+        /* 卡漫風格邊框與陰影 */
+        .comic-border {
+            border: 3px solid #2C3E50;
+            box-shadow: 4px 4px 0px #2C3E50;
+            transition: all 0.15s ease;
+        }
+
+        .comic-border-sm {
+            border: 2px solid #2C3E50;
+            box-shadow: 2px 2px 0px #2C3E50;
+        }
+
+        .comic-button {
+            border: 3px solid #2C3E50;
+            box-shadow: 0px 4px 0px #2C3E50;
+            transition: transform 0.1s ease, box-shadow 0.1s ease, background-color 0.2s;
+        }
+
+        .comic-button:active:not(:disabled) {
+            transform: translateY(3px);
+            box-shadow: 0px 1px 0px #2C3E50;
+        }
+
+        .comic-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        /* 數獨棋盤邊框與單元格 */
+        .sudoku-cell {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: clamp(1.1rem, 4vw, 1.8rem);
+            font-weight: 700;
+            position: relative;
+            cursor: pointer;
+            transition: background-color 0.15s ease, transform 0.1s ease;
+            background-color: #FFFFFF;
+        }
+
+        /* 3x3 區塊重加粗邊框 */
+        .cell-border-r { border-right: 3px solid #2C3E50; }
+        .cell-border-b { border-bottom: 3px solid #2C3E50; }
+        .cell-border-thin-r { border-right: 1px solid #CBD5E1; }
+        .cell-border-thin-b { border-bottom: 1px solid #CBD5E1; }
+
+        /* 高亮狀態 */
+        .cell-selected {
+            background-color: #FFE600 !important;
+            transform: scale(1.03);
+            z-index: 10;
+            box-shadow: inset 0 0 0 2px #2C3E50;
+        }
+
+        .cell-highlight-group {
+            background-color: #E0F2FE;
+        }
+
+        .cell-highlight-same {
+            background-color: #BAE6FD;
+            font-weight: 900;
+        }
+
+        .cell-fixed {
+            color: #1E293B;
+            background-color: #F8FAFC;
+        }
+
+        .cell-user {
+            color: var(--color-action-blue);
+        }
+
+        .cell-error {
+            background-color: #FECDD3 !important;
+            color: var(--color-shin-red) !important;
+            animation: shake 0.4s ease-in-out;
+        }
+
+        .cell-pop {
+            animation: pop 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        /* 動光波特效 */
+        .cell-beam-hint {
+            animation: beamPulse 0.8s ease-out;
+            background-color: #A7F3D0 !important;
+        }
+
+        /* 草稿筆記小字網格 */
+        .notes-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            width: 100%;
+            height: 100%;
+            padding: 2px;
+            pointer-events: none;
+        }
+
+        .note-num {
+            font-size: clamp(0.55rem, 1.8vw, 0.75rem);
+            line-height: 1;
+            color: #64748B;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+        }
+
+        /* 關鍵字動畫 */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20% { transform: translateX(-6px); }
+            40% { transform: translateX(6px); }
+            60% { transform: translateX(-4px); }
+            80% { transform: translateX(4px); }
+        }
+
+        @keyframes pop {
+            0% { transform: scale(0.7); }
+            50% { transform: scale(1.15); }
+            100% { transform: scale(1); }
+        }
+
+        @keyframes beamPulse {
+            0% { box-shadow: 0 0 0 0px rgba(43, 136, 216, 0.8); background-color: #7DD3FC; }
+            50% { box-shadow: 0 0 20px 8px rgba(43, 136, 216, 0.6); background-color: #38BDF8; }
+            100% { box-shadow: 0 0 0 0px rgba(43, 136, 216, 0); }
+        }
+
+        /* 滿版 Canvas 勝利特效 */
+        #victoryCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-between p-2 sm:p-4 max-w-lg mx-auto">
+
+    <!-- 全螢幕彩帶 Canvas -->
+    <canvas id="victoryCanvas"></canvas>
+
+    <!-- 頁眉 Header -->
+    <header class="w-full mb-2">
+        <div class="flex items-center justify-between bg-[#7BC67A] p-3 rounded-2xl comic-border text-white">
+            <div class="flex items-center space-x-2">
+                <!-- 小新鱷魚餅乾圖示 SVG -->
+                <div class="w-10 h-10 bg-[#FFD13B] rounded-full flex items-center justify-center comic-border-sm text-xl font-black text-slate-800">
+                    🦕
+                </div>
+                <div>
+                    <h1 class="text-lg sm:text-xl font-black text-slate-800 tracking-wide leading-tight">春日部防衛隊！</h1>
+                    <p class="text-xs text-slate-800 font-bold opacity-90">數獨大挑戰 🌟</p>
+                </div>
+            </div>
+
+            <!-- 控制按鈕: 暫停 & 新遊戲 -->
+            <div class="flex items-center space-x-2">
+                <button id="pauseBtn" onclick="togglePause()" class="p-2 bg-white text-slate-800 rounded-xl comic-button font-bold text-sm flex items-center justify-center">
+                    ⏸️
+                </button>
+                <button onclick="openNewGameModal()" class="p-2 bg-[#FF4D4D] text-white rounded-xl comic-button font-bold text-sm flex items-center justify-center">
+                    🔄 新局
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- 遊戲資訊列 Info Bar -->
+    <section class="w-full grid grid-cols-3 gap-2 mb-3">
+        <!-- 難度 -->
+        <div class="bg-white p-2 rounded-xl comic-border-sm text-center">
+            <span class="text-xs text-gray-500 font-bold block">當前難度</span>
+            <span id="diffDisplay" class="text-sm font-black text-[#2B88D8]">幼稚園級</span>
+        </div>
+        <!-- 錯誤次數 -->
+        <div class="bg-white p-2 rounded-xl comic-border-sm text-center">
+            <span class="text-xs text-gray-500 font-bold block">廣志臭腳ㄚ</span>
+            <span id="errorDisplay" class="text-sm font-black text-[#FF4D4D]">🧦 0 / 3</span>
+        </div>
+        <!-- 計時器 -->
+        <div class="bg-white p-2 rounded-xl comic-border-sm text-center">
+            <span class="text-xs text-gray-500 font-bold block">經過時間</span>
+            <span id="timerDisplay" class="text-sm font-black text-slate-700">⏱️ 00:00</span>
+        </div>
+    </section>
+
+    <!-- 主棋盤 9x9 Grid -->
+    <main class="w-full relative mb-3">
+        <div id="sudokuGrid" class="w-full bg-[#2C3E50] p-1 rounded-2xl comic-border grid grid-cols-9 overflow-hidden bg-white">
+            <!-- 由 JavaScript 動態繪製 81 個格子 -->
+        </div>
+
+        <!-- 暫停遮罩 Mask -->
+        <div id="pauseOverlay" class="hidden absolute inset-0 bg-slate-900/90 backdrop-blur-md rounded-2xl flex flex-col items-center justify-center text-white z-30 comic-border">
+            <div class="text-6xl mb-3 animate-bounce">💤</div>
+            <h2 class="text-2xl font-black mb-2">小新睡著了...</h2>
+            <p class="text-sm text-slate-300 mb-4">點擊下方按鈕繼續遊戲！</p>
+            <button onclick="togglePause()" class="px-6 py-2.5 bg-[#FFD13B] text-slate-900 rounded-xl comic-button font-black text-base">
+                ▶️ 繼續挑戰
+            </button>
+        </div>
+    </main>
+
+    <!-- 工具控制區 (Undo, Eraser, Pencil Mode, Hint) -->
+    <section class="w-full grid grid-cols-4 gap-2 mb-3">
+        <button onclick="handleUndo()" class="p-2 bg-white rounded-xl comic-button font-bold text-xs sm:text-sm flex flex-col items-center justify-center text-slate-700">
+            <span class="text-base sm:text-lg mb-0.5">↩️</span>
+            <span>復原</span>
+        </button>
+        <button onclick="handleErase()" class="p-2 bg-white rounded-xl comic-button font-bold text-xs sm:text-sm flex flex-col items-center justify-center text-slate-700">
+            <span class="text-base sm:text-lg mb-0.5">🧹</span>
+            <span>橡皮擦</span>
+        </button>
+        <button id="pencilBtn" onclick="togglePencilMode()" class="p-2 bg-white rounded-xl comic-button font-bold text-xs sm:text-sm flex flex-col items-center justify-center text-slate-700 relative">
+            <span class="text-base sm:text-lg mb-0.5">✏️</span>
+            <span>草稿筆記</span>
+            <span id="pencilBadge" class="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-gray-300 border border-slate-700"></span>
+        </button>
+        <button id="hintBtn" onclick="handleHint()" class="p-2 bg-[#2B88D8] text-white rounded-xl comic-button font-bold text-xs sm:text-sm flex flex-col items-center justify-center">
+            <span class="text-base sm:text-lg mb-0.5">⚡</span>
+            <span>動感光波 (<span id="hintCount">3</span>)</span>
+        </button>
+    </section>
+
+    <!-- 數字鍵盤 (Virtual Numpad 1-9) -->
+    <section class="w-full grid grid-cols-9 gap-1 sm:gap-1.5 mb-2">
+        <button onclick="handleInputNumber(1)" class="py-3 bg-white text-slate-800 rounded-xl comic-button font-black text-lg sm:text-xl flex items-center justify-center">1</button>
+        <button onclick="handleInputNumber(2)" class="py-3 bg-white text-slate-800 rounded-xl comic-button font-black text-lg sm:text-xl flex items-center justify-center">2</button>
+        <button onclick="handleInputNumber(3)" class="py-3 bg-white text-slate-800 rounded-xl comic-button font-black text-lg sm:text-xl flex items-center justify-center">3</button>
+        <button onclick="handleInputNumber(4)" class="py-3 bg-white text-slate-800 rounded-xl comic-button font-black text-lg sm:text-xl flex items-center justify-center">4</button>
+        <button onclick="handleInputNumber(5)" class="py-3 bg-white text-slate-800 rounded-xl comic-button font-black text-lg sm:text-xl flex items-center justify-center">5</button>
+        <button onclick="handleInputNumber(6)" class="py-3 bg-white text-slate-800 rounded-xl comic-button font-black text-lg sm:text-xl flex items-center justify-center">6</button>
+        <button onclick="handleInputNumber(7)" class="py-3 bg-white text-slate-800 rounded-xl comic-button font-black text-lg sm:text-xl flex items-center justify-center">7</button>
+        <button onclick="handleInputNumber(8)" class="py-3 bg-white text-slate-800 rounded-xl comic-button font-black text-lg sm:text-xl flex items-center justify-center">8</button>
+        <button onclick="handleInputNumber(9)" class="py-3 bg-white text-slate-800 rounded-xl comic-button font-black text-lg sm:text-xl flex items-center justify-center">9</button>
+    </section>
+
+    <!-- 選擇難度 Modal -->
+    <div id="diffModal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-[#FFFDF0] w-full max-w-sm rounded-3xl p-6 comic-border text-center space-y-4">
+            <div class="text-5xl">🎒</div>
+            <h2 class="text-2xl font-black text-slate-800">選擇挑戰難度</h2>
+            <p class="text-xs text-gray-600 font-bold">幫助小新完成今天的數獨作業吧！</p>
+            
+            <div class="space-y-3 pt-2">
+                <button onclick="startNewGame('easy')" class="w-full py-3 bg-[#7BC67A] text-slate-800 font-black rounded-2xl comic-button flex items-center justify-between px-5">
+                    <span>⚡ 動感超人級 (初級)</span>
+                    <span class="text-xs bg-white/60 px-2 py-1 rounded-lg">挖空 30</span>
+                </button>
+                <button onclick="startNewGame('medium')" class="w-full py-3 bg-[#FFD13B] text-slate-800 font-black rounded-2xl comic-button flex items-center justify-between px-5">
+                    <span>🌻 雙葉幼稚園級 (中級)</span>
+                    <span class="text-xs bg-white/60 px-2 py-1 rounded-lg">挖空 40</span>
+                </button>
+                <button onclick="startNewGame('hard')" class="w-full py-3 bg-[#FF4D4D] text-white font-black rounded-2xl comic-button flex items-center justify-between px-5">
+                    <span>🔥 野原家大危機 (高級)</span>
+                    <span class="text-xs bg-black/20 px-2 py-1 rounded-lg">挖空 50</span>
+                </button>
+            </div>
+
+            <div class="pt-2 border-t border-slate-200">
+                <div class="text-xs text-gray-500 font-bold mb-1">最佳紀錄 (Best Time)</div>
+                <div id="bestRecordText" class="text-xs font-bold text-slate-700">初級: --:-- | 中級: --:-- | 高級: --:--</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 遊戲失敗 Modal (野原廣志臭腳ㄚ) -->
+    <div id="gameOverModal" class="hidden fixed inset-0 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-white w-full max-w-sm rounded-3xl p-6 comic-border text-center space-y-4 animate-pop">
+            <div class="text-6xl animate-bounce">🧦🤢</div>
+            <h2 class="text-2xl font-black text-[#FF4D4D]">廣志臭腳ㄚ攻擊！</h2>
+            <p class="text-sm font-bold text-slate-600">填錯了 3 次！小新被爸爸的臭襪子給熏暈過去了啦！</p>
+            <button onclick="openNewGameModal()" class="w-full py-3 bg-[#FFD13B] text-slate-900 font-black rounded-2xl comic-button text-base">
+                🔄 重置挑戰
+            </button>
+        </div>
+    </div>
+
+    <!-- 通關勝利 Modal (動感光波大成功) -->
+    <div id="victoryModal" class="hidden fixed inset-0 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-[#FFFDF0] w-full max-w-sm rounded-3xl p-6 comic-border text-center space-y-4">
+            <div class="text-6xl">🚀✨</div>
+            <h2 class="text-2xl font-black text-[#2B88D8]">動感光波大成功！</h2>
+            <p class="text-sm font-bold text-slate-600">太棒了！春日部防衛隊成功解開了數獨謎題！</p>
+            
+            <div class="bg-white p-3 rounded-2xl comic-border-sm space-y-1">
+                <div class="text-xs text-gray-500 font-bold">本次通關時間</div>
+                <div id="victoryTime" class="text-2xl font-black text-[#7BC67A]">02:45</div>
+                <div id="newRecordBadge" class="hidden text-xs bg-red-500 text-white font-bold py-0.5 px-2 rounded-full inline-block">🎉 破紀錄新最佳紀錄！</div>
+            </div>
+
+            <button onclick="openNewGameModal()" class="w-full py-3 bg-[#7BC67A] text-slate-800 font-black rounded-2xl comic-button text-base">
+                🌟 再玩一局
+            </button>
+        </div>
+    </div>
+
+    <script>
+        /* ----------------------------------------------------
+           Web Audio API 音效合成器 (免調用外部檔)
+        ---------------------------------------------------- */
+        let audioCtx = null;
+
+        function getAudioContext() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            return audioCtx;
+        }
+
+        // 點擊 Pop 音效
+        function playPopSound() {
+            try {
+                const ctx = getAudioContext();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(400, ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(800, ctx.currentTime + 0.08);
+                gain.gain.setValueAtTime(0.3, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.08);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.08);
+            } catch(e) {}
+        }
+
+        // 正確填入 Ding 音效
+        function playDingSound() {
+            try {
+                const ctx = getAudioContext();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(880, ctx.currentTime); // A5
+                osc.frequency.setValueAtTime(1760, ctx.currentTime + 0.08); // A6
+                gain.gain.setValueAtTime(0.3, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.25);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.25);
+            } catch(e) {}
+        }
+
+        // 填錯 Buzz 音效
+        function playErrorSound() {
+            try {
+                const ctx = getAudioContext();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(180, ctx.currentTime);
+                osc.frequency.setValueAtTime(120, ctx.currentTime + 0.12);
+                gain.gain.setValueAtTime(0.4, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.25);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.25);
+            } catch(e) {}
+        }
+
+        // 動感光波提示音效
+        function playBeamSound() {
+            try {
+                const ctx = getAudioContext();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(300, ctx.currentTime);
+                osc.frequency.linearRampToValueAtTime(1200, ctx.currentTime + 0.3);
+                gain.gain.setValueAtTime(0.3, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.35);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.35);
+            } catch(e) {}
+        }
+
+        // 勝利歡慶音階
+        function playVictorySound() {
+            try {
+                const ctx = getAudioContext();
+                const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+                notes.forEach((freq, idx) => {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, ctx.currentTime + idx * 0.12);
+                    gain.gain.setValueAtTime(0.3, ctx.currentTime + idx * 0.12);
+                    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + idx * 0.12 + 0.3);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(ctx.currentTime + idx * 0.12);
+                    osc.stop(ctx.currentTime + idx * 0.12 + 0.3);
+                });
+            } catch(e) {}
+        }
+
+        /* ----------------------------------------------------
+           STREAMING_CHUNK:Implementing Sudoku Board Generator & Solver Logic...
+        ---------------------------------------------------- */
+        // 檢查數獨數字填入是否合法
+        function isValidPlace(board, row, col, num) {
+            for (let i = 0; i < 9; i++) {
+                if (board[row][i] === num && i !== col) return false;
+                if (board[i][col] === num && i !== row) return false;
+            }
+            const startRow = Math.floor(row / 3) * 3;
+            const startCol = Math.floor(col / 3) * 3;
+            for (let r = 0; r < 3; r++) {
+                for (let c = 0; c < 3; c++) {
+                    const currR = startRow + r;
+                    const currC = startCol + c;
+                    if (board[currR][currC] === num && (currR !== row || currC !== col)) {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+
+        // 遞迴解答數獨 (Backtracking)
+        function solveSudoku(board) {
+            for (let r = 0; r < 9; r++) {
+                for (let c = 0; c < 9; c++) {
+                    if (board[r][c] === 0) {
+                        const nums = [1,2,3,4,5,6,7,8,9].sort(() => Math.random() - 0.5);
+                        for (let num of nums) {
+                            if (isValidPlace(board, r, c, num)) {
+                                board[r][c] = num;
+                                if (solveSudoku(board)) return true;
+                                board[r][c] = 0;
+                            }
+                        }
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+
+        // 完整數獨棋盤生成器
+        function generateFullSudoku() {
+            const board = Array.from({ length: 9 }, () => Array(9).fill(0));
+            solveSudoku(board);
+            return board;
+        }
+
+        // 根據難度產生題目
+        function createPuzzle(solution, removeCount) {
+            const puzzle = solution.map(row => [...row]);
+            let removed = 0;
+            while (removed < removeCount) {
+                const r = Math.floor(Math.random() * 9);
+                const c = Math.floor(Math.random() * 9);
+                if (puzzle[r][c] !== 0) {
+                    puzzle[r][c] = 0;
+                    removed++;
+                }
+            }
+            return puzzle;
+        }
+
+        /* ----------------------------------------------------
+           STREAMING_CHUNK:Managing Game State and Interactivity...
+        ---------------------------------------------------- */
+        let solutionBoard = [];
+        let initialBoard = [];
+        let currentBoard = [];
+        let pencilNotes = Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => new Set()));
+        
+        let selectedCell = null; // { row, col }
+        let isPencilMode = false;
+        let hintsLeft = 3;
+        let errorCount = 0;
+        let timerSeconds = 0;
+        let timerInterval = null;
+        let isPaused = false;
+        let currentDifficulty = 'medium';
+        let moveHistory = []; // 用於復原
+
+        // 難度參數與名稱對照
+        const diffConfig = {
+            easy: { name: '動感超人級', remove: 30 },
+            medium: { name: '幼稚園級', remove: 40 },
+            hard: { name: '野原家大危機', remove: 50 }
+        };
+
+        // 開啟選擇難度彈窗
+        function openNewGameModal() {
+            playPopSound();
+            pauseTimer();
+            updateBestRecordUI();
+            document.getElementById('diffModal').classList.remove('hidden');
+            document.getElementById('gameOverModal').classList.add('hidden');
+            document.getElementById('victoryModal').classList.add('hidden');
+        }
+
+        // 開始新局
+        function startNewGame(diffKey) {
+            playPopSound();
+            currentDifficulty = diffKey;
+            document.getElementById('diffDisplay').textContent = diffConfig[diffKey].name;
+
+            // 初始化狀態
+            solutionBoard = generateFullSudoku();
+            initialBoard = createPuzzle(solutionBoard, diffConfig[diffKey].remove);
+            currentBoard = initialBoard.map(row => [...row]);
+            pencilNotes = Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => new Set()));
+            
+            selectedCell = null;
+            isPencilMode = false;
+            hintsLeft = 3;
+            errorCount = 0;
+            moveHistory = [];
+            
+            updatePencilUI();
+            document.getElementById('hintCount').textContent = hintsLeft;
+            document.getElementById('errorDisplay').textContent = `🧦 ${errorCount} / 3`;
+
+            // 重置計時器
+            resetTimer();
+            startTimer();
+
+            // 隱藏 Modals
+            document.getElementById('diffModal').classList.add('hidden');
+            document.getElementById('gameOverModal').classList.add('hidden');
+            document.getElementById('victoryModal').classList.add('hidden');
+            document.getElementById('pauseOverlay').classList.add('hidden');
+
+            // 繪製棋盤
+            renderBoard();
+        }
+
+        // 繪製數獨 9x9 網格
+        function renderBoard() {
+            const gridEl = document.getElementById('sudokuGrid');
+            gridEl.innerHTML = '';
+
+            for (let r = 0; r < 9; r++) {
+                for (let c = 0; c < 9; c++) {
+                    const cell = document.createElement('div');
+                    cell.dataset.row = r;
+                    cell.dataset.col = c;
+
+                    // 樣式類別
+                    let borderClasses = 'sudoku-cell ';
+                    borderClasses += (c % 3 === 2 && c !== 8) ? 'cell-border-r ' : (c !== 8 ? 'cell-border-thin-r ' : '');
+                    borderClasses += (r % 3 === 2 && r !== 8) ? 'cell-border-b ' : (r !== 8 ? 'cell-border-thin-b ' : '');
+                    cell.className = borderClasses;
+
+                    // 點擊事件
+                    cell.addEventListener('click', () => selectCell(r, c));
+
+                    gridEl.appendChild(cell);
+                }
+            }
+            updateGridDisplay();
+        }
+
+        // 更新網格內容與高亮
+        function updateGridDisplay() {
+            const cells = document.querySelectorAll('.sudoku-cell');
+            
+            cells.forEach(cell => {
+                const r = parseInt(cell.dataset.row);
+                const c = parseInt(cell.dataset.col);
+                const val = currentBoard[r][c];
+                const isFixed = initialBoard[r][c] !== 0;
+
+                // 重置樣式
+                cell.classList.remove(
+                    'cell-selected', 'cell-highlight-group', 'cell-highlight-same',
+                    'cell-fixed', 'cell-user', 'cell-error'
+                );
+
+                // 數值與草稿顯示
+                cell.innerHTML = '';
+                if (val !== 0) {
+                    cell.textContent = val;
+                    if (isFixed) {
+                        cell.classList.add('cell-fixed');
+                    } else {
+                        cell.classList.add('cell-user');
+                        // 檢查錯誤
+                        if (val !== solutionBoard[r][c]) {
+                            cell.classList.add('cell-error');
+                        }
+                    }
+                } else {
+                    // 顯示草稿筆記 Notes
+                    const notes = pencilNotes[r][c];
+                    if (notes.size > 0) {
+                        const notesGrid = document.createElement('div');
+                        notesGrid.className = 'notes-grid';
+                        for (let n = 1; n <= 9; n++) {
+                            const noteNum = document.createElement('div');
+                            noteNum.className = 'note-num';
+                            noteNum.textContent = notes.has(n) ? n : '';
+                            notesGrid.appendChild(noteNum);
+                        }
+                        cell.appendChild(notesGrid);
+                    }
+                }
+
+                // 高亮互動處理
+                if (selectedCell) {
+                    const sr = selectedCell.row;
+                    const sc = selectedCell.col;
+                    const sVal = currentBoard[sr][sc];
+
+                    // 被選中的格子
+                    if (r === sr && c === sc) {
+                        cell.classList.add('cell-selected');
+                    }
+                    // 同列、同行、同 3x3 宮格
+                    else if (
+                        r === sr || c === sc ||
+                        (Math.floor(r / 3) === Math.floor(sr / 3) && Math.floor(c / 3) === Math.floor(sc / 3))
+                    ) {
+                        cell.classList.add('cell-highlight-group');
+                    }
+
+                    // 相同數字高亮
+                    if (sVal !== 0 && val === sVal && (r !== sr || c !== sc)) {
+                        cell.classList.add('cell-highlight-same');
+                    }
+                }
+            });
+        }
+
+        // 選擇格子
+        function selectCell(r, c) {
+            playPopSound();
+            selectedCell = { row: r, col: c };
+            updateGridDisplay();
+        }
+
+        // 填入數字處理
+        function handleInputNumber(num) {
+            if (!selectedCell || isPaused) return;
+
+            const { row, col } = selectedCell;
+
+            // 預設固定數字無法修改
+            if (initialBoard[row][col] !== 0) return;
+
+            // 草稿筆記模式
+            if (isPencilMode) {
+                playPopSound();
+                if (pencilNotes[row][col].has(num)) {
+                    pencilNotes[row][col].delete(num);
+                } else {
+                    pencilNotes[row][col].add(num);
+                }
+                currentBoard[row][col] = 0; // 填寫草稿時清空確切數字
+                updateGridDisplay();
+                return;
+            }
+
+            // 正常填入數字
+            const oldVal = currentBoard[row][col];
+            if (oldVal === num) return; // 沒變動
+
+            // 記錄歷程用於 Undo
+            moveHistory.push({
+                row, col,
+                oldVal, newVal: num,
+                oldNotes: new Set(pencilNotes[row][col])
+            });
+
+            currentBoard[row][col] = num;
+            pencilNotes[row][col].clear();
+
+            // 動畫加載
+            const cellEl = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+            if (cellEl) cellEl.classList.add('cell-pop');
+
+            // 檢查正確性
+            if (num !== solutionBoard[row][col]) {
+                playErrorSound();
+                errorCount++;
+                document.getElementById('errorDisplay').textContent = `🧦 ${errorCount} / 3`;
+
+                if (errorCount >= 3) {
+                    triggerGameOver();
+                }
+            } else {
+                playDingSound();
+                // 填入正確答案後，自動清除同欄、同行、同宮格相關草稿
+                clearRelatedNotes(row, col, num);
+                checkVictory();
+            }
+
+            updateGridDisplay();
+        }
+
+        // 擦除相關位置的草稿
+        function clearRelatedNotes(r, c, num) {
+            for (let i = 0; i < 9; i++) {
+                pencilNotes[r][i].delete(num);
+                pencilNotes[i][c].delete(num);
+            }
+            const sr = Math.floor(r / 3) * 3;
+            const sc = Math.floor(c / 3) * 3;
+            for (let row = sr; row < sr + 3; row++) {
+                for (let col = sc; col < sc + 3; col++) {
+                    pencilNotes[row][col].delete(num);
+                }
+            }
+        }
+
+        // 橡皮擦功能
+        function handleErase() {
+            if (!selectedCell || isPaused) return;
+            const { row, col } = selectedCell;
+
+            if (initialBoard[row][col] !== 0) return;
+
+            playPopSound();
+            moveHistory.push({
+                row, col,
+                oldVal: currentBoard[row][col],
+                newVal: 0,
+                oldNotes: new Set(pencilNotes[row][col])
+            });
+
+            currentBoard[row][col] = 0;
+            pencilNotes[row][col].clear();
+            updateGridDisplay();
+        }
+
+        // 切換草稿模式
+        function togglePencilMode() {
+            playPopSound();
+            isPencilMode = !isPencilMode;
+            updatePencilUI();
+        }
+
+        function updatePencilUI() {
+            const btn = document.getElementById('pencilBtn');
+            const badge = document.getElementById('pencilBadge');
+            if (isPencilMode) {
+                btn.classList.add('bg-yellow-100', 'border-yellow-600');
+                badge.classList.remove('bg-gray-300');
+                badge.classList.add('bg-yellow-500');
+            } else {
+                btn.classList.remove('bg-yellow-100', 'border-yellow-600');
+                badge.classList.remove('bg-yellow-500');
+                badge.classList.add('bg-gray-300');
+            }
+        }
+
+        // 動感光波提示 (Hint)
+        function handleHint() {
+            if (!selectedCell || hintsLeft <= 0 || isPaused) return;
+            const { row, col } = selectedCell;
+
+            if (initialBoard[row][col] !== 0 || currentBoard[row][col] === solutionBoard[row][col]) return;
+
+            playBeamSound();
+            hintsLeft--;
+            document.getElementById('hintCount').textContent = hintsLeft;
+
+            const correctNum = solutionBoard[row][col];
+            currentBoard[row][col] = correctNum;
+            pencilNotes[row][col].clear();
+
+            // 播放動感光波閃爍特效
+            const cellEl = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+            if (cellEl) {
+                cellEl.classList.add('cell-beam-hint');
+                setTimeout(() => cellEl.classList.remove('cell-beam-hint'), 800);
+            }
+
+            clearRelatedNotes(row, col, correctNum);
+            updateGridDisplay();
+            checkVictory();
+        }
+
+        // 復原上一步 (Undo)
+        function handleUndo() {
+            if (moveHistory.length === 0 || isPaused) return;
+            playPopSound();
+            const lastMove = moveHistory.pop();
+            const { row, col, oldVal, oldNotes } = lastMove;
+
+            currentBoard[row][col] = oldVal;
+            pencilNotes[row][col] = oldNotes;
+            selectedCell = { row, col };
+            updateGridDisplay();
+        }
+
+        // 計時器邏輯
+        function startTimer() {
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                timerSeconds++;
+                const mins = String(Math.floor(timerSeconds / 60)).padStart(2, '0');
+                const secs = String(timerSeconds % 60).padStart(2, '0');
+                document.getElementById('timerDisplay').textContent = `⏱️ ${mins}:${secs}`;
+            }, 1000);
+        }
+
+        function pauseTimer() {
+            clearInterval(timerInterval);
+        }
+
+        function resetTimer() {
+            clearInterval(timerInterval);
+            timerSeconds = 0;
+            document.getElementById('timerDisplay').textContent = '⏱️ 00:00';
+        }
+
+        // 切換暫停狀態
+        function togglePause() {
+            playPopSound();
+            isPaused = !isPaused;
+            const overlay = document.getElementById('pauseOverlay');
+            const pauseBtn = document.getElementById('pauseBtn');
+
+            if (isPaused) {
+                pauseTimer();
+                overlay.classList.remove('hidden');
+                pauseBtn.textContent = '▶️';
+            } else {
+                startTimer();
+                overlay.classList.add('hidden');
+                pauseBtn.textContent = '⏸️';
+            }
+        }
+
+        // 觸發遊戲失敗 Modal
+        function triggerGameOver() {
+            pauseTimer();
+            document.getElementById('gameOverModal').classList.remove('hidden');
+        }
+
+        // 檢查是否獲勝 Victory
+        function checkVictory() {
+            for (let r = 0; r < 9; r++) {
+                for (let c = 0; c < 9; c++) {
+                    if (currentBoard[r][c] !== solutionBoard[r][c]) {
+                        return false;
+                    }
+                }
+            }
+
+            // 通關勝利！
+            pauseTimer();
+            playVictorySound();
+            triggerConfetti();
+
+            const formattedTime = document.getElementById('timerDisplay').textContent.replace('⏱️ ', '');
+            document.getElementById('victoryTime').textContent = formattedTime;
+
+            // 儲存至 LocalStorage 最佳紀錄
+            const isNewRecord = saveBestRecord(currentDifficulty, timerSeconds);
+            const recordBadge = document.getElementById('newRecordBadge');
+            if (isNewRecord) {
+                recordBadge.classList.remove('hidden');
+            } else {
+                recordBadge.classList.add('hidden');
+            }
+
+            document.getElementById('victoryModal').classList.remove('hidden');
+            return true;
+        }
+
+        // LocalStorage 最快時間紀錄
+        function saveBestRecord(diff, seconds) {
+            const key = 'shinchan_sudoku_best';
+            let records = JSON.parse(localStorage.getItem(key) || '{}');
+            if (!records[diff] || seconds < records[diff]) {
+                records[diff] = seconds;
+                localStorage.setItem(key, JSON.stringify(records));
+                return true;
+            }
+            return false;
+        }
+
+        function updateBestRecordUI() {
+            const key = 'shinchan_sudoku_best';
+            const records = JSON.parse(localStorage.getItem(key) || '{}');
+            
+            const formatSecs = (sec) => {
+                if (!sec) return '--:--';
+                const m = String(Math.floor(sec / 60)).padStart(2, '0');
+                const s = String(sec % 60).padStart(2, '0');
+                return `${m}:${s}`;
+            };
+
+            const txt = `初級: ${formatSecs(records.easy)} | 中級: ${formatSecs(records.medium)} | 高級: ${formatSecs(records.hard)}`;
+            document.getElementById('bestRecordText').textContent = txt;
+        }
+
+        /* ----------------------------------------------------
+           STREAMING_CHUNK:Implementing Fullscreen Victory Confetti Animation...
+        ---------------------------------------------------- */
+        function triggerConfetti() {
+            const canvas = document.getElementById('victoryCanvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+
+            const particles = [];
+            const colors = ['#7BC67A', '#FF4D4D', '#FFD13B', '#2B88D8', '#EC4899', '#A855F7'];
+
+            for (let i = 0; i < 120; i++) {
+                particles.push({
+                    x: canvas.width / 2,
+                    y: canvas.height / 2,
+                    vx: (Math.random() - 0.5) * 16,
+                    vy: (Math.random() - 0.7) * 18,
+                    size: Math.random() * 8 + 4,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    rotation: Math.random() * 360,
+                    rSpeed: (Math.random() - 0.5) * 10,
+                    opacity: 1
+                });
+            }
+
+            let animationFrame;
+            function animateConfetti() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                let alive = false;
+
+                particles.forEach(p => {
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.vy += 0.3; // Gravity
+                    p.rotation += p.rSpeed;
+                    p.opacity -= 0.008;
+
+                    if (p.opacity > 0) {
+                        alive = true;
+                        ctx.save();
+                        ctx.translate(p.x, p.y);
+                        ctx.rotate((p.rotation * Math.PI) / 180);
+                        ctx.globalAlpha = Math.max(0, p.opacity);
+                        ctx.fillStyle = p.color;
+                        ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+                        ctx.restore();
+                    }
+                });
+
+                if (alive) {
+                    animationFrame = requestAnimationFrame(animateConfetti);
+                } else {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    cancelAnimationFrame(animationFrame);
+                }
+            }
+
+            animateConfetti();
+        }
+
+        /* ----------------------------------------------------
+           STREAMING_CHUNK:Binding Window Load and Key Event Listeners...
+        ---------------------------------------------------- */
+        // 鍵盤操控支援
+        window.addEventListener('keydown', (e) => {
+            if (!selectedCell || isPaused) return;
+
+            if (e.key >= '1' && e.key <= '9') {
+                handleInputNumber(parseInt(e.key));
+            } else if (e.key === 'Backspace' || e.key === 'Delete') {
+                handleErase();
+            } else if (e.key === 'n' || e.key === 'N') {
+                togglePencilMode();
+            } else if (e.key === 'ArrowUp') {
+                if (selectedCell.row > 0) selectCell(selectedCell.row - 1, selectedCell.col);
+            } else if (e.key === 'ArrowDown') {
+                if (selectedCell.row < 8) selectCell(selectedCell.row + 1, selectedCell.col);
+            } else if (e.key === 'ArrowLeft') {
+                if (selectedCell.col > 0) selectCell(selectedCell.row, selectedCell.col - 1);
+            } else if (e.key === 'ArrowRight') {
+                if (selectedCell.col < 8) selectCell(selectedCell.row, selectedCell.col + 1);
+            }
+        });
+
+        // 頁面載入完成後初始化選擇難度 Modal
+        window.onload = function() {
+            updateBestRecordUI();
+        };
+    </script>
+</body>
+</html>

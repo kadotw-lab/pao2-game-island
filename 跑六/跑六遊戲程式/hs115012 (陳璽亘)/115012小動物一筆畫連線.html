@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>卡娜赫拉風格：一筆畫連線大挑戰</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap');
+
+        body {
+            font-family: 'Fredoka', 'Microsoft JhengHei', sans-serif;
+            background-color: #FFF0F5;
+            touch-action: manipulation;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .kanahei-card {
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(8px);
+            border: 4px solid #FFB6C1;
+            box-shadow: 0 10px 25px -5px rgba(255, 182, 193, 0.5);
+        }
+
+        .btn-pink {
+            background: linear-gradient(135deg, #FF69B4, #FF1493);
+            color: white;
+            box-shadow: 0 4px 15px rgba(255, 20, 147, 0.3);
+            transition: all 0.2s ease;
+        }
+
+        .btn-pink:hover {
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 6px 20px rgba(255, 20, 147, 0.4);
+        }
+
+        .btn-pink:active {
+            transform: translateY(1px) scale(0.98);
+        }
+
+        .btn-yellow {
+            background: linear-gradient(135deg, #FFD700, #FFA500);
+            color: #5D4037;
+            box-shadow: 0 4px 15px rgba(255, 165, 0, 0.3);
+            transition: all 0.2s ease;
+        }
+
+        .btn-yellow:hover {
+            transform: translateY(-2px) scale(1.02);
+        }
+
+        .btn-yellow:active {
+            transform: translateY(1px) scale(0.98);
+        }
+
+        /* Pulse animation for active elements */
+        @keyframes gentle-pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .animate-gentle {
+            animation: gentle-pulse 2s infinite ease-in-out;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen overflow-hidden flex flex-col justify-between items-center p-2 sm:p-4 select-none">
+
+    <!-- Top Bar / Header -->
+    <header id="game-header" class="w-full max-w-md flex justify-between items-center z-10 px-2 py-1">
+        <div class="flex items-center gap-2">
+            <span class="text-2xl sm:text-3xl">🐰</span>
+            <div>
+                <h1 class="text-lg sm:text-xl font-bold text-pink-600 leading-tight">一筆畫大挑戰</h1>
+                <p class="text-xs text-pink-400 font-semibold" id="hud-best">最高關卡: 1</p>
+            </div>
+        </div>
+        
+        <div id="hud-controls" class="flex items-center gap-2 hidden">
+            <button id="btn-sound" class="p-2 bg-white/80 rounded-full border-2 border-pink-300 text-pink-600 shadow hover:bg-pink-50 transition">
+                🔊
+            </button>
+            <button id="btn-pause" class="px-3 py-1 bg-pink-500 text-white font-bold rounded-full border-2 border-pink-300 shadow hover:bg-pink-600 transition">
+                ⏸ 暫停
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Canvas Area -->
+    <main class="relative w-full max-w-md flex-1 flex flex-col justify-center items-center my-2">
+        <div class="relative w-full h-full max-h-[560px] bg-white/70 rounded-3xl border-4 border-pink-200 shadow-inner flex justify-center items-center overflow-hidden">
+            <canvas id="gameCanvas" class="w-full h-full touch-none block cursor-pointer"></canvas>
+            
+            <!-- HUD Overlay inside Canvas -->
+            <div id="level-badge" class="absolute top-3 left-4 bg-pink-100/90 border-2 border-pink-300 px-3 py-1 rounded-full text-pink-600 text-sm font-bold shadow hidden flex items-center gap-1">
+                <span>關卡 <span id="current-level-num">1</span></span>
+                <span id="level-code" class="text-[10px] bg-pink-200 text-pink-700 px-1.5 py-0.5 rounded-full font-mono ml-1">#INIT</span>
+            </div>
+
+            <!-- In-game bottom action bar -->
+            <div id="game-actions" class="absolute bottom-3 flex gap-4 hidden">
+                <button id="btn-undo" class="px-4 py-2 bg-white/90 border-2 border-pink-300 text-pink-600 font-bold rounded-full shadow hover:bg-pink-100 transition flex items-center gap-1">
+                    ↩️ 撤銷
+                </button>
+                <button id="btn-restart" class="px-4 py-2 bg-white/90 border-2 border-pink-300 text-pink-600 font-bold rounded-full shadow hover:bg-pink-100 transition flex items-center gap-1">
+                    🔄 重來
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal: Start Menu Overlay -->
+    <div id="modal-menu" class="fixed inset-0 bg-pink-900/30 backdrop-blur-sm flex justify-center items-center z-30 p-4">
+        <div class="kanahei-card w-full max-w-sm rounded-3xl p-6 text-center flex flex-col items-center gap-4 animate-gentle">
+            <div class="text-5xl">🐰 🐤</div>
+            <h2 class="text-2xl font-bold text-pink-600">一筆畫連線大挑戰</h2>
+            <p class="text-sm text-gray-600">每條線段只走一次，將所有路線連通！難度無限遞增，挑戰你的腦力上限！</p>
+            
+            <div class="bg-pink-50 w-full py-2 rounded-2xl border border-pink-200 text-pink-500 font-bold">
+                歷史最高突破：<span id="menu-best-level" class="text-pink-700 font-black text-lg">1</span> 關
+            </div>
+
+            <button id="btn-start" class="btn-pink w-full py-3 text-lg font-bold rounded-2xl tracking-wider mt-2">
+                🎮 開始遊戲
+            </button>
+        </div>
+    </div>
+
+    <!-- Modal: Pause Overlay -->
+    <div id="modal-pause" class="fixed inset-0 bg-pink-900/40 backdrop-blur-sm flex justify-center items-center z-30 p-4 hidden">
+        <div class="kanahei-card w-full max-w-xs rounded-3xl p-6 text-center flex flex-col items-center gap-3">
+            <h3 class="text-xl font-bold text-pink-600">⏸ 遊戲暫停</h3>
+            <p class="text-xs text-gray-500">休息一下，隨時準備再戰！</p>
+            
+            <button id="btn-resume" class="btn-pink w-full py-2.5 font-bold rounded-xl mt-2">
+                ▶️ 繼續遊戲
+            </button>
+            <button id="btn-pause-restart" class="btn-yellow w-full py-2.5 font-bold rounded-xl">
+                🔄 重新本關
+            </button>
+            <button id="btn-exit" class="w-full py-2 bg-gray-200 text-gray-700 font-bold rounded-xl hover:bg-gray-300 transition">
+                🚪 退出主選單
+            </button>
+        </div>
+    </div>
+
+    <!-- Modal: Level Clear Overlay -->
+    <div id="modal-clear" class="fixed inset-0 bg-pink-900/30 backdrop-blur-sm flex justify-center items-center z-30 p-4 hidden pointer-events-none">
+        <div class="kanahei-card w-full max-w-xs rounded-3xl p-5 text-center flex flex-col items-center gap-2 transform scale-90 transition-all duration-300">
+            <div class="text-4xl animate-bounce">🎉 🐥 🎊</div>
+            <h3 class="text-2xl font-black text-pink-600">完美通關！</h3>
+            <p id="clear-level-text" class="text-sm font-bold text-pink-400">進入第 2 關</p>
+        </div>
+    </div>
+
+    <script>
+        /* Sound Synthesizer using Web Audio API */
+        class SoundFX {
+            constructor() {
+                this.ctx = null;
+                this.muted = false;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            playConnect() {
+                if (this.muted) return;
+                this.init();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(523.25, this.ctx.currentTime); // C5
+                osc.frequency.exponentialRampToValueAtTime(880, this.ctx.currentTime + 0.1); // A5
+
+                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.12);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.12);
+            }
+
+            playError() {
+                if (this.muted) return;
+                this.init();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(180, this.ctx.currentTime);
+                osc.frequency.setValueAtTime(140, this.ctx.currentTime + 0.08);
+
+                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.2);
+            }
+
+            playVictory() {
+                if (this.muted) return;
+                this.init();
+                const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+                notes.forEach((freq, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime + idx * 0.08);
+
+                    gain.gain.setValueAtTime(0.25, this.ctx.currentTime + idx * 0.08);
+                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + idx * 0.08 + 0.25);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(this.ctx.currentTime + idx * 0.08);
+                    osc.stop(this.ctx.currentTime + idx * 0.08 + 0.25);
+                });
+            }
+        }
+
+        const sounds = new SoundFX();
+
+        class Game {
+            constructor() {
+                this.canvas = document.getElementById('gameCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                
+                // State variables
+                this.state = 'MENU'; // MENU, PLAYING, PAUSED, CLEAR
+                this.level = 1;
+                this.highestLevel = parseInt(localStorage.getItem('kanahei_highest_level') || '1', 10);
+                
+                // Graph structure
+                this.nodes = [];
+                this.edges = [];
+                
+                // Path history
+                this.path = [];         // Array of node indices visited
+                this.edgeHistory = [];  // Array of edge indices traversed in order
+                this.activeNodeIndex = null;
+                this.pointerPos = null; // Dragging line end coordinate
+                
+                // History of generated signatures to prevent level repetition
+                this.usedSignatures = new Set();
+                
+                // Confetti particles
+                this.particles = [];
+                
+                this.setupCanvas();
+                this.bindEvents();
+                this.updateHUD();
+                this.animate();
+            }
+
+            setupCanvas() {
+                const rect = this.canvas.parentElement.getBoundingClientRect();
+                this.dpr = window.devicePixelRatio || 1;
+                this.width = rect.width;
+                this.height = rect.height;
+                
+                this.canvas.width = this.width * this.dpr;
+                this.canvas.height = this.height * this.dpr;
+                this.ctx.scale(this.dpr, this.dpr);
+            }
+
+            updateHUD() {
+                document.getElementById('hud-best').innerText = `最高關卡: ${this.highestLevel}`;
+                document.getElementById('menu-best-level').innerText = this.highestLevel;
+                document.getElementById('current-level-num').innerText = this.level;
+                if (this.currentSeedCode) {
+                    document.getElementById('level-code').innerText = `#${this.currentSeedCode}`;
+                }
+            }
+
+            generateGraph(level) {
+                // 隨關卡動態增加複雜度
+                let targetNodes = Math.min(4 + Math.floor((level - 1) / 2), 12);
+                let targetEdges = Math.min(4 + level + Math.floor(level / 2), 28);
+
+                let attempts = 0;
+                let validGraph = false;
+
+                while (!validGraph) {
+                    attempts++;
+                    // 若重試次數增加，微調參數以強制產生全新的圖形結構
+                    let currentNodesCount = targetNodes + (attempts > 30 ? Math.floor(attempts / 30) % 3 : 0);
+                    let currentEdgesCount = targetEdges + (attempts > 30 ? Math.floor(attempts / 30) % 2 : 0);
+
+                    const padding = 65;
+                    const cX = this.width / 2;
+                    const cY = this.height / 2;
+                    const radius = Math.min(this.width, this.height) / 2 - padding;
+
+                    // 產生候選節點位置
+                    let rawNodes = [];
+                    for (let i = 0; i < currentNodesCount; i++) {
+                        const angle = (i / currentNodesCount) * Math.PI * 2 - Math.PI / 2;
+                        const jitterX = (Math.random() - 0.5) * 30;
+                        const jitterY = (Math.random() - 0.5) * 30;
+                        rawNodes.push({
+                            x: cX + radius * Math.cos(angle) + jitterX,
+                            y: cY + radius * Math.sin(angle) + jitterY
+                        });
+                    }
+
+                    // 以隨機遊走（Random Walk）生成必有解的尤拉路徑
+                    let curr = Math.floor(Math.random() * currentNodesCount);
+                    let edgeList = [];
+                    let edgeSet = new Set();
+                    let visitedNodes = new Set([curr]);
+
+                    for (let step = 0; step < currentEdgesCount; step++) {
+                        let candidates = [];
+                        for (let n = 0; n < currentNodesCount; n++) {
+                            if (n === curr) continue;
+                            const key1 = `${curr}-${n}`;
+                            const key2 = `${n}-${curr}`;
+                            if (!edgeSet.has(key1) && !edgeSet.has(key2)) {
+                                candidates.push(n);
+                            }
+                        }
+
+                        if (candidates.length === 0) break; // 遭遇死胡同
+
+                        let nextNode = candidates[Math.floor(Math.random() * candidates.length)];
+                        edgeSet.add(`${curr}-${nextNode}`);
+                        edgeList.push([curr, nextNode]);
+                        visitedNodes.add(nextNode);
+                        curr = nextNode;
+                    }
+
+                    // 確保生成足夠線段，且去除未使用的浮動孤立節點
+                    if (edgeList.length >= Math.max(4, targetEdges - 2)) {
+                        const nodeArray = Array.from(visitedNodes);
+                        const nodeIndexMap = new Map();
+                        nodeArray.forEach((oldIdx, newIdx) => nodeIndexMap.set(oldIdx, newIdx));
+
+                        // 重新對齊極簡化的節點清單
+                        this.nodes = nodeArray.map((oldIdx, newIdx) => ({
+                            x: rawNodes[oldIdx].x,
+                            y: rawNodes[oldIdx].y,
+                            char: (newIdx % 2 === 0) ? '🐰' : '🐤',
+                            id: newIdx
+                        }));
+
+                        // 重新構建經過索引重排後的邊（Edges）
+                        this.edges = edgeList.map((e, idx) => ({
+                            u: nodeIndexMap.get(e[0]),
+                            v: nodeIndexMap.get(e[1]),
+                            visited: false,
+                            id: idx
+                        }));
+
+                        // 計算標準圖形拓樸特徵（Canonical Topological Signature）確保完全不重複
+                        const adj = Array.from({ length: this.nodes.length }, () => []);
+                        this.edges.forEach(e => {
+                            adj[e.u].push(e.v);
+                            adj[e.v].push(e.u);
+                        });
+                        const canonicalSig = adj.map(neighbors => neighbors.sort().join(',')).sort().join(';');
+
+                        // 驗證簽名是否重複
+                        if (!this.usedSignatures.has(canonicalSig)) {
+                            this.usedSignatures.add(canonicalSig);
+                            this.currentSeedCode = Math.random().toString(36).substring(2, 6).toUpperCase();
+                            validGraph = true;
+                        }
+                    }
+                }
+
+                // 清空路徑狀態
+                this.path = [];
+                this.edgeHistory = [];
+                this.activeNodeIndex = null;
+                this.pointerPos = null;
+            }
+
+            startLevel(lvl) {
+                this.level = lvl;
+                if (this.level > this.highestLevel) {
+                    this.highestLevel = this.level;
+                    localStorage.setItem('kanahei_highest_level', this.highestLevel.toString());
+                }
+                this.updateHUD();
+                this.generateGraph(this.level);
+                this.state = 'PLAYING';
+
+                document.getElementById('modal-menu').classList.add('hidden');
+                document.getElementById('modal-pause').classList.add('hidden');
+                document.getElementById('modal-clear').classList.add('hidden');
+                document.getElementById('hud-controls').classList.remove('hidden');
+                document.getElementById('level-badge').classList.remove('hidden');
+                document.getElementById('game-actions').classList.remove('hidden');
+            }
+
+            getNodeAt(x, y) {
+                const threshold = 35; // Touch target radius
+                for (let i = 0; i < this.nodes.length; i++) {
+                    const node = this.nodes[i];
+                    const dist = Math.hypot(node.x - x, node.y - y);
+                    if (dist < threshold) return i;
+                }
+                return null;
+            }
+
+            findEdge(u, v) {
+                return this.edges.find(e => (e.u === u && e.v === v) || (e.u === v && e.v === u));
+            }
+
+            handlePointerDown(x, y) {
+                if (this.state !== 'PLAYING') return;
+
+                const nodeIdx = this.getNodeAt(x, y);
+                if (nodeIdx !== null) {
+                    // If no path yet, start from touched node
+                    if (this.path.length === 0) {
+                        this.path.push(nodeIdx);
+                        this.activeNodeIndex = nodeIdx;
+                        sounds.playConnect();
+                    } else if (nodeIdx === this.path[this.path.length - 1]) {
+                        // Touched current head
+                        this.activeNodeIndex = nodeIdx;
+                    }
+                }
+                this.pointerPos = { x, y };
+            }
+
+            handlePointerMove(x, y) {
+                if (this.state !== 'PLAYING' || this.activeNodeIndex === null) return;
+                this.pointerPos = { x, y };
+
+                const targetNode = this.getNodeAt(x, y);
+                if (targetNode !== null && targetNode !== this.activeNodeIndex) {
+                    const edge = this.findEdge(this.activeNodeIndex, targetNode);
+                    if (edge && !edge.visited) {
+                        // Valid move along unvisited edge!
+                        edge.visited = true;
+                        this.edgeHistory.push(edge.id);
+                        this.path.push(targetNode);
+                        this.activeNodeIndex = targetNode;
+                        sounds.playConnect();
+
+                        // Check Level Completion
+                        if (this.edges.every(e => e.visited)) {
+                            this.handleLevelClear();
+                        }
+                    } else if (edge && edge.visited) {
+                        sounds.playError();
+                    }
+                }
+            }
+
+            handlePointerUp() {
+                this.pointerPos = null;
+            }
+
+            undoStep() {
+                if (this.path.length <= 1 || this.state !== 'PLAYING') return;
+                
+                const lastEdgeId = this.edgeHistory.pop();
+                const edge = this.edges.find(e => e.id === lastEdgeId);
+                if (edge) edge.visited = false;
+
+                this.path.pop();
+                this.activeNodeIndex = this.path[this.path.length - 1];
+                sounds.playError();
+            }
+
+            restartLevel() {
+                if (this.state !== 'PLAYING' && this.state !== 'PAUSED') return;
+                this.edges.forEach(e => e.visited = false);
+                this.path = [];
+                this.edgeHistory = [];
+                this.activeNodeIndex = null;
+                this.pointerPos = null;
+                if (this.state === 'PAUSED') {
+                    this.state = 'PLAYING';
+                    document.getElementById('modal-pause').classList.add('hidden');
+                }
+            }
+
+            handleLevelClear() {
+                this.state = 'CLEAR';
+                sounds.playVictory();
+                this.spawnConfetti();
+
+                const clearModal = document.getElementById('modal-clear');
+                const clearText = document.getElementById('clear-level-text');
+                clearText.innerText = `準備挑戰第 ${this.level + 1} 關！`;
+                
+                clearModal.classList.remove('hidden');
+
+                setTimeout(() => {
+                    this.startLevel(this.level + 1);
+                }, 2000);
+            }
+
+            spawnConfetti() {
+                this.particles = [];
+                const colors = ['#FF69B4', '#FFB6C1', '#FFD700', '#87CEFA', '#98FB98'];
+                for (let i = 0; i < 60; i++) {
+                    this.particles.push({
+                        x: this.width / 2,
+                        y: this.height / 2,
+                        vx: (Math.random() - 0.5) * 12,
+                        vy: (Math.random() - 0.7) * 14,
+                        color: colors[Math.floor(Math.random() * colors.length)],
+                        size: Math.random() * 8 + 4,
+                        gravity: 0.25
+                    });
+                }
+            }
+
+            render() {
+                this.ctx.clearRect(0, 0, this.width, this.height);
+
+                // Draw Background Dots Pattern
+                this.ctx.fillStyle = 'rgba(255, 182, 193, 0.15)';
+                for (let x = 20; x < this.width; x += 30) {
+                    for (let y = 20; y < this.height; y += 30) {
+                        this.ctx.beginPath();
+                        this.ctx.arc(x, y, 2, 0, Math.PI * 2);
+                        this.ctx.fill();
+                    }
+                }
+
+                // 1. Draw Unvisited Edges
+                this.ctx.lineWidth = 10;
+                this.ctx.lineCap = 'round';
+                this.ctx.strokeStyle = '#E0E0E0';
+                this.edges.forEach(e => {
+                    if (!e.visited) {
+                        const u = this.nodes[e.u];
+                        const v = this.nodes[e.v];
+                        this.ctx.beginPath();
+                        this.ctx.moveTo(u.x, u.y);
+                        this.ctx.lineTo(v.x, v.y);
+                        this.ctx.stroke();
+                    }
+                });
+
+                // 2. Draw Visited Edges (Hot Pink)
+                this.ctx.lineWidth = 10;
+                this.ctx.strokeStyle = '#FF1493';
+                this.edges.forEach(e => {
+                    if (e.visited) {
+                        const u = this.nodes[e.u];
+                        const v = this.nodes[e.v];
+                        this.ctx.beginPath();
+                        this.ctx.moveTo(u.x, u.y);
+                        this.ctx.lineTo(v.x, v.y);
+                        this.ctx.stroke();
+                    }
+                });
+
+                // 3. Draw Active Dragging Line
+                if (this.activeNodeIndex !== null && this.pointerPos) {
+                    const head = this.nodes[this.activeNodeIndex];
+                    this.ctx.lineWidth = 6;
+                    this.ctx.strokeStyle = '#FF69B4';
+                    this.ctx.setLineDash([8, 6]);
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(head.x, head.y);
+                    this.ctx.lineTo(this.pointerPos.x, this.pointerPos.y);
+                    this.ctx.stroke();
+                    this.ctx.setLineDash([]); // Reset dash
+                }
+
+                // 4. Draw Nodes
+                this.nodes.forEach((node, idx) => {
+                    const isVisited = this.path.includes(idx);
+                    const isHead = (this.activeNodeIndex === idx);
+
+                    // Draw Node Background Circle
+                    this.ctx.beginPath();
+                    this.ctx.arc(node.x, node.y, 22, 0, Math.PI * 2);
+                    if (isHead) {
+                        this.ctx.fillStyle = '#FF1493';
+                    } else if (isVisited) {
+                        this.ctx.fillStyle = '#FFB6C1';
+                    } else {
+                        this.ctx.fillStyle = '#FFFFFF';
+                    }
+                    this.ctx.fill();
+
+                    // Node Outer Border
+                    this.ctx.lineWidth = 4;
+                    this.ctx.strokeStyle = isVisited ? '#FF1493' : '#FFB6C1';
+                    this.ctx.stroke();
+
+                    // Draw Emoji inside Node
+                    this.ctx.font = '22px Arial';
+                    this.ctx.textAlign = 'center';
+                    this.ctx.textBaseline = 'middle';
+                    this.ctx.fillText(node.char, node.x, node.y + 2);
+                });
+
+                // 5. Render Confetti Particles
+                if (this.particles.length > 0) {
+                    for (let i = this.particles.length - 1; i >= 0; i--) {
+                        const p = this.particles[i];
+                        p.x += p.vx;
+                        p.y += p.vy;
+                        p.vy += p.gravity;
+
+                        this.ctx.fillStyle = p.color;
+                        this.ctx.beginPath();
+                        this.ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                        this.ctx.fill();
+
+                        if (p.y > this.height) {
+                            this.particles.splice(i, 1);
+                        }
+                    }
+                }
+            }
+
+            animate() {
+                this.render();
+                requestAnimationFrame(() => this.animate());
+            }
+
+            bindEvents() {
+                window.addEventListener('resize', () => this.setupCanvas());
+
+                // Pointer Events for Mouse & Touch
+                const getCanvasCoords = (e) => {
+                    const rect = this.canvas.getBoundingClientRect();
+                    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                    return {
+                        x: clientX - rect.left,
+                        y: clientY - rect.top
+                    };
+                };
+
+                this.canvas.addEventListener('pointerdown', (e) => {
+                    const coords = getCanvasCoords(e);
+                    this.handlePointerDown(coords.x, coords.y);
+                });
+
+                this.canvas.addEventListener('pointermove', (e) => {
+                    const coords = getCanvasCoords(e);
+                    this.handlePointerMove(coords.x, coords.y);
+                });
+
+                window.addEventListener('pointerup', () => this.handlePointerUp());
+
+                // UI Buttons
+                document.getElementById('btn-start').addEventListener('click', () => {
+                    sounds.init();
+                    this.startLevel(1);
+                });
+
+                document.getElementById('btn-pause').addEventListener('click', () => {
+                    if (this.state === 'PLAYING') {
+                        this.state = 'PAUSED';
+                        document.getElementById('modal-pause').classList.remove('hidden');
+                    }
+                });
+
+                document.getElementById('btn-resume').addEventListener('click', () => {
+                    if (this.state === 'PAUSED') {
+                        this.state = 'PLAYING';
+                        document.getElementById('modal-pause').classList.add('hidden');
+                    }
+                });
+
+                document.getElementById('btn-pause-restart').addEventListener('click', () => {
+                    this.restartLevel();
+                });
+
+                document.getElementById('btn-exit').addEventListener('click', () => {
+                    this.state = 'MENU';
+                    document.getElementById('modal-pause').classList.add('hidden');
+                    document.getElementById('modal-menu').classList.remove('hidden');
+                    document.getElementById('hud-controls').classList.add('hidden');
+                    document.getElementById('level-badge').classList.add('hidden');
+                    document.getElementById('game-actions').classList.add('hidden');
+                });
+
+                document.getElementById('btn-undo').addEventListener('click', () => this.undoStep());
+                document.getElementById('btn-restart').addEventListener('click', () => this.restartLevel());
+
+                // Sound Toggle
+                document.getElementById('btn-sound').addEventListener('click', (e) => {
+                    sounds.muted = !sounds.muted;
+                    e.target.innerText = sounds.muted ? '🔇' : '🔊';
+                });
+            }
+        }
+
+        // Launch Game on Window Load
+        window.onload = () => {
+            new Game();
+        };
+    </script>
+</body>
+</html>

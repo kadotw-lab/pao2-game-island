@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>夢幻極光 Arcade 遊戲中心</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&family=Noto+Sans+TC:wght@400;700;900&display=swap" rel="stylesheet">
+
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+
+        body {
+            font-family: 'Outfit', 'Noto Sans TC', sans-serif;
+            background: #f8fafc;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(236, 72, 153, 0.12) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(168, 85, 247, 0.12) 0px, transparent 50%),
+                radial-gradient(at 50% 100%, rgba(56, 189, 248, 0.15) 0px, transparent 50%);
+            color: #1e293b;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            box-shadow: 0 10px 30px -5px rgba(148, 163, 184, 0.25), 0 4px 6px -2px rgba(148, 163, 184, 0.05);
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.9);
+            box-shadow: 0 4px 20px rgba(148, 163, 184, 0.15);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .glass-card:hover {
+            transform: translateY(-4px) scale(1.02);
+            border-color: rgba(236, 72, 153, 0.4);
+            box-shadow: 0 12px 30px rgba(236, 72, 153, 0.2);
+            background: rgba(255, 255, 255, 0.9);
+        }
+
+        .light-border {
+            box-shadow: 0 0 20px rgba(168, 85, 247, 0.15), inset 0 0 15px rgba(255, 255, 255, 0.8);
+        }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(241, 245, 249, 0.8); }
+        ::-webkit-scrollbar-thumb { background: rgba(168, 85, 247, 0.3); border-radius: 3px; }
+
+        .drag-slot { touch-action: none; cursor: grab; }
+        .drag-slot:active { cursor: grabbing; }
+
+        #dragCanvas {
+            position: fixed;
+            pointer-events: none;
+            z-index: 9999;
+            display: none;
+            filter: drop-shadow(0 8px 16px rgba(236, 72, 153, 0.3));
+        }
+
+        .touch-btn {
+            background: linear-gradient(135deg, rgba(243, 232, 255, 0.9), rgba(252, 231, 243, 0.9));
+            border: 1px solid rgba(216, 180, 254, 0.5);
+            color: #6b21a8;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        .touch-btn:active {
+            transform: scale(0.92);
+            background: rgba(236, 72, 153, 0.2);
+        }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen justify-between">
+
+    <header class="w-full max-w-5xl mx-auto px-4 py-4 flex items-center justify-between z-20">
+        <div class="flex items-center gap-3 cursor-pointer" onclick="app.showLobby()">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-purple-500 via-pink-500 to-sky-400 p-[2px] shadow-md shadow-pink-500/20 flex items-center justify-center">
+                <div class="w-full h-full bg-white rounded-[10px] flex items-center justify-center">
+                    <span class="text-xl">🎮</span>
+                </div>
+            </div>
+            <div>
+                <h1 class="font-extrabold text-xl sm:text-2xl tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-purple-600 via-pink-600 to-sky-600">
+                    AURORA ARCADE
+                </h1>
+                <p class="text-xs text-purple-700/60 font-medium">夢幻極光遊戲大廳</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-2 sm:gap-3">
+            <button id="changeNameBtn" class="glass-panel hover:bg-white text-xs sm:text-sm px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 border border-purple-200 text-purple-800 font-semibold shadow-sm">
+                <span>👤</span> <span id="headerPlayerName">玩家</span>
+            </button>
+            <button id="lobbyReturnBtn" onclick="app.showLobby()" class="hidden glass-panel hover:bg-white text-xs sm:text-sm px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 border border-purple-200 text-purple-800 font-semibold shadow-sm">
+                <span>🏠</span> <span class="hidden sm:inline">大廳</span>
+            </button>
+            <button id="soundToggleBtn" onclick="app.toggleSound()" class="glass-panel hover:bg-white text-xs sm:text-sm px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 border border-purple-200 text-purple-800 font-semibold shadow-sm">
+                <span id="soundIcon">🔊</span> <span id="soundText" class="hidden sm:inline">ON</span>
+            </button>
+        </div>
+    </header>
+
+    <div id="nicknameModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-md flex items-center justify-center p-4 z-50 hidden">
+        <div class="glass-panel w-full max-w-sm rounded-2xl p-6 flex flex-col items-center text-center shadow-2xl border border-white">
+            <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-pink-500 to-purple-600 flex items-center justify-center text-3xl mb-3 shadow-lg shadow-pink-500/30">👑</div>
+            <h3 class="text-xl font-black text-slate-800 mb-1">歡迎來到 Arcade 大廳</h3>
+            <p class="text-xs text-slate-500 mb-4 font-medium">請輸入您的玩家暱稱，最高分紀錄將歸屬於您！</p>
+            <input type="text" id="nicknameInput" maxlength="10" placeholder="請輸入暱稱 (最多10字)" class="w-full px-4 py-2.5 rounded-xl border border-purple-200 bg-white/80 focus:outline-none focus:ring-2 focus:ring-purple-400 text-center font-bold text-slate-700 text-sm mb-4">
+            <button id="saveNicknameBtn" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white font-bold text-sm shadow-md hover:scale-105 active:scale-95 transition">
+                確定進入遊戲
+            </button>
+        </div>
+    </div>
+
+    <main class="w-full max-w-5xl mx-auto px-4 py-2 flex-grow flex flex-col justify-center items-center relative z-10">
+        
+        <section id="lobbyView" class="w-full py-4 flex flex-col items-center">
+            <div class="text-center mb-8 max-w-lg">
+                <span class="px-3.5 py-1 text-xs font-bold uppercase tracking-widest text-pink-600 bg-pink-100 border border-pink-200 rounded-full inline-block mb-3">MINI GAME COLLECTION</span>
+                <h2 class="text-3xl sm:text-4xl font-black text-slate-800 mb-2 tracking-tight">選擇您的遊戲賽道</h2>
+                <p class="text-sm text-slate-600 font-medium">精選多款經典休閒 Arcade 遊戲，無縫體驗清爽極光視覺與衝榜樂趣！</p>
+            </div>
+
+            <!-- Game Cards Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 w-full">
+                <!-- Card 1 -->
+                <div class="glass-card rounded-2xl p-5 flex flex-col justify-between cursor-pointer group" onclick="app.launchGame('blockPuzzle')">
+                    <div>
+                        <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center text-2xl shadow-md shadow-pink-500/20 mb-4 group-hover:scale-110 transition">🧩</div>
+                        <h3 class="text-lg font-bold text-slate-800 mb-1 group-hover:text-pink-600 transition">10x10 方塊拼圖</h3>
+                        <p class="text-xs text-slate-500 leading-relaxed mb-4">自由拖曳組合方塊填滿行列，放鬆大腦無時間倒數壓力！</p>
+                    </div>
+                    <div class="pt-3 border-t border-slate-200/80 flex items-center justify-between text-xs">
+                        <div class="flex flex-col">
+                            <span class="text-slate-600 font-medium">最高分: <strong id="hs-blockPuzzle" class="text-pink-600 font-extrabold">0</strong></span>
+                            <span class="text-[10px] text-slate-400 font-medium">玩家: <span id="hsn-blockPuzzle" class="text-pink-600 font-bold">無</span></span>
+                        </div>
+                        <span class="px-2.5 py-1 rounded-lg bg-pink-100 text-pink-700 font-bold text-[11px] group-hover:bg-pink-500 group-hover:text-white transition">開始遊玩 →</span>
+                    </div>
+                </div>
+                <!-- Card 2 -->
+                <div class="glass-card rounded-2xl p-5 flex flex-col justify-between cursor-pointer group" onclick="app.launchGame('tetris')">
+                    <div>
+                        <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-sky-400 to-blue-500 flex items-center justify-center text-2xl shadow-md shadow-sky-500/20 mb-4 group-hover:scale-110 transition">🕹️</div>
+                        <h3 class="text-lg font-bold text-slate-800 mb-1 group-hover:text-sky-600 transition">經典俄羅斯方塊</h3>
+                        <p class="text-xs text-slate-500 leading-relaxed mb-4">標準 Tetris 機制！含 Ghost 落點預覽、Hold 暫存與速降！</p>
+                    </div>
+                    <div class="pt-3 border-t border-slate-200/80 flex items-center justify-between text-xs">
+                        <div class="flex flex-col">
+                            <span class="text-slate-600 font-medium">最高分: <strong id="hs-tetris" class="text-sky-600 font-extrabold">0</strong></span>
+                            <span class="text-[10px] text-slate-400 font-medium">玩家: <span id="hsn-tetris" class="text-sky-600 font-bold">無</span></span>
+                        </div>
+                        <span class="px-2.5 py-1 rounded-lg bg-sky-100 text-sky-700 font-bold text-[11px] group-hover:bg-sky-500 group-hover:text-white transition">開始遊玩 →</span>
+                    </div>
+                </div>
+                <!-- Card 3 -->
+                <div class="glass-card rounded-2xl p-5 flex flex-col justify-between cursor-pointer group" onclick="app.launchGame('snake')">
+                    <div>
+                        <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-2xl shadow-md shadow-emerald-500/20 mb-4 group-hover:scale-110 transition">🐍</div>
+                        <h3 class="text-lg font-bold text-slate-800 mb-1 group-hover:text-emerald-600 transition">光速貪食蛇</h3>
+                        <p class="text-xs text-slate-500 leading-relaxed mb-4">馳騁極光賽道，挑戰連續咬食特殊能量波獲得加倍分數！</p>
+                    </div>
+                    <div class="pt-3 border-t border-slate-200/80 flex items-center justify-between text-xs">
+                        <div class="flex flex-col">
+                            <span class="text-slate-600 font-medium">最高分: <strong id="hs-snake" class="text-emerald-600 font-extrabold">0</strong></span>
+                            <span class="text-[10px] text-slate-400 font-medium">玩家: <span id="hsn-snake" class="text-emerald-600 font-bold">無</span></span>
+                        </div>
+                        <span class="px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-700 font-bold text-[11px] group-hover:bg-emerald-500 group-hover:text-white transition">開始遊玩 →</span>
+                    </div>
+                </div>
+                <!-- Card 4 -->
+                <div class="glass-card rounded-2xl p-5 flex flex-col justify-between cursor-pointer group" onclick="app.launchGame('twenty48')">
+                    <div>
+                        <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-2xl shadow-md shadow-amber-500/20 mb-4 group-hover:scale-110 transition">🔢</div>
+                        <h3 class="text-lg font-bold text-slate-800 mb-1 group-hover:text-amber-600 transition">2048 數字拼圖</h3>
+                        <p class="text-xs text-slate-500 leading-relaxed mb-4">滑動合併相同數字，朝向最高榮譽 2048 磚塊發起衝擊！</p>
+                    </div>
+                    <div class="pt-3 border-t border-slate-200/80 flex items-center justify-between text-xs">
+                        <div class="flex flex-col">
+                            <span class="text-slate-600 font-medium">最高分: <strong id="hs-twenty48" class="text-amber-600 font-extrabold">0</strong></span>
+                            <span class="text-[10px] text-slate-400 font-medium">玩家: <span id="hsn-twenty48" class="text-amber-600 font-bold">無</span></span>
+                        </div>
+                        <span class="px-2.5 py-1 rounded-lg bg-amber-100 text-amber-700 font-bold text-[11px] group-hover:bg-amber-500 group-hover:text-white transition">開始遊玩 →</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="gameView" class="hidden w-full flex-col items-center max-w-xl my-auto">
+            <div class="w-full glass-panel rounded-2xl p-4 mb-4 flex items-center justify-between border border-purple-100">
+                <div>
+                    <h2 id="activeGameTitle" class="text-xl font-black text-slate-800 tracking-wide">遊戲標題</h2>
+                    <p id="activeGameSub" class="text-xs text-slate-500 font-medium">遊戲說明</p>
+                </div>
+                <div class="flex gap-3 text-center">
+                    <div class="bg-purple-50 border border-purple-200/60 px-3.5 py-1.5 rounded-xl shadow-inner">
+                        <div class="text-[10px] uppercase tracking-wider text-purple-700 font-bold">SCORE</div>
+                        <div id="activeScore" class="text-lg font-black text-pink-600">0</div>
+                    </div>
+                    <div class="bg-amber-50 border border-amber-200/60 px-3 py-1.5 rounded-xl shadow-inner flex flex-col items-center min-w-[80px]">
+                        <div class="text-[10px] uppercase tracking-wider text-amber-700 font-bold flex items-center gap-1">
+                            🏆 <span id="gameViewHighScoreHolder" class="truncate max-w-[65px]">無</span>
+                        </div>
+                        <div id="activeHighScore" class="text-lg font-black text-amber-600">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="relative glass-panel rounded-2xl p-3 border border-purple-200 light-border flex flex-col items-center w-full max-w-[370px]">
+                <div class="relative overflow-hidden rounded-xl border border-slate-200 bg-slate-50 shadow-inner flex justify-center w-full bg-white">
+                    <canvas id="gameCanvas" width="340" height="340" class="block"></canvas>
+                    
+                    <div id="gameOverlay" class="absolute inset-0 bg-white/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center z-30 transition-all opacity-0 pointer-events-none">
+                        <div id="overlayEmoji" class="text-5xl mb-2 animate-bounce">🏆</div>
+                        <h3 id="overlayTitle" class="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-pink-600 to-purple-600 mb-1">GAME OVER</h3>
+                        <p id="overlayDesc" class="text-sm text-slate-600 mb-6 font-medium">得分: <span id="overlayScore" class="text-pink-600 font-extrabold">0</span></p>
+                        <button id="overlayActionBtn" onclick="app.restartGame()" class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white font-bold text-sm shadow-lg shadow-pink-500/25 hover:scale-105 transition active:scale-95 pointer-events-auto">
+                            重新開始
+                        </button>
+                    </div>
+                </div>
+                <div id="gameExtraPanel" class="w-full mt-3 h-[100px] flex justify-center gap-4 items-center"></div>
+            </div>
+
+            <div id="touchControls" class="w-full max-w-[280px] mt-4 grid grid-cols-3 gap-2 hidden">
+                <div></div>
+                <button class="touch-btn h-12 rounded-xl text-xl flex items-center justify-center font-bold" onclick="app.sendInput('UP')">▲</button>
+                <button class="touch-btn h-12 rounded-xl text-xs flex items-center justify-center font-extrabold uppercase tracking-tighter" onclick="app.sendInput('ACTION')">ACT</button>
+                <button class="touch-btn h-12 rounded-xl text-xl flex items-center justify-center font-bold" onclick="app.sendInput('LEFT')">◀</button>
+                <button class="touch-btn h-12 rounded-xl text-xl flex items-center justify-center font-bold" onclick="app.sendInput('DOWN')">▼</button>
+                <button class="touch-btn h-12 rounded-xl text-xl flex items-center justify-center font-bold" onclick="app.sendInput('RIGHT')">▶</button>
+            </div>
+        </section>
+    </main>
+
+    <canvas id="dragCanvas" width="100" height="100"></canvas>
+
+    <footer class="w-full text-center py-4 text-xs text-slate-400 font-medium">
+        AURORA ARCADE ENGINE &copy; 2026 • CREATED WITH LIGHT PASTEL VISUALS
+    </footer>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'aurora-arcade-app';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : { apiKey: "demo", authDomain: "demo.firebaseapp.com", projectId: "demo" };
+
+        const fbApp = initializeApp(firebaseConfig);
+        const auth = getAuth(fbApp);
+        const db = getFirestore(fbApp);
+
+        window.arcadeCloudDB = {
+            user: null,
+            async init(onDataLoaded) {
+                try {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) await signInWithCustomToken(auth, __initial_auth_token);
+                    else await signInAnonymously(auth);
+                } catch (err) { console.warn("Cloud auth fallback:", err); try { await signInAnonymously(auth); } catch (e) {} }
+
+                onAuthStateChanged(auth, (currentUser) => {
+                    if (currentUser) {
+                        this.user = currentUser;
+                        const scoreDocRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'scores', 'highScores');
+                        onSnapshot(scoreDocRef, (snapshot) => {
+                            if (snapshot.exists()) onDataLoaded(snapshot.data());
+                        });
+                    }
+                });
+            },
+            async saveData(data) {
+                if (!this.user) return;
+                try {
+                    await setDoc(doc(db, 'artifacts', appId, 'users', this.user.uid, 'scores', 'highScores'), data, { merge: true });
+                } catch (err) { console.error("Cloud Save failed:", err); }
+            }
+        };
+    </script>
+
+    <script>
+        // 1. 簡易音效合成器 (Web Audio API)
+        const sound = {
+            on: true, ctx: null,
+            init() { if (this.on && !this.ctx) { try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){} } },
+            play(type) {
+                if (!this.on || !this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                const now = this.ctx.currentTime;
+                if (type === 'move') { osc.frequency.setValueAtTime(400, now); osc.type='sine'; gain.gain.setValueAtTime(0.05, now); osc.start(now); osc.stop(now+0.05); }
+                if (type === 'clear') { osc.frequency.setValueAtTime(800, now); osc.type='square'; gain.gain.setValueAtTime(0.05, now); osc.start(now); osc.stop(now+0.1); }
+                if (type === 'over') { osc.frequency.setValueAtTime(150, now); osc.type='sawtooth'; gain.gain.setValueAtTime(0.1, now); osc.start(now); osc.stop(now+0.3); }
+            }
+        };
+
+        class App {
+            constructor() {
+                this.activeGameKey = null;
+                this.activeGameInstance = null;
+                this.playerName = localStorage.getItem('aurora_player_name') || '';
+                this.scores = JSON.parse(localStorage.getItem('aurora_scores')) || { blockPuzzle:0, tetris:0, snake:0, twenty48:0 };
+                this.holders = JSON.parse(localStorage.getItem('aurora_holders')) || { blockPuzzle:'無', tetris:'無', snake:'無', twenty48:'無' };
+                this.setupKeyboard();
+                this.initUI();
+                
+                // Init cloud and sync data
+                setTimeout(() => {
+                    if (window.arcadeCloudDB) {
+                        window.arcadeCloudDB.init((data) => {
+                            if (data.scores) this.scores = data.scores;
+                            if (data.holders) this.holders = data.holders;
+                            if (data.playerName && !this.playerName) { this.playerName = data.playerName; localStorage.setItem('aurora_player_name', this.playerName); }
+                            this.updateLobbyHighScores();
+                            this.updateNameUI();
+                            if(this.activeGameKey) {
+                                document.getElementById('activeHighScore').innerText = this.scores[this.activeGameKey];
+                                document.getElementById('gameViewHighScoreHolder').innerText = this.holders[this.activeGameKey] || '無';
+                            }
+                        });
+                    }
+                }, 500);
+            }
+
+            setupKeyboard() {
+                window.addEventListener('keydown', (e) => {
+                    if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key)) e.preventDefault();
+                    if (!this.activeGameInstance || this.activeGameInstance.isOver) return;
+                    if (e.key === 'ArrowUp' || e.key === 'w') this.sendInput('UP');
+                    if (e.key === 'ArrowDown' || e.key === 's') this.sendInput('DOWN');
+                    if (e.key === 'ArrowLeft' || e.key === 'a') this.sendInput('LEFT');
+                    if (e.key === 'ArrowRight' || e.key === 'd') this.sendInput('RIGHT');
+                    if (e.key === ' ' || e.key === 'Enter') this.sendInput('ACTION');
+                });
+            }
+
+            initUI() {
+                this.updateNameUI();
+                this.updateLobbyHighScores();
+                if (!this.playerName) document.getElementById('nicknameModal').classList.remove('hidden');
+                
+                document.getElementById('changeNameBtn').addEventListener('click', () => {
+                    document.getElementById('nicknameInput').value = this.playerName;
+                    document.getElementById('nicknameModal').classList.remove('hidden');
+                });
+                
+                document.getElementById('saveNicknameBtn').addEventListener('click', () => this.saveName());
+                document.getElementById('nicknameInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') this.saveName(); });
+            }
+
+            saveName() {
+                const name = document.getElementById('nicknameInput').value.trim();
+                if (name) {
+                    this.playerName = name;
+                    localStorage.setItem('aurora_player_name', name);
+                    this.updateNameUI();
+                    document.getElementById('nicknameModal').classList.add('hidden');
+                    if (window.arcadeCloudDB) window.arcadeCloudDB.saveData({ playerName: name });
+                }
+            }
+
+            updateNameUI() { document.getElementById('headerPlayerName').innerText = this.playerName || '玩家'; }
+            
+            updateLobbyHighScores() {
+                ['blockPuzzle', 'tetris', 'snake', 'twenty48'].forEach(key => {
+                    document.getElementById(`hs-${key}`).innerText = this.scores[key] || 0;
+                    document.getElementById(`hsn-${key}`).innerText = this.holders[key] || '無';
+                });
+            }
+
+            toggleSound() {
+                sound.on = !sound.on;
+                document.getElementById('soundIcon').innerText = sound.on ? '🔊' : '🔇';
+                document.getElementById('soundText').innerText = sound.on ? 'ON' : 'OFF';
+                sound.init();
+            }
+
+            showLobby() {
+                if (this.activeGameInstance && this.activeGameInstance.stop) this.activeGameInstance.stop();
+                this.activeGameInstance = null;
+                document.getElementById('gameView').classList.add('hidden');
+                document.getElementById('lobbyView').classList.remove('hidden');
+                document.getElementById('lobbyReturnBtn').classList.add('hidden');
+                this.updateLobbyHighScores();
+            }
+
+            launchGame(key) {
+                sound.init();
+                this.activeGameKey = key;
+                document.getElementById('lobbyView').classList.add('hidden');
+                document.getElementById('gameView').classList.remove('hidden');
+                document.getElementById('gameView').classList.add('flex');
+                document.getElementById('lobbyReturnBtn').classList.remove('hidden');
+
+                const t = {
+                    blockPuzzle: { t:'10x10 方塊拼圖', s:'擺動拖曳方塊，填滿整行或整列消除得分' },
+                    tetris: { t:'經典俄羅斯方塊', s:'旋轉並加速下落方塊，完成連續消行' },
+                    snake: { t:'光速貪食蛇', s:'方向鍵控制穿梭，咬食極光能量球加分' },
+                    twenty48: { t:'2048 數字拼圖', s:'方向鍵滑動合併相同數字，衝擊最高分' }
+                };
+                document.getElementById('activeGameTitle').innerText = t[key].t;
+                document.getElementById('activeGameSub').innerText = t[key].s;
+                document.getElementById('activeScore').innerText = '0';
+                document.getElementById('activeHighScore').innerText = this.scores[key] || 0;
+                document.getElementById('gameViewHighScoreHolder').innerText = this.holders[key] || '無';
+                
+                // Hide specific overlays
+                document.getElementById('gameOverlay').style.opacity = '0';
+                document.getElementById('gameOverlay').style.pointerEvents = 'none';
+                
+                // Show/Hide touch controls
+                if (key === 'blockPuzzle') document.getElementById('touchControls').classList.add('hidden');
+                else document.getElementById('touchControls').classList.remove('hidden');
+
+                this.restartGame();
+            }
+
+            restartGame() {
+                if (this.activeGameInstance && this.activeGameInstance.stop) this.activeGameInstance.stop();
+                document.getElementById('gameOverlay').style.opacity = '0';
+                document.getElementById('gameOverlay').style.pointerEvents = 'none';
+                document.getElementById('activeScore').innerText = '0';
+                
+                if (this.activeGameKey === 'snake') this.activeGameInstance = new SnakeGame(this);
+                else if (this.activeGameKey === 'twenty48') this.activeGameInstance = new Twenty48Game(this);
+                else if (this.activeGameKey === 'tetris') this.activeGameInstance = new TetrisGame(this);
+                else if (this.activeGameKey === 'blockPuzzle') this.activeGameInstance = new BlockPuzzleGame(this);
+            }
+
+            updateScore(score) {
+                document.getElementById('activeScore').innerText = score;
+                if (score > (this.scores[this.activeGameKey] || 0)) {
+                    this.scores[this.activeGameKey] = score;
+                    this.holders[this.activeGameKey] = this.playerName || '玩家';
+                    document.getElementById('activeHighScore').innerText = score;
+                    document.getElementById('gameViewHighScoreHolder').innerText = this.playerName;
+                    localStorage.setItem('aurora_scores', JSON.stringify(this.scores));
+                    localStorage.setItem('aurora_holders', JSON.stringify(this.holders));
+                    if (window.arcadeCloudDB) window.arcadeCloudDB.saveData({ scores: this.scores, holders: this.holders, playerName: this.playerName });
+                }
+            }
+
+            gameOver(score) {
+                sound.play('over');
+                if (this.activeGameInstance) this.activeGameInstance.isOver = true;
+                document.getElementById('overlayScore').innerText = score;
+                document.getElementById('gameOverlay').style.opacity = '1';
+                document.getElementById('gameOverlay').style.pointerEvents = 'auto';
+            }
+
+            sendInput(action) {
+                if (this.activeGameInstance && !this.activeGameInstance.isOver && this.activeGameInstance.handleInput) {
+                    this.activeGameInstance.handleInput(action);
+                }
+            }
+        }
+
+        class SnakeGame {
+            constructor(app) {
+                this.app = app; this.canvas = document.getElementById('gameCanvas'); this.ctx = this.canvas.getContext('2d');
+                this.grid = 17; this.isOver = false;
+                document.getElementById('gameExtraPanel').innerHTML = '';
+                this.reset();
+            }
+            reset() {
+                this.snake = [{x:10, y:10}]; this.dir = {x:0, y:-1}; this.food = {x:5, y:5}; this.score = 0;
+                this.timer = setInterval(() => this.update(), 120);
+                this.draw();
+            }
+            handleInput(k) {
+                if (k==='UP' && this.dir.y===0) this.dir = {x:0, y:-1};
+                if (k==='DOWN' && this.dir.y===0) this.dir = {x:0, y:1};
+                if (k==='LEFT' && this.dir.x===0) this.dir = {x:-1, y:0};
+                if (k==='RIGHT' && this.dir.x===0) this.dir = {x:1, y:0};
+            }
+            update() {
+                if(this.isOver) return;
+                let h = {x: this.snake[0].x + this.dir.x, y: this.snake[0].y + this.dir.y};
+                if (h.x<0 || h.x>=20 || h.y<0 || h.y>=20 || this.snake.some(s=>s.x===h.x && s.y===h.y)) {
+                    this.stop(); return this.app.gameOver(this.score);
+                }
+                this.snake.unshift(h);
+                if (h.x===this.food.x && h.y===this.food.y) {
+                    this.score += 10; this.app.updateScore(this.score); sound.play('clear');
+                    this.food = {x: Math.floor(Math.random()*20), y: Math.floor(Math.random()*20)};
+                } else this.snake.pop();
+                this.draw();
+            }
+            draw() {
+                this.ctx.fillStyle = '#f8fafc'; this.ctx.fillRect(0,0,340,340);
+                this.ctx.fillStyle = '#10b981';
+                this.snake.forEach(s => {
+                    this.ctx.beginPath(); this.ctx.roundRect(s.x*this.grid+1, s.y*this.grid+1, this.grid-2, this.grid-2, 4); this.ctx.fill();
+                });
+                this.ctx.fillStyle = '#f43f5e';
+                this.ctx.beginPath(); this.ctx.arc(this.food.x*this.grid+this.grid/2, this.food.y*this.grid+this.grid/2, this.grid/2-2, 0, Math.PI*2); this.ctx.fill();
+            }
+            stop() { clearInterval(this.timer); }
+        }
+
+        class Twenty48Game {
+            constructor(app) {
+                this.app = app; this.canvas = document.getElementById('gameCanvas'); this.ctx = this.canvas.getContext('2d');
+                this.isOver = false; document.getElementById('gameExtraPanel').innerHTML = '';
+                this.colors = {0:'#cbd5e1', 2:'#fde047', 4:'#facc15', 8:'#fb923c', 16:'#f97316', 32:'#ef4444', 64:'#dc2626', 128:'#ec4899', 256:'#d946ef', 512:'#a855f7', 1024:'#8b5cf6', 2048:'#6366f1'};
+                this.reset();
+            }
+            reset() {
+                this.board = Array(4).fill().map(()=>Array(4).fill(0)); this.score = 0;
+                this.add(); this.add(); this.draw();
+            }
+            add() {
+                let e = [];
+                for(let r=0; r<4; r++) for(let c=0; c<4; c++) if(this.board[r][c]===0) e.push({r,c});
+                if(e.length>0) { let p = e[Math.floor(Math.random()*e.length)]; this.board[p.r][p.c] = Math.random()<0.9?2:4; }
+            }
+            handleInput(k) {
+                if(this.isOver) return;
+                let old = JSON.stringify(this.board);
+                if(k==='UP') this.board = this.rotateLeft(this.slideAll(this.rotateRight(this.board)));
+                if(k==='DOWN') this.board = this.rotateRight(this.slideAll(this.rotateLeft(this.board)));
+                if(k==='LEFT') this.board = this.slideAll(this.board);
+                if(k==='RIGHT') this.board = this.board.map(r => r.reverse()).map(r => this.slideRow(r)).map(r => r.reverse()); // quick right
+                
+                if(old !== JSON.stringify(this.board)) {
+                    this.add(); sound.play('move'); this.draw();
+                    if(this.checkOver()) { this.isOver = true; this.app.gameOver(this.score); }
+                }
+            }
+            slideAll(b) { return b.map(r => this.slideRow(r)); }
+            slideRow(r) {
+                let a = r.filter(v=>v);
+                for(let i=0; i<a.length-1; i++) { if(a[i]===a[i+1]) { a[i]*=2; this.score+=a[i]; a[i+1]=0; } }
+                a = a.filter(v=>v);
+                while(a.length<4) a.push(0);
+                this.app.updateScore(this.score); return a;
+            }
+            rotateRight(b) { return b[0].map((_, c) => b.map(r => r[c]).reverse()); }
+            rotateLeft(b) { return b[0].map((_, c) => b.map(r => r[r.length-1-c])); }
+            checkOver() {
+                for(let r=0; r<4; r++) for(let c=0; c<4; c++) {
+                    if(this.board[r][c]===0) return false;
+                    if(c<3 && this.board[r][c]===this.board[r][c+1]) return false;
+                    if(r<3 && this.board[r][c]===this.board[r+1][c]) return false;
+                }
+                return true;
+            }
+            draw() {
+                this.ctx.fillStyle = '#f1f5f9'; this.ctx.fillRect(0,0,340,340);
+                const s = 85;
+                for(let r=0; r<4; r++) for(let c=0; c<4; c++) {
+                    let val = this.board[r][c];
+                    this.ctx.fillStyle = this.colors[val] || '#3b82f6';
+                    this.ctx.beginPath(); this.ctx.roundRect(c*s+4, r*s+4, s-8, s-8, 12); this.ctx.fill();
+                    if(val>0) {
+                        this.ctx.fillStyle = val<=4 ? '#475569' : '#ffffff';
+                        this.ctx.font = 'bold 32px Outfit'; this.ctx.textAlign = 'center'; this.ctx.textBaseline = 'middle';
+                        this.ctx.fillText(val, c*s+s/2, r*s+s/2);
+                    }
+                }
+            }
+            stop() {}
+        }
+
+        class TetrisGame {
+            constructor(app) {
+                this.app = app; this.canvas = document.getElementById('gameCanvas'); this.ctx = this.canvas.getContext('2d');
+                this.isOver = false; this.grid = 17;
+                this.colors = ['#000', '#38bdf8', '#3b82f6', '#f97316', '#facc15', '#4ade80', '#a855f7', '#f43f5e'];
+                this.shapes = [ [], [[1,1,1,1]], [[2,0,0],[2,2,2]], [[0,0,3],[3,3,3]], [[4,4],[4,4]], [[0,5,5],[5,5,0]], [[0,6,0],[6,6,6]], [[7,7,0],[0,7,7]] ];
+                document.getElementById('gameExtraPanel').innerHTML = '<div class="text-xs text-slate-500 text-center w-full">提示：使用方向鍵移動，上鍵旋轉</div>';
+                this.reset();
+            }
+            reset() {
+                this.board = Array(20).fill().map(()=>Array(10).fill(0));
+                this.score = 0; this.spawn();
+                this.timer = setInterval(() => this.update(), 500);
+            }
+            spawn() {
+                let type = Math.floor(Math.random()*7)+1;
+                this.p = { shape: this.shapes[type], x: 3, y: 0 };
+                if(this.collide()) { this.isOver = true; this.app.gameOver(this.score); clearInterval(this.timer); }
+            }
+            collide(ox=0, oy=0, s=this.p.shape) {
+                for(let r=0; r<s.length; r++) for(let c=0; c<s[r].length; c++) {
+                    if(s[r][c]===0) continue;
+                    let nx = this.p.x+c+ox, ny = this.p.y+r+oy;
+                    if(nx<0 || nx>=10 || ny>=20 || (ny>=0 && this.board[ny][nx])) return true;
+                }
+                return false;
+            }
+            handleInput(k) {
+                if(this.isOver) return;
+                if(k==='LEFT' && !this.collide(-1,0)) { this.p.x--; sound.play('move'); }
+                if(k==='RIGHT' && !this.collide(1,0)) { this.p.x++; sound.play('move'); }
+                if(k==='DOWN') { this.update(); sound.play('move'); }
+                if(k==='UP') {
+                    let rot = this.p.shape[0].map((_, c) => this.p.shape.map(r => r[c]).reverse());
+                    if(!this.collide(0,0,rot)) { this.p.shape = rot; sound.play('move'); }
+                }
+                if(k==='ACTION') {
+                    while(!this.collide(0,1)) this.p.y++;
+                    this.update(); sound.play('clear');
+                }
+                this.draw();
+            }
+            update() {
+                if(this.isOver) return;
+                if(!this.collide(0,1)) { this.p.y++; }
+                else {
+                    for(let r=0; r<this.p.shape.length; r++) for(let c=0; c<this.p.shape[r].length; c++) {
+                        if(this.p.shape[r][c]) this.board[this.p.y+r][this.p.x+c] = this.p.shape[r][c];
+                    }
+                    this.clearLines(); this.spawn();
+                }
+                this.draw();
+            }
+            clearLines() {
+                let lines = 0;
+                for(let r=19; r>=0; r--) {
+                    if(this.board[r].every(v=>v>0)) { this.board.splice(r,1); this.board.unshift(Array(10).fill(0)); lines++; r++; }
+                }
+                if(lines>0) { this.score += lines*100; this.app.updateScore(this.score); sound.play('clear'); }
+            }
+            draw() {
+                this.ctx.fillStyle = '#f8fafc'; this.ctx.fillRect(0,0,340,340);
+                const ox = (340 - 10*this.grid)/2; // Center board 170px width
+                
+                // border
+                this.ctx.strokeStyle = '#cbd5e1'; this.ctx.strokeRect(ox-1, 0, 10*this.grid+2, 20*this.grid);
+                
+                // Draw Board
+                for(let r=0; r<20; r++) for(let c=0; c<10; c++) {
+                    if(this.board[r][c]) {
+                        this.ctx.fillStyle = this.colors[this.board[r][c]];
+                        this.ctx.beginPath(); this.ctx.roundRect(ox+c*this.grid+1, r*this.grid+1, this.grid-2, this.grid-2, 2); this.ctx.fill();
+                    }
+                }
+                // Draw Piece
+                if(!this.isOver) {
+                    for(let r=0; r<this.p.shape.length; r++) for(let c=0; c<this.p.shape[r].length; c++) {
+                        if(this.p.shape[r][c]) {
+                            this.ctx.fillStyle = this.colors[this.p.shape[r][c]];
+                            this.ctx.beginPath(); this.ctx.roundRect(ox+(this.p.x+c)*this.grid+1, (this.p.y+r)*this.grid+1, this.grid-2, this.grid-2, 2); this.ctx.fill();
+                        }
+                    }
+                }
+            }
+            stop() { clearInterval(this.timer); }
+        }
+
+        class BlockPuzzleGame {
+            constructor(app) {
+                this.app = app; this.canvas = document.getElementById('gameCanvas'); this.ctx = this.canvas.getContext('2d');
+                this.isOver = false; this.grid = 34; // 340/10 = 34px per cell
+                this.colors = ['#38bdf8', '#f43f5e', '#a855f7', '#facc15', '#4ade80'];
+                this.allShapes = [
+                    [[1]], [[1,1]], [[1],[1]], [[1,1],[1,1]], [[1,1,1]], [[1],[1],[1]], 
+                    [[1,0],[1,1]], [[1,1],[0,1]], [[1,1,1],[1,1,1],[1,1,1]]
+                ];
+                this.reset();
+            }
+            reset() {
+                this.board = Array(10).fill().map(()=>Array(10).fill(0));
+                this.score = 0; this.slots = [null, null, null];
+                this.fillSlots(); this.draw();
+            }
+            fillSlots() {
+                if (this.slots.every(s => s === null)) {
+                    for(let i=0; i<3; i++) {
+                        let sh = this.allShapes[Math.floor(Math.random()*this.allShapes.length)];
+                        this.slots[i] = { shape: sh, color: this.colors[Math.floor(Math.random()*this.colors.length)] };
+                    }
+                }
+                this.renderSlotsUI();
+                this.checkGameOver();
+            }
+            renderSlotsUI() {
+                const panel = document.getElementById('gameExtraPanel');
+                panel.innerHTML = '';
+                this.slots.forEach((slot, idx) => {
+                    const div = document.createElement('div');
+                    div.className = `w-[80px] h-[80px] bg-white rounded-xl shadow flex items-center justify-center cursor-pointer transition-transform hover:scale-105 active:scale-95 border ${slot?'border-pink-200':'border-dashed border-slate-300'}`;
+                    if (slot) {
+                        const c = document.createElement('canvas');
+                        c.width = 60; c.height = 60;
+                        const tCtx = c.getContext('2d');
+                        const ts = Math.min(60/slot.shape[0].length, 60/slot.shape.length);
+                        const ox = (60 - slot.shape[0].length*ts)/2;
+                        const oy = (60 - slot.shape.length*ts)/2;
+                        tCtx.fillStyle = slot.color;
+                        for(let r=0; r<slot.shape.length; r++) for(let c=0; c<slot.shape[r].length; c++) {
+                            if(slot.shape[r][c]) {
+                                tCtx.beginPath(); tCtx.roundRect(ox+c*ts, oy+r*ts, ts-2, ts-2, 4); tCtx.fill();
+                            }
+                        }
+                        div.appendChild(c);
+                        
+                        // Basic Click to select & place logic (Mobile friendly alternative to complex drag n drop)
+                        div.onclick = () => {
+                            if(this.selectedSlot === idx) this.selectedSlot = null;
+                            else this.selectedSlot = idx;
+                            this.renderSlotsUI();
+                        };
+                        if(this.selectedSlot === idx) div.classList.add('ring-4', 'ring-pink-400');
+                    }
+                    panel.appendChild(div);
+                });
+
+                // Canvas click to place
+                this.canvas.onclick = (e) => {
+                    if (this.selectedSlot === null || this.slots[this.selectedSlot] === null || this.isOver) return;
+                    const rect = this.canvas.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+                    const col = Math.floor(x / this.grid);
+                    const row = Math.floor(y / this.grid);
+                    
+                    const slot = this.slots[this.selectedSlot];
+                    // Center place
+                    const startC = col - Math.floor(slot.shape[0].length/2);
+                    const startR = row - Math.floor(slot.shape.length/2);
+
+                    if(this.canPlace(slot.shape, startC, startR)) {
+                        this.placeShape(slot.shape, slot.color, startC, startR);
+                        this.slots[this.selectedSlot] = null;
+                        this.selectedSlot = null;
+                        sound.play('move');
+                        this.clearLines();
+                        this.fillSlots();
+                        this.draw();
+                    }
+                };
+            }
+            canPlace(shape, c, r) {
+                for(let sr=0; sr<shape.length; sr++) for(let sc=0; sc<shape[0].length; sc++) {
+                    if(shape[sr][sc]) {
+                        let nc = c+sc, nr = r+sr;
+                        if(nc<0 || nc>=10 || nr<0 || nr>=10 || this.board[nr][nc]!==0) return false;
+                    }
+                }
+                return true;
+            }
+            placeShape(shape, color, c, r) {
+                let blocks = 0;
+                for(let sr=0; sr<shape.length; sr++) for(let sc=0; sc<shape[0].length; sc++) {
+                    if(shape[sr][sc]) { this.board[r+sr][c+sc] = color; blocks++; }
+                }
+                this.score += blocks*10; this.app.updateScore(this.score);
+            }
+            clearLines() {
+                let toClearR = [], toClearC = [];
+                for(let i=0; i<10; i++) {
+                    if(this.board[i].every(c => c!==0)) toClearR.push(i);
+                    let colFull = true;
+                    for(let j=0; j<10; j++) if(this.board[j][i]===0) colFull = false;
+                    if(colFull) toClearC.push(i);
+                }
+                toClearR.forEach(r => { for(let c=0; c<10; c++) this.board[r][c]=0; });
+                toClearC.forEach(c => { for(let r=0; r<10; r++) this.board[r][c]=0; });
+                let lines = toClearR.length + toClearC.length;
+                if(lines>0) { this.score += lines*100; this.app.updateScore(this.score); sound.play('clear'); }
+            }
+            checkGameOver() {
+                let possible = false;
+                this.slots.forEach(slot => {
+                    if(!slot) return;
+                    for(let r=0; r<10; r++) for(let c=0; c<10; c++) {
+                        if(this.canPlace(slot.shape, c, r)) possible = true;
+                    }
+                });
+                if(!possible && this.slots.some(s=>s!==null)) {
+                    this.isOver = true; this.app.gameOver(this.score);
+                }
+            }
+            draw() {
+                this.ctx.fillStyle = '#f1f5f9'; this.ctx.fillRect(0,0,340,340);
+                for(let r=0; r<10; r++) for(let c=0; c<10; c++) {
+                    this.ctx.fillStyle = this.board[r][c] || '#e2e8f0';
+                    this.ctx.beginPath(); this.ctx.roundRect(c*this.grid+2, r*this.grid+2, this.grid-4, this.grid-4, 6); this.ctx.fill();
+                }
+            }
+            stop() { this.canvas.onclick = null; }
+        }
+
+        window.app = new App();
+
+    </script>
+</body>
+</html>

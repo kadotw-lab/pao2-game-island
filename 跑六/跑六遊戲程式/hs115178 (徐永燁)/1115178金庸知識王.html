@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>金庸武俠知識王 - 終極全集版</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { 'serif': ['"Noto Serif TC"', 'serif'] },
+                    colors: { parchment: '#f4e4bc', ink: '#1a1a1a', crimson: '#8b0000', gold: '#b8860b' }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Noto Serif TC', serif;
+            background-color: #1a1a1a;
+            background-image: url('data:image/svg+xml,%3Csvg width="100" height="100" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noise"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100" height="100" filter="url(%23noise)" opacity="0.05"/%3E%3C/svg%3E');
+            color: #f4e4bc;
+            overflow-x: hidden;
+        }
+        
+        .parchment-bg {
+            background-color: #f4e4bc;
+            background-image: url('data:image/svg+xml,%3Csvg width="200" height="200" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noise"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.01" numOctaves="3" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="200" height="200" filter="url(%23noise)" opacity="0.1"/%3E%3C/svg%3E');
+            box-shadow: inset 0 0 50px rgba(139, 69, 19, 0.3), 0 10px 30px rgba(0, 0, 0, 0.8);
+            color: #1a1a1a;
+        }
+
+        .btn-style {
+            transition: all 0.2s ease-in-out;
+            position: relative;
+            overflow: hidden;
+        }
+        .btn-style::before {
+            content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: all 0.4s ease-in-out;
+        }
+        .btn-style:hover::before { left: 100%; }
+
+        .location-card {
+            border: 2px solid #8b0000;
+            background: rgba(244, 228, 188, 0.9);
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .location-card:hover {
+            transform: scale(1.03);
+            background: #8b0000;
+            color: #f4e4bc;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+        }
+        .location-card:hover .text-gray-800 { color: #ffcccb; }
+
+        .boss-card {
+            background: rgba(255,255,255,0.5);
+            border: 2px solid #b8860b;
+            transition: transform 0.2s;
+        }
+        .boss-card:hover { transform: translateY(-5px); box-shadow: 0 10px 15px rgba(0,0,0,0.2); }
+
+        .option-btn { background-color: transparent; border: 2px solid #8b0000; color: #1a1a1a; }
+        .option-btn:hover:not(:disabled) { background-color: #8b0000; color: #f4e4bc; transform: translateY(-2px); }
+        .option-correct { background-color: #22c55e !important; border-color: #16a34a !important; color: white !important; }
+        .option-wrong { background-color: #ef4444 !important; border-color: #dc2626 !important; color: white !important; }
+
+        .hidden-screen { display: none !important; }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-10px) rotate(-2deg); }
+            40%, 80% { transform: translateX(10px) rotate(2deg); }
+        }
+        .shake-animation { animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both; }
+        
+        .damage-flash {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(239, 68, 68, 0.5);
+            pointer-events: none; opacity: 0; z-index: 9999;
+            transition: opacity 0.2s;
+        }
+
+        .heart { display: inline-block; width: 20px; height: 20px; background-size: contain; background-repeat: no-repeat; margin-right: 2px;}
+        .heart-full { background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23ef4444"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>'); }
+        .heart-empty { background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%239ca3af" stroke-width="2"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>'); }
+
+        .avatar-img { object-fit: cover; border: 3px solid; background-color: #f4e4bc; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        .boss-img-style { border-color: #8b0000; }
+        .player-img-style { border-color: #b8860b; }
+        
+        .badge-img { width: 100px; height: 100px; object-fit: contain; filter: drop-shadow(2px 4px 6px rgba(0,0,0,0.4)); margin: 0 auto; }
+        .badge-earned { animation: popIn 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        @keyframes popIn { 0% { transform: scale(0) rotate(-180deg); opacity: 0; } 100% { transform: scale(1) rotate(0); opacity: 1; } }
+        
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f4e4bc; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: #8b0000; border-radius: 4px; }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-2 md:p-6 relative">
+    <div id="damage-overlay" class="damage-flash"></div>
+
+    <div id="main-container" class="parchment-bg w-full max-w-[1000px] rounded-lg p-6 md:p-10 relative overflow-hidden flex flex-col max-h-[95vh]">
+        <!-- 邊角裝飾 -->
+        <div class="absolute top-3 left-3 text-crimson text-3xl opacity-50 pointer-events-none">⌜</div>
+        <div class="absolute top-3 right-3 text-crimson text-3xl opacity-50 pointer-events-none">⌝</div>
+        <div class="absolute bottom-3 left-3 text-crimson text-3xl opacity-50 pointer-events-none">⌞</div>
+        <div class="absolute bottom-3 right-3 text-crimson text-3xl opacity-50 pointer-events-none">⌟</div>
+
+        <!-- ================= 0. 首頁模式選擇 ================= -->
+        <div id="screen-home" class="flex flex-col items-center justify-center w-full flex-grow my-auto">
+            <p class="text-sm text-crimson tracking-widest mb-2 border-b border-crimson inline-block pb-1 font-bold">武林大會</p>
+            <h1 class="text-4xl md:text-6xl font-black text-ink mb-6 tracking-wider drop-shadow-md text-center leading-tight">金庸武俠知識王<br><span class="text-3xl md:text-4xl text-crimson">十五部全集海量題庫</span></h1>
+            <p class="text-gray-700 font-bold mb-10 text-lg">請選擇你的江湖歷練方式</p>
+            
+            <div class="flex flex-col md:flex-row gap-6 w-full max-w-md">
+                <button onclick="selectMode('single')" class="btn-style flex-1 bg-crimson text-parchment py-4 px-6 rounded-xl font-bold text-2xl shadow-lg border-2 border-red-950 flex flex-col items-center hover:scale-105 transform transition">
+                    <span>單人闖關</span>
+                    <span class="text-sm font-normal mt-1 opacity-80">經典問答，考驗己身</span>
+                </button>
+                <button onclick="selectMode('ai')" class="btn-style flex-1 bg-ink text-parchment py-4 px-6 rounded-xl font-bold text-2xl shadow-lg border-2 border-gray-900 flex flex-col items-center hover:scale-105 transform transition">
+                    <span>AI 對戰</span>
+                    <span class="text-sm font-normal mt-1 opacity-80">與 Boss 鬥智拼速</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- ================= 1. 場景選擇畫面 ================= -->
+        <div id="screen-location" class="hidden-screen flex flex-col w-full h-full">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-3xl font-black text-ink drop-shadow-md">江湖地圖</h2>
+                <button onclick="changeScreen('home')" class="text-crimson font-bold hover:underline">返回首頁</button>
+            </div>
+            <p class="text-sm text-gray-700 mb-4 font-bold border-l-4 border-crimson pl-2">請選擇你要挑戰的武林聖地（飛雪連天射白鹿，笑書神俠倚碧鴛）</p>
+            
+            <div id="locations-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 w-full overflow-y-auto pr-2 pb-4" style="max-height: 60vh;">
+                <!-- 由 JS 動態生成 -->
+            </div>
+        </div>
+
+        <!-- ================= 2. Boss 選擇畫面 ================= -->
+        <div id="screen-boss" class="hidden-screen flex flex-col items-center w-full">
+            <div class="w-full flex justify-between items-center mb-6">
+                <h2 id="selected-location-title" class="text-3xl md:text-4xl font-black text-ink drop-shadow-md">場景名稱</h2>
+                <button onclick="changeScreen('location')" class="text-crimson font-bold border border-crimson px-4 py-1 rounded hover:bg-crimson hover:text-parchment transition">返回地圖</button>
+            </div>
+            
+            <p class="text-gray-700 mb-6 font-bold">此處危機四伏，請選擇你要挑戰的強敵：</p>
+            
+            <div id="bosses-container" class="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-4xl">
+                <!-- 由 JS 動態生成 -->
+            </div>
+        </div>
+
+        <!-- ================= 3. 戰鬥(答題)畫面 ================= -->
+        <div id="screen-battle" class="hidden-screen flex flex-col w-full h-full flex-grow">
+            <div class="flex justify-between items-center mb-6 bg-white/40 p-3 md:p-4 rounded-lg border-2 border-gray-400 shadow-inner">
+                <!-- 玩家狀態 -->
+                <div class="flex items-center gap-3 w-1/3">
+                    <img src="https://placehold.co/150x150/b8860b/FFF?text=大俠" alt="Player" class="w-12 h-12 md:w-16 md:h-16 rounded-full avatar-img player-img-style">
+                    <div class="flex flex-col">
+                        <span class="text-md md:text-lg font-black text-ink">大俠 (你)</span>
+                        <div id="player-hp-bar" class="flex mt-1 flex-wrap"></div>
+                    </div>
+                </div>
+                
+                <!-- 戰鬥提示 / VS -->
+                <div class="flex flex-col items-center w-1/3">
+                    <span class="text-2xl md:text-3xl font-black text-crimson italic drop-shadow-md mb-2">VS</span>
+                    <div class="w-full h-2 md:h-3 bg-gray-300 rounded-full overflow-hidden border border-gray-400">
+                        <div id="timer-bar" class="h-full bg-crimson transition-all duration-100 ease-linear w-full"></div>
+                    </div>
+                </div>
+                
+                <!-- Boss 狀態 -->
+                <div class="flex items-center justify-end gap-3 w-1/3 text-right">
+                    <div class="flex flex-col items-end">
+                        <span id="battle-boss-name" class="text-md md:text-lg font-black text-ink">Boss名稱</span>
+                        <div id="boss-hp-bar" class="flex mt-1 justify-end flex-wrap"></div>
+                    </div>
+                    <img id="battle-boss-img" src="" alt="Boss" class="w-12 h-12 md:w-16 md:h-16 rounded-full avatar-img boss-img-style">
+                </div>
+            </div>
+
+            <div id="question-box" class="flex-grow flex flex-col items-center justify-center relative bg-white/50 p-4 md:p-6 rounded-lg border border-gray-300 shadow-md my-auto">
+                <div id="round-announcement" class="text-center font-bold text-lg md:text-xl mb-4 min-h-[2rem]"></div>
+                <h3 id="question-text" class="text-xl md:text-2xl font-bold text-center mb-6 leading-snug text-ink">
+                    題目載入中...
+                </h3>
+                <div id="options-container" class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 w-full">
+                    <button class="option-btn btn-style w-full py-3 md:py-4 px-4 rounded-lg font-bold text-md md:text-lg text-left shadow" onclick="handleAnswer(0)"></button>
+                    <button class="option-btn btn-style w-full py-3 md:py-4 px-4 rounded-lg font-bold text-md md:text-lg text-left shadow" onclick="handleAnswer(1)"></button>
+                    <button class="option-btn btn-style w-full py-3 md:py-4 px-4 rounded-lg font-bold text-md md:text-lg text-left shadow" onclick="handleAnswer(2)"></button>
+                    <button class="option-btn btn-style w-full py-3 md:py-4 px-4 rounded-lg font-bold text-md md:text-lg text-left shadow" onclick="handleAnswer(3)"></button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= 4. 結算畫面 ================= -->
+        <div id="screen-result" class="hidden-screen flex flex-col items-center justify-center w-full flex-grow my-auto">
+            <h2 id="result-title" class="text-4xl md:text-5xl font-black text-ink mb-2 drop-shadow-md text-center">挑戰結果</h2>
+            <p id="result-desc" class="text-lg md:text-xl text-gray-700 mb-8 font-bold text-center">描述</p>
+            
+            <div id="reward-section" class="flex flex-col items-center bg-white/50 p-6 md:p-8 rounded-xl border-2 border-gold mb-8 hidden">
+                <p class="text-lg font-bold text-ink mb-4">獲得榮譽徽章</p>
+                <img id="result-badge-img" src="" class="badge-img badge-earned mb-4">
+                <p id="result-badge-name" class="text-2xl font-black text-gold drop-shadow-sm text-center">徽章名稱</p>
+            </div>
+
+            <div class="flex gap-4">
+                <button onclick="changeScreen('location')" class="btn-style bg-crimson text-parchment py-3 px-8 rounded-full font-bold text-xl shadow-lg border-2 border-red-950">
+                    重返江湖
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * ==========================================
+         * 廣大題庫資料庫 (15部小說 + 藏經閣隱藏關)
+         * ==========================================
+         */
+        const gameData = {
+            'fei': {
+                name: '商家堡', novel: '飛狐外傳', type: '長篇',
+                bosses: [
+                    { id: 'fei_1', name: '閻基', diff: '簡單', playerHp: 5, bossHp: 3, aiAccuracy: 0.4, img: 'https://placehold.co/200x200/555/FFF?text=閻基', badgeImg: 'https://placehold.co/150x150/b8860b/000?text=破舊拳譜' },
+                    { id: 'fei_2', name: '鳳天南', diff: '普通', playerHp: 4, bossHp: 5, aiAccuracy: 0.65, img: 'https://placehold.co/200x200/555/FFF?text=鳳天南', badgeImg: 'https://placehold.co/150x150/b8860b/000?text=黃金棍' },
+                    { id: 'fei_3', name: '苗人鳳 (最終)', diff: '困難', playerHp: 3, bossHp: 7, aiAccuracy: 0.85, img: 'https://placehold.co/200x200/555/FFF?text=苗人鳳', badgeImg: 'https://placehold.co/150x150/b8860b/000?text=金面佛' }
+                ],
+                questions: [
+                    { q: '《飛狐外傳》中，程靈素是毒手藥王的第幾個弟子？', options: ['大弟子', '二弟子', '三弟子', '關門小弟子'], answer: 3 },
+                    { q: '胡斐的成名武功是什麼？', options: ['胡家刀法', '苗家劍法', '四象步法', '血刀刀法'], answer: 0 },
+                    { q: '程靈素為救胡斐，吸出了他體內的什麼劇毒？', options: ['碧蠶毒蠱', '情花毒', '七心海棠', '十香軟筋散'], answer: 2 },
+                    { q: '苗人鳳江湖上的名號尊稱為？', options: ['打遍天下無敵手', '威震天南', '雪山飛狐', '毒手藥王'], answer: 0 },
+                    { q: '胡斐在商家堡最初遇到了哪位女子？', options: ['馬春花', '袁紫衣', '程靈素', '南蘭'], answer: 0 },
+                    { q: '袁紫衣最終皈依佛門，她的出家法名是？', options: ['圓性', '滅絕', '儀琳', '寂空'], answer: 0 },
+                    { q: '《飛狐外傳》中，馬春花深愛並為其生下一對雙胞胎的滿洲貴族是？', options: ['福康安', '乾隆帝', '多爾袞', '和珅'], answer: 0 },
+                    { q: '程靈素臨終前留給胡斐一本絕世藥書，名稱為？', options: ['《藥王神篇》', '《千金方》', '《毒經》', '《青囊書》'], answer: 0 },
+                    { q: '紅花會三當家「千手如來」趙半山在商家堡傳授了胡斐什麼武功？', options: ['暗器與太極長拳', '百花錯拳', '降龍十八掌', '神行百變'], answer: 0 },
+                    { q: '商家堡堡主商劍鳴是被誰所殺？', options: ['胡一刀', '苗人鳳', '胡斐', '趙半山'], answer: 0 }
+                ]
+            },
+            'xue': {
+                name: '玉筆山莊', novel: '雪山飛狐', type: '中短篇',
+                bosses: [
+                    { id: 'xue_1', name: '寶樹和尚', diff: '簡單', playerHp: 5, bossHp: 3, aiAccuracy: 0.4, img: 'https://placehold.co/200x200/555/FFF?text=寶樹', badgeImg: 'https://placehold.co/150x150/b8860b/000?text=鐵掌' },
+                    { id: 'xue_2', name: '田歸農', diff: '普通', playerHp: 4, bossHp: 5, aiAccuracy: 0.65, img: 'https://placehold.co/200x200/555/FFF?text=田歸農', badgeImg: 'https://placehold.co/150x150/b8860b/000?text=天龍劍' },
+                    { id: 'xue_3', name: '胡一刀 (最終)', diff: '困難', playerHp: 3, bossHp: 7, aiAccuracy: 0.85, img: 'https://placehold.co/200x200/555/FFF?text=胡一刀', badgeImg: 'https://placehold.co/150x150/b8860b/000?text=飛狐刀' }
+                ],
+                questions: [
+                    { q: '《雪山飛狐》的故事主線主要發生在一天之內，這個地點是？', options: ['華山之巔', '玉筆山莊', '縹緲峰', '冰火島'], answer: 1 },
+                    { q: '胡一刀與苗人鳳決鬥比武時，兩人互相交換了什麼？', options: ['兵器與家傳武功', '衣服', '解藥', '銀兩'], answer: 0 },
+                    { q: '導致胡一刀與妻子中毒身亡的罪魁禍首是誰在兵刃上塗毒？', options: ['田歸農', '平阿四', '寶樹', '杜希孟'], answer: 0 },
+                    { q: '《雪山飛狐》小說的經典結尾，胡斐那一刀到底有沒有劈下去？', options: ['劈下去了', '沒劈下去', '被程靈素擋住', '作者留白未寫明'], answer: 3 },
+                    { q: '胡一刀的妻子尊稱為什麼？', options: ['冰雪兒(胡夫人)', '南蘭', '苗若蘭', '馬春花'], answer: 0 },
+                    { q: '胡、苗、范、田四家數百年來的恩怨起源於哪位歷史人物的四大護衛？', options: ['李自成', '朱元璋', '努爾哈赤', '洪秀全'], answer: 0 },
+                    { q: '苗人鳳的女兒叫什麼名字？', options: ['苗若蘭', '南蘭', '袁紫衣', '水笙'], answer: 0 },
+                    { q: '平阿四將幼年胡斐撫養長大，他殘疾少了一隻手一條腿是因為被誰所害？', options: ['田歸農及其手下', '苗人鳳', '寶樹', '閻基'], answer: 0 },
+                    { q: '闖王留下的寶藏地圖，藏在什麼物品之中？', options: ['軍刀刀柄', '玉佛像', '鐵盒', '高昌迷宮'], answer: 0 },
+                    { q: '寶樹和尚在出家之前的俗名是？', options: ['閻基', '田歸農', '范幫主', '賽總管'], answer: 0 }
+                ]
+            },
+            'lian': {
+                name: '荊州大牢', novel: '連城訣', type: '中短篇',
+                bosses: [
+                    { id: 'lian_1', name: '萬震山', diff: '簡單', playerHp: 5, bossHp: 3, aiAccuracy: 0.4, img: 'https://placehold.co/200x200/555/FFF?text=萬震山', badgeImg: 'https://placehold.co/150x150/b8860b/000?text=唐詩劍' },
+                    { id: 'lian_2', name: '凌退思', diff: '普通', playerHp: 4, bossHp: 5, aiAccuracy: 0.65, img: 'https://placehold.co/200x200/555/FFF?text=凌退思', badgeImg: 'https://placehold.co/150x150/b8860b/000?text=金波旬花' },
+                    { id: 'lian_3', name: '血刀老祖 (最終)', diff: '困難', playerHp: 3, bossHp: 7, aiAccuracy: 0.88, img: 'https://placehold.co/200x200/555/FFF?text=血刀老祖', badgeImg: 'https://placehold.co/150x150/b8860b/000?text=血刀' }
+                ],
+                questions: [
+                    { q: '狄雲在獄中被穿了琵琶骨，是誰傳授他《神照經》神功？', options: ['梅念笙', '丁典', '戚長發', '血刀老祖'], answer: 1 },
+                    { q: '連城劍法原本隱藏在一本什麼書籍裡面？', options: ['《金剛經》', '《唐詩選輯》', '《論語》', '《道德經》'], answer: 1 },
+                    { q: '丁典深愛著哪位女子，甚至甘願為其守墓？', options: ['戚芳', '水笙', '凌霜華', '汪嘯風'], answer: 2 },
+                    { q: '血刀老祖在大雪山雪谷中憑藉地形地利擊敗了江南幾俠？', options: ['江南三老', '江南四奇(落花流水)', '江南七怪', '太湖四傑'], answer: 1 },
+                    { q: '狄雲經歷無數苦難後，最終結局選擇去了哪裡隱居？', options: ['回到故鄉', '大雪山雪谷', '成為武林盟主', '出家為僧'], answer: 1 },
+                    { q: '戚芳給她與萬圭的女兒取名為「空心菜」，這是因為誰的小名？', options: ['狄雲', '丁典', '戚長發', '萬震山'], answer: 0 },
+                    { q: '狄雲身上穿的能防禦利刃劇毒的寶物是？', options: ['烏蠶衣', '軟蝟甲', '金絲甲', '鎖子甲'], answer: 0 },
+                    { q: '戚長發在江湖上的外號稱作？', options: ['鐵鎖橫江', '五內俱焚', '落花流水', '梅花劍'], answer: 0 },
+                    { q: '知府凌退思為了逼迫丁典交出連城訣，用什麼劇毒害死了自己的親生女兒？', options: ['金波旬花', '鶴頂紅', '七心海棠', '情花毒'], answer: 0 },
+                    { q: '「落花流水」四大高手中的花鐵幹，在雪谷中性格大變是因為？', options: ['極度恐懼與飢餓下戰慄屈服', '中了血刀毒', '被狄雲打傷', '走火入魔'], answer: 0 }
+                ]
+            },
+            'tian': {
+                name: '燕子塢', novel: '天龍八部', type: '長篇',
+                bosses: [
+                    { id: 'tian_1', name: '雲中鶴', diff: '簡單', playerHp: 5, bossHp: 4, aiAccuracy: 0.4, img: 'https://placehold.co/200x200/555/FFF?text=雲中鶴', badgeImg: 'https://placehold.co/150x150/b8860b/000?text=鐵爪' },
+                    { id: 'tian_2', name: '鳩摩智', diff: '普通', playerHp: 4, bossHp: 6, aiAccuracy: 0.7, img: 'https://placehold.co/200x200/555/FFF?text=鳩摩智', badgeImg: 'https://placehold.co/150x150/b8860b/000?text=火焰刀' },
+                    { id: 'tian_3', name: '慕容復 (最終)', diff: '困難', playerHp: 3, bossHp: 8, aiAccuracy: 0.9, img: 'https://placehold.co/200x200/555/FFF?text=慕容復', badgeImg: 'https://placehold.co/150x150/b8860b/000?text=斗轉星移' }
+                ],
+                questions: [
+                    { q: '段譽在無量山石洞中磕頭千次，獲得了哪兩門絕世武功？', options: ['北冥神功與凌波微步', '六脈神劍與一陽指', '易筋經與洗髓經', '八荒六合與天山折梅'], answer: 0 },
+                    { q: '喬峰的降龍十八掌中，最威猛常使用的是哪一招？', options: ['飛龍在天', '見龍在田', '亢龍有悔', '神龍擺尾'], answer: 2 },
+                    { q: '虛竹破了珍瓏棋局後，獲得了逍遙派哪位高手的七十年內力？', options: ['天山童姥', '李秋水', '無崖子', '丁春秋'], answer: 2 },
+                    { q: '「南慕容，北喬峰」，慕容家族獨步江湖的家傳絕學是？', options: ['參合指', '斗轉星移', '六脈神劍', '化功大法'], answer: 1 },
+                    { q: '段正淳的眾多情人中，王語嫣的親生母親是？', options: ['刀白鳳', '秦紅棉', '甘寶寶', '李青蘿(王夫人)'], answer: 3 },
+                    { q: '阿朱為了化解喬峰與父親的仇恨，易容成誰而被喬峰誤殺於青石橋？', options: ['段正淳', '段延慶', '阮星竹', '慕容復'], answer: 0 },
+                    { q: '天山童姥主掌的天山靈鷲宮位於哪座山峰？', options: ['縹緲峰', '少室山', '光明頂', '黑木崖'], answer: 0 },
+                    { q: '吐蕃國大輪明王鳩摩智擅長的無形掌力武功是？', options: ['火焰刀', '六脈神劍', '玄冥神掌', '小無相功'], answer: 0 },
+                    { q: '「四大惡人」之首「惡貫滿盈」真實身分是大理國前太子，名為？', options: ['段延慶', '段正明', '段正淳', '段智興'], answer: 0 },
+                    { q: '丐幫副幫主馬大元被殺害，真正的幕後主使者是馬夫人與誰？', options: ['白世鏡', '全冠清', '喬峰', '徐長老'], answer: 0 }
+                ]
+            },
+            'she': {
+                name: '牛家村', novel: '射鵰英雄傳', type: '長篇',
+                bosses: [
+                    { id: 'she_1', name: '侯通海', diff: '簡單', playerHp: 5, bossHp: 4, aiAccuracy: 0.4, img: 'https://placehold.co/200x200/555/FFF?text=侯通海', badgeImg: 'https://placehold.co/150x150/b8860b/000?text=三叉戟' },
+                    { id: 'she_2', name: '梅超風', diff: '普通', playerHp: 4, bossHp: 6, aiAccuracy: 0.65, img: 'https://placehold.co/200x200/555/FFF?text=梅超風', badgeImg: 'https://placehold.co/150x150/b8860b/000?text=九陰白骨' },
+                    { id: 'she_3', name: '歐陽鋒 (最終)', diff: '困難', playerHp: 3, bossHp: 8, aiAccuracy: 0.9, img: 'https://placehold.co/200x200/555/FFF?text=歐陽鋒', badgeImg: 'https://placehold.co/150x150/b8860b/000?text=蛤蟆功' }
+                ],
+                questions: [
+                    { q: '郭靖的師父「江南七怪」中，大師父是？', options: ['柯鎮惡', '朱聰', '韓寶駒', '南希仁'], answer: 0 },
+                    { q: '黃蓉的父親是名列天下五絕之一的「東邪」，尊名為？', options: ['歐陽鋒', '洪七公', '黃藥師', '段智興'], answer: 2 },
+                    { q: '洪七公身為丐幫幫主，兩大壓箱絕學是降龍十八掌與？', options: ['空明拳', '打狗棒法', '彈指神通', '蛤蟆功'], answer: 1 },
+                    { q: '老頑童周伯通在桃花島被困期間，自創了哪兩門武功？', options: ['空明拳與左右互搏', '蛤蟆功與九陰真經', '先天功與一陽指', '彈指神通與落英神劍掌'], answer: 0 },
+                    { q: '桃花島上困住周伯通十五年的陣法是依據什麼原理佈置？', options: ['九宮八卦陣', '天罡北斗陣', '奇門遁甲', '桃花迷陣'], answer: 2 },
+                    { q: '第一次華山論劍奪得天下第一並拿到《九陰真經》的是？', options: ['王重陽', '黃藥師', '歐陽鋒', '洪七公'], answer: 0 },
+                    { q: '楊康在金國的貴族名號是？', options: ['完顏康', '完顏洪烈', '完顏克', '完顏阿骨打'], answer: 0 },
+                    { q: '郭靖在蒙古大漠生活時，被鐵木真封為？', options: ['金刀駙馬', '哲別', '成吉思汗', '博爾術'], answer: 0 },
+                    { q: '鐵掌幫幫主「鐵掌水上漂」的名字是？', options: ['裘千仞', '裘千丈', '裘千尺', '裘千棒'], answer: 0 },
+                    { q: '歐陽鋒的獨門蛤蟆功與白陀山蛇陣最忌憚哪門指法？', options: ['一陽指', '六脈神劍', '參合指', '蘭花拂穴手'], answer: 0 }
+                ]
+            },
+            'bai': {
+                name: '高昌迷宮', novel: '白馬嘯西風', type: '中短篇',
+                bosses: [
+                    { id: 'bai_1', name: '蘇普', diff: '簡單', playerHp: 5, bossHp: 3, aiAccuracy: 0.35, img: 'https://placehold.co/200x200/555/FFF?text=蘇普', badgeImg: 'https://placehold.co/150x150/b8860b/000?text=馬鞭' },
+                    { id: 'bai_2', name: '陳達海', diff: '普通', playerHp: 4, bossHp: 4, aiAccuracy: 0.6, img: 'https://placehold.co/200x200/555/FFF?text=陳達海', badgeImg: 'https://placehold.co/150x150/b8860b/000?text=強盜刀' },
+                    { id: 'bai_3', name: '瓦耳拉齊 (最終)', diff: '困難', playerHp: 3, bossHp: 6, aiAccuracy: 0.85, img: 'https://placehold.co/200x200/555/FFF?text=瓦耳拉齊', badgeImg: 'https://placehold.co/150x150/b8860b/000?text=毒針' }
+                ],
+                questions: [
+                    { q: '《白馬嘯西風》的女主角名字是？', options: ['阿曼', '李文秀', '霍青桐', '喀絲麗'], answer: 1 },
+                    { q: '李文秀的師傅「計老人」，其真實身分是？', options: ['馬家駿', '華輝(瓦耳拉齊)', '陳達海', '上官虹'], answer: 0 },
+                    { q: '高昌迷宮裡傳說的「寶藏」，實際上隱藏的是什麼？', options: ['黃金珠寶', '武功秘笈', '中原的書籍、樂器與生活用品', '神兵利器'], answer: 2 },
+                    { q: '李文秀的那匹白馬是誰留給她的？', options: ['蘇魯克', '蘇普', '計老人', '她父母遺留下來的'], answer: 3 },
+                    { q: '小說結尾名句：「如果你深深愛著的人，卻深深的愛上了別人，有甚麼法子？」是誰的心聲？', options: ['阿曼', '蘇普', '李文秀', '馬家駿'], answer: 2 },
+                    { q: '李文秀在哈薩克部落中使用的武功師承於黑氣斐斐的「華輝」，華輝原名是？', options: ['瓦耳拉齊', '馬家駿', '白輝', '上官傑'], answer: 0 },
+                    { q: '蘇普後來深深愛上的哈薩克少女是？', options: ['阿曼', '李文秀', '華箏', '水笙'], answer: 0 },
+                    { q: '李文秀的父親叫什麼名字？', options: ['李三', '李四', '李廣', '李陵'], answer: 0 },
+                    { q: '李文秀用來暗算強敵陳達海的劇毒暗器是？', options: ['毒針(毒蜘蛛)', '冰魄銀針', '黑血神針', '暴雨梨花針'], answer: 0 },
+                    { q: '高昌古國位於今日的哪個地理區域？', options: ['新疆吐魯番', '西藏拉薩', '青海青海湖', '雲南大理'], answer: 0 }
+                ]
+            },
+            'lu': {
+                name: '紫禁城', novel: '鹿鼎記', type: '長篇',
+                bosses: [
+                    { id: 'lu_1', name: '茅十八', diff: '簡單', playerHp: 5, bossHp: 4, aiAccuracy: 0.4, img: 'https://placehold.co/200x200/555/FFF?text=茅十八', badgeImg: 'https://placehold.co/150x150/b8860b/000?text=五虎斷門刀' },
+                    { id: 'lu_2', name: '鰲拜', diff: '普通', playerHp: 4, bossHp: 6, aiAccuracy: 0.65, img: 'https://placehold.co/200x200/555/FFF?text=鰲拜', badgeImg: 'https://placehold.co/150x150/b8860b/000?text=滿洲第一勇士' },
+                    { id: 'lu_3', name: '洪安通 (最終)', diff: '困難', playerHp: 3, bossHp: 8, aiAccuracy: 0.9, img: 'https://placehold.co/200x200/555/FFF?text=洪教主', badgeImg: 'https://placehold.co/150x150/b8860b/000?text=神龍令' }
+                ],
+                questions: [
+                    { q: '韋小寶在天地會中擔任的職位是？', options: ['總舵主', '青木堂香主', '宏化堂香主', '白木堂香主'], answer: 1 },
+                    { q: '八本《四十二章經》中隱藏著什麼驚天秘密？', options: ['大清寶藏與龍脈(鹿鼎山)', '絕世武功心法', '天地會反清名冊', '火器建造圖譜'], answer: 0 },
+                    { q: '韋小寶一生娶了幾位老婆？', options: ['5位', '6位', '7位', '8位'], answer: 2 },
+                    { q: '傳授韋小寶保命輕功「神行百變」的師父是？', options: ['陳近南', '九難師太(長平公主)', '海大富', '洪教主'], answer: 1 },
+                    { q: '康熙皇帝與韋小寶幼年比武時，使用的化名是？', options: ['小玄子', '小桂子', '小春子', '小安子'], answer: 0 },
+                    { q: '韋小寶在少林寺出家清修時，法號尊稱為？', options: ['晦聰', '澄觀', '覺遠', '虛竹'], answer: 0 },
+                    { q: '天地會總舵主陳近南在台灣鄭氏政權中的真實歷史身分是？', options: ['陳永華', '鄭經', '施狼', '劉國軒'], answer: 0 },
+                    { q: '韋小寶在神龍教中被洪教主封為？', options: ['白龍使', '青龍使', '赤龍使', '黑龍使'], answer: 0 },
+                    { q: '皇太后被神龍教毛東珠冒充，真正的太后被鎖在何處？', options: ['密道暗室', '神龍島', '少林寺', '雲南平西王府'], answer: 0 },
+                    { q: '韋小寶出生於揚州的哪座花樓？', options: ['麗春院', '怡紅院', '群芳樓', '醉仙樓'], answer: 0 }
+                ]
+            },
+            'xiao': {
+                name: '黑木崖', novel: '笑傲江湖', type: '長篇',
+                bosses: [
+                    { id: 'xiao_1', name: '田伯光', diff: '簡單', playerHp: 5, bossHp: 4, aiAccuracy: 0.45, img: 'https://placehold.co/200x200/555/FFF?text=田伯光', badgeImg: 'https://placehold.co/150x150/b8860b/000?text=快刀' },
+                    { id: 'xiao_2', name: '岳不群', diff: '普通', playerHp: 4, bossHp: 6, aiAccuracy: 0.7, img: 'https://placehold.co/200x200/555/FFF?text=岳不群', badgeImg: 'https://placehold.co/150x150/b8860b/000?text=君子劍' },
+                    { id: 'xiao_3', name: '東方不敗 (最終)', diff: '困難', playerHp: 2, bossHp: 8, aiAccuracy: 0.92, img: 'https://placehold.co/200x200/555/FFF?text=東方不敗', badgeImg: 'https://placehold.co/150x150/b8860b/000?text=葵花寶典' }
+                ],
+                questions: [
+                    { q: '令狐沖在華山思過崖由風清揚傳授了哪門絕世劍法？', options: ['辟邪劍法', '獨孤九劍', '太極劍法', '華山劍法'], answer: 1 },
+                    { q: '日月神教教主東方不敗修煉的神功是？', options: ['吸星大法', '葵花寶典', '紫霞神功', '寒冰真氣'], answer: 1 },
+                    { q: '《笑傲江湖》曲譜是由哪兩位正邪高手共同合創的？', options: ['劉正風與曲洋', '莫大與向問天', '岳不群與任我行', '令狐沖與任盈盈'], answer: 0 },
+                    { q: '任我行所掌握能吸取他人內力的魔功是？', options: ['北冥神功', '化功大法', '吸星大法', '吸血大法'], answer: 2 },
+                    { q: '華山派掌門岳不群在江湖上的偽善外號是？', options: ['君子劍', '五嶽盟主', '瀟湘夜雨', '天門道人'], answer: 0 },
+                    { q: '福威鏢局林家傳下的絕密武功寶典是？', options: ['辟邪劍譜', '葵花寶典', '紫霞秘笈', '易筋經'], answer: 0 },
+                    { q: '衡山派掌門莫大先生拉得一手好胡琴，其外號尊稱為？', options: ['瀟湘夜雨', '琴劍雙絕', '金盆洗手', '莫大先生'], answer: 0 },
+                    { q: '令狐沖與任盈盈初次相遇結緣的地點是？', options: ['洛陽綠竹巷', '華山思過崖', '杭州梅莊', '黑木崖'], answer: 0 },
+                    { q: '江南四友囚禁任我形的地點是杭州的？', options: ['梅莊', '西湖地牢', '少林寺', '福威鏢局'], answer: 0 },
+                    { q: '令狐沖後來接任了哪一個門派的掌門？', options: ['恆山派', '華山派', '嵩山派', '泰山派'], answer: 0 }
+                ]
+            },
+            'shu': {
+                name: '回疆', novel: '書劍恩仇錄', type: '長篇',
+                bosses: [
+                    { id: 'shu_1', name: '童兆和', diff: '簡單', playerHp: 5, bossHp: 3, aiAccuracy: 0.35, img: 'https://placehold.co/200x200/555/FFF?text=童兆和', badgeImg: 'https://placehold.co/150x150/b8860b/000?text=銅錢鏢' },
+                    { id: 'shu_2', name: '張召重', diff: '普通', playerHp: 4, bossHp: 6, aiAccuracy: 0.7, img: 'https://placehold.co/200x200/555/FFF?text=張召重', badgeImg: 'https://placehold.co/150x150/b8860b/000?text=火手判官' },
+                    { id: 'shu_3', name: '乾隆帝 (最終)', diff: '困難', playerHp: 3, bossHp: 7, aiAccuracy: 0.85, img: 'https://placehold.co/200x200/555/FFF?text=乾隆', badgeImg: 'https://placehold.co/150x150/b8860b/000?text=玉扳指' }
+                ],
+                questions: [
+                    { q: '紅花會繼任的總舵主是誰？', options: ['于萬亭', '陳家洛', '無塵道長', '文泰來'], answer: 1 },
+                    { q: '陳家洛與乾隆皇帝隱藏的血緣關係是？', options: ['師徒', '仇人', '親兄弟', '堂兄弟'], answer: 2 },
+                    { q: '香香公主的美麗名號在回部被稱作？', options: ['霍青桐', '喀絲麗', '李沅芷', '駱冰'], answer: 1 },
+                    { q: '「翠羽黃衫」霍青桐是哪個部族首領的女兒？', options: ['回部', '哈薩克', '蒙古', '滿洲'], answer: 0 },
+                    { q: '紅花會扣除已故老舵主于萬亭外，共有幾位當家？', options: ['十二位', '十三位', '十四位', '十五位'], answer: 2 },
+                    { q: '投靠清廷、綽號「火手判官」的武當派敗類是？', options: ['張召重', '陸菲青', '馬真', '白振'], answer: 0 },
+                    { q: '紅花會四當家「奔雷手」文泰來的妻子是？', options: ['駱冰', '李沅芷', '周綺', '香香公主'], answer: 0 },
+                    { q: '武當名宿陸菲青的徒弟，後來與余魚同喜結連理的是？', options: ['李沅芷', '霍青桐', '駱冰', '周綺'], answer: 0 },
+                    { q: '陳家洛在百花谷中悟出了哪門絕世武功？', options: ['百花錯拳與刨丁解牛掌', '太極拳', '降龍十八掌', '獨孤九劍'], answer: 0 },
+                    { q: '紅花會二當家無塵道長最擅長的是哪門劍法？', options: ['追魂奪命劍', '太極劍', '達摩劍', '柔雲劍'], answer: 0 }
+                ]
+            },
+            'shen': {
+                name: '活死人墓', novel: '神鵰俠侶', type: '長篇',
+                bosses: [
+                    { id: 'shen_1', name: '趙志敬', diff: '簡單', playerHp: 5, bossHp: 4, aiAccuracy: 0.45, img: 'https://placehold.co/200x200/555/FFF?text=趙志敬', badgeImg: 'https://placehold.co/150x150/b8860b/000?text=全真劍' },
+                    { id: 'shen_2', name: '李莫愁', diff: '普通', playerHp: 4, bossHp: 6, aiAccuracy: 0.7, img: 'https://placehold.co/200x200/555/FFF?text=李莫愁', badgeImg: 'https://placehold.co/150x150/b8860b/000?text=冰魄銀針' },
+                    { id: 'shen_3', name: '金輪法王 (最終)', diff: '困難', playerHp: 3, bossHp: 8, aiAccuracy: 0.9, img: 'https://placehold.co/200x200/555/FFF?text=金輪法王', badgeImg: 'https://placehold.co/150x150/b8860b/000?text=龍象般若' }
+                ],
+                questions: [
+                    { q: '楊過和小龍女在古墓中修煉的古墓派最高內功心法是？', options: ['九陽真經', '玉女心經', '神照經', '先天功'], answer: 1 },
+                    { q: '獨孤求敗劍塚中，楊過獲雕兄指引拿到了哪把重劍？', options: ['紫薇軟劍', '玄鐵重劍', '倚天劍', '君子劍'], answer: 1 },
+                    { q: '絕情谷中情花毒的唯一天然解藥是？', options: ['絕情丹', '斷腸草', '天山雪蓮', '九花玉露丸'], answer: 1 },
+                    { q: '楊過結合自身悲痛情緒與多派精華自創的掌法是？', options: ['黯然銷魂掌', '悲酥清風', '落英神劍掌', '天山折梅手'], answer: 0 },
+                    { q: '小龍女日常修煉與睡覺用的古墓寶物是？', options: ['千年冰床', '寒玉床', '水晶榻', '玄冰石'], answer: 1 },
+                    { q: '郭襄後來在川西創立了哪一個武林名門正派？', options: ['峨嵋派', '恆山派', '古墓派', '青城派'], answer: 0 },
+                    { q: '蒙古國師金輪法王修煉至第十層的密宗神功是？', options: ['龍象般若功', '瑜伽密乘', '火焰刀', '金剛不壞神功'], answer: 0 },
+                    { q: '赤練仙子李莫愁使用的劇毒暗器是？', options: ['冰魄銀針', '玉蜂針', '黑血神針', '暴雨梨花針'], answer: 0 },
+                    { q: '楊過在絕情谷底與小龍女重逢，中間相隔了多少年？', options: ['十六年', '十年', '十二年', '二十年'], answer: 0 },
+                    { q: '公孫止的妻子、裘千仞的妹子，擅長吐核桃釘攻擊的是？', options: ['裘千尺', '裘千丈', '瑛姑', '李莫愁'], answer: 0 }
+                ]
+            },
+            'xia': {
+                name: '俠客島', novel: '俠客行', type: '中短篇',
+                bosses: [
+                    { id: 'xia_1', name: '白萬劍', diff: '簡單', playerHp: 5, bossHp: 4, aiAccuracy: 0.4, img: 'https://placehold.co/200x200/555/FFF?text=白萬劍', badgeImg: 'https://placehold.co/150x150/b8860b/000?text=雪山劍' },
+                    { id: 'xia_2', name: '謝煙客', diff: '普通', playerHp: 4, bossHp: 6, aiAccuracy: 0.7, img: 'https://placehold.co/200x200/555/FFF?text=謝煙客', badgeImg: 'https://placehold.co/150x150/b8860b/000?text=玄鐵令' },
+                    { id: 'xia_3', name: '石破天 (最終)', diff: '困難', playerHp: 2, bossHp: 9, aiAccuracy: 0.9, img: 'https://placehold.co/200x200/555/FFF?text=石破天', badgeImg: 'https://placehold.co/150x150/b8860b/000?text=太玄經' }
+                ],
+                questions: [
+                    { q: '石破天從小被梅芳姑稱呼的小名是？', options: ['狗雜種', '小石頭', '阿貓', '鐵蛋'], answer: 0 },
+                    { q: '摩天居士謝煙客發給江湖人士用以許願的信物是？', options: ['賞善罰惡令', '玄鐵令', '黑木令', '聖火令'], answer: 1 },
+                    { q: '俠客島石壁上刻著的絕世武功，取材於唐代哪位詩人的作品？', options: ['杜甫', '李白《俠客行》', '白居易', '王維'], answer: 1 },
+                    { q: '石破天之所以能順利練成《太玄經》，關鍵原因在於？', options: ['天賦異稟', '不識文字，只直觀圖畫筆觸線條', '有高人指導', '吃了天山雪蓮'], answer: 1 },
+                    { q: '石破天性格風流輕浮的同胞兄長是？', options: ['石中玉', '石清', '石劍', '石堅'], answer: 0 },
+                    { q: '長樂幫眾人將石破天誤認為誰而擁立他為幫主？', options: ['石中玉', '謝煙客', '貝海石', '白萬劍'], answer: 0 },
+                    { q: '長樂幫軍師「著手成春」實際控制幫內大權的人是？', options: ['貝海石', '司徒橫', '展飛', '米橫野'], answer: 0 },
+                    { q: '雪山派掌門「威德先生」的名字是？', options: ['白自在', '白萬劍', '白自在妻子', '封萬里'], answer: 0 },
+                    { q: '俠客島兩位島主「賞善罰惡」尊稱為？', options: ['木島主與龍島主', '丁島主與白島主', '玄素雙飛', '黑白雙煞'], answer: 0 },
+                    { q: '丁噹給石破天取的親暱綽號是？', options: ['天哥', '小空心菜', '呆子', '木頭'], answer: 0 }
+                ]
+            },
+            'yi': {
+                name: '光明頂', novel: '倚天屠龍記', type: '長篇',
+                bosses: [
+                    { id: 'yi_1', name: '滅絕師太', diff: '簡單', playerHp: 5, bossHp: 4, aiAccuracy: 0.5, img: 'https://placehold.co/200x200/555/FFF?text=滅絕師太', badgeImg: 'https://placehold.co/150x150/b8860b/000?text=倚天劍' },
+                    { id: 'yi_2', name: '成崑', diff: '普通', playerHp: 4, bossHp: 6, aiAccuracy: 0.75, img: 'https://placehold.co/200x200/555/FFF?text=成崑', badgeImg: 'https://placehold.co/150x150/b8860b/000?text=幻陰指' },
+                    { id: 'yi_3', name: '張無忌 (最終)', diff: '困難', playerHp: 2, bossHp: 9, aiAccuracy: 0.9, img: 'https://placehold.co/200x200/555/FFF?text=張無忌', badgeImg: 'https://placehold.co/150x150/b8860b/000?text=九陽神功' }
+                ],
+                questions: [
+                    { q: '張無忌在光明頂密道中練成了明教歷代教主神功？', options: ['九陽神功', '乾坤大挪移', '太極拳', '聖火神功'], answer: 1 },
+                    { q: '金毛獅王謝遜奪取《倚天屠龍記》兵刃並練成的拳法是？', options: ['獅子吼', '七傷拳', '降龍十八掌', '幻陰指'], answer: 1 },
+                    { q: '「武林至尊，寶刀屠龍；倚天不出，誰與爭鋒」，刀劍中藏著？', options: ['《九陰真經》與《武穆遺書》', '《九陽真經》', '寶藏圖', '明教聖火令'], answer: 0 },
+                    { q: '趙敏郡主的蒙古真實名字是？', options: ['敏敏特穆爾', '華箏', '琪琪格', '黛綺絲'], answer: 0 },
+                    { q: '張無忌的母親殷素素創立或出身於哪個教派？', options: ['明教', '天鷹教', '峨嵋派', '武當派'], answer: 1 },
+                    { q: '張三丰在百歲高齡之際自創了哪兩門講究以柔克剛的絕學？', options: ['太極拳與太極劍', '純陽無極功', '武當梯雲縱', '十七路長拳'], answer: 0 },
+                    { q: '明教四大護教法王「紫白金青」中，紫衫龍王真實身分是？', options: ['黛綺絲(金花婆婆)', '殷天正', '謝遜', '韋一笑'], answer: 0 },
+                    { q: '害死張無忌父母並暗中挑起六大派圍剿光明頂的幕後黑手是？', options: ['成崑(圓真)', '滅絕師太', '楊逍', '鹿杖客'], answer: 0 },
+                    { q: '小昭最終為了救張無忌等人，選擇回波斯擔任？', options: ['波斯明教教主', '聖女', '總教長老', '侍女'], answer: 0 },
+                    { q: '玄冥二老使用的能令人中者全身寒毒發作的掌法是？', options: ['玄冥神掌', '寒冰綿掌', '幻陰指', '鐵掌'], answer: 0 }
+                ]
+            },
+            'bi': {
+                name: '盛京', novel: '碧血劍', type: '中短篇',
+                bosses: [
+                    { id: 'bi_1', name: '歸辛樹', diff: '簡單', playerHp: 5, bossHp: 4, aiAccuracy: 0.45, img: 'https://placehold.co/200x200/555/FFF?text=歸辛樹', badgeImg: 'https://placehold.co/150x150/b8860b/000?text=神拳' },
+                    { id: 'bi_2', name: '溫家五老', diff: '普通', playerHp: 4, bossHp: 6, aiAccuracy: 0.65, img: 'https://placehold.co/200x200/555/FFF?text=溫家五老', badgeImg: 'https://placehold.co/150x150/b8860b/000?text=五行陣' },
+                    { id: 'bi_3', name: '玉真子 (最終)', diff: '困難', playerHp: 3, bossHp: 7, aiAccuracy: 0.85, img: 'https://placehold.co/200x200/555/FFF?text=玉真子', badgeImg: 'https://placehold.co/150x150/b8860b/000?text=鐵劍令' }
+                ],
+                questions: [
+                    { q: '主角袁承志是明末哪位殉國名將的遺腹子？', options: ['袁崇煥', '史可法', '熊廷弼', '孫承宗'], answer: 0 },
+                    { q: '袁承志在華山拜哪位高人為師？', options: ['木桑道長', '穆人清', '黃真', '歸辛樹'], answer: 1 },
+                    { q: '「金蛇郎君」夏雪宜與石梁溫家女子生下的女兒是？', options: ['溫青青', '何紅藥', '焦宛兒', '阿九'], answer: 0 },
+                    { q: '夏雪宜留下的獨門暗器除了金蛇劍之外還有？', options: ['金蛇錐', '冰魄銀針', '生死符', '孔雀翎'], answer: 0 },
+                    { q: '小說結尾，袁承志對中原局勢失望，帶領親友去了哪裡海外隱居？', options: ['冰火島', '俠客島', '渤泥國', '桃花島'], answer: 2 },
+                    { q: '明朝崇禎皇帝的女兒阿九(長平公主)，後來在《鹿鼎記》中的法號是？', options: ['九難師太', '滅絕師太', '儀琳', '靜齋'], answer: 0 },
+                    { q: '溫家五老用來困住高手的厲害陣法是？', options: ['五行陣', '天罡北斗陣', '二十八宿陣', '打狗陣'], answer: 0 },
+                    { q: '華山派大弟子「仙鶴手」是誰？', options: ['黃真', '歸辛樹', '馮難敵', '梅劍和'], answer: 0 },
+                    { q: '木桑道長屬於哪一個門派？', options: ['鐵劍門', '華山派', '武當派', '青城派'], answer: 0 },
+                    { q: '五毒教教主何鐵手後來拜袁承志為師，改名為？', options: ['何惕守', '何紅藥', '藍鳳凰', '焦宛兒'], answer: 0 }
+                ]
+            },
+            'yuan': {
+                name: '晉陽城', novel: '鴛鴦刀', type: '短篇',
+                bosses: [
+                    { id: 'yuan_1', name: '太岳四俠', diff: '簡單', playerHp: 5, bossHp: 3, aiAccuracy: 0.3, img: 'https://placehold.co/200x200/555/FFF?text=太岳四俠', badgeImg: 'https://placehold.co/150x150/b8860b/000?text=搞笑令牌' },
+                    { id: 'yuan_2', name: '蕭半和', diff: '普通', playerHp: 4, bossHp: 5, aiAccuracy: 0.6, img: 'https://placehold.co/200x200/555/FFF?text=蕭半和', badgeImg: 'https://placehold.co/150x150/b8860b/000?text=晉陽大俠' },
+                    { id: 'yuan_3', name: '卓天雄 (最終)', diff: '困難', playerHp: 3, bossHp: 7, aiAccuracy: 0.8, img: 'https://placehold.co/200x200/555/FFF?text=卓天雄', badgeImg: 'https://placehold.co/150x150/b8860b/000?text=震天弓' }
+                ],
+                questions: [
+                    { q: '傳說中鴛鴦雙刀裡面隱藏著「無敵於天下」的秘密，實際上刀上刻著？', options: ['絕世武功', '富可敵國金銀', '「仁者無敵」四字', '長生不老藥'], answer: 2 },
+                    { q: '《鴛鴦刀》中的女主角叫什麼名字？', options: ['袁紫衣', '蕭中慧', '李沅芷', '水笙'], answer: 1 },
+                    { q: '武功平平卻生性搞笑溫馨的「太岳四俠」在書中扮演什麼角色？', options: ['絕頂高手', '陰險反派', '甘草喜劇人物', '皇帝密探'], answer: 2 },
+                    { q: '反派高手卓天雄擅長使用的獨門兵器是？', options: ['金蛇劍', '震天弓與呼延十八鞭', '血刀', '倚天劍'], answer: 1 },
+                    { q: '蕭半和舉辦六十大壽，其真實目的是為了集結英雄？', options: ['奪取鴛鴦刀', '為兒女招親', '反清復明大業', '退隱江湖'], answer: 2 },
+                    { q: '蕭中慧與袁冠南合力使用的刀法名稱是？', options: ['夫妻刀法', '玉女素心劍', '鴛鴦刀法', '眉來眼去劍'], answer: 0 },
+                    { q: '蕭半和的真實身分是前朝宮中的？', options: ['總管太監', '大將軍', '御醫', '狀元'], answer: 0 },
+                    { q: '鴛鴦刀中的長刀為「鴛刀」，短刀為？', options: ['鴦刀', '鳳刀', '凰刀', '龍刀'], answer: 0 },
+                    { q: '太岳四俠的大哥「煙波釣客」名字是？', options: ['肖勁', '常長風', '花天酒地', '蓋一鳴'], answer: 0 },
+                    { q: '袁冠南是誰的兒子？', options: ['袁工俠', '蕭半和', '卓天雄', '威信鏢局王鏢頭'], answer: 0 }
+                ]
+            },
+            'yue': {
+                name: '吳國劍士館', novel: '越女劍', type: '短篇',
+                bosses: [
+                    { id: 'yue_1', name: '吳國劍士', diff: '簡單', playerHp: 5, bossHp: 3, aiAccuracy: 0.4, img: 'https://placehold.co/200x200/555/FFF?text=吳國劍士', badgeImg: 'https://placehold.co/150x150/b8860b/000?text=青銅劍' },
+                    { id: 'yue_2', name: '范蠡', diff: '普通', playerHp: 4, bossHp: 5, aiAccuracy: 0.65, img: 'https://placehold.co/200x200/555/FFF?text=范蠡', badgeImg: 'https://placehold.co/150x150/b8860b/000?text=計謀竹簡' },
+                    { id: 'yue_3', name: '阿青 (最終)', diff: '困難', playerHp: 2, bossHp: 8, aiAccuracy: 0.9, img: 'https://placehold.co/200x200/555/FFF?text=阿青', badgeImg: 'https://placehold.co/150x150/b8860b/000?text=竹棒' }
+                ],
+                questions: [
+                    { q: '《越女劍》的故事歷史背景發生在哪個時代？', options: ['三國時期', '唐朝', '春秋戰國時期(吳越爭霸)', '宋朝'], answer: 2 },
+                    { q: '女主角阿青那驚天動地的劍法，是與誰對擊嬉戲時悟出的？', options: ['范蠡', '越王勾踐', '一頭白猿(公孫白)', '獨孤求敗'], answer: 2 },
+                    { q: '阿青原本的日常身份職業是？', options: ['刺客', '牧羊女', '浣紗女', '公主'], answer: 1 },
+                    { q: '越國名相范蠡尋找劍術高手的目的是為了訓練越兵擊敗？', options: ['楚國', '齊國', '晉國', '吳國'], answer: 3 },
+                    { q: '成語「西子捧心」在小說結尾是因為西施被什麼所傷？', options: ['越王勾踐刺傷', '白猿所傷', '阿青離去時留下的無形劍氣', '吳王夫差毒害'], answer: 2 },
+                    { q: '越國君主臥薪嚐膽的名君是？', options: ['勾踐', '夫差', '闔閭', '允常'], answer: 0 },
+                    { q: '阿青使用的武器並非金屬寶劍，而是一根？', options: ['綠竹棒', '木棍', '鐵條', '藤條'], answer: 0 },
+                    { q: '白猿被阿青擊敗後雙臂被打折，白猿的名稱是？', options: ['公孫白', '袁公', '白影', '神猴'], answer: 0 },
+                    { q: '范蠡一生真正深愛的女子是？', options: ['西施', '阿青', '鄭旦', '雅魚'], answer: 0 },
+                    { q: '越國劍士雖然只學到了阿青劍法的神韻皮毛，卻已能？', options: ['橫行天下無敵手', '戰勝吳國劍士', '刺殺吳王', '統一中原'], answer: 1 }
+                ]
+            },
+            'ultimate': {
+                name: '藏經閣 (終極隱藏)', novel: '武林神話', type: '隱藏',
+                bosses: [
+                    { id: 'ult_boss', name: '掃地僧 (金庸宇宙最強)', diff: '地獄', playerHp: 1, bossHp: 10, aiAccuracy: 0.95, img: 'https://placehold.co/200x200/000/FFF?text=掃地僧', badgeImg: 'https://placehold.co/150x150/b8860b/000?text=武林神話' }
+                ],
+                questions: [
+                    { q: '金庸先生的原名是？', options: ['查良鏞', '陳查理', '金庸', '查良錚'], answer: 0 },
+                    { q: '「飛雪連天射白鹿，笑書神俠倚碧鴛」對聯中，哪兩部小說的男主角為同一人？', options: ['沒有', '射鵰與神鵰', '《飛狐外傳》與《雪山飛狐》(胡斐)', '書劍與飛狐'], answer: 2 },
+                    { q: '金庸小說中，僅憑無形氣牆便可化解降龍十八掌與鳩摩智攻擊的高手是？', options: ['張三丰', '獨孤求敗', '王重陽', '少林寺掃地僧'], answer: 3 },
+                    { q: '少林寺藏經閣掃地僧化解並點化了哪兩位血海深仇宿敵？', options: ['喬峰與慕容復', '蕭遠山與慕容博', '鳩摩智與段延慶', '玄慈與葉二娘'], answer: 1 },
+                    { q: '金庸先生武俠小說創作的封筆之作是？', options: ['《鹿鼎記》', '《笑傲江湖》', '《越女劍》', '《天龍八部》'], answer: 0 },
+                    { q: '「飛雪連天射白鹿，笑書神俠倚碧鴛」十四字對聯未包含的短篇小說是？', options: ['《越女劍》', '《鴛鴦刀》', '《白馬嘯西風》', '《連城訣》'], answer: 0 },
+                    { q: '金庸小說中「天下第一劍客」獨孤求敗一生敗過幾次？', options: ['零次(求一敗而不可得)', '一次', '兩次', '三次'], answer: 0 },
+                    { q: '《九陰真經》據傳是由宋朝哪位歷史人物閱讀三千大藏經後創出的？', options: ['黃裳', '斗酒僧', '王重陽', '張三丰'], answer: 0 },
+                    { q: '《九陽真經》創始人在少林寺藏經閣將經書寫在什麼書的縫隙中？', options: ['《楞伽經》', '《金剛經》', '《華嚴經》', '《法華經》'], answer: 0 },
+                    { q: '「東邪、西毒、南帝、北丐、中神通」中，「南帝」段智興出家後的法號是？', options: ['一燈大師', '枯木大師', '本因', '渡劫'], answer: 0 }
+                ]
+            }
+        };
+
+        let gameMode = 'single'; 
+        let currentLocationKey = '';
+        let currentBoss = null;
+        
+        let activeQuestionQueue = [];
+        let currentQObj = null; 
+        let playerHp = 0;
+        let playerMaxHp = 0;
+        let bossHp = 0;
+        let bossMaxHp = 0;
+        let timeRemaining = 10000;
+        let timerInterval;
+        let canAnswer = false;
+
+        const usedQuestionIndexesMap = {};
+
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playTone(freq, type, duration, vol=0.1) {
+            if(audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = type; osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + duration);
+        }
+        const sfx = {
+            click: () => playTone(600, 'sine', 0.1),
+            correct: () => { playTone(523.25, 'sine', 0.1); setTimeout(() => playTone(659.25, 'sine', 0.2), 100); },
+            wrong: () => { playTone(150, 'sawtooth', 0.3, 0.2); setTimeout(() => playTone(100, 'sawtooth', 0.4, 0.2), 150); }
+        };
+
+        const screens = {
+            home: document.getElementById('screen-home'),
+            location: document.getElementById('screen-location'),
+            boss: document.getElementById('screen-boss'),
+            battle: document.getElementById('screen-battle'),
+            result: document.getElementById('screen-result')
+        };
+
+        function selectMode(mode) {
+            sfx.click();
+            gameMode = mode;
+            initLocations();
+            changeScreen('location');
+        }
+
+        function initLocations() {
+            const grid = document.getElementById('locations-grid');
+            grid.innerHTML = '';
+            for (const key in gameData) {
+                const loc = gameData[key];
+                
+                let isUltimate = key === 'ultimate';
+                let bgClass = isUltimate ? 'bg-gray-900 border-gold' : 'bg-white/70 border-crimson';
+                let titleColor = isUltimate ? 'text-gold' : 'text-ink';
+                let tagColor = isUltimate ? 'bg-gold text-ink' : 'bg-crimson text-parchment';
+
+                const card = document.createElement('div');
+                card.className = `location-card p-4 md:p-6 rounded-lg text-center flex flex-col ${isUltimate ? 'border-4 shadow-lg' : ''}`;
+                card.onclick = () => { sfx.click(); selectLocation(key); };
+                card.innerHTML = `
+                    <h3 class="text-xl md:text-2xl font-black mb-1 ${titleColor}">${loc.name}</h3>
+                    <p class="text-xs md:text-sm font-bold text-gray-800 mb-2">${loc.novel}</p>
+                    <span class="mt-auto text-xs font-bold px-2 py-1 rounded-full w-max mx-auto ${tagColor}">${loc.type}</span>
+                `;
+                grid.appendChild(card);
+            }
+        }
+
+        function changeScreen(screenName) {
+            Object.values(screens).forEach(s => s.classList.add('hidden-screen'));
+            screens[screenName].classList.remove('hidden-screen');
+        }
+
+        function selectLocation(key) {
+            currentLocationKey = key;
+            const loc = gameData[key];
+            document.getElementById('selected-location-title').innerText = `${loc.name} (${loc.novel})`;
+            
+            const bossGrid = document.getElementById('bosses-container');
+            bossGrid.innerHTML = '';
+            
+            let gridColClass = loc.bosses.length === 1 ? 'md:grid-cols-1 max-w-sm mx-auto' : 'md:grid-cols-3';
+            bossGrid.className = `grid grid-cols-1 ${gridColClass} gap-6 w-full max-w-4xl`;
+
+            loc.bosses.forEach(boss => {
+                let diffColor = boss.diff === '簡單' ? 'text-green-700' : boss.diff === '普通' ? 'text-yellow-700' : boss.diff === '地獄' ? 'text-purple-700 font-black' : 'text-red-700';
+                let borderClass = boss.diff === '地獄' ? 'border-purple-800' : 'border-crimson';
+
+                const card = document.createElement('div');
+                card.className = 'boss-card p-4 md:p-6 rounded-lg flex flex-col items-center relative overflow-hidden bg-white/80';
+                card.innerHTML = `
+                    <div class="absolute top-2 right-2 text-xs font-bold px-2 py-1 bg-white/90 rounded border shadow ${diffColor}">${boss.diff}</div>
+                    <img src="${boss.img}" class="w-20 h-20 md:w-24 md:h-24 rounded-full object-cover border-4 ${borderClass} mb-3 shadow-md">
+                    <h3 class="text-xl md:text-2xl font-black text-ink mb-1">${boss.name}</h3>
+                    <p class="text-xs font-bold text-gray-700 mb-2">通關榮譽：</p>
+                    <img src="${boss.badgeImg}" class="w-12 h-12 md:w-16 md:h-16 object-contain filter drop-shadow-md mb-4">
+                    <button onclick="startBattle('${boss.id}')" class="btn-style w-full py-2 bg-crimson text-parchment font-bold rounded-lg mt-auto text-sm md:text-base">
+                        拔劍挑戰
+                    </button>
+                `;
+                bossGrid.appendChild(card);
+            });
+            
+            changeScreen('boss');
+        }
+
+        function startBattle(bossId) {
+            sfx.click();
+            const loc = gameData[currentLocationKey];
+            currentBoss = loc.bosses.find(b => b.id === bossId);
+            
+            playerMaxHp = currentBoss.playerHp;
+            playerHp = playerMaxHp;
+            bossMaxHp = currentBoss.bossHp;
+            bossHp = bossMaxHp;
+            
+            prepareQuestionQueue(currentLocationKey);
+
+            document.getElementById('battle-boss-name').innerText = currentBoss.name;
+            document.getElementById('battle-boss-img').src = currentBoss.img;
+            
+            updateHpUI();
+            changeScreen('battle');
+            loadQuestion();
+        }
+
+        function prepareQuestionQueue(locKey) {
+            const allQ = gameData[locKey].questions;
+            if (!usedQuestionIndexesMap[locKey]) {
+                usedQuestionIndexesMap[locKey] = new Set();
+            }
+
+            let unusedIndexes = [];
+            for (let i = 0; i < allQ.length; i++) {
+                if (!usedQuestionIndexesMap[locKey].has(i)) {
+                    unusedIndexes.push(i);
+                }
+            }
+
+            if (unusedIndexes.length === 0) {
+                usedQuestionIndexesMap[locKey].clear();
+                for (let i = 0; i < allQ.length; i++) unusedIndexes.push(i);
+            }
+
+            unusedIndexes.sort(() => Math.random() - 0.5);
+
+            activeQuestionQueue = unusedIndexes.map(idx => {
+                return { originalIndex: idx, rawData: allQ[idx] };
+            });
+        }
+
+        function updateHpUI() {
+            const renderHearts = (hp, maxHp, containerId) => {
+                const container = document.getElementById(containerId);
+                container.innerHTML = '';
+                for(let i=0; i<maxHp; i++) {
+                    const heart = document.createElement('div');
+                    heart.className = `heart ${i < hp ? 'heart-full' : 'heart-empty'}`;
+                    container.appendChild(heart);
+                }
+            };
+            renderHearts(playerHp, playerMaxHp, 'player-hp-bar');
+            renderHearts(bossHp, bossMaxHp, 'boss-hp-bar');
+        }
+
+        function loadQuestion() {
+            if (activeQuestionQueue.length === 0) {
+                prepareQuestionQueue(currentLocationKey);
+            }
+
+            const item = activeQuestionQueue.shift();
+            usedQuestionIndexesMap[currentLocationKey].add(item.originalIndex);
+            
+            const raw = item.rawData;
+
+            const optionsWithCorrect = raw.options.map((opt, idx) => ({
+                text: opt,
+                isCorrect: idx === raw.answer
+            }));
+            optionsWithCorrect.sort(() => Math.random() - 0.5);
+
+            const newAnswerIndex = optionsWithCorrect.findIndex(o => o.isCorrect);
+
+            currentQObj = {
+                q: raw.q,
+                options: optionsWithCorrect.map(o => o.text),
+                answer: newAnswerIndex
+            };
+
+            document.getElementById('question-text').innerText = currentQObj.q;
+            
+            const optionsContainer = document.getElementById('options-container');
+            const btns = optionsContainer.querySelectorAll('button');
+            
+            btns.forEach((btn, index) => {
+                btn.innerText = currentQObj.options[index];
+                btn.className = 'option-btn btn-style w-full py-3 md:py-4 px-4 rounded-lg font-bold text-md md:text-lg text-left shadow relative';
+                btn.disabled = false;
+                
+                const oldBadge = btn.querySelector('.boss-badge');
+                if (oldBadge) oldBadge.remove();
+            });
+
+            document.getElementById('round-announcement').innerText = "";
+
+            canAnswer = true;
+            timeRemaining = 10000;
+            updateTimerBar();
+            
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                timeRemaining -= 50;
+                updateTimerBar();
+                if (timeRemaining <= 0) {
+                    clearInterval(timerInterval);
+                    handleAnswer(-1); 
+                }
+            }, 50);
+        }
+
+        function updateTimerBar() {
+            const bar = document.getElementById('timer-bar');
+            const percentage = (timeRemaining / 10000) * 100;
+            bar.style.width = percentage + '%';
+            if (percentage < 30) { bar.classList.add('bg-red-600'); bar.classList.remove('bg-crimson'); }
+            else { bar.classList.remove('bg-red-600'); bar.classList.add('bg-crimson'); }
+        }
+
+        function handleAnswer(selectedIndex) {
+            if (!canAnswer) return;
+            canAnswer = false;
+            clearInterval(timerInterval);
+
+            if(selectedIndex !== -1) sfx.click();
+
+            const btns = document.querySelectorAll('.option-btn');
+            
+            btns[currentQObj.answer].classList.add('option-correct');
+            btns.forEach(btn => btn.disabled = true);
+
+            let isPlayerCorrect = selectedIndex === currentQObj.answer;
+            let isBossCorrect = false;
+            let bossChoiceIndex = -1;
+
+            if (gameMode === 'ai') {
+                const rand = Math.random();
+                if (rand < currentBoss.aiAccuracy) {
+                    bossChoiceIndex = currentQObj.answer;
+                    isBossCorrect = true;
+                } else {
+                    let wrongOptions = [0, 1, 2, 3].filter(i => i !== currentQObj.answer);
+                    bossChoiceIndex = wrongOptions[Math.floor(Math.random() * wrongOptions.length)];
+                    isBossCorrect = false;
+                }
+
+                if (bossChoiceIndex !== -1) {
+                    const bossBadge = document.createElement('span');
+                    bossBadge.className = 'boss-badge ml-2 text-xs bg-ink text-white px-2 py-1 rounded-full absolute right-2 top-1/2 transform -translate-y-1/2 font-bold shadow-md';
+                    bossBadge.innerText = `🗡️ ${currentBoss.name}`;
+                    btns[bossChoiceIndex].appendChild(bossBadge);
+                    btns[bossChoiceIndex].classList.add('border-4', 'border-ink');
+                }
+            }
+
+            if (selectedIndex !== -1 && !isPlayerCorrect) {
+                btns[selectedIndex].classList.add('option-wrong');
+            }
+
+            const announcement = document.getElementById('round-announcement');
+
+            if (gameMode === 'single') {
+                if (isPlayerCorrect) {
+                    sfx.correct();
+                    bossHp--;
+                    screenShake(document.getElementById('battle-boss-img'));
+                    announcement.innerText = "答對了！給予重擊！";
+                    announcement.className = "text-center font-black text-xl md:text-2xl mb-4 min-h-[2rem] text-green-600 drop-shadow-sm";
+                } else {
+                    sfx.wrong();
+                    playerHp--;
+                    screenShake(document.getElementById('main-container'));
+                    flashDamage();
+                    announcement.innerText = selectedIndex === -1 ? "超時！遭到反擊！" : "答錯了！遭到反擊！";
+                    announcement.className = "text-center font-black text-xl md:text-2xl mb-4 min-h-[2rem] text-red-600 drop-shadow-sm";
+                }
+            } else {
+                if (isPlayerCorrect && !isBossCorrect) {
+                    sfx.correct(); bossHp--; screenShake(document.getElementById('battle-boss-img'));
+                    announcement.innerText = `💥 敵方答錯！重創 ${currentBoss.name}！`;
+                    announcement.className = "text-center font-black text-lg md:text-2xl mb-4 min-h-[2rem] text-green-600 drop-shadow-sm";
+                } else if (!isPlayerCorrect && isBossCorrect) {
+                    sfx.wrong(); playerHp--; screenShake(document.getElementById('main-container')); flashDamage();
+                    announcement.innerText = `🩸 你答錯了！${currentBoss.name} 乘虛而入！`;
+                    announcement.className = "text-center font-black text-lg md:text-2xl mb-4 min-h-[2rem] text-red-600 drop-shadow-sm";
+                } else if (isPlayerCorrect && isBossCorrect) {
+                    sfx.click();
+                    announcement.innerText = "⚔️ 雙方皆答對！內力激盪，不分軒輊！";
+                    announcement.className = "text-center font-black text-lg md:text-2xl mb-4 min-h-[2rem] text-blue-700 drop-shadow-sm";
+                } else {
+                    sfx.wrong();
+                    announcement.innerText = "💨 雙方皆答錯！互相錯失良機！";
+                    announcement.className = "text-center font-black text-lg md:text-2xl mb-4 min-h-[2rem] text-gray-700 drop-shadow-sm";
+                }
+            }
+
+            updateHpUI();
+
+            setTimeout(() => {
+                if (bossHp <= 0) endBattle(true);
+                else if (playerHp <= 0) endBattle(false);
+                else {
+                    loadQuestion();
+                }
+            }, gameMode === 'ai' ? 2200 : 1400); 
+        }
+
+        function screenShake(element) {
+            element.classList.remove('shake-animation');
+            void element.offsetWidth; 
+            element.classList.add('shake-animation');
+        }
+
+        function flashDamage() {
+            const overlay = document.getElementById('damage-overlay');
+            overlay.style.opacity = '1';
+            setTimeout(() => overlay.style.opacity = '0', 200);
+        }
+
+        function endBattle(isWin) {
+            changeScreen('result');
+            const title = document.getElementById('result-title');
+            const desc = document.getElementById('result-desc');
+            const rewardSection = document.getElementById('reward-section');
+            
+            if (isWin) {
+                sfx.correct();
+                setTimeout(sfx.correct, 200);
+                title.innerText = '挑戰成功！';
+                title.style.color = '#22c55e';
+                desc.innerHTML = `你在<span class="font-black">${gameMode === 'ai' ? 'AI對戰' : '單人闖關'}</span>中，成功擊退了 <span class="text-crimson font-black">${currentBoss.name}</span>`;
+                
+                document.getElementById('result-badge-img').src = currentBoss.badgeImg;
+                
+                let badgeUrl = new URL(currentBoss.badgeImg);
+                let badgeText = badgeUrl.searchParams.get('text') || "專屬榮譽徽章";
+                document.getElementById('result-badge-name').innerText = badgeText + " 徽章"; 
+                
+                rewardSection.classList.remove('hidden');
+            } else {
+                sfx.wrong();
+                setTimeout(sfx.wrong, 300);
+                title.innerText = '勝敗乃兵家常事';
+                title.style.color = '#ef4444';
+                desc.innerHTML = `你敗在了 <span class="text-crimson font-black">${currentBoss.name}</span> 手下，大俠請重新練功！`;
+                rewardSection.classList.add('hidden');
+            }
+        }
+    </script>
+</body>
+</html>

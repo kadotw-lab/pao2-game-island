@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>奇幻畫廊：動態圖片拼圖挑戰</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        glass: 'rgba(255, 255, 255, 0.1)',
+                        glassDark: 'rgba(0, 0, 0, 0.3)',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+            overflow-x: hidden;
+        }
+
+        /* 拼圖板容器 */
+        #puzzle-board {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            background-color: rgba(0, 0, 0, 0.5);
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(255,255,255,0.1);
+        }
+
+        /* 單個圖塊 */
+        .puzzle-tile {
+            position: absolute;
+            transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            background-repeat: no-repeat;
+            cursor: pointer;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.2);
+            /* 預防圖片載入失敗的文字置中 */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            font-weight: bold;
+            color: transparent; /* 正常情況下隱藏數字 */
+        }
+        
+        .puzzle-tile:hover {
+            filter: brightness(1.1);
+            z-index: 10;
+        }
+
+        .puzzle-tile.show-number {
+            color: rgba(255,255,255,0.7);
+            background-color: #334155;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+
+        /* 毛玻璃質感 */
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* 彩色紙屑動畫 */
+        .confetti {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            opacity: 0;
+        }
+        @keyframes fall {
+            0% { opacity: 1; transform: translateY(-10vh) rotate(0deg); }
+            100% { opacity: 0; transform: translateY(100vh) rotate(720deg); }
+        }
+    </style>
+</head>
+<body class="text-slate-100 font-sans min-h-screen flex flex-col items-center py-6 px-4 select-none">
+
+    <div class="max-w-4xl w-full flex flex-col md:flex-row gap-6 items-start justify-center">
+        
+        <!-- 左側面板：控制項與資訊 -->
+        <div class="w-full md:w-80 flex flex-col gap-4">
+            
+            <!-- 標題 -->
+            <div class="glass-panel rounded-2xl p-5 text-center shadow-xl">
+                <h1 class="text-2xl font-black bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent mb-1">
+                    奇幻畫廊
+                </h1>
+                <p class="text-xs text-slate-400 font-bold tracking-widest">動態圖片拼圖挑戰</p>
+            </div>
+
+            <!-- 數據儀表板 -->
+            <div class="glass-panel rounded-2xl p-4 flex justify-between shadow-xl">
+                <div class="text-center w-1/2 border-r border-white/10">
+                    <div class="text-[10px] text-slate-400 uppercase tracking-widest">步數 (Moves)</div>
+                    <div id="moves-display" class="text-2xl font-black text-cyan-300">0</div>
+                </div>
+                <div class="text-center w-1/2">
+                    <div class="text-[10px] text-slate-400 uppercase tracking-widest">時間 (Time)</div>
+                    <div id="time-display" class="text-2xl font-black text-purple-300">00:00</div>
+                </div>
+            </div>
+
+            <!-- 遊戲設定 -->
+            <div class="glass-panel rounded-2xl p-5 shadow-xl flex flex-col gap-4">
+                
+                <div>
+                    <label class="text-xs text-slate-300 mb-1.5 block font-bold">選擇難度</label>
+                    <div class="flex gap-2">
+                        <button class="diff-btn flex-1 py-2 rounded-lg bg-cyan-600/30 border border-cyan-400/50 text-cyan-200 text-sm font-bold transition" data-size="3">3 x 3</button>
+                        <button class="diff-btn flex-1 py-2 rounded-lg bg-slate-800 border border-white/10 text-slate-400 text-sm font-bold transition hover:bg-slate-700" data-size="4">4 x 4</button>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="text-xs text-slate-300 mb-1.5 flex justify-between items-center font-bold">
+                        <span>自訂圖片網址 (可選)</span>
+                        <button id="random-img-btn" class="text-cyan-400 hover:text-cyan-300 text-[10px]"><i class="fas fa-random"></i> 隨機換圖</button>
+                    </label>
+                    <input type="text" id="custom-img-url" class="w-full bg-slate-950/50 border border-white/20 rounded-lg px-3 py-2 text-xs text-slate-200 focus:border-cyan-400 focus:outline-none placeholder-slate-600" placeholder="貼上 JPG/PNG 圖片網址...">
+                </div>
+
+                <button id="start-btn" class="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-purple-600 hover:from-cyan-400 hover:to-purple-500 text-white font-black shadow-lg shadow-cyan-500/25 transition transform active:scale-95 flex items-center justify-center gap-2">
+                    <i class="fas fa-play"></i> 開始 / 重置拼圖
+                </button>
+            </div>
+
+            <!-- 原圖參考 -->
+            <div class="glass-panel rounded-2xl p-3 shadow-xl">
+                <div class="text-[10px] text-slate-400 uppercase tracking-widest mb-2 text-center">原圖參考 (Reference)</div>
+                <div class="w-full aspect-square rounded-lg bg-slate-800 border border-white/10 overflow-hidden relative">
+                    <img id="reference-img" src="" alt="Reference" class="w-full h-full object-cover">
+                    <!-- 載入中遮罩 -->
+                    <div id="img-loading" class="absolute inset-0 bg-slate-900/80 flex items-center justify-center text-cyan-400">
+                        <i class="fas fa-circle-notch fa-spin text-2xl"></i>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- 右側主拼圖區 -->
+        <div class="w-full max-w-lg">
+            <div id="puzzle-board">
+                <!-- 圖塊將透過 JS 動態產生 -->
+            </div>
+        </div>
+
+    </div>
+
+    <!-- 勝利視窗 Modal -->
+    <div id="victory-modal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="glass-panel border-2 border-cyan-400/50 rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl relative overflow-hidden transform scale-95 opacity-0 transition-all duration-300" id="victory-content">
+            <div class="text-6xl mb-4 animate-bounce">🏆</div>
+            <h2 class="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 to-purple-300 mb-2">拼圖完成！</h2>
+            <p class="text-sm text-slate-300 mb-6">太厲害了，您成功復原了這幅畫作！</p>
+            
+            <div class="bg-slate-900/50 rounded-xl p-4 mb-6 border border-white/10">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-slate-400 text-sm">總步數</span>
+                    <span id="final-moves" class="text-xl font-bold text-cyan-300">0</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-400 text-sm">總耗時</span>
+                    <span id="final-time" class="text-xl font-bold text-purple-300">00:00</span>
+                </div>
+            </div>
+
+            <button id="play-again-btn" class="w-full py-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-900 font-black shadow-lg shadow-cyan-500/30 transition transform active:scale-95">
+                再玩一次
+            </button>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * 音效引擎 (Web Audio API)
+         */
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+            }
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                }
+            }
+            playSlide() {
+                this.init();
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(150, this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(80, this.ctx.currentTime + 0.1);
+                    gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.1);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.1);
+                } catch(e) {}
+            }
+            playWin() {
+                this.init();
+                const notes = [440, 554.37, 659.25, 880]; // A major arpeggio
+                notes.forEach((freq, i) => {
+                    setTimeout(() => {
+                        try {
+                            const osc = this.ctx.createOscillator();
+                            const gain = this.ctx.createGain();
+                            osc.type = 'sine';
+                            osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                            gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                            gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.4);
+                            osc.connect(gain);
+                            gain.connect(this.ctx.destination);
+                            osc.start();
+                            osc.stop(this.ctx.currentTime + 0.4);
+                        } catch(e){}
+                    }, i * 100);
+                });
+            }
+        }
+
+        /**
+         * 拼圖遊戲主邏輯
+         */
+        class SlidingPuzzle {
+            constructor() {
+                this.size = 3; // 3x3 或 4x4
+                this.tiles = [];
+                this.emptyPos = { x: 2, y: 2 }; // 空格位置
+                this.moves = 0;
+                this.timer = null;
+                this.seconds = 0;
+                this.isPlaying = false;
+                this.imageUrl = `https://picsum.photos/600/600?random=${Math.random()}`;
+                
+                this.sound = new SoundEngine();
+                this.boardEl = document.getElementById('puzzle-board');
+                this.movesEl = document.getElementById('moves-display');
+                this.timeEl = document.getElementById('time-display');
+                this.refImgEl = document.getElementById('reference-img');
+                
+                this.bindEvents();
+                this.loadImage();
+            }
+
+            bindEvents() {
+                // 難度切換
+                document.querySelectorAll('.diff-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        document.querySelectorAll('.diff-btn').forEach(b => {
+                            b.className = 'diff-btn flex-1 py-2 rounded-lg bg-slate-800 border border-white/10 text-slate-400 text-sm font-bold transition hover:bg-slate-700';
+                        });
+                        e.target.className = 'diff-btn flex-1 py-2 rounded-lg bg-cyan-600/30 border border-cyan-400/50 text-cyan-200 text-sm font-bold transition';
+                        this.size = parseInt(e.target.dataset.size);
+                        this.initGame();
+                    });
+                });
+
+                // 換圖按鈕
+                document.getElementById('random-img-btn').addEventListener('click', () => {
+                    this.imageUrl = `https://picsum.photos/600/600?random=${Math.random()}`;
+                    document.getElementById('custom-img-url').value = '';
+                    this.loadImage();
+                });
+
+                // 開始/重置按鈕
+                document.getElementById('start-btn').addEventListener('click', () => {
+                    const customUrl = document.getElementById('custom-img-url').value.trim();
+                    if (customUrl) this.imageUrl = customUrl;
+                    this.loadImage();
+                });
+
+                // 再玩一次
+                document.getElementById('play-again-btn').addEventListener('click', () => {
+                    this.closeVictory();
+                    this.initGame();
+                });
+            }
+
+            loadImage() {
+                document.getElementById('img-loading').classList.remove('hidden');
+                
+                const img = new Image();
+                img.crossOrigin = "Anonymous";
+                
+                img.onload = () => {
+                    document.getElementById('img-loading').classList.add('hidden');
+                    this.refImgEl.src = this.imageUrl;
+                    this.initGame();
+                };
+                
+                img.onerror = () => {
+                    alert("圖片載入失敗，可能是網址錯誤或存在防盜鏈(CORS)限制。系統將自動切換為數字模式！");
+                    document.getElementById('img-loading').classList.add('hidden');
+                    this.imageUrl = ''; // 設為空觸發降級
+                    this.refImgEl.src = '';
+                    this.initGame();
+                };
+                
+                img.src = this.imageUrl;
+            }
+
+            initGame() {
+                this.stopTimer();
+                this.moves = 0;
+                this.seconds = 0;
+                this.isPlaying = false;
+                this.updateDashboard();
+                this.generateTiles();
+                
+                // 為了確保有解，從完成狀態開始進行合法隨機打亂
+                this.shuffle();
+                this.renderBoard();
+            }
+
+            generateTiles() {
+                this.tiles = [];
+                let id = 1;
+                for (let y = 0; y < this.size; y++) {
+                    for (let x = 0; x < this.size; x++) {
+                        // 最後一個位置是空格
+                        if (x === this.size - 1 && y === this.size - 1) {
+                            this.emptyPos = { x, y };
+                            continue;
+                        }
+                        this.tiles.push({
+                            id: id++,
+                            correctX: x,
+                            correctY: y,
+                            currentX: x,
+                            currentY: y
+                        });
+                    }
+                }
+            }
+
+            /**
+             * 模擬真實滑動的洗牌演算法，保證 100% 有解
+             */
+            shuffle() {
+                const shuffleMoves = this.size === 3 ? 100 : 200;
+                let lastMovedTile = null;
+
+                for (let i = 0; i < shuffleMoves; i++) {
+                    // 找出與目前空格相鄰的圖塊
+                    const movableTiles = this.tiles.filter(t => this.isAdjacent(t.currentX, t.currentY, this.emptyPos.x, this.emptyPos.y));
+                    
+                    // 避免馬上移回上一步的位置造成原地踏步
+                    let candidates = movableTiles;
+                    if (candidates.length > 1 && lastMovedTile) {
+                        candidates = candidates.filter(t => t !== lastMovedTile);
+                    }
+
+                    const randomTile = candidates[Math.floor(Math.random() * candidates.length)];
+                    
+                    // 交換位置
+                    const tempX = randomTile.currentX;
+                    const tempY = randomTile.currentY;
+                    randomTile.currentX = this.emptyPos.x;
+                    randomTile.currentY = this.emptyPos.y;
+                    this.emptyPos.x = tempX;
+                    this.emptyPos.y = tempY;
+
+                    lastMovedTile = randomTile;
+                }
+            }
+
+            isAdjacent(x1, y1, x2, y2) {
+                return (Math.abs(x1 - x2) === 1 && y1 === y2) || (Math.abs(y1 - y2) === 1 && x1 === x2);
+            }
+
+            renderBoard() {
+                this.boardEl.innerHTML = '';
+                const tileSize = 100 / this.size;
+
+                this.tiles.forEach(tile => {
+                    const el = document.createElement('div');
+                    el.className = 'puzzle-tile';
+                    // 降級模式顯示數字
+                    if (!this.imageUrl) el.classList.add('show-number');
+                    el.innerText = tile.id;
+                    
+                    // 設定尺寸與絕對定位動畫基礎
+                    el.style.width = `${tileSize}%`;
+                    el.style.height = `${tileSize}%`;
+                    
+                    // 計算背景圖片切割與定位 (Background Math)
+                    if (this.imageUrl) {
+                        el.style.backgroundImage = `url('${this.imageUrl}')`;
+                        el.style.backgroundSize = `${this.size * 100}% ${this.size * 100}%`;
+                        
+                        // 計算原始正確位置的百分比 (例如 3x3 網格，x/y 可以是 0%, 50%, 100%)
+                        const bgPosX = (tile.correctX / (this.size - 1)) * 100;
+                        const bgPosY = (tile.correctY / (this.size - 1)) * 100;
+                        el.style.backgroundPosition = `${bgPosX}% ${bgPosY}%`;
+                    }
+
+                    // 綁定點擊事件
+                    el.addEventListener('click', () => this.handleTileClick(tile, el));
+
+                    // 將元素存入物件方便後續更新 transform
+                    tile.element = el;
+                    
+                    this.boardEl.appendChild(el);
+                });
+
+                this.updateTilePositions();
+            }
+
+            updateTilePositions() {
+                this.tiles.forEach(tile => {
+                    // 使用 translate 實現硬體加速平滑移動
+                    tile.element.style.transform = `translate(${tile.currentX * 100}%, ${tile.currentY * 100}%)`;
+                });
+            }
+
+            handleTileClick(tile, el) {
+                if (this.isAdjacent(tile.currentX, tile.currentY, this.emptyPos.x, this.emptyPos.y)) {
+                    if (!this.isPlaying) {
+                        this.isPlaying = true;
+                        this.startTimer();
+                    }
+
+                    // 播放音效
+                    this.sound.playSlide();
+
+                    // 交換位置
+                    const tempX = tile.currentX;
+                    const tempY = tile.currentY;
+                    tile.currentX = this.emptyPos.x;
+                    tile.currentY = this.emptyPos.y;
+                    this.emptyPos.x = tempX;
+                    this.emptyPos.y = tempY;
+
+                    // 更新畫面
+                    this.updateTilePositions();
+                    
+                    // 更新步數
+                    this.moves++;
+                    this.updateDashboard();
+
+                    // 檢查勝利
+                    setTimeout(() => this.checkWin(), 250); // 等待動畫完成
+                }
+            }
+
+            checkWin() {
+                const isWin = this.tiles.every(t => t.currentX === t.correctX && t.currentY === t.correctY);
+                if (isWin) {
+                    this.stopTimer();
+                    this.isPlaying = false;
+                    this.sound.playWin();
+                    this.showVictory();
+                }
+            }
+
+            startTimer() {
+                this.timer = setInterval(() => {
+                    this.seconds++;
+                    this.updateDashboard();
+                }, 1000);
+            }
+
+            stopTimer() {
+                if (this.timer) {
+                    clearInterval(this.timer);
+                    this.timer = null;
+                }
+            }
+
+            updateDashboard() {
+                this.movesEl.innerText = this.moves;
+                const m = String(Math.floor(this.seconds / 60)).padStart(2, '0');
+                const s = String(this.seconds % 60).padStart(2, '0');
+                this.timeEl.innerText = `${m}:${s}`;
+            }
+
+            showVictory() {
+                document.getElementById('final-moves').innerText = this.moves;
+                document.getElementById('final-time').innerText = this.timeEl.innerText;
+                
+                const modal = document.getElementById('victory-modal');
+                const content = document.getElementById('victory-content');
+                
+                modal.classList.remove('hidden');
+                
+                // 動畫效果
+                requestAnimationFrame(() => {
+                    content.classList.remove('scale-95', 'opacity-0');
+                    content.classList.add('scale-100', 'opacity-100');
+                });
+
+                this.fireConfetti();
+            }
+
+            closeVictory() {
+                const modal = document.getElementById('victory-modal');
+                const content = document.getElementById('victory-content');
+                
+                content.classList.remove('scale-100', 'opacity-100');
+                content.classList.add('scale-95', 'opacity-0');
+                
+                setTimeout(() => {
+                    modal.classList.add('hidden');
+                    // 清理紙屑
+                    document.querySelectorAll('.confetti').forEach(c => c.remove());
+                }, 300);
+            }
+
+            fireConfetti() {
+                const colors = ['#38bdf8', '#c084fc', '#f472b6', '#facc15', '#4ade80'];
+                for (let i = 0; i < 60; i++) {
+                    const confetti = document.createElement('div');
+                    confetti.className = 'confetti';
+                    confetti.style.left = Math.random() * 100 + 'vw';
+                    confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                    confetti.style.animation = `fall ${Math.random() * 2 + 2}s linear forwards`;
+                    document.body.appendChild(confetti);
+                }
+            }
+        }
+
+        // 初始化遊戲
+        window.onload = () => {
+            new SlidingPuzzle();
+        };
+    </script>
+</body>
+</html>

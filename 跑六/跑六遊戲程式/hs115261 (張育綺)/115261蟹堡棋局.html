@@ -1,0 +1,1214 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>海綿寶寶比奇堡暗棋大亂鬥</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts & FontAwesome icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Noto+Sans+TC:wght@500;700;900&display=swap" rel="stylesheet">
+  
+  <style>
+    body {
+      font-family: 'Noto Sans TC', 'Fredoka One', sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+      transition: background 0.5s ease;
+    }
+
+    /* 主題 1: 經典比奇堡沙灘 */
+    body.theme-spongebob {
+      background: linear-gradient(180deg, #0284c7 0%, #0369a1 40%, #075985 80%, #0c4a6e 100%);
+    }
+    body.theme-spongebob .board-wood {
+      background: #d97706;
+      background-image: 
+        radial-gradient(circle at 50% 50%, rgba(251, 191, 36, 0.3) 0%, transparent 80%),
+        repeating-linear-gradient(45deg, rgba(180, 83, 9, 0.1) 0, rgba(180, 83, 9, 0.1) 10px, transparent 10px, transparent 20px);
+      border-color: #92400e;
+    }
+
+    /* 主題 2: 蟹堡王餐廳 */
+    body.theme-krusty {
+      background: linear-gradient(180deg, #991b1b 0%, #7f1d1d 50%, #450a0a 100%);
+    }
+    body.theme-krusty .board-wood {
+      background: #b45309;
+      background-image: 
+        radial-gradient(circle at 50% 50%, rgba(245, 158, 11, 0.3) 0%, transparent 80%),
+        repeating-linear-gradient(0deg, rgba(120, 53, 15, 0.3) 0, rgba(120, 53, 15, 0.3) 15px, transparent 15px, transparent 30px);
+      border-color: #78350f;
+    }
+
+    /* 主題 3: 水母田夢幻草地 */
+    body.theme-jellyfish {
+      background: linear-gradient(180deg, #7e22ce 0%, #581c87 50%, #3b0764 100%);
+    }
+    body.theme-jellyfish .board-wood {
+      background: #a21caf;
+      background-image: 
+        radial-gradient(circle at 50% 50%, rgba(244, 114, 182, 0.3) 0%, transparent 80%),
+        repeating-linear-gradient(60deg, rgba(112, 26, 117, 0.3) 0, rgba(112, 26, 117, 0.3) 12px, transparent 12px, transparent 24px);
+      border-color: #701a75;
+    }
+
+    /* 主題 4: 飛天幽靈船 */
+    body.theme-ghost {
+      background: linear-gradient(180deg, #064e3b 0%, #022c22 50%, #021a12 100%);
+    }
+    body.theme-ghost .board-wood {
+      background: #115e59;
+      background-image: 
+        radial-gradient(circle at 50% 50%, rgba(45, 212, 191, 0.2) 0%, transparent 80%),
+        repeating-linear-gradient(90deg, rgba(15, 23, 42, 0.4) 0, rgba(15, 23, 42, 0.4) 20px, transparent 20px, transparent 40px);
+      border-color: #134e4a;
+    }
+
+    /* 浮動氣泡背景 */
+    .bubble {
+      position: absolute;
+      background: rgba(255, 255, 255, 0.25);
+      border: 2px solid rgba(255, 255, 255, 0.4);
+      border-radius: 50%;
+      pointer-events: none;
+      animation: floatUp 8s infinite linear;
+    }
+
+    @keyframes floatUp {
+      0% { transform: translateY(105vh) scale(0.6); opacity: 0.3; }
+      50% { opacity: 0.8; }
+      100% { transform: translateY(-10vh) scale(1.2); opacity: 0; }
+    }
+
+    /* 3D 翻牌動畫 */
+    .card-perspective {
+      perspective: 1000px;
+    }
+
+    .card-inner {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+      transform-style: preserve-3d;
+    }
+
+    .card-inner.flipped {
+      transform: rotateY(180deg);
+    }
+
+    .card-front, .card-back {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      backface-visibility: hidden;
+      border-radius: 1rem;
+    }
+
+    .card-back {
+      transform: rotateY(180deg);
+    }
+
+    /* 棋子高亮 */
+    .piece-selected {
+      animation: pulseGlow 1.2s infinite alternate;
+      box-shadow: 0 0 20px #fde047, 0 0 10px #eab308;
+      transform: scale(1.05) translateY(-4px);
+      z-index: 20;
+    }
+
+    @keyframes pulseGlow {
+      from { box-shadow: 0 0 12px #fde047, inset 0 0 8px #fde047; }
+      to { box-shadow: 0 0 24px #facc15, inset 0 0 14px #facc15; }
+    }
+
+    .legal-target {
+      position: relative;
+    }
+
+    .legal-target::after {
+      content: '';
+      position: absolute;
+      inset: -4px;
+      border: 4px dashed #4ade80;
+      border-radius: 1.2rem;
+      animation: rotateDash 6s linear infinite;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    .legal-capture::after {
+      border-color: #f87171;
+      animation: rotateDash 3s linear infinite;
+    }
+
+    @keyframes rotateDash {
+      to { transform: rotate(360deg); }
+    }
+
+    /* 棋盤質感 */
+    .board-wood {
+      background: #d97706;
+      border: 8px solid #92400e;
+      box-shadow: inset 0 0 25px rgba(0,0,0,0.5), 0 15px 30px rgba(0,0,0,0.4);
+    }
+
+    .cell-grid {
+      background: rgba(120, 53, 15, 0.25);
+      border: 2px inset rgba(251, 191, 36, 0.4);
+    }
+
+    .title-text {
+      text-shadow: 3px 3px 0px #0369a1, 6px 6px 0px #082f49;
+    }
+
+    .btn-sponge {
+      background: linear-gradient(180deg, #fde047 0%, #eab308 100%);
+      border-bottom: 5px solid #ca8a04;
+      transition: all 0.1s ease;
+    }
+
+    .btn-sponge:active {
+      transform: translateY(3px);
+      border-bottom-width: 2px;
+    }
+
+    /* 閃電限時進度條動畫 */
+    .timer-bar {
+      transition: width 0.1s linear, background-color 0.3s ease;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-between p-2 md:p-6 text-slate-100 overflow-x-hidden relative">
+
+  <div id="bubble-container" class="fixed inset-0 pointer-events-none z-0"></div>
+
+  <header class="w-full max-w-4xl text-center z-10 my-2">
+    <div class="flex items-center justify-center gap-3">
+      <span class="text-4xl">🪸</span>
+      <h1 class="text-3xl md:text-5xl font-extrabold text-yellow-300 tracking-wider title-text">
+        海綿寶寶比奇堡暗棋大亂鬥
+      </h1>
+      <span class="text-4xl">🍍</span>
+    </div>
+
+    <!-- 狀態資訊列 -->
+    <div class="mt-4 flex flex-wrap items-center justify-between bg-sky-950/70 backdrop-blur-md rounded-2xl p-3 md:p-4 border-2 border-sky-400/40 shadow-xl gap-2">
+      <!-- 陣營資訊：紅方 -->
+      <div id="team-red-box" class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-500/20 border border-amber-400/40 transition-all">
+        <div class="w-8 h-8 rounded-full bg-amber-300 text-amber-950 font-black flex items-center justify-center text-lg border-2 border-amber-500">
+          紅
+        </div>
+        <div class="text-left">
+          <div class="text-xs text-amber-200 font-bold">比奇堡好朋友</div>
+          <div class="text-sm font-black text-amber-300" id="red-count">剩餘: 16</div>
+        </div>
+      </div>
+
+      <!-- 回合指示與閃電計時器 -->
+      <div class="flex flex-col items-center flex-1 min-w-[200px]">
+        <div id="turn-indicator" class="px-4 py-1 rounded-full text-base md:text-lg font-black bg-yellow-400 text-slate-900 shadow-lg animate-bounce">
+          請選擇棋子開始！
+        </div>
+
+        <!-- 閃電限時進度條容器 -->
+        <div id="timer-container" class="w-full max-w-xs mt-2 hidden">
+          <div class="flex justify-between text-xs font-black text-amber-300 mb-1">
+            <span>⏱️ 回合思考時間</span>
+            <span id="timer-text">10s</span>
+          </div>
+          <div class="w-full bg-slate-900 rounded-full h-3 border border-amber-400/50 overflow-hidden">
+            <div id="timer-bar" class="timer-bar bg-green-400 h-full w-full"></div>
+          </div>
+        </div>
+
+        <!-- AI 對話泡泡 -->
+        <div id="ai-dialog-box" class="mt-1 hidden transition-all duration-300 transform scale-95">
+          <div class="bg-amber-100 text-amber-950 text-xs px-3 py-1 rounded-full font-bold shadow-md flex items-center gap-1.5 border border-amber-300">
+            <span id="ai-avatar-icon" class="text-base">⭐</span>
+            <span id="ai-speech-text">「這是哪裡？可以吃嗎？」</span>
+          </div>
+        </div>
+
+        <div class="text-xs text-sky-200 mt-1 flex gap-4">
+          <span>對手: <strong id="opponent-name-text" class="text-yellow-300">派大星 (簡單)</strong></span>
+          <span>連勝: <strong id="streak-text" class="text-green-300">0</strong></span>
+        </div>
+      </div>
+
+      <!-- 陣營資訊：黑方 -->
+      <div id="team-black-box" class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-950/40 border border-emerald-500/40 transition-all">
+        <div class="text-right">
+          <div class="text-xs text-emerald-300 font-bold">痞子老板軍團</div>
+          <div class="text-sm font-black text-emerald-400" id="black-count">剩餘: 16</div>
+        </div>
+        <div class="w-8 h-8 rounded-full bg-emerald-700 text-emerald-100 font-black flex items-center justify-center text-lg border-2 border-emerald-400">
+          黑
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="w-full max-w-4xl flex flex-col items-center justify-center z-10 my-2">
+    <!-- 三大切換選單：模式 / 對手 / 基底 -->
+    <div class="w-full max-w-2xl mb-3 flex flex-wrap items-center justify-between gap-2 bg-slate-900/70 p-3 rounded-2xl border border-sky-500/40 backdrop-blur-md text-xs shadow-lg">
+      
+      <!-- 1. 遊戲模式 -->
+      <div class="flex items-center gap-1.5">
+        <span class="font-bold text-amber-300 flex items-center gap-1"><i class="fa-solid fa-gamepad"></i> 模式:</span>
+        <select id="mode-select" class="bg-sky-950 text-amber-200 border border-amber-400/60 rounded-xl px-2 py-1 font-bold outline-none cursor-pointer hover:bg-sky-900 transition-colors">
+          <option value="classic">🍍 經典暗棋 (蓋牌)</option>
+          <option value="open">👁️ 全亮明棋 (開牌)</option>
+          <option value="blitz">⏱️ 閃電限時 (10秒)</option>
+          <option value="puzzle">🧩 殘局闖關 (解謎)</option>
+        </select>
+      </div>
+
+      <!-- 殘局關卡選擇器 (預設隱藏) -->
+      <div id="puzzle-select-container" class="hidden flex items-center gap-1">
+        <span class="font-bold text-pink-300">關卡:</span>
+        <select id="puzzle-level-select" class="bg-pink-950 text-pink-200 border border-pink-400 rounded-xl px-2 py-1 font-bold outline-none cursor-pointer hover:bg-pink-900">
+          <option value="0">關卡 1: 小蝸包抄皮老闆</option>
+          <option value="1">關卡 2: 蟹老闆討債大作戰</option>
+          <option value="2">關卡 3: 海綿寶寶絕地大反攻</option>
+        </select>
+      </div>
+
+      <!-- 2. 選對手 -->
+      <div class="flex items-center gap-1.5">
+        <span class="font-bold text-yellow-300 flex items-center gap-1"><i class="fa-solid fa-robot"></i> 對手:</span>
+        <select id="opponent-select" class="bg-sky-950 text-yellow-200 border border-sky-400 rounded-xl px-2 py-1 font-bold outline-none cursor-pointer hover:bg-sky-900 transition-colors">
+          <option value="patrick">⭐ 派大星 (簡單 AI)</option>
+          <option value="krabs">🦀 蟹老闆 (中等 AI)</option>
+          <option value="karen">🖥️ 凱倫 (困難 AI)</option>
+          <option value="pvp">👥 雙人同機對戰</option>
+        </select>
+      </div>
+
+      <!-- 3. 選基底 -->
+      <div class="flex items-center gap-1.5">
+        <span class="font-bold text-cyan-300 flex items-center gap-1"><i class="fa-solid fa-paint-roller"></i> 基底:</span>
+        <select id="theme-select" class="bg-sky-950 text-cyan-200 border border-sky-400 rounded-xl px-2 py-1 font-bold outline-none cursor-pointer hover:bg-sky-900 transition-colors">
+          <option value="theme-spongebob">🍍 比奇堡沙灘</option>
+          <option value="theme-krusty">🍔 蟹堡王餐廳</option>
+          <option value="theme-jellyfish">🪼 夢幻水母田</option>
+          <option value="theme-ghost">👻 飛天幽靈船</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- 4x8 暗棋棋盤 -->
+    <div class="board-wood rounded-3xl p-3 md:p-5 w-full max-w-2xl transition-all duration-300">
+      <div id="board-grid" class="grid grid-cols-4 gap-2 md:gap-3 aspect-[4/8] w-full">
+        <!-- 32 個棋格由 JS 動態渲染 -->
+      </div>
+    </div>
+
+    <!-- 功能按鈕 -->
+    <div class="flex flex-wrap justify-center gap-3 md:gap-4 mt-4 w-full max-w-md">
+      <button id="restart-btn" class="btn-sponge text-slate-900 font-black px-5 py-2.5 rounded-2xl text-base flex items-center gap-2 shadow-md">
+        <i class="fa-solid fa-rotate-right"></i> 重新開局
+      </button>
+      <button id="rules-btn" class="bg-teal-600 hover:bg-teal-500 text-white font-bold px-4 py-2.5 rounded-2xl text-base flex items-center gap-2 border-b-4 border-teal-800 active:border-b-0 shadow-md transition-all">
+        <i class="fa-solid fa-book-open"></i> 規則與階級
+      </button>
+    </div>
+  </main>
+
+  <footer class="text-xs text-sky-200/80 text-center z-10 my-2">
+    海綿寶寶暗棋大亂鬥 &copy; 比奇堡娛樂公司 | 支援四大遊戲模式與多種 AI 人格戰術對決
+  </footer>
+
+  <!-- 規則 modal -->
+  <div id="rules-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border-4 border-yellow-400 rounded-3xl p-5 md:p-6 max-w-xl w-full max-h-[85vh] overflow-y-auto text-slate-100 shadow-2xl relative">
+      <button id="close-rules-btn" class="absolute top-4 right-4 text-slate-400 hover:text-white text-2xl font-black">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+      <h2 class="text-2xl font-black text-yellow-300 text-center mb-4 flex items-center justify-center gap-2">
+        <span>📜</span> 角色階級與規則說明 <span>📜</span>
+      </h2>
+      <div class="text-sm space-y-3 text-slate-200">
+        <p class="text-amber-300 font-bold">【大小關係】將/帥(7) > 士/仕(6) > 象/相(5) > 車/俥(4) > 馬/傌(3) > 包/炮(2) > 卒/兵(1)</p>
+        <p class="text-emerald-300 font-bold">【特別克制】卒/兵(1) 可以吃 將/帥(7)；將/帥(7) 不能吃 卒/兵(1)。</p>
+        <p class="text-sky-300 font-bold">【包/炮 特殊跳吃】移動走1格；吃子必須沿直線「隔著恰好1張棋子」跳過並吃掉敵棋。</p>
+        
+        <table class="w-full text-xs text-left border-collapse border border-sky-800 mt-2">
+          <thead>
+            <tr class="bg-sky-950 text-yellow-300 border-b border-sky-800">
+              <th class="p-2 border border-sky-800">階級</th>
+              <th class="p-2 border border-sky-800">紅方 (好朋友隊)</th>
+              <th class="p-2 border border-sky-800">黑方 (痞子老板軍)</th>
+              <th class="p-2 border border-sky-800">數量</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-sky-900/60">
+            <tr><td class="p-2 font-bold border border-sky-800 text-center">7</td><td class="p-2 border border-sky-800">將 (海綿寶寶 🧽)</td><td class="p-2 border border-sky-800">帥 (皮老板 🦠)</td><td class="p-2 border border-sky-800 text-center">各1張</td></tr>
+            <tr><td class="p-2 font-bold border border-sky-800 text-center">6</td><td class="p-2 border border-sky-800">士 (派大星 ⭐)</td><td class="p-2 border border-sky-800">仕 (凱倫 🖥️)</td><td class="p-2 border border-sky-800 text-center">各2張</td></tr>
+            <tr><td class="p-2 font-bold border border-sky-800 text-center">5</td><td class="p-2 border border-sky-800">象 (蟹老闆 🦀)</td><td class="p-2 border border-sky-800">相 (蝦霸拉瑞 🦞)</td><td class="p-2 border border-sky-800 text-center">各2張</td></tr>
+            <tr><td class="p-2 font-bold border border-sky-800 text-center">4</td><td class="p-2 border border-sky-800">車 (珊迪 🐿️)</td><td class="p-2 border border-sky-800">俥 (飛天幽靈 👻)</td><td class="p-2 border border-sky-800 text-center">各2張</td></tr>
+            <tr><td class="p-2 font-bold border border-sky-800 text-center">3</td><td class="p-2 border border-sky-800">馬 (章魚哥 🦑)</td><td class="p-2 border border-sky-800">傌 (章魚威廉 🐙)</td><td class="p-2 border border-sky-800 text-center">各2張</td></tr>
+            <tr><td class="p-2 font-bold border border-sky-800 text-center">2</td><td class="p-2 border border-sky-800">包 (小蝸 🐌)</td><td class="p-2 border border-sky-800">炮 (泡泡氣球 🫧)</td><td class="p-2 border border-sky-800 text-center">各2張</td></tr>
+            <tr><td class="p-2 font-bold border border-sky-800 text-center">1</td><td class="p-2 border border-sky-800">卒 (水母 🪼)</td><td class="p-2 border border-sky-800">兵 (海霸王漢堡 🍔)</td><td class="p-2 border border-sky-800 text-center">各5張</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="mt-5 text-center">
+        <button id="modal-confirm-btn" class="btn-sponge text-slate-900 font-black px-6 py-2.5 rounded-2xl">了解，開始遊戲！</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 結算 modal -->
+  <div id="gameover-modal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-gradient-to-b from-sky-900 to-slate-950 border-4 border-yellow-400 rounded-3xl p-6 max-w-md w-full text-center shadow-2xl transform transition-all scale-100">
+      <div id="winner-icon" class="text-6xl mb-2 animate-bounce">🏆</div>
+      <h2 id="winner-title" class="text-3xl font-extrabold text-yellow-300 mb-2">比奇堡勝利！</h2>
+      <p id="winner-desc" class="text-slate-200 mb-6">海綿寶寶與好朋友隊成功守護了美味蟹堡！</p>
+      
+      <div class="bg-sky-950/80 p-4 rounded-2xl mb-6 border border-sky-700/50 space-y-2 text-sm text-sky-100">
+        <div class="flex justify-between"><span>總花費回合：</span><strong id="stat-turns" class="text-yellow-300">0</strong></div>
+        <div class="flex justify-between"><span>戰績歷史：</span><strong id="stat-record" class="text-green-300">0勝 0敗</strong></div>
+        <div class="flex justify-between"><span>當前最高連勝：</span><strong id="stat-max-streak" class="text-amber-300">0</strong></div>
+      </div>
+
+      <button id="play-again-btn" class="btn-sponge w-full text-slate-900 font-black py-3 rounded-2xl text-lg shadow-lg">
+        再玩一局 🍍
+      </button>
+    </div>
+  </div>
+
+  <script>
+    // 音效合成器 (Web Audio API)
+    const sound = {
+      ctx: null,
+      init() {
+        if (!this.ctx) {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (AudioCtx) this.ctx = new AudioCtx();
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      },
+      playTone(freq, type, duration, gainValue = 0.1) {
+        try {
+          this.init();
+          if (!this.ctx) return;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+          gain.gain.setValueAtTime(gainValue, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.00001, this.ctx.currentTime + duration);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start();
+          osc.stop(this.ctx.currentTime + duration);
+        } catch (e) {
+          console.error(e);
+        }
+      },
+      playFlipSound() {
+        this.playTone(440, 'sine', 0.15, 0.15);
+        setTimeout(() => this.playTone(660, 'sine', 0.15, 0.15), 50);
+      },
+      playMoveSound() {
+        this.playTone(300, 'triangle', 0.1, 0.12);
+      },
+      playCaptureSound() {
+        this.playTone(180, 'sawtooth', 0.2, 0.2);
+        setTimeout(() => this.playTone(120, 'square', 0.25, 0.2), 60);
+      },
+      playTickSound() {
+        this.playTone(880, 'sine', 0.05, 0.1);
+      },
+      playWinSound() {
+        const notes = [261.63, 329.63, 392.00, 523.25];
+        notes.forEach((f, i) => {
+          setTimeout(() => this.playTone(f, 'triangle', 0.3, 0.2), i * 120);
+        });
+      },
+      playLoseSound() {
+        const notes = [300, 260, 220, 180];
+        notes.forEach((f, i) => {
+          setTimeout(() => this.playTone(f, 'sawtooth', 0.3, 0.2), i * 150);
+        });
+      }
+    };
+
+    // 32 張暗棋定義 (16 紅 / 16 黑)
+    const PIECE_DEFINITIONS = [
+      // Red side (比奇堡好朋友)
+      { name: '將', charName: '海綿寶寶', rank: 7, team: 'red', icon: '🧽', bgClass: 'from-amber-500 to-yellow-300 text-slate-900' },
+      { name: '士', charName: '派大星', rank: 6, team: 'red', icon: '⭐', bgClass: 'from-amber-500 to-pink-300 text-slate-900' },
+      { name: '士', charName: '派大星', rank: 6, team: 'red', icon: '⭐', bgClass: 'from-amber-500 to-pink-300 text-slate-900' },
+      { name: '象', charName: '蟹老闆', rank: 5, team: 'red', icon: '🦀', bgClass: 'from-amber-500 to-red-400 text-slate-900' },
+      { name: '象', charName: '蟹老闆', rank: 5, team: 'red', icon: '🦀', bgClass: 'from-amber-500 to-red-400 text-slate-900' },
+      { name: '車', charName: '珊迪', rank: 4, team: 'red', icon: '🐿️', bgClass: 'from-amber-500 to-orange-300 text-slate-900' },
+      { name: '車', charName: '珊迪', rank: 4, team: 'red', icon: '🐿️', bgClass: 'from-amber-500 to-orange-300 text-slate-900' },
+      { name: '馬', charName: '章魚哥', rank: 3, team: 'red', icon: '🦑', bgClass: 'from-amber-500 to-cyan-300 text-slate-900' },
+      { name: '馬', charName: '章魚哥', rank: 3, team: 'red', icon: '🦑', bgClass: 'from-amber-500 to-cyan-300 text-slate-900' },
+      { name: '包', charName: '小蝸', rank: 2, team: 'red', icon: '🐌', bgClass: 'from-amber-500 to-purple-300 text-slate-900' },
+      { name: '包', charName: '小蝸', rank: 2, team: 'red', icon: '🐌', bgClass: 'from-amber-500 to-purple-300 text-slate-900' },
+      { name: '卒', charName: '水母', rank: 1, team: 'red', icon: '🪼', bgClass: 'from-amber-500 to-pink-200 text-slate-900' },
+      { name: '卒', charName: '水母', rank: 1, team: 'red', icon: '🪼', bgClass: 'from-amber-500 to-pink-200 text-slate-900' },
+      { name: '卒', charName: '水母', rank: 1, team: 'red', icon: '🪼', bgClass: 'from-amber-500 to-pink-200 text-slate-900' },
+      { name: '卒', charName: '水母', rank: 1, team: 'red', icon: '🪼', bgClass: 'from-amber-500 to-pink-200 text-slate-900' },
+      { name: '卒', charName: '水母', rank: 1, team: 'red', icon: '🪼', bgClass: 'from-amber-500 to-pink-200 text-slate-900' },
+
+      // Black side (痞子老板軍團)
+      { name: '帥', charName: '皮老板', rank: 7, team: 'black', icon: '🦠', bgClass: 'from-emerald-700 to-emerald-900 text-emerald-100' },
+      { name: '仕', charName: '凱倫', rank: 6, team: 'black', icon: '🖥️️', bgClass: 'from-emerald-700 to-teal-900 text-emerald-100' },
+      { name: '仕', charName: '凱倫', rank: 6, team: 'black', icon: '🖥️', bgClass: 'from-emerald-700 to-teal-900 text-emerald-100' },
+      { name: '相', charName: '蝦霸拉瑞', rank: 5, team: 'black', icon: '🦞', bgClass: 'from-emerald-700 to-rose-900 text-emerald-100' },
+      { name: '相', charName: '蝦霸拉瑞', rank: 5, team: 'black', icon: '🦞', bgClass: 'from-emerald-700 to-rose-900 text-emerald-100' },
+      { name: '俥', charName: '飛天幽靈', rank: 4, team: 'black', icon: '👻', bgClass: 'from-emerald-700 to-slate-900 text-emerald-100' },
+      { name: '俥', charName: '飛天幽靈', rank: 4, team: 'black', icon: '👻', bgClass: 'from-emerald-700 to-slate-900 text-emerald-100' },
+      { name: '傌', charName: '章魚威廉', rank: 3, team: 'black', icon: '🐙', bgClass: 'from-emerald-700 to-indigo-900 text-emerald-100' },
+      { name: '傌', charName: '章魚威廉', rank: 3, team: 'black', icon: '🐙', bgClass: 'from-emerald-700 to-indigo-900 text-emerald-100' },
+      { name: '炮', charName: '泡泡氣球', rank: 2, team: 'black', icon: '🫧', bgClass: 'from-emerald-700 to-sky-900 text-emerald-100' },
+      { name: '炮', charName: '泡泡氣球', rank: 2, team: 'black', icon: '🫧', bgClass: 'from-emerald-700 to-sky-900 text-emerald-100' },
+      { name: '兵', charName: '海霸王堡', rank: 1, team: 'black', icon: '🍔', bgClass: 'from-emerald-700 to-amber-900 text-emerald-100' },
+      { name: '兵', charName: '海霸王堡', rank: 1, team: 'black', icon: '🍔', bgClass: 'from-emerald-700 to-amber-900 text-emerald-100' },
+      { name: '兵', charName: '海霸王堡', rank: 1, team: 'black', icon: '🍔', bgClass: 'from-emerald-700 to-amber-900 text-emerald-100' },
+      { name: '兵', charName: '海霸王堡', rank: 1, team: 'black', icon: '🍔', bgClass: 'from-emerald-700 to-amber-900 text-emerald-100' },
+      { name: '兵', charName: '海霸王堡', rank: 1, team: 'black', icon: '🍔', bgClass: 'from-emerald-700 to-amber-900 text-emerald-100' }
+    ];
+
+    // AI 對手設定
+    const OPPONENT_CONFIGS = {
+      patrick: { name: '派大星 (簡單)', icon: '⭐', quotes: ['這是哪裡？可以吃嗎？', '派大星思考中...zzZ', '嗨～海綿寶寶！', '隨便翻一張好了！'] },
+      krabs: { name: '蟹老闆 (中等)', icon: '🦀', quotes: ['錢錢錢！大棋子都是我的！', '我要把你的棋子通通吃光！', '這步棋能賺不少錢！'] },
+      karen: { name: '凱倫 (困難)', icon: '🖥️', quotes: ['正在精算勝率演算法...', '偵測到最佳吃子路線。', '皮老板，看好了，這才叫戰術！'] },
+      pvp: { name: '雙人同機對戰', icon: '👥', quotes: [] }
+    };
+
+    // 殘局關卡預設資料
+    const PUZZLE_LEVELS = [
+      {
+        name: "關卡 1: 小蝸包抄皮老闆",
+        playerTeam: "red",
+        setup: [
+          { pos: 0, pIndex: 9 }, // 包 (小蝸)
+          { pos: 1, pIndex: 11 }, // 卒 (水母)
+          { pos: 2, pIndex: 16 }, // 帥 (皮老板)
+          { pos: 8, pIndex: 0 }   // 將 (海綿寶寶)
+        ]
+      },
+      {
+        name: "關卡 2: 蟹老闆討債大作戰",
+        playerTeam: "red",
+        setup: [
+          { pos: 5, pIndex: 3 },  // 象 (蟹老闆)
+          { pos: 6, pIndex: 17 }, // 仕 (凱倫)
+          { pos: 9, pIndex: 5 },  // 車 (珊迪)
+          { pos: 10, pIndex: 19 } // 相 (蝦霸拉瑞)
+        ]
+      },
+      {
+        name: "關卡 3: 海綿寶寶絕地大反攻",
+        playerTeam: "red",
+        setup: [
+          { pos: 12, pIndex: 0 }, // 將 (海綿寶寶)
+          { pos: 13, pIndex: 21 },// 俥 (飛天幽靈)
+          { pos: 14, pIndex: 10 },// 包 (小蝸)
+          { pos: 15, pIndex: 16 } // 帅 (皮老板)
+        ]
+      }
+    ];
+
+    // 遊戲狀態變數
+    let board = new Array(32).fill(null);
+    let currentTurnTeam = null;
+    let playerTeam = null;
+    let aiTeam = null;
+    let isVsAI = true;
+    let selectedIndex = -1;
+    let legalMoves = [];
+    let turnCount = 0;
+    let isGameOver = false;
+
+    let currentMode = 'classic'; // classic, open, blitz, puzzle
+    let currentOpponentKey = 'patrick';
+    let currentPuzzleLevel = 0;
+
+    // 閃電模式計時器變數
+    let timerInterval = null;
+    let timeLeft = 10;
+    const BLITZ_TIME_LIMIT = 10;
+
+    let stats = { wins: 0, losses: 0, streak: 0, maxStreak: 0 };
+
+    function getLegalMovesForIndex(idx) {
+      const p = board[idx];
+      if (!p || !p.faceUp) return [];
+
+      const moves = [];
+      const row = Math.floor(idx / 4);
+      const col = idx % 4;
+
+      const neighbors = [];
+      if (row > 0) neighbors.push(idx - 4);
+      if (row < 7) neighbors.push(idx + 4);
+      if (col > 0) neighbors.push(idx - 1);
+      if (col < 3) neighbors.push(idx + 1);
+
+      neighbors.forEach(nIdx => {
+        const target = board[nIdx];
+        if (!target) {
+          moves.push(nIdx);
+        } else if (p.rank !== 2 && target.faceUp && target.team !== p.team) {
+          if (p.rank === 1) {
+            if (target.rank === 1 || target.rank === 7) moves.push(nIdx);
+          } else if (p.rank === 7) {
+            if (target.rank !== 1) moves.push(nIdx);
+          } else {
+            if (target.rank <= p.rank) moves.push(nIdx);
+          }
+        }
+      });
+
+      // 包/炮 (階級 2) 隔一子跳吃
+      if (p.rank === 2) {
+        const directions = [
+          { dr: -1, dc: 0 }, { dr: 1, dc: 0 },
+          { dr: 0, dc: -1 }, { dr: 0, dc: 1 }
+        ];
+
+        directions.forEach(d => {
+          let currR = row + d.dr;
+          let currC = col + d.dc;
+          let screenCount = 0;
+
+          while (currR >= 0 && currR < 8 && currC >= 0 && currC < 4) {
+            const targetIdx = currR * 4 + currC;
+            const targetPiece = board[targetIdx];
+
+            if (targetPiece !== null) {
+              if (screenCount === 0) {
+                screenCount++;
+              } else if (screenCount === 1) {
+                if (targetPiece.faceUp && targetPiece.team !== p.team) {
+                  moves.push(targetIdx);
+                }
+                break;
+              }
+            }
+            currR += d.dr;
+            currC += d.dc;
+          }
+        });
+      }
+
+      return moves;
+    }
+
+    function createBubbles() {
+      const container = document.getElementById('bubble-container');
+      container.innerHTML = '';
+      for (let i = 0; i < 15; i++) {
+        const bubble = document.createElement('div');
+        bubble.className = 'bubble';
+        const size = Math.random() * 35 + 15;
+        bubble.style.width = `${size}px`;
+        bubble.style.height = `${size}px`;
+        bubble.style.left = `${Math.random() * 100}%`;
+        bubble.style.animationDuration = `${Math.random() * 6 + 6}s`;
+        bubble.style.animationDelay = `${Math.random() * 5}s`;
+        container.appendChild(bubble);
+      }
+    }
+
+    function loadStats() {
+      const saved = localStorage.getItem('spongebob_dark_chess_stats');
+      if (saved) {
+        try { stats = JSON.parse(saved); } catch (e) { console.error(e); }
+      }
+      updateStatsUI();
+    }
+
+    function saveStats() {
+      localStorage.setItem('spongebob_dark_chess_stats', JSON.stringify(stats));
+      updateStatsUI();
+    }
+
+    function updateStatsUI() {
+      document.getElementById('streak-text').innerText = stats.streak;
+      document.getElementById('stat-record').innerText = `${stats.wins}勝 ${stats.losses}敗`;
+      document.getElementById('stat-max-streak').innerText = stats.maxStreak;
+    }
+
+    function initGame() {
+      stopBlitzTimer();
+      board = new Array(32).fill(null);
+      currentTurnTeam = null;
+      playerTeam = null;
+      aiTeam = null;
+      selectedIndex = -1;
+      legalMoves = [];
+      turnCount = 0;
+      isGameOver = false;
+
+      if (currentMode === 'puzzle') {
+        setupPuzzleMode();
+      } else {
+        const shuffled = [...PIECE_DEFINITIONS].sort(() => Math.random() - 0.5);
+        for (let i = 0; i < 32; i++) {
+          board[i] = {
+            ...shuffled[i],
+            id: i,
+            faceUp: (currentMode === 'open') // 明棋模式開局全部翻開
+          };
+        }
+
+        if (currentMode === 'open') {
+          playerTeam = 'red';
+          aiTeam = 'black';
+          currentTurnTeam = 'red';
+        }
+      }
+
+      updateUI();
+      
+      if (currentMode === 'blitz' && currentTurnTeam) {
+        startBlitzTimer();
+      }
+    }
+
+    function setupPuzzleMode() {
+      const pLevel = PUZZLE_LEVELS[currentPuzzleLevel];
+      playerTeam = pLevel.playerTeam;
+      aiTeam = playerTeam === 'red' ? 'black' : 'red';
+      currentTurnTeam = playerTeam;
+
+      pLevel.setup.forEach(item => {
+        const def = PIECE_DEFINITIONS[item.pIndex];
+        board[item.pos] = {
+          ...def,
+          id: item.pos,
+          faceUp: true
+        };
+      });
+    }
+
+    function startBlitzTimer() {
+      stopBlitzTimer();
+      timeLeft = BLITZ_TIME_LIMIT;
+      updateTimerUI();
+
+      timerInterval = setInterval(() => {
+        timeLeft -= 0.1;
+        if (timeLeft <= 0) {
+          timeLeft = 0;
+          updateTimerUI();
+          stopBlitzTimer();
+          handleBlitzTimeout();
+        } else {
+          updateTimerUI();
+          if (Math.ceil(timeLeft) <= 3 && Math.abs(timeLeft % 1) < 0.1) {
+            sound.playTickSound();
+          }
+        }
+      }, 100);
+    }
+
+    function stopBlitzTimer() {
+      if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+      }
+    }
+
+    function updateTimerUI() {
+      const timerContainer = document.getElementById('timer-container');
+      if (currentMode !== 'blitz') {
+        timerContainer.classList.add('hidden');
+        return;
+      }
+
+      timerContainer.classList.remove('hidden');
+      const textEl = document.getElementById('timer-text');
+      const barEl = document.getElementById('timer-bar');
+
+      textEl.innerText = `${Math.ceil(timeLeft)}s`;
+      const pct = (timeLeft / BLITZ_TIME_LIMIT) * 100;
+      barEl.style.width = `${pct}%`;
+
+      if (timeLeft <= 3) {
+        barEl.className = 'timer-bar bg-red-500 h-full w-full animate-pulse';
+      } else {
+        barEl.className = 'timer-bar bg-green-400 h-full w-full';
+      }
+    }
+
+    function handleBlitzTimeout() {
+      if (isGameOver) return;
+      
+      if (isVsAI && currentTurnTeam === aiTeam) {
+        triggerAIMove();
+        return;
+      }
+
+      // 超時自動執行隨機合法行動或翻牌
+      const legalActions = [];
+      const coverIndices = [];
+
+      for (let i = 0; i < 32; i++) {
+        const p = board[i];
+        if (!p) continue;
+        if (!p.faceUp) {
+          coverIndices.push(i);
+        } else if (p.team === currentTurnTeam) {
+          const targets = getLegalMovesForIndex(i);
+          targets.forEach(tIdx => {
+            legalActions.push({ from: i, to: tIdx });
+          });
+        }
+      }
+
+      if (legalActions.length > 0) {
+        const act = legalActions[Math.floor(Math.random() * legalActions.length)];
+        movePiece(act.from, act.to);
+      } else if (coverIndices.length > 0) {
+        const cover = coverIndices[Math.floor(Math.random() * coverIndices.length)];
+        flipPiece(cover);
+      } else {
+        switchTurn();
+      }
+    }
+
+    function renderBoard() {
+      const gridEl = document.getElementById('board-grid');
+      gridEl.innerHTML = '';
+
+      for (let i = 0; i < 32; i++) {
+        const cell = document.createElement('div');
+        cell.className = `cell-grid rounded-2xl flex items-center justify-center p-1 relative card-perspective cursor-pointer transition-all duration-200`;
+        cell.dataset.index = i;
+
+        const piece = board[i];
+
+        if (piece) {
+          const cardInner = document.createElement('div');
+          cardInner.className = `card-inner w-full h-full pointer-events-none ${piece.faceUp ? 'flipped' : ''}`;
+
+          const cardFront = document.createElement('div');
+          cardFront.className = `card-front flex flex-col items-center justify-center bg-gradient-to-br from-amber-400 to-yellow-600 border-2 border-amber-200 rounded-2xl shadow-md text-amber-950 font-extrabold`;
+          cardFront.innerHTML = `
+            <div class="text-2xl md:text-3xl">🍍</div>
+            <div class="text-[10px] md:text-xs tracking-wider opacity-80">比奇堡</div>
+          `;
+
+          const cardBack = document.createElement('div');
+          const teamColorBorder = piece.team === 'red' ? 'border-amber-400' : 'border-emerald-500';
+          cardBack.className = `card-back flex flex-col items-center justify-between p-1 bg-gradient-to-b ${piece.bgClass} border-4 ${teamColorBorder} rounded-2xl shadow-lg`;
+          
+          cardBack.innerHTML = `
+            <div class="w-full flex justify-between items-center px-1 text-[10px] md:text-xs font-black">
+              <span class="px-1 bg-white/60 rounded-full">${piece.team === 'red' ? '紅' : '黑'}</span>
+              <span class="px-1.5 py-0.5 bg-slate-900 text-yellow-300 rounded-full">階 ${piece.rank}</span>
+            </div>
+            <div class="text-2xl md:text-4xl my-0.5 transform hover:scale-110 transition-transform">${piece.icon}</div>
+            <div class="text-center">
+              <div class="text-xs md:text-sm font-black leading-tight">${piece.name}</div>
+              <div class="text-[9px] md:text-[11px] font-bold opacity-80 leading-none">${piece.charName}</div>
+            </div>
+          `;
+
+          cardInner.appendChild(cardFront);
+          cardInner.appendChild(cardBack);
+          cell.appendChild(cardInner);
+
+          if (selectedIndex === i) cell.classList.add('piece-selected');
+
+          if (legalMoves.includes(i)) {
+            cell.classList.add('legal-target');
+            if (piece.faceUp && piece.team !== currentTurnTeam) {
+              cell.classList.add('legal-capture');
+            }
+          }
+
+        } else {
+          if (legalMoves.includes(i)) cell.classList.add('legal-target');
+          cell.innerHTML = `<div class="w-3 h-3 rounded-full bg-amber-900/30"></div>`;
+        }
+
+        cell.addEventListener('click', () => handleCellClick(i));
+        gridEl.appendChild(cell);
+      }
+    }
+
+    function handleCellClick(index) {
+      sound.init();
+      if (isGameOver) return;
+
+      if (isVsAI && currentTurnTeam !== null && currentTurnTeam === aiTeam) return;
+
+      const piece = board[index];
+
+      if (piece && !piece.faceUp) {
+        if (selectedIndex !== -1) {
+          selectedIndex = -1;
+          legalMoves = [];
+          renderBoard();
+          return;
+        }
+        flipPiece(index);
+        return;
+      }
+
+      if (piece && piece.faceUp && piece.team === currentTurnTeam) {
+        if (selectedIndex === index) {
+          selectedIndex = -1;
+          legalMoves = [];
+        } else {
+          selectedIndex = index;
+          legalMoves = getLegalMovesForIndex(index);
+        }
+        renderBoard();
+        return;
+      }
+
+      if (selectedIndex !== -1 && legalMoves.includes(index)) {
+        movePiece(selectedIndex, index);
+        selectedIndex = -1;
+        legalMoves = [];
+        return;
+      }
+
+      selectedIndex = -1;
+      legalMoves = [];
+      renderBoard();
+    }
+
+    function flipPiece(index) {
+      const piece = board[index];
+      if (!piece || piece.faceUp) return;
+
+      piece.faceUp = true;
+      sound.playFlipSound();
+
+      if (!currentTurnTeam) {
+        playerTeam = piece.team;
+        aiTeam = piece.team === 'red' ? 'black' : 'red';
+        currentTurnTeam = piece.team;
+      }
+
+      switchTurn();
+    }
+
+    function movePiece(from, to) {
+      const source = board[from];
+      const target = board[to];
+
+      if (target) sound.playCaptureSound();
+      else sound.playMoveSound();
+
+      board[to] = source;
+      board[from] = null;
+
+      switchTurn();
+    }
+
+    function switchTurn() {
+      turnCount++;
+      selectedIndex = -1;
+      legalMoves = [];
+
+      stopBlitzTimer();
+
+      if (checkGameOver()) return;
+
+      currentTurnTeam = currentTurnTeam === 'red' ? 'black' : 'red';
+      updateUI();
+
+      if (currentMode === 'blitz') {
+        startBlitzTimer();
+      }
+
+      if (isVsAI && currentTurnTeam === aiTeam) {
+        setTimeout(() => triggerAIMove(), 600);
+      }
+    }
+
+    function checkGameOver() {
+      let redLeft = 0;
+      let blackLeft = 0;
+      board.forEach(p => {
+        if (p) {
+          if (p.team === 'red') redLeft++;
+          if (p.team === 'black') blackLeft++;
+        }
+      });
+
+      let winner = null;
+      if (redLeft === 0) winner = 'black';
+      else if (blackLeft === 0) winner = 'red';
+      else {
+        const nextTeam = currentTurnTeam === 'red' ? 'black' : 'red';
+        let hasMove = false;
+
+        for (let i = 0; i < 32; i++) {
+          const p = board[i];
+          if (!p) continue;
+          if (!p.faceUp) {
+            hasMove = true;
+            break;
+          }
+          if (p.team === nextTeam) {
+            const moves = getLegalMovesForIndex(i);
+            if (moves.length > 0) {
+              hasMove = true;
+              break;
+            }
+          }
+        }
+
+        if (!hasMove) winner = currentTurnTeam;
+      }
+
+      if (winner) {
+        isGameOver = true;
+        stopBlitzTimer();
+        showGameOverModal(winner);
+        return true;
+      }
+      return false;
+    }
+
+    function showGameOverModal(winner) {
+      const modal = document.getElementById('gameover-modal');
+      const winnerTitle = document.getElementById('winner-title');
+      const winnerDesc = document.getElementById('winner-desc');
+      const winnerIcon = document.getElementById('winner-icon');
+      const statTurns = document.getElementById('stat-turns');
+
+      statTurns.innerText = turnCount;
+
+      if (isVsAI) {
+        if (winner === playerTeam) {
+          sound.playWinSound();
+          winnerIcon.innerText = '🏆';
+          winnerTitle.innerText = '比奇堡勝利！';
+          winnerDesc.innerText = '太棒了！您成功守護了比奇堡與美味蟹堡秘方！';
+          stats.wins++;
+          stats.streak++;
+          if (stats.streak > stats.maxStreak) stats.maxStreak = stats.streak;
+        } else {
+          sound.playLoseSound();
+          winnerIcon.innerText = '🦠';
+          winnerTitle.innerText = '痞子老板獲勝！';
+          winnerDesc.innerText = '可惡！蟹堡秘方被皮老板搶走了...再試一次吧！';
+          stats.losses++;
+          stats.streak = 0;
+        }
+      } else {
+        sound.playWinSound();
+        winnerIcon.innerText = '👑';
+        winnerTitle.innerText = winner === 'red' ? '紅方 (好朋友隊) 獲勝！' : '黑方 (痞子老板軍) 獲勝！';
+        winnerDesc.innerText = '精采對決，感謝兩位比奇堡棋手的精彩發揮！';
+      }
+
+      saveStats();
+      modal.classList.remove('hidden');
+    }
+
+    function updateUI() {
+      renderBoard();
+
+      let redCount = 0;
+      let blackCount = 0;
+      board.forEach(p => {
+        if (p) {
+          if (p.team === 'red') redCount++;
+          if (p.team === 'black') blackCount++;
+        }
+      });
+
+      document.getElementById('red-count').innerText = `剩餘: ${redCount}`;
+      document.getElementById('black-count').innerText = `剩餘: ${blackCount}`;
+
+      const redBox = document.getElementById('team-red-box');
+      const blackBox = document.getElementById('team-black-box');
+
+      if (currentTurnTeam === 'red') {
+        redBox.classList.add('ring-4', 'ring-amber-400');
+        blackBox.classList.remove('ring-4', 'ring-emerald-400');
+      } else if (currentTurnTeam === 'black') {
+        blackBox.classList.add('ring-4', 'ring-emerald-400');
+        redBox.classList.remove('ring-4', 'ring-amber-400');
+      } else {
+        redBox.classList.remove('ring-4', 'ring-amber-400');
+        blackBox.classList.remove('ring-4', 'ring-emerald-400');
+      }
+
+      const turnIndicator = document.getElementById('turn-indicator');
+      const aiDialogBox = document.getElementById('ai-dialog-box');
+
+      if (currentTurnTeam) {
+        const teamName = currentTurnTeam === 'red' ? '紅方 (好朋友隊)' : '黑方 (痞子老板軍)';
+        const isAI = (isVsAI && currentTurnTeam === aiTeam);
+        turnIndicator.innerText = `輪到：${teamName} ${isAI ? '🤖 (思考中...)' : '👤'}`;
+        turnIndicator.className = `px-4 py-1 rounded-full text-base font-black ${currentTurnTeam === 'red' ? 'bg-amber-400 text-amber-950' : 'bg-emerald-500 text-emerald-950'} shadow-lg`;
+
+        if (isAI) showAIDialog();
+        else aiDialogBox.classList.add('hidden');
+      } else {
+        turnIndicator.innerText = '請選擇棋子開始！';
+        turnIndicator.className = 'px-4 py-1 rounded-full text-base font-black bg-yellow-400 text-slate-900 shadow-lg animate-bounce';
+        aiDialogBox.classList.add('hidden');
+      }
+
+      updateTimerUI();
+    }
+
+    function showAIDialog() {
+      const opp = OPPONENT_CONFIGS[currentOpponentKey];
+      if (!opp || !opp.quotes || opp.quotes.length === 0) return;
+
+      const aiDialogBox = document.getElementById('ai-dialog-box');
+      const avatarIcon = document.getElementById('ai-avatar-icon');
+      const speechText = document.getElementById('ai-speech-text');
+
+      avatarIcon.innerText = opp.icon;
+      speechText.innerText = opp.quotes[Math.floor(Math.random() * opp.quotes.length)];
+      aiDialogBox.classList.remove('hidden');
+    }
+
+    function triggerAIMove() {
+      if (isGameOver || currentTurnTeam !== aiTeam) return;
+
+      const aiMoves = [];
+      const coverIndices = [];
+
+      for (let i = 0; i < 32; i++) {
+        const p = board[i];
+        if (!p) continue;
+
+        if (!p.faceUp) {
+          coverIndices.push(i);
+        } else if (p.team === aiTeam) {
+          const targets = getLegalMovesForIndex(i);
+          targets.forEach(tIdx => {
+            const targetPiece = board[tIdx];
+            let priority = 1;
+
+            if (targetPiece) {
+              priority = 10 + targetPiece.rank * 2;
+              if (currentOpponentKey === 'karen' && p.rank === 2) priority += 5;
+            }
+
+            aiMoves.push({ from: i, to: tIdx, priority });
+          });
+        }
+      }
+
+      if (currentOpponentKey === 'patrick') {
+        if (coverIndices.length > 0 && Math.random() < 0.7) {
+          flipPiece(coverIndices[Math.floor(Math.random() * coverIndices.length)]);
+        } else if (aiMoves.length > 0) {
+          const m = aiMoves[Math.floor(Math.random() * aiMoves.length)];
+          movePiece(m.from, m.to);
+        } else if (coverIndices.length > 0) {
+          flipPiece(coverIndices[Math.floor(Math.random() * coverIndices.length)]);
+        } else {
+          checkGameOver();
+        }
+
+      } else if (currentOpponentKey === 'krabs') {
+        aiMoves.sort((a, b) => b.priority - a.priority);
+        if (aiMoves.length > 0 && aiMoves[0].priority >= 10) {
+          movePiece(aiMoves[0].from, aiMoves[0].to);
+        } else if (coverIndices.length > 0) {
+          flipPiece(coverIndices[Math.floor(Math.random() * coverIndices.length)]);
+        } else if (aiMoves.length > 0) {
+          const m = aiMoves[Math.floor(Math.random() * aiMoves.length)];
+          movePiece(m.from, m.to);
+        } else {
+          checkGameOver();
+        }
+
+      } else { // Karen
+        aiMoves.sort((a, b) => b.priority - a.priority);
+        if (aiMoves.length > 0 && aiMoves[0].priority >= 10) {
+          movePiece(aiMoves[0].from, aiMoves[0].to);
+        } else if (coverIndices.length > 0 && (aiMoves.length === 0 || Math.random() < 0.5)) {
+          flipPiece(coverIndices[Math.floor(Math.random() * coverIndices.length)]);
+        } else if (aiMoves.length > 0) {
+          movePiece(aiMoves[0].from, aiMoves[0].to);
+        } else {
+          checkGameOver();
+        }
+      }
+    }
+
+    document.getElementById('mode-select').addEventListener('change', (e) => {
+      sound.playMoveSound();
+      currentMode = e.target.value;
+      const puzzleContainer = document.getElementById('puzzle-select-container');
+
+      if (currentMode === 'puzzle') {
+        puzzleContainer.classList.remove('hidden');
+      } else {
+        puzzleContainer.classList.add('hidden');
+      }
+
+      initGame();
+    });
+
+    document.getElementById('puzzle-level-select').addEventListener('change', (e) => {
+      sound.playMoveSound();
+      currentPuzzleLevel = parseInt(e.target.value, 10);
+      initGame();
+    });
+
+    document.getElementById('opponent-select').addEventListener('change', (e) => {
+      sound.playMoveSound();
+      currentOpponentKey = e.target.value;
+      isVsAI = (currentOpponentKey !== 'pvp');
+      document.getElementById('opponent-name-text').innerText = OPPONENT_CONFIGS[currentOpponentKey].name;
+      initGame();
+    });
+
+    document.getElementById('theme-select').addEventListener('change', (e) => {
+      sound.playMoveSound();
+      const newTheme = e.target.value;
+      document.body.className = `min-h-screen flex flex-col items-center justify-between p-2 md:p-6 text-slate-100 overflow-x-hidden relative ${newTheme}`;
+    });
+
+    document.getElementById('restart-btn').addEventListener('click', () => {
+      sound.playMoveSound();
+      initGame();
+    });
+
+    document.getElementById('rules-btn').addEventListener('click', () => {
+      sound.playMoveSound();
+      document.getElementById('rules-modal').classList.remove('hidden');
+    });
+
+    document.getElementById('close-rules-btn').addEventListener('click', () => {
+      document.getElementById('rules-modal').classList.add('hidden');
+    });
+
+    document.getElementById('modal-confirm-btn').addEventListener('click', () => {
+      document.getElementById('rules-modal').classList.add('hidden');
+    });
+
+    document.getElementById('play-again-btn').addEventListener('click', () => {
+      document.getElementById('gameover-modal').classList.add('hidden');
+      initGame();
+    });
+
+    window.addEventListener('DOMContentLoaded', () => {
+      document.body.classList.add('theme-spongebob');
+      createBubbles();
+      loadStats();
+      initGame();
+    });
+  </script>
+</body>
+</html>

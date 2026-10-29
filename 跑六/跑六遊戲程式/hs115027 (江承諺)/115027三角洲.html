@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>三角洲撤離 (Delta Extraction)</title>
+    <!-- Tailwind CSS for UI controls -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Noto+Sans+TC:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        * {
+            touch-action: none;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #090d12;
+            font-family: 'Noto Sans TC', sans-serif;
+            color: #e2e8f0;
+        }
+        .font-tech {
+            font-family: 'Orbitron', sans-serif;
+        }
+        canvas {
+            display: block;
+        }
+        /* Tactical Glassmorphism Styles */
+        .tactical-panel {
+            background: rgba(13, 20, 28, 0.85);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(0, 255, 170, 0.2);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+        }
+        .tactical-border-red {
+            border-color: rgba(239, 68, 68, 0.4);
+        }
+        .tactical-btn {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(6, 95, 70, 0.4));
+            border: 1px solid #10b981;
+            transition: all 0.2s ease;
+        }
+        .tactical-btn:hover, .tactical-btn:active {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.5), rgba(6, 95, 70, 0.7));
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.5);
+            transform: translateY(-2px);
+        }
+        .tactical-btn-danger {
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(153, 27, 27, 0.4));
+            border: 1px solid #ef4444;
+        }
+        .tactical-btn-danger:hover, .tactical-btn-danger:active {
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.5), rgba(153, 27, 27, 0.7));
+            box-shadow: 0 0 15px rgba(239, 68, 68, 0.5);
+        }
+        /* Custom Scrollbar for Inventory/Logs */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.6); }
+        ::-webkit-scrollbar-thumb { background: rgba(16, 185, 129, 0.5); border-radius: 3px; }
+    </style>
+</head>
+<body class="relative w-screen h-screen overflow-hidden select-none">
+
+    <!-- Main Game Canvas -->
+    <canvas id="gameCanvas" class="w-full h-full cursor-crosshair"></canvas>
+
+    <!-- HUD Layer (Active during PLAYING state) -->
+    <div id="hud" class="hidden absolute inset-0 pointer-events-none flex flex-col justify-between p-3 md:p-6">
+        <!-- Top HUD Row -->
+        <div class="flex justify-between items-start w-full gap-2">
+            <!-- Left: Health & Status -->
+            <div class="tactical-panel rounded-lg p-2.5 md:p-4 min-w-[150px] sm:min-w-[200px] md:min-w-[260px] pointer-events-auto">
+                <div class="flex items-center justify-between mb-1">
+                    <span class="text-[10px] sm:text-xs text-emerald-400 font-tech uppercase tracking-wider">幹員生命值 HP</span>
+                    <span id="hpText" class="text-xs sm:text-sm font-bold font-tech text-white">100 / 100</span>
+                </div>
+                <div class="w-full h-2.5 sm:h-3 bg-slate-900 rounded-full overflow-hidden p-0.5 border border-slate-700">
+                    <div id="hpBar" class="h-full bg-emerald-500 rounded-full transition-all duration-200" style="width: 100%;"></div>
+                </div>
+
+                <div class="flex items-center justify-between mt-2 sm:mt-3 mb-1">
+                    <span class="text-[10px] sm:text-xs text-slate-400 font-tech uppercase">彈藥子彈 AMMO</span>
+                    <span id="ammoText" class="text-[10px] sm:text-xs font-bold font-tech text-emerald-400">30 / 120</span>
+                </div>
+                <div class="w-full h-1.5 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
+                    <div id="ammoBar" class="h-full bg-cyan-500 rounded-full transition-all duration-150" style="width: 100%;"></div>
+                </div>
+            </div>
+
+            <!-- Center: Compass & Extraction Distance -->
+            <div class="flex flex-col items-center">
+                <div class="tactical-panel px-4 sm:px-6 py-1.5 sm:py-2 rounded-full flex items-center gap-2 sm:gap-3">
+                    <span class="text-[10px] sm:text-xs text-slate-400 font-tech uppercase hidden sm:inline">撤離剩餘時間</span>
+                    <span id="timeText" class="text-lg sm:text-2xl font-black font-tech text-yellow-400 tracking-wider">03:00</span>
+                    <button id="touchPauseBtn" class="sm:hidden tactical-btn px-2 py-0.5 rounded text-[10px] font-tech text-yellow-300 pointer-events-auto">
+                        ⏸️ 暫停
+                    </button>
+                </div>
+                <!-- Direction Pointer Arrow -->
+                <div id="extractionCompass" class="mt-1.5 flex items-center gap-1.5 tactical-panel px-2.5 py-1 rounded-md text-[10px] sm:text-xs font-tech text-emerald-400">
+                    <span class="hidden sm:inline">撤離點方向</span>
+                    <div id="arrowIcon" class="w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center transition-transform duration-75">
+                        ➔
+                    </div>
+                    <span id="distText" class="text-white font-bold">120m</span>
+                </div>
+            </div>
+
+            <!-- Right: Carried Loot Value -->
+            <div class="tactical-panel rounded-lg p-2.5 md:p-4 min-w-[140px] sm:min-w-[180px] md:min-w-[220px] text-right pointer-events-auto">
+                <div class="text-[10px] sm:text-xs text-amber-400 font-tech uppercase tracking-wider mb-0.5">物資價值</div>
+                <div id="lootValueText" class="text-lg sm:text-2xl font-black font-tech text-amber-300">$0</div>
+                <div class="text-[9px] sm:text-[10px] text-slate-400 mt-0.5">背包: <span id="lootCountText" class="text-white">0</span> 件</div>
+                <!-- Medkit Status -->
+                <div class="mt-1.5 pt-1.5 border-t border-slate-800 text-[10px] sm:text-xs flex justify-between items-center text-emerald-400 font-tech">
+                    <span class="hidden sm:inline">醫療包 [E]:</span>
+                    <span class="sm:hidden">藥劑:</span>
+                    <span id="medkitHudText" class="text-white font-bold">x0</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Center Alert Banner for Extraction / Action Prompts -->
+        <div id="promptContainer" class="flex flex-col items-center justify-center my-auto transition-opacity duration-300 opacity-0 pointer-events-none">
+            <div id="promptBox" class="tactical-panel px-4 sm:px-6 py-2 sm:py-3 rounded-lg border-2 border-emerald-400 text-center shadow-2xl">
+                <div id="promptTitle" class="text-sm sm:text-lg font-bold text-emerald-400 font-tech uppercase">正在搜刮物資箱...</div>
+                <div id="promptSubtitle" class="text-[10px] sm:text-xs text-slate-300 mt-0.5">請保持原地不要移動</div>
+            </div>
+        </div>
+
+        <!-- Bottom HUD Row & Touch Controls Layer -->
+        <div class="flex justify-between items-end w-full relative">
+            <!-- Controls Quick Help (Desktop) -->
+            <div class="tactical-panel p-3 rounded-lg text-xs text-slate-300 hidden lg:block border-slate-800 pointer-events-auto">
+                <div class="font-bold text-emerald-400 mb-1">戰術控制</div>
+                <div class="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[11px]">
+                    <span>[WASD / 觸控] 移動角色</span>
+                    <span>[左鍵 / 右搖桿] 開火射擊</span>
+                    <span>[R / 換彈鈕] 補充彈藥</span>
+                    <span>[E / 藥劑鈕] 使用醫療包</span>
+                    <span>[ESC / 暫停鈕] 戰術暫停</span>
+                    <span>[靠近物資] 自動搜刮</span>
+                </div>
+            </div>
+
+            <!-- Mini Map HUD -->
+            <div class="tactical-panel p-1.5 rounded-lg border-emerald-500/30 ml-auto pointer-events-auto">
+                <div class="text-[9px] sm:text-[10px] text-center text-emerald-400 font-tech mb-0.5">戰術戰場雷達</div>
+                <canvas id="minimapCanvas" width="100" height="100" class="rounded border border-slate-800 bg-slate-950/80 w-20 h-20 sm:w-28 sm:h-28"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- On-screen Virtual Joysticks & Action Buttons for Tablet / Mobile Touch -->
+    <div id="touchControlsLayer" class="hidden absolute inset-0 pointer-events-none z-10 select-none">
+        <!-- Left Virtual Movement Joystick -->
+        <div id="leftJoyZone" class="absolute bottom-6 left-6 w-32 h-32 sm:w-40 sm:h-40 rounded-full border-2 border-emerald-500/30 bg-slate-900/30 backdrop-blur-sm pointer-events-auto flex items-center justify-center touch-none">
+            <div id="leftJoyKnob" class="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-emerald-500/60 border border-emerald-300 shadow-lg pointer-events-none transition-transform duration-75"></div>
+        </div>
+
+        <!-- Right Virtual Aim/Fire Joystick -->
+        <div id="rightJoyZone" class="absolute bottom-6 right-28 sm:right-36 w-32 h-32 sm:w-40 sm:h-40 rounded-full border-2 border-cyan-500/30 bg-slate-900/30 backdrop-blur-sm pointer-events-auto flex items-center justify-center touch-none">
+            <div id="rightJoyKnob" class="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-cyan-500/60 border border-cyan-300 shadow-lg pointer-events-none transition-transform duration-75"></div>
+            <span class="absolute text-[9px] text-cyan-300/60 font-tech uppercase tracking-wider pointer-events-none">瞄準 / 射擊</span>
+        </div>
+
+        <!-- Right Action Touch Buttons -->
+        <div class="absolute bottom-6 right-6 flex flex-col gap-3 pointer-events-auto">
+            <button id="touchReloadBtn" class="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-slate-900/80 border border-cyan-400 text-cyan-300 font-tech text-xs font-bold flex flex-col items-center justify-center shadow-lg active:scale-95 touch-none">
+                <span class="text-lg">🔄</span>
+                <span class="text-[9px]">換彈</span>
+            </button>
+            <button id="touchMedBtn" class="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-slate-900/80 border border-emerald-400 text-emerald-300 font-tech text-xs font-bold flex flex-col items-center justify-center shadow-lg active:scale-95 touch-none">
+                <span class="text-lg">💊</span>
+                <span id="touchMedBtnCount" class="text-[9px]">x0</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Start / Loadout Hub Screen Overlay -->
+    <div id="startScreen" class="absolute inset-0 flex items-center justify-center p-4 bg-slate-950/95 z-20 overflow-y-auto">
+        <div class="tactical-panel max-w-3xl w-full p-5 md:p-8 rounded-2xl border border-emerald-500/40 text-center relative my-auto">
+            <div class="absolute -top-10 -left-10 w-40 h-40 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
+            
+            <h1 class="text-2xl sm:text-3xl md:text-5xl font-black font-tech text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-cyan-300 to-teal-400 tracking-wider mb-1">
+                三角洲撤離 : 戰術整備
+            </h1>
+            <div class="text-[10px] sm:text-xs md:text-sm font-tech text-emerald-500/80 uppercase tracking-widest mb-4">
+                PRE-RAID LOADOUT & GEAR SELECTION
+            </div>
+
+            <!-- Stash Header -->
+            <div class="bg-slate-900/80 p-3 md:p-4 rounded-xl border border-amber-500/40 mb-4 flex flex-wrap justify-between items-center gap-2">
+                <div class="text-left">
+                    <span class="text-[10px] sm:text-xs text-slate-400 font-tech uppercase block">倉庫總資產 STASH BANK</span>
+                    <span id="startHighScoreText" class="text-lg sm:text-xl md:text-2xl font-black font-tech text-amber-300">$0</span>
+                </div>
+                <div class="text-right">
+                    <span class="text-[10px] sm:text-xs text-slate-400 font-tech uppercase block">本次攜帶裝備成本 LOADOUT COST</span>
+                    <span id="loadoutCostText" class="text-base sm:text-lg md:text-xl font-bold font-tech text-red-400">$0</span>
+                </div>
+            </div>
+
+            <!-- Loadout Selection Cards -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5 text-left">
+                <!-- Weapon Card -->
+                <div class="bg-slate-900/90 p-3 rounded-xl border border-slate-800">
+                    <div class="text-xs text-emerald-400 font-tech font-bold uppercase mb-1.5 flex items-center justify-between">
+                        <span>主武器 WEAPON</span>
+                        <span id="weaponCostTag" class="text-[10px] text-amber-400 font-normal">免費</span>
+                    </div>
+                    <select id="weaponSelect" class="w-full bg-slate-950 border border-slate-700 text-xs text-slate-200 rounded p-2 focus:border-emerald-400 focus:outline-none font-tech">
+                        <option value="RIFLE">M4A1 突擊步槍 ($0)</option>
+                        <option value="SMG">MP5 戰術衝鋒槍 ($25,000)</option>
+                        <option value="SNIPER">AWM 高精度狙擊槍 ($60,000)</option>
+                        <option value="SHOTGUN">M870 戰術霰彈槍 ($40,000)</option>
+                    </select>
+                    <div id="weaponDesc" class="text-[11px] text-slate-400 mt-2 h-9 leading-snug">
+                        標準突擊步槍，射速穩定，威力中等。
+                    </div>
+                </div>
+
+                <!-- Armor Card -->
+                <div class="bg-slate-900/90 p-3 rounded-xl border border-slate-800">
+                    <div class="text-xs text-cyan-400 font-tech font-bold uppercase mb-1.5 flex items-center justify-between">
+                        <span>護甲防具 ARMOR</span>
+                        <span id="armorCostTag" class="text-[10px] text-amber-400 font-normal">無護甲</span>
+                    </div>
+                    <select id="armorSelect" class="w-full bg-slate-950 border border-slate-700 text-xs text-slate-200 rounded p-2 focus:border-cyan-400 focus:outline-none font-tech">
+                        <option value="NONE">無護甲 (+0 HP) ($0)</option>
+                        <option value="LIGHT">三級輕型防彈衣 (+50 HP) ($30,000)</option>
+                        <option value="HEAVY">六級重型防護服 (+120 HP, 速度-10%) ($80,000)</option>
+                    </select>
+                    <div id="armorDesc" class="text-[11px] text-slate-400 mt-2 h-9 leading-snug">
+                        基礎防護，最大生命值 100。
+                    </div>
+                </div>
+
+                <!-- Medical Tactical Items -->
+                <div class="bg-slate-900/90 p-3 rounded-xl border border-slate-800">
+                    <div class="text-xs text-amber-400 font-tech font-bold uppercase mb-1.5 flex items-center justify-between">
+                        <span>戰術藥劑 MEDKITS</span>
+                        <span id="medCostTag" class="text-[10px] text-amber-400 font-normal">$0</span>
+                    </div>
+                    <select id="medSelect" class="w-full bg-slate-950 border border-slate-700 text-xs text-slate-200 rounded p-2 focus:border-amber-400 focus:outline-none font-tech">
+                        <option value="0">不攜帶 ($0)</option>
+                        <option value="1">戰術急救包 x1 (恢復 50HP) ($15,000)</option>
+                        <option value="2">戰術急救包 x2 (恢復 50HP) ($30,000)</option>
+                        <option value="3">戰術急救包 x3 (恢復 50HP) ($45,000)</option>
+                    </select>
+                    <div id="medDesc" class="text-[11px] text-slate-400 mt-2 h-9 leading-snug">
+                        按 [E] 鍵或點擊藥劑按鈕隨時使用治療。
+                    </div>
+                </div>
+            </div>
+
+            <!-- Briefing Warning -->
+            <div class="bg-slate-900/50 p-2.5 sm:p-3 rounded-lg border border-red-900/50 text-left text-[11px] sm:text-xs text-slate-300 mb-5 space-y-0.5">
+                <div class="text-red-400 font-bold font-tech flex items-center gap-1 mb-1">
+                    <span>⚠️ 搜打撤（Extraction Rule）風險告知：</span>
+                </div>
+                <p>1. 攜帶高階裝備可大幅提高生存與擊殺效率，但會消耗倉庫資產。</p>
+                <p>2. **成功撤離**：保留攜帶裝備，並將搜刮物資與賞金全數結算入庫。</p>
+                <p>3. **陣亡失敗**：攜帶裝備與當局獲得的所有物資將**全數遺失**！</p>
+            </div>
+
+            <button id="startBtn" class="tactical-btn w-full py-3.5 sm:py-4 rounded-xl font-bold font-tech text-base sm:text-lg text-emerald-300 uppercase tracking-widest cursor-pointer shadow-lg active:scale-95">
+                確認裝備並部署 (DEPLOY TO RAID)
+            </button>
+        </div>
+    </div>
+
+    <!-- Pause Screen Overlay -->
+    <div id="pauseScreen" class="hidden absolute inset-0 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md z-30">
+        <div class="tactical-panel max-w-md w-full p-6 rounded-2xl text-center border-slate-700">
+            <h2 class="text-2xl font-black font-tech text-yellow-400 mb-1">戰術暫停 PAUSED</h2>
+            <p class="text-xs text-slate-400 mb-6">任務已暫停，隨時可恢復行動</p>
+            
+            <div class="space-y-3">
+                <button id="resumeBtn" class="tactical-btn w-full py-3 rounded-lg font-bold font-tech text-emerald-300 cursor-pointer">
+                    繼續任務 RESUME
+                </button>
+                <button id="restartBtn" class="tactical-btn-danger w-full py-3 rounded-lg font-bold font-tech text-red-300 cursor-pointer">
+                    重新部署 RESTART
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Over Screen Overlay -->
+    <div id="gameOverScreen" class="hidden absolute inset-0 flex items-center justify-center p-4 bg-red-950/80 backdrop-blur-md z-40">
+        <div class="tactical-panel tactical-border-red max-w-lg w-full p-6 md:p-8 rounded-2xl text-center relative">
+            <div class="w-14 h-14 mx-auto mb-3 rounded-full bg-red-500/20 border border-red-500 flex items-center justify-center text-xl text-red-500 font-tech">
+                ✖
+            </div>
+            <h2 class="text-2xl sm:text-3xl font-black font-tech text-red-500 mb-1 tracking-wider">任務失敗 M.I.A</h2>
+            <div id="gameOverReason" class="text-xs sm:text-sm font-bold text-red-300 mb-4">幹員生命值歸零，已被陣亡</div>
+
+            <div class="bg-slate-900/80 p-3.5 rounded-xl text-left border border-red-900/50 mb-5 text-xs space-y-2">
+                <div class="flex justify-between text-slate-400">
+                    <span>收集物資總額:</span>
+                    <span id="lostLootText" class="text-red-400 line-through font-tech">$0</span>
+                </div>
+                <div class="flex justify-between text-slate-400">
+                    <span>最終結算權益:</span>
+                    <span class="text-red-500 font-bold font-tech">$0 (全數遺失)</span>
+                </div>
+            </div>
+
+            <button id="retryBtn" class="tactical-btn-danger w-full py-3.5 rounded-xl font-bold font-tech text-base sm:text-lg text-red-200 uppercase tracking-widest cursor-pointer">
+                重新部署 (RE-DEPLOY)
+            </button>
+        </div>
+    </div>
+
+    <!-- Extraction Success Overlay -->
+    <div id="successScreen" class="hidden absolute inset-0 flex items-center justify-center p-4 bg-emerald-950/85 backdrop-blur-md z-40">
+        <div class="tactical-panel max-w-lg w-full p-6 md:p-8 rounded-2xl text-center border-emerald-400 relative">
+            <div class="w-14 h-14 mx-auto mb-3 rounded-full bg-emerald-500/20 border border-emerald-400 flex items-center justify-center text-2xl text-emerald-400 font-tech">
+                ✓
+            </div>
+            <h2 class="text-2xl sm:text-4xl font-black font-tech text-emerald-400 mb-1 tracking-wider">成功撤離 !</h2>
+            <p class="text-[10px] sm:text-xs font-tech text-emerald-300 uppercase tracking-widest mb-5">EXTRACTION SUCCESSFUL</p>
+
+            <div class="bg-slate-900/90 p-3.5 rounded-xl text-left border border-emerald-900/60 mb-5 space-y-2.5 text-xs sm:text-sm">
+                <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+                    <span class="text-slate-300">本次帶出物資:</span>
+                    <span id="gainedLootText" class="text-amber-300 font-bold font-tech text-base sm:text-lg">+$0</span>
+                </div>
+                <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+                    <span class="text-slate-300">剩餘作戰時間:</span>
+                    <span id="remainingTimeText" class="text-emerald-400 font-tech">00:00</span>
+                </div>
+                <div class="flex justify-between items-center pt-0.5">
+                    <span class="text-amber-400 font-bold">歷史最高總資產:</span>
+                    <span id="successHighScoreText" class="text-amber-300 font-black font-tech text-lg sm:text-xl">$0</span>
+                </div>
+            </div>
+
+            <button id="nextOpBtn" class="tactical-btn w-full py-3.5 sm:py-4 rounded-xl font-bold font-tech text-base sm:text-lg text-emerald-300 uppercase tracking-widest cursor-pointer shadow-lg">
+                進行下一場 (NEXT OPERATION)
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Game States Constants
+        const GAME_STATES = {
+            START: 'START',
+            PLAYING: 'PLAYING',
+            PAUSED: 'PAUSED',
+            GAME_OVER: 'GAME_OVER',
+            EXTRACTION_SUCCESS: 'EXTRACTION_SUCCESS'
+        };
+
+        // Equipment Catalog Definitions
+        const WEAPONS = {
+            RIFLE: { name: 'M4A1 突擊步槍', price: 0, desc: '標準突擊步槍，射速穩定，威力中等。', fireRate: 0.12, damage: 25, mag: 30, reserve: 120, speed: 900, pellets: 1, spread: 0.08 },
+            SMG: { name: 'MP5 戰術衝鋒槍', price: 25000, desc: '超高射速，後座力小，適合近距離突襲。', fireRate: 0.07, damage: 18, mag: 40, reserve: 160, speed: 1000, pellets: 1, spread: 0.12 },
+            SNIPER: { name: 'AWM 高精度狙擊槍', price: 60000, desc: '高傷害一槍致命，射速較慢，彈藥貫穿力強。', fireRate: 0.85, damage: 110, mag: 10, reserve: 40, speed: 1500, pellets: 1, spread: 0.01 },
+            SHOTGUN: { name: 'M870 戰術霰彈槍', price: 40000, desc: '每次射擊發射 6 發散射子彈，近距離毀滅性極強。', fireRate: 0.6, damage: 22, mag: 8, reserve: 32, speed: 800, pellets: 6, spread: 0.25 }
+        };
+
+        const ARMORS = {
+            NONE: { name: '無護甲', price: 0, desc: '基礎防護，最大生命值 100。', bonusHp: 0, speedMult: 1.0 },
+            LIGHT: { name: '三級輕型防彈衣', price: 30000, desc: '輕便防護，生命值提升至 150。', bonusHp: 50, speedMult: 1.0 },
+            HEAVY: { name: '六級重型防護服', price: 80000, desc: '重型防禦，生命值提升至 220，移動速度降低 10%。', bonusHp: 120, speedMult: 0.9 }
+        };
+
+        // Web Audio Synthesizer Engine
+        class SoundFX {
+            constructor() {
+                this.ctx = null;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioCtx();
+                }
+            }
+
+            playShoot(weaponType = 'RIFLE') {
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                
+                if (weaponType === 'SNIPER') {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(120, now);
+                    osc.frequency.exponentialRampToValueAtTime(30, now + 0.2);
+                    gain.gain.setValueAtTime(0.5, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.2);
+                    return;
+                }
+
+                const bufferSize = this.ctx.sampleRate * (weaponType === 'SHOTGUN' ? 0.12 : 0.07);
+                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = Math.random() * 2 - 1;
+                }
+
+                const noise = this.ctx.createBufferSource();
+                noise.buffer = buffer;
+
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'bandpass';
+                filter.frequency.value = weaponType === 'SMG' ? 1600 : 1100;
+
+                const gain = this.ctx.createGain();
+                gain.gain.setValueAtTime(0.35, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + (weaponType === 'SHOTGUN' ? 0.12 : 0.07));
+
+                noise.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.ctx.destination);
+                noise.start(now);
+            }
+
+            playEnemyShoot() {
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(300, now);
+                osc.frequency.exponentialRampToValueAtTime(80, now + 0.06);
+
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.06);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.06);
+            }
+
+            playHeal() {
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(440, now);
+                osc.frequency.exponentialRampToValueAtTime(880, now + 0.25);
+
+                gain.gain.setValueAtTime(0.25, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.25);
+            }
+
+            playLoot() {
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(523.25, now);
+                osc.frequency.setValueAtTime(659.25, now + 0.08);
+                osc.frequency.setValueAtTime(783.99, now + 0.16);
+
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.3);
+            }
+
+            playHurt() {
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(150, now);
+                osc.frequency.linearRampToValueAtTime(60, now + 0.15);
+
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.15);
+            }
+
+            playBeep(high = false) {
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.value = high ? 1046.5 : 523.25;
+
+                gain.gain.setValueAtTime(0.15, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.1);
+            }
+        }
+
+        const audio = new SoundFX();
+
+        class Particle {
+            constructor(x, y, color, vx, vy, size, life) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.vx = vx;
+                this.vy = vy;
+                this.size = size;
+                this.life = life;
+                this.maxLife = life;
+            }
+
+            update(dt) {
+                this.x += this.vx * dt * 60;
+                this.y += this.vy * dt * 60;
+                this.life -= dt;
+            }
+
+            draw(ctx, camera) {
+                if (this.life <= 0) return;
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, this.life / this.maxLife);
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x - camera.x, this.y - camera.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        class FloatingText {
+            constructor(x, y, text, color) {
+                this.x = x;
+                this.y = y;
+                this.text = text;
+                this.color = color;
+                this.life = 1.2;
+                this.maxLife = 1.2;
+            }
+
+            update(dt) {
+                this.y -= 25 * dt;
+                this.life -= dt;
+            }
+
+            draw(ctx, camera) {
+                if (this.life <= 0) return;
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, this.life / this.maxLife);
+                ctx.font = 'bold 15px Orbitron, sans-serif';
+                ctx.fillStyle = this.color;
+                ctx.textAlign = 'center';
+                ctx.fillText(this.text, this.x - camera.x, this.y - camera.y);
+                ctx.restore();
+            }
+        }
+
+        class Player {
+            constructor(x, y, weaponKey = 'RIFLE', armorKey = 'NONE', medkits = 0) {
+                this.x = x;
+                this.y = y;
+                this.radius = 18;
+
+                // Loadout Stats
+                this.weaponKey = weaponKey;
+                this.weaponSpec = WEAPONS[weaponKey] || WEAPONS.RIFLE;
+                this.armorSpec = ARMORS[armorKey] || ARMORS.NONE;
+
+                this.speed = 260 * this.armorSpec.speedMult;
+                this.maxHp = 100 + this.armorSpec.bonusHp;
+                this.hp = this.maxHp;
+                this.medkits = medkits;
+
+                this.angle = 0;
+                this.carriedLoot = 0;
+                this.lootCount = 0;
+                
+                // Ammo
+                this.ammoInMag = this.weaponSpec.mag;
+                this.magCapacity = this.weaponSpec.mag;
+                this.reserveAmmo = this.weaponSpec.reserve;
+                this.isReloading = false;
+                this.reloadTimer = 0;
+                this.reloadTime = 1.8;
+
+                // Fire rate control
+                this.shootCooldown = 0;
+                this.fireRate = this.weaponSpec.fireRate;
+            }
+
+            update(dt, keys, touchVector, mousePos, camera, obstacles) {
+                if (this.isReloading) {
+                    this.reloadTimer -= dt;
+                    if (this.reloadTimer <= 0) {
+                        const needed = this.magCapacity - this.ammoInMag;
+                        const take = Math.min(needed, this.reserveAmmo);
+                        this.ammoInMag += take;
+                        this.reserveAmmo -= take;
+                        this.isReloading = false;
+                    }
+                }
+
+                if (this.shootCooldown > 0) this.shootCooldown -= dt;
+
+                // Combined Movement vector (Keyboard + Touch Joystick)
+                let dx = 0;
+                let dy = 0;
+                if (keys['w'] || keys['W'] || keys['ArrowUp']) dy -= 1;
+                if (keys['s'] || keys['S'] || keys['ArrowDown']) dy += 1;
+                if (keys['a'] || keys['A'] || keys['ArrowLeft']) dx -= 1;
+                if (keys['d'] || keys['D'] || keys['ArrowRight']) dx += 1;
+
+                if (dx !== 0 && dy !== 0) {
+                    dx *= 0.7071;
+                    dy *= 0.7071;
+                }
+
+                // Add Touch vector
+                dx += touchVector.x;
+                dy += touchVector.y;
+
+                const mag = Math.hypot(dx, dy);
+                if (mag > 1) {
+                    dx /= mag;
+                    dy /= mag;
+                }
+
+                // Move with collision checking
+                let nextX = this.x + dx * this.speed * dt;
+                let nextY = this.y + dy * this.speed * dt;
+
+                if (!checkCircleWallCollision(nextX, this.y, this.radius, obstacles)) {
+                    this.x = nextX;
+                }
+                if (!checkCircleWallCollision(this.x, nextY, this.radius, obstacles)) {
+                    this.y = nextY;
+                }
+
+                this.x = Math.max(this.radius + 10, Math.min(2000 - this.radius - 10, this.x));
+                this.y = Math.max(this.radius + 10, Math.min(2000 - this.radius - 10, this.y));
+
+                // Mouse aiming if active, otherwise touchscreen stick sets angle
+                if (mousePos.used) {
+                    const screenX = this.x - camera.x;
+                    const screenY = this.y - camera.y;
+                    this.angle = Math.atan2(mousePos.y - screenY, mousePos.x - screenX);
+                }
+            }
+
+            useMedkit() {
+                if (this.medkits > 0 && this.hp < this.maxHp) {
+                    this.medkits--;
+                    this.hp = Math.min(this.maxHp, this.hp + 50);
+                    audio.playHeal();
+                    return true;
+                }
+                return false;
+            }
+
+            reload() {
+                if (this.isReloading || this.ammoInMag === this.magCapacity || this.reserveAmmo <= 0) return;
+                this.isReloading = true;
+                this.reloadTimer = this.reloadTime;
+            }
+
+            shoot() {
+                if (this.isReloading || this.shootCooldown > 0) return [];
+                if (this.ammoInMag <= 0) {
+                    this.reload();
+                    return [];
+                }
+
+                this.ammoInMag--;
+                this.shootCooldown = this.fireRate;
+                audio.playShoot(this.weaponKey);
+
+                const barrelDist = this.radius + 8;
+                const bx = this.x + Math.cos(this.angle) * barrelDist;
+                const by = this.y + Math.sin(this.angle) * barrelDist;
+
+                const bullets = [];
+                const pellets = this.weaponSpec.pellets;
+                for (let i = 0; i < pellets; i++) {
+                    const spread = (Math.random() - 0.5) * this.weaponSpec.spread;
+                    bullets.push(new Bullet(bx, by, this.angle + spread, this.weaponSpec.speed, true, this.weaponSpec.damage));
+                }
+                return bullets;
+            }
+
+            draw(ctx, camera) {
+                const px = this.x - camera.x;
+                const py = this.y - camera.y;
+
+                ctx.save();
+                ctx.translate(px, py);
+                ctx.rotate(this.angle);
+
+                // Barrel
+                ctx.fillStyle = '#475569';
+                ctx.fillRect(0, -4, this.radius + (this.weaponKey === 'SNIPER' ? 16 : 10), 8);
+
+                // Body
+                ctx.beginPath();
+                ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.armorSpec.bonusHp > 50 ? '#0284c7' : '#0369a1';
+                ctx.fill();
+                ctx.lineWidth = this.armorSpec.bonusHp > 0 ? 4 : 2;
+                ctx.strokeStyle = this.armorSpec.bonusHp > 50 ? '#e0f2fe' : '#38bdf8';
+                ctx.stroke();
+
+                // Visor Notch
+                ctx.beginPath();
+                ctx.arc(6, 0, 5, 0, Math.PI * 2);
+                ctx.fillStyle = '#e0f2fe';
+                ctx.fill();
+
+                ctx.restore();
+            }
+        }
+
+        class Enemy {
+            constructor(x, y, type = 'GUARD') {
+                this.x = x;
+                this.y = y;
+                this.radius = 18;
+                this.type = type;
+                this.hp = type === 'ELITE' ? 120 : 60;
+                this.maxHp = this.hp;
+                this.speed = type === 'ELITE' ? 150 : 120;
+                this.angle = Math.random() * Math.PI * 2;
+                this.detectionRange = type === 'ELITE' ? 450 : 350;
+                this.shootCooldown = 0;
+                this.fireRate = type === 'ELITE' ? 0.35 : 0.6;
+                this.damage = type === 'ELITE' ? 18 : 10;
+
+                this.state = 'PATROL';
+                this.patrolTimer = Math.random() * 3 + 2;
+                this.targetAngle = this.angle;
+            }
+
+            update(dt, player, obstacles, bullets) {
+                if (this.shootCooldown > 0) this.shootCooldown -= dt;
+
+                const distToPlayer = Math.hypot(player.x - this.x, player.y - this.y);
+
+                let hasLOS = false;
+                if (distToPlayer <= this.detectionRange) {
+                    hasLOS = !checkLineObstacleIntersect(this.x, this.y, player.x, player.y, obstacles);
+                }
+
+                if (hasLOS) {
+                    this.state = 'ALERT';
+                    this.angle = Math.atan2(player.y - this.y, player.x - this.x);
+
+                    if (distToPlayer > 180) {
+                        const nextX = this.x + Math.cos(this.angle) * this.speed * dt;
+                        const nextY = this.y + Math.sin(this.angle) * this.speed * dt;
+                        if (!checkCircleWallCollision(nextX, this.y, this.radius, obstacles)) this.x = nextX;
+                        if (!checkCircleWallCollision(this.x, nextY, this.radius, obstacles)) this.y = nextY;
+                    }
+
+                    if (this.shootCooldown <= 0) {
+                        this.shootCooldown = this.fireRate;
+                        audio.playEnemyShoot();
+                        const barrelDist = this.radius + 6;
+                        const bx = this.x + Math.cos(this.angle) * barrelDist;
+                        const by = this.y + Math.sin(this.angle) * barrelDist;
+                        const spread = (Math.random() - 0.5) * 0.15;
+                        bullets.push(new Bullet(bx, by, this.angle + spread, 650, false, this.damage));
+                    }
+                } else {
+                    this.state = 'PATROL';
+                    this.patrolTimer -= dt;
+                    if (this.patrolTimer <= 0) {
+                        this.patrolTimer = Math.random() * 4 + 2;
+                        this.targetAngle = Math.random() * Math.PI * 2;
+                    }
+                    this.angle += (this.targetAngle - this.angle) * 0.05;
+
+                    const nextX = this.x + Math.cos(this.angle) * (this.speed * 0.4) * dt;
+                    const nextY = this.y + Math.sin(this.angle) * (this.speed * 0.4) * dt;
+
+                    if (!checkCircleWallCollision(nextX, nextY, this.radius, obstacles)) {
+                        this.x = nextX;
+                        this.y = nextY;
+                    } else {
+                        this.targetAngle = this.angle + Math.PI;
+                    }
+                }
+            }
+
+            draw(ctx, camera) {
+                const ex = this.x - camera.x;
+                const ey = this.y - camera.y;
+
+                ctx.save();
+                ctx.translate(ex, ey);
+
+                if (this.state === 'ALERT') {
+                    ctx.beginPath();
+                    ctx.moveTo(0, 0);
+                    ctx.arc(0, 0, this.detectionRange, this.angle - 0.3, this.angle + 0.3);
+                    ctx.closePath();
+                    ctx.fillStyle = 'rgba(239, 68, 68, 0.06)';
+                    ctx.fill();
+                }
+
+                ctx.rotate(this.angle);
+
+                ctx.fillStyle = '#334155';
+                ctx.fillRect(0, -3, this.radius + 8, 6);
+
+                ctx.beginPath();
+                ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.type === 'ELITE' ? '#991b1b' : '#dc2626';
+                ctx.fill();
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = '#f87171';
+                ctx.stroke();
+
+                ctx.restore();
+
+                if (this.hp < this.maxHp) {
+                    ctx.fillStyle = 'rgba(15, 23, 42, 0.8)';
+                    ctx.fillRect(ex - 20, ey - this.radius - 12, 40, 5);
+                    ctx.fillStyle = '#ef4444';
+                    ctx.fillRect(ex - 20, ey - this.radius - 12, (this.hp / this.maxHp) * 40, 5);
+                }
+            }
+        }
+
+        class Bullet {
+            constructor(x, y, angle, speed, isPlayer, damage = 25) {
+                this.x = x;
+                this.y = y;
+                this.vx = Math.cos(angle) * speed;
+                this.vy = Math.sin(angle) * speed;
+                this.isPlayer = isPlayer;
+                this.damage = damage;
+                this.life = 1.8;
+            }
+
+            update(dt) {
+                this.x += this.vx * dt;
+                this.y += this.vy * dt;
+                this.life -= dt;
+            }
+
+            draw(ctx, camera) {
+                const bx = this.x - camera.x;
+                const by = this.y - camera.y;
+
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(bx, by, this.isPlayer ? 3.5 : 3, 0, Math.PI * 2);
+                ctx.fillStyle = this.isPlayer ? '#38bdf8' : '#f87171';
+                ctx.shadowColor = this.isPlayer ? '#0284c7' : '#ef4444';
+                ctx.shadowBlur = 6;
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        class LootCrate {
+            constructor(x, y, tier = 'STANDARD') {
+                this.x = x;
+                this.y = y;
+                this.size = 28;
+                this.tier = tier;
+                this.looted = false;
+
+                if (tier === 'SECRET') {
+                    this.value = Math.floor(Math.random() * 150000) + 150000;
+                    this.color = '#f59e0b';
+                    this.name = '機密金庫 (Gold Vault)';
+                } else if (tier === 'RARE') {
+                    this.value = Math.floor(Math.random() * 50000) + 50000;
+                    this.color = '#a855f7';
+                    this.name = '軍用武器箱 (Military Case)';
+                } else if (tier === 'DROP') {
+                    this.value = Math.floor(Math.random() * 30000) + 20000;
+                    this.color = '#10b981';
+                    this.name = '敵方搜刮狗牌與戰利品 (Dogtag & Loot)';
+                } else {
+                    this.value = Math.floor(Math.random() * 20000) + 10000;
+                    this.color = '#3b82f6';
+                    this.name = '戰術物資箱 (Supply Box)';
+                }
+            }
+
+            draw(ctx, camera) {
+                const lx = this.x - camera.x;
+                const ly = this.y - camera.y;
+
+                ctx.save();
+                ctx.translate(lx, ly);
+
+                if (this.looted) {
+                    ctx.strokeStyle = '#475569';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(-this.size / 2, -this.size / 2, this.size, this.size);
+                    ctx.fillStyle = 'rgba(30, 41, 59, 0.5)';
+                    ctx.fillRect(-this.size / 2, -this.size / 2, this.size, this.size);
+                } else {
+                    ctx.shadowColor = this.color;
+                    ctx.shadowBlur = 10;
+                    ctx.fillStyle = this.color;
+                    ctx.fillRect(-this.size / 2, -this.size / 2, this.size, this.size);
+
+                    ctx.fillStyle = '#0f172a';
+                    ctx.fillRect(-this.size / 4, -this.size / 4, this.size / 2, this.size / 2);
+
+                    ctx.fillStyle = this.color;
+                    ctx.font = 'bold 12px Orbitron';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('$', 0, 1);
+                }
+
+                ctx.restore();
+            }
+        }
+
+        class ExtractionZone {
+            constructor(x, y, radius = 90) {
+                this.x = x;
+                this.y = y;
+                this.radius = radius;
+                this.pulseTime = 0;
+            }
+
+            update(dt) {
+                this.pulseTime += dt * 3;
+            }
+
+            draw(ctx, camera) {
+                const ex = this.x - camera.x;
+                const ey = this.y - camera.y;
+
+                ctx.save();
+                ctx.translate(ex, ey);
+
+                const alpha = 0.2 + Math.sin(this.pulseTime) * 0.1;
+                ctx.beginPath();
+                ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(16, 185, 129, ${alpha})`;
+                ctx.fill();
+
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = '#10b981';
+                ctx.setLineDash([8, 6]);
+                ctx.stroke();
+
+                ctx.fillStyle = '#10b981';
+                ctx.font = 'bold 15px Orbitron, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('撤離點 EXTRACT', 0, 0);
+
+                ctx.restore();
+            }
+        }
+
+        function checkCircleWallCollision(cx, cy, r, obstacles) {
+            for (let obs of obstacles) {
+                const closestX = Math.max(obs.x, Math.min(cx, obs.x + obs.w));
+                const closestY = Math.max(obs.y, Math.min(cy, obs.y + obs.h));
+
+                const distX = cx - closestX;
+                const distY = cy - closestY;
+                const distanceSquared = (distX * distX) + (distY * distY);
+
+                if (distanceSquared < (r * r)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function checkLineObstacleIntersect(x1, y1, x2, y2, obstacles) {
+            for (let obs of obstacles) {
+                if (lineRectIntersect(x1, y1, x2, y2, obs.x, obs.y, obs.w, obs.h)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function lineRectIntersect(x1, y1, x2, y2, rx, ry, rw, rh) {
+            const left = lineLineIntersect(x1, y1, x2, y2, rx, ry, rx, ry + rh);
+            const right = lineLineIntersect(x1, y1, x2, y2, rx + rw, ry, rx + rw, ry + rh);
+            const top = lineLineIntersect(x1, y1, x2, y2, rx, ry, rx + rw, ry);
+            const bottom = lineLineIntersect(x1, y1, x2, y2, rx, ry + rh, rx + rw, ry + rh);
+            return left || right || top || bottom;
+        }
+
+        function lineLineIntersect(x1, y1, x2, y2, x3, y3, x4, y4) {
+            const uA = ((x4 - x3)

@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>世界計畫2</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #050510;
+            overflow: hidden;
+            touch-action: none; /* Prevent scroll/zoom on mobile */
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        /* Neon Text Glow */
+        .neon-text {
+            text-shadow: 0 0 5px #fff, 0 0 10px #fff, 0 0 20px #0ff, 0 0 40px #0ff, 0 0 80px #0ff;
+        }
+        
+        .neon-text-red {
+            text-shadow: 0 0 5px #fff, 0 0 10px #fff, 0 0 20px #f05, 0 0 40px #f05;
+        }
+
+        /* Camera Shake Animation */
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            30% { transform: translate(3px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            70% { transform: translate(3px, 1px) rotate(-1deg); }
+            80% { transform: translate(-1px, -1px) rotate(1deg); }
+            90% { transform: translate(1px, 2px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
+        .shake-active {
+            animation: shake 0.2s cubic-bezier(.36,.07,.19,.97) both;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* UI Overlays */
+        .overlay {
+            transition: opacity 0.3s ease;
+        }
+        
+        .hidden {
+            opacity: 0;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        button {
+            transition: all 0.2s;
+        }
+        button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.6);
+        }
+        button:active {
+            transform: scale(0.95);
+        }
+        .diff-btn.active {
+            border-color: #00f3ff;
+            background-color: rgba(0, 243, 255, 0.2);
+            box-shadow: 0 0 10px rgba(0, 243, 255, 0.5);
+        }
+    </style>
+</head>
+<body class="text-white select-none">
+
+    <!-- Main Game Container -->
+    <div id="gameContainer" class="relative w-full max-w-2xl mx-auto h-full bg-slate-950 overflow-hidden shadow-[0_0_50px_rgba(0,0,0,1)]">
+        
+        <!-- Canvas Layer -->
+        <canvas id="gameCanvas"></canvas>
+
+        <!-- UI Layer: HUD (Heads Up Display) -->
+        <div id="hud" class="absolute top-0 left-0 w-full p-4 flex justify-between items-start pointer-events-none hidden z-10">
+            <div>
+                <div class="text-xs font-bold text-pink-400 mb-1 flex items-center gap-1">
+                    <span>🎵</span> 歌曲：<span id="songTitleDisplay" class="text-white">自選音樂 / 預設電音</span> (<span id="bpmDisplay">128</span> BPM)
+                </div>
+                <div class="text-xl font-bold text-cyan-400 drop-shadow-[0_0_8px_rgba(0,243,255,0.8)]">得分: <span id="scoreDisplay">0</span></div>
+                <div class="text-lg text-pink-500 drop-shadow-[0_0_8px_rgba(255,0,85,0.8)]">連擊: <span id="comboDisplay">0</span></div>
+            </div>
+            <div class="text-right">
+                <div class="text-sm text-red-500 mb-2">失誤: <span id="missDisplay">0</span> / <span id="maxMissDisplay">10</span></div>
+                <button id="pauseBtn" class="pointer-events-auto px-4 py-1 border border-cyan-400 text-cyan-400 rounded hover:bg-cyan-900/50 backdrop-blur-sm uppercase tracking-wider text-sm font-bold">
+                    暫停
+                </button>
+            </div>
+        </div>
+
+        <!-- UI Layer: Start Screen -->
+        <div id="startScreen" class="overlay absolute inset-0 flex flex-col items-center justify-center bg-slate-950/85 backdrop-blur-sm z-20 p-4">
+            <h1 class="text-5xl md:text-6xl font-black italic tracking-tighter neon-text mb-1">世界計畫2</h1>
+            <div class="bg-gradient-to-r from-pink-500 to-cyan-400 text-slate-950 px-3 py-0.5 rounded-full font-black text-xs tracking-wider mb-4 shadow-[0_0_12px_rgba(255,0,128,0.6)]">
+                自由選擇你喜歡的音樂
+            </div>
+            
+            <!-- Custom Music Selector Box -->
+            <div class="mb-4 w-full max-w-sm bg-slate-900/90 border border-slate-700/80 p-3.5 rounded-xl text-center shadow-lg">
+                <div class="text-xs font-bold text-cyan-300 mb-2 flex items-center justify-center gap-1.5 uppercase tracking-wider">
+                    <span>🎧</span> 音樂來源與選擇
+                </div>
+
+                <!-- Dropdown for Preset Songs -->
+                <div class="mb-2.5">
+                    <select id="presetSongSelect" class="w-full px-3 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-xs text-slate-200 focus:outline-none focus:border-cyan-400">
+                        <option value="preset_128">預設：霓虹流光電音 (128 BPM)</option>
+                        <option value="preset_150">預設：高能疾速搖滾 (150 BPM)</option>
+                        <option value="preset_95">預設：抒情輕柔節奏 (95 BPM)</option>
+                        <option value="custom">自訂音樂：選擇本機電腦/手機音檔</option>
+                    </select>
+                </div>
+
+                <!-- Audio File Upload Container -->
+                <div id="fileUploadWrapper" class="hidden">
+                    <label for="customAudioInput" class="cursor-pointer border-2 border-dashed border-pink-500/50 hover:border-pink-400 bg-pink-950/20 hover:bg-pink-900/30 p-3 rounded-lg flex flex-col items-center justify-center transition">
+                        <span class="text-xl mb-1">🎵</span>
+                        <span id="audioFileName" class="text-xs text-pink-300 font-bold truncate max-w-[220px]">點此選取裝置中的 MP3 / WAV 音檔</span>
+                        <span class="text-[10px] text-slate-400 mt-0.5">自動分析音樂長度並生成節奏譜面</span>
+                    </label>
+                    <input type="file" id="customAudioInput" accept="audio/*" class="hidden">
+                </div>
+            </div>
+
+            <!-- Difficulty Selection -->
+            <div class="mb-5 w-full max-w-sm text-center">
+                <div class="text-xs text-cyan-300 font-bold mb-2 uppercase tracking-wider">選擇難度</div>
+                <div class="flex justify-center gap-2">
+                    <button id="diffEasy" class="diff-btn flex-1 py-1.5 border border-slate-700 bg-slate-900 text-slate-300 rounded font-bold text-sm">簡單</button>
+                    <button id="diffMedium" class="diff-btn active flex-1 py-1.5 border border-slate-700 bg-slate-900 text-slate-300 rounded font-bold text-sm">普通</button>
+                    <button id="diffHard" class="diff-btn flex-1 py-1.5 border border-slate-700 bg-slate-900 text-slate-300 rounded font-bold text-sm">困難</button>
+                </div>
+            </div>
+
+            <div class="bg-slate-900/80 border border-slate-700 p-4 rounded-lg mb-6 max-w-sm w-full text-center shadow-lg">
+                <h2 class="text-lg text-pink-400 font-bold mb-2">玩法說明</h2>
+                <div class="flex justify-around mb-2 text-xl font-black">
+                    <span class="text-[#ff0055]">D</span>
+                    <span class="text-[#00f3ff]">F</span>
+                    <span class="text-[#00ff66]">J</span>
+                    <span class="text-[#ffea00]">K</span>
+                </div>
+                <p class="text-xs text-slate-300 mb-1">電腦：當音符落到判定線時按對應鍵</p>
+                <p class="text-xs text-slate-300">手機：直接點擊對應軌道區域</p>
+            </div>
+
+            <div class="flex gap-3">
+                <button id="startBtn" class="px-6 py-2.5 bg-transparent border-2 border-cyan-400 text-cyan-400 text-lg font-bold rounded hover:bg-cyan-400 hover:text-slate-950 shadow-[0_0_15px_rgba(0,243,255,0.4)]">
+                    開始遊戲
+                </button>
+                <button id="leaderboardBtn" class="px-5 py-2.5 bg-slate-900 border border-pink-500 text-pink-400 text-lg font-bold rounded hover:bg-pink-500 hover:text-white shadow-[0_0_15px_rgba(255,0,85,0.3)]">
+                    排行榜
+                </button>
+            </div>
+        </div>
+
+        <!-- UI Layer: Leaderboard Modal -->
+        <div id="leaderboardModal" class="overlay absolute inset-0 flex flex-col items-center justify-center bg-slate-950/95 backdrop-blur-md hidden z-50 p-4">
+            <h2 class="text-3xl font-black tracking-wider neon-text mb-4">🏆 世界計畫2 英雄榜</h2>
+            <div class="w-full max-w-md bg-slate-900/90 border border-slate-800 rounded-xl p-4 mb-6 max-h-[60vh] overflow-y-auto">
+                <table class="w-full text-left text-sm">
+                    <thead>
+                        <tr class="text-cyan-400 border-b border-slate-800 pb-2">
+                            <th class="py-2 px-1">名次</th>
+                            <th class="py-2 px-1">玩家</th>
+                            <th class="py-2 px-1 text-center">難度</th>
+                            <th class="py-2 px-1 text-right">分數</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboardList" class="divide-y divide-slate-800/50">
+                        <!-- Leaderboard items rendered by JS -->
+                    </tbody>
+                </table>
+            </div>
+            <button id="closeLeaderboardBtn" class="px-6 py-2 border border-slate-600 text-slate-300 rounded font-bold hover:bg-slate-800">
+                關閉
+            </button>
+        </div>
+
+        <!-- UI Layer: Pause Screen -->
+        <div id="pauseScreen" class="overlay absolute inset-0 flex flex-col items-center justify-center bg-black/70 backdrop-blur-md hidden z-30">
+            <h2 class="text-4xl font-bold tracking-widest text-white mb-6 drop-shadow-[0_0_10px_rgba(255,255,255,0.8)]">遊戲暫停</h2>
+            <button id="resumeBtn" class="px-8 py-3 bg-cyan-500 text-slate-900 text-lg font-bold rounded shadow-[0_0_20px_rgba(0,243,255,0.6)]">
+                繼續遊戲
+            </button>
+        </div>
+
+        <!-- UI Layer: Game Over Screen -->
+        <div id="gameOverScreen" class="overlay absolute inset-0 flex flex-col items-center justify-center bg-slate-950/90 backdrop-blur-md hidden z-40 p-4">
+            <h2 id="gameOverTitle" class="text-4xl md:text-5xl font-black tracking-tighter neon-text-red mb-4">挑戰失敗</h2>
+            
+            <div class="text-center mb-5 bg-slate-900/70 p-5 border border-slate-800 rounded-xl w-72 shadow-lg">
+                <div class="mb-3">
+                    <div class="text-xs text-slate-400 uppercase">難度</div>
+                    <div id="finalDifficulty" class="text-lg font-bold text-yellow-400">普通</div>
+                </div>
+                <div class="mb-3">
+                    <div class="text-xs text-slate-400 uppercase">最終得分</div>
+                    <div id="finalScore" class="text-3xl font-bold text-cyan-400">0</div>
+                </div>
+                <div>
+                    <div class="text-xs text-slate-400 uppercase">最大連擊數</div>
+                    <div id="maxCombo" class="text-xl font-bold text-pink-500">0</div>
+                </div>
+            </div>
+
+            <!-- Record High Score Input -->
+            <div id="scoreSubmitArea" class="mb-5 flex flex-col items-center gap-2 w-72">
+                <input id="playerNameInput" type="text" maxlength="10" placeholder="輸入玩家暱稱" class="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded text-center text-cyan-300 font-bold focus:outline-none focus:border-cyan-400">
+                <button id="saveScoreBtn" class="w-full py-2 bg-pink-600 hover:bg-pink-500 text-white font-bold rounded shadow-[0_0_10px_rgba(255,0,85,0.4)]">
+                    儲存成績至排行榜
+                </button>
+            </div>
+
+            <div class="flex gap-3">
+                <button id="restartBtn" class="px-6 py-2.5 border-2 border-pink-500 text-pink-500 text-lg font-bold rounded hover:bg-pink-500 hover:text-white shadow-[0_0_15px_rgba(255,0,85,0.4)]">
+                    再玩一次
+                </button>
+                <button id="showLeaderboardFromEndBtn" class="px-5 py-2.5 border border-cyan-400 text-cyan-400 text-lg font-bold rounded hover:bg-cyan-900/40">
+                    查看排行榜
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /** 
+         * GAME ENGINE & LOGIC
+         */
+        
+        // --- Constants & Config ---
+        const TRACK_COLORS = ['#ff0055', '#00f3ff', '#00ff66', '#ffea00'];
+        const TRACK_KEYS = ['d', 'f', 'j', 'k'];
+        let BPM = 128; // Dynamic BPM
+        let BEAT_INTERVAL = 60 / BPM;
+
+        // Difficulty Settings
+        const DIFFICULTY_PRESETS = {
+            easy: {
+                name: '簡單',
+                noteSpeed: 600,
+                tolerancePerfect: 0.10,
+                toleranceGood: 0.20,
+                toleranceMiss: 0.30,
+                maxMisses: 15,
+                density: 0.4
+            },
+            medium: {
+                name: '普通',
+                noteSpeed: 850,
+                tolerancePerfect: 0.08,
+                toleranceGood: 0.16,
+                toleranceMiss: 0.25,
+                maxMisses: 10,
+                density: 0.6
+            },
+            hard: {
+                name: '困難',
+                noteSpeed: 1100,
+                tolerancePerfect: 0.05,
+                toleranceGood: 0.12,
+                toleranceMiss: 0.20,
+                maxMisses: 5,
+                density: 0.85
+            }
+        };
+
+        let currentDifficultyKey = 'medium';
+        let currentDifficulty = DIFFICULTY_PRESETS.medium;
+        
+        // --- State Variables ---
+        let state = 'START'; // START, PLAYING, PAUSED, GAMEOVER
+        let score = 0;
+        let combo = 0;
+        let maxCombo = 0;
+        let missCount = 0;
+        
+        let notes = [];
+        let particles = [];
+        let floatingTexts = [];
+        
+        // Leaderboard State (In-Memory)
+        let leaderboard = [
+            { name: 'CyberPulse', score: 2850, combo: 42, diff: '困難' },
+            { name: 'NeonKnight', score: 2400, combo: 35, diff: '普通' },
+            { name: 'BeatMaster', score: 1950, combo: 28, diff: '普通' },
+            { name: 'RhythmRookie', score: 1200, combo: 15, diff: '簡單' }
+        ];
+
+        // Audio & Song Selection State
+        let audioCtx;
+        let startTime = 0;
+        let songDuration = 90; // Default seconds
+        let currentSongName = "霓虹流光電音";
+        let customAudioBuffer = null;
+        let customAudioSource = null;
+
+        const presetSongSelect = document.getElementById('presetSongSelect');
+        const fileUploadWrapper = document.getElementById('fileUploadWrapper');
+        const customAudioInput = document.getElementById('customAudioInput');
+        const audioFileName = document.getElementById('audioFileName');
+        const songTitleDisplay = document.getElementById('songTitleDisplay');
+        const bpmDisplay = document.getElementById('bpmDisplay');
+
+        // Preset Song Options
+        const PRESET_SONGS = {
+            preset_128: { name: '霓虹流光電音', bpm: 128, duration: 90 },
+            preset_150: { name: '高能疾速搖滾', bpm: 150, duration: 80 },
+            preset_95: { name: '抒情輕柔節奏', bpm: 95, duration: 100 }
+        };
+
+        presetSongSelect.addEventListener('change', (e) => {
+            const val = e.target.value;
+            if (val === 'custom') {
+                fileUploadWrapper.classList.remove('hidden');
+                if (customAudioBuffer) {
+                    currentSongName = audioFileName.dataset.songName || "自選音樂";
+                } else {
+                    currentSongName = "請選擇音檔";
+                }
+            } else {
+                fileUploadWrapper.classList.add('hidden');
+                const preset = PRESET_SONGS[val];
+                currentSongName = preset.name;
+                BPM = preset.bpm;
+                BEAT_INTERVAL = 60 / BPM;
+                songDuration = preset.duration;
+                customAudioBuffer = null;
+            }
+            updateSongInfoDisplay();
+        });
+
+        if (customAudioInput) {
+            customAudioInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                initAudio();
+                const cleanName = file.name.replace(/\.[^/.]+$/, "");
+                audioFileName.innerText = `已載入：${cleanName}`;
+                audioFileName.dataset.songName = cleanName;
+                currentSongName = cleanName;
+
+                const reader = new FileReader();
+                reader.onload = function(evt) {
+                    audioCtx.decodeAudioData(evt.target.result, (buffer) => {
+                        customAudioBuffer = buffer;
+                        songDuration = buffer.duration;
+                        // Estimate dynamic BPM based on song length / tempo heuristics
+                        BPM = 120 + Math.floor((buffer.duration % 30));
+                        BEAT_INTERVAL = 60 / BPM;
+                        updateSongInfoDisplay();
+                    });
+                };
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        function updateSongInfoDisplay() {
+            songTitleDisplay.innerText = currentSongName;
+            bpmDisplay.innerText = BPM;
+        }
+
+        // Canvas Setup
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d', { alpha: false });
+        const container = document.getElementById('gameContainer');
+
+        let cw, ch;
+        let trackWidth, startX, judgmentY;
+
+        function resizeCanvas() {
+            cw = container.clientWidth;
+            ch = container.clientHeight;
+            canvas.width = cw;
+            canvas.height = ch;
+            
+            trackWidth = cw / 4;
+            startX = 0;
+            judgmentY = ch - 120;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // --- DOM Elements ---
+        const uiHUD = document.getElementById('hud');
+        const uiStart = document.getElementById('startScreen');
+        const uiPause = document.getElementById('pauseScreen');
+        const uiGameOver = document.getElementById('gameOverScreen');
+        const uiLeaderboardModal = document.getElementById('leaderboardModal');
+        
+        const elScore = document.getElementById('scoreDisplay');
+        const elCombo = document.getElementById('comboDisplay');
+        const elMiss = document.getElementById('missDisplay');
+        const elMaxMiss = document.getElementById('maxMissDisplay');
+        const elFinalScore = document.getElementById('finalScore');
+        const elMaxCombo = document.getElementById('maxCombo');
+        const elFinalDifficulty = document.getElementById('finalDifficulty');
+        const elGameOverTitle = document.getElementById('gameOverTitle');
+        const elLeaderboardList = document.getElementById('leaderboardList');
+        const elPlayerNameInput = document.getElementById('playerNameInput');
+        const elSaveScoreBtn = document.getElementById('saveScoreBtn');
+        const elScoreSubmitArea = document.getElementById('scoreSubmitArea');
+
+        // --- Leaderboard Management ---
+        function renderLeaderboard() {
+            // Sort leaderboard by highest score
+            leaderboard.sort((a, b) => b.score - a.score);
+            elLeaderboardList.innerHTML = '';
+            
+            leaderboard.forEach((entry, idx) => {
+                const tr = document.createElement('tr');
+                tr.className = idx === 0 ? 'text-yellow-400 font-bold' : (idx === 1 ? 'text-slate-200' : (idx === 2 ? 'text-amber-500' : 'text-slate-400'));
+                tr.innerHTML = `
+                    <td class="py-2 px-1">#${idx + 1}</td>
+                    <td class="py-2 px-1">${entry.name}</td>
+                    <td class="py-2 px-1 text-center"><span class="px-1.5 py-0.5 text-xs rounded bg-slate-800">${entry.diff}</span></td>
+                    <td class="py-2 px-1 text-right font-mono">${entry.score}</td>
+                `;
+                elLeaderboardList.appendChild(tr);
+            });
+        }
+
+        function saveCurrentScore() {
+            const name = elPlayerNameInput.value.trim() || '無名氏玩家';
+            leaderboard.push({
+                name: name,
+                score: score,
+                combo: maxCombo,
+                diff: currentDifficulty.name
+            });
+            renderLeaderboard();
+            elScoreSubmitArea.classList.add('hidden');
+        }
+
+        // --- Audio System (Web Audio API) ---
+        function initAudio() {
+            if (audioCtx) return;
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new AudioContext();
+        }
+
+        // Melodic frequencies for "不專心" synth arrangement (C Major scale)
+        const MELODY_NOTES = [
+            523.25, 587.33, 659.25, 698.46, 783.99, 880.00, 987.77, 1046.50
+        ]; // C5, D5, E5, F5, G5, A5, B5, C6
+
+        function scheduleBackgroundMusic() {
+            if (customAudioBuffer) {
+                // Play user's uploaded audio file
+                if (customAudioSource) {
+                    try { customAudioSource.stop(); } catch(e){}
+                }
+                customAudioSource = audioCtx.createBufferSource();
+                customAudioSource.buffer = customAudioBuffer;
+                customAudioSource.connect(audioCtx.destination);
+                customAudioSource.start(startTime);
+                return;
+            }
+
+            // Synthesize dynamic electronic music based on active BPM preset
+            const totalBeats = Math.floor(songDuration / BEAT_INTERVAL);
+            const melodyPattern = [4, 4, 5, 4, 2, 0, 2, 4, 3, 2, 0, 2, 4, 4, 5, 4];
+            
+            for (let i = 0; i < totalBeats; i++) {
+                const beatTime = startTime + (i * BEAT_INTERVAL);
+                
+                // 1. Kick Drum
+                const kickOsc = audioCtx.createOscillator();
+                const kickGain = audioCtx.createGain();
+                kickOsc.frequency.setValueAtTime(160, beatTime);
+                kickOsc.frequency.exponentialRampToValueAtTime(30, beatTime + 0.12);
+                kickGain.gain.setValueAtTime(0.5, beatTime);
+                kickGain.gain.exponentialRampToValueAtTime(0.01, beatTime + 0.12);
+                kickOsc.connect(kickGain);
+                kickGain.connect(audioCtx.destination);
+                kickOsc.start(beatTime);
+                kickOsc.stop(beatTime + 0.12);
+
+                // 2. Snare Clap
+                if (i % 2 === 1) {
+                    const snareOsc = audioCtx.createOscillator();
+                    const snareGain = audioCtx.createGain();
+                    snareOsc.type = 'triangle';
+                    snareOsc.frequency.setValueAtTime(280, beatTime);
+                    snareOsc.frequency.exponentialRampToValueAtTime(80, beatTime + 0.1);
+                    snareGain.gain.setValueAtTime(0.3, beatTime);
+                    snareGain.gain.exponentialRampToValueAtTime(0.01, beatTime + 0.1);
+                    snareOsc.connect(snareGain);
+                    snareGain.connect(audioCtx.destination);
+                    snareOsc.start(beatTime);
+                    snareOsc.stop(beatTime + 0.1);
+                }
+
+                // 3. Synth Melodic Lead
+                const noteIdx = melodyPattern[i % melodyPattern.length];
+                const synthOsc = audioCtx.createOscillator();
+                const synthGain = audioCtx.createGain();
+                
+                synthOsc.type = 'sine';
+                synthOsc.frequency.setValueAtTime(MELODY_NOTES[noteIdx], beatTime);
+                
+                synthGain.gain.setValueAtTime(0.15, beatTime);
+                synthGain.gain.exponentialRampToValueAtTime(0.001, beatTime + BEAT_INTERVAL * 0.8);
+                
+                synthOsc.connect(synthGain);
+                synthGain.connect(audioCtx.destination);
+                
+                synthOsc.start(beatTime);
+                synthOsc.stop(beatTime + BEAT_INTERVAL * 0.8);
+            }
+        }
+
+        // --- Level Generation ---
+        function generateLevel() {
+            notes = [];
+            const totalBeats = Math.floor(songDuration / BEAT_INTERVAL);
+            const prepTime = 2.0; 
+            
+            for (let i = 0; i < totalBeats; i++) {
+                const rand = Math.random();
+                let numNotes = 0;
+                
+                if (rand < currentDifficulty.density) {
+                    numNotes = (rand > 0.75 && currentDifficultyKey !== 'easy') ? 2 : 1;
+                }
+                
+                if (i < 4) numNotes = 1; // Easy start
+                
+                const usedTracks = new Set();
+                for (let n = 0; n < numNotes; n++) {
+                    let track;
+                    do {
+                        track = Math.floor(Math.random() * 4);
+                    } while (usedTracks.has(track));
+                    usedTracks.add(track);
+                    
+                    notes.push({
+                        track: track,
+                        hitTime: prepTime + (i * BEAT_INTERVAL),
+                        hit: false,
+                        missed: false
+                    });
+                }
+                
+                // Extra offbeat notes on Hard difficulty
+                if (currentDifficultyKey === 'hard' && rand > 0.8 && i > 8) {
+                    notes.push({
+                        track: Math.floor(Math.random() * 4),
+                        hitTime: prepTime + (i * BEAT_INTERVAL) + (BEAT_INTERVAL / 2),
+                        hit: false,
+                        missed: false
+                    });
+                }
+            }
+            
+            notes.sort((a, b) => a.hitTime - b.hitTime);
+        }
+
+        // --- Game Flow Controls ---
+        function startGame() {
+            initAudio();
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            
+            score = 0;
+            combo = 0;
+            maxCombo = 0;
+            missCount = 0;
+            particles = [];
+            floatingTexts = [];
+            
+            elMaxMiss.innerText = currentDifficulty.maxMisses;
+            updateHUD();
+            
+            generateLevel();
+            
+            startTime = audioCtx.currentTime;
+            scheduleBackgroundMusic();
+
+            state = 'PLAYING';
+            
+            uiStart.classList.add('hidden');
+            uiGameOver.classList.add('hidden');
+            uiLeaderboardModal.classList.add('hidden');
+            uiHUD.classList.remove('hidden');
+            
+            requestAnimationFrame(gameLoop);
+        }
+
+        function pauseGame() {
+            if (state !== 'PLAYING') return;
+            state = 'PAUSED';
+            audioCtx.suspend();
+            if (customAudioSource) {
+                try { customAudioSource.stop(); } catch(e){}
+            }
+            uiPause.classList.remove('hidden');
+        }
+
+        function resumeGame() {
+            if (state !== 'PAUSED') return;
+            state = 'PLAYING';
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            uiPause.classList.add('hidden');
+            requestAnimationFrame(gameLoop);
+        }
+
+        function playHitSound() {
+            if (!audioCtx) return;
+            try {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.05);
+                gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.05);
+            } catch(e) {}
+        }
+
+        function playMissSound() {
+            if (!audioCtx) return;
+            try {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+                osc.frequency.linearRampToValueAtTime(80, audioCtx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.1);
+            } catch(e) {}
+        }
+
+        function triggerGameOver(isClear = false) {
+            state = 'GAMEOVER';
+            audioCtx.suspend();
+            if (customAudioSource) {
+                try { customAudioSource.stop(); } catch(e){}
+            }
+            
+            uiHUD.classList.add('hidden');
+            uiGameOver.classList.remove('hidden');
+            
+            elFinalScore.innerText = score;
+            elMaxCombo.innerText = maxCombo;
+            elFinalDifficulty.innerText = currentDifficulty.name;
+            
+            elScoreSubmitArea.classList.remove('hidden');
+            elPlayerNameInput.value = '';
+            
+            if (isClear) {
+                elGameOverTitle.innerText = "通關成功！";
+                elGameOverTitle.className = "text-4xl md:text-5xl font-black tracking-tighter neon-text mb-4";
+            } else {
+                elGameOverTitle.innerText = "挑戰失敗";
+                elGameOverTitle.className = "text-4xl md:text-5xl font-black tracking-tighter neon-text-red mb-4";
+            }
+        }
+
+        // --- UI Updates ---
+        function updateHUD() {
+            elScore.innerText = score;
+            elCombo.innerText = combo;
+            elMiss.innerText = missCount;
+        }
+
+        function spawnFloatingText(text, track, type) {
+            let color = '#fff';
+            if (type === 'Perfect') color = '#00f3ff'; 
+            if (type === 'Good') color = '#00ff66';   
+            if (type === 'Miss') color = '#ff0055';   
+
+            floatingTexts.push({
+                x: track * trackWidth + trackWidth / 2,
+                y: judgmentY - 30,
+                text: text,
+                color: color,
+                alpha: 1,
+                vy: -2,
+                life: 1.0
+            });
+        }
+
+        function spawnParticles(track) {
+            const px = track * trackWidth + trackWidth / 2;
+            const py = judgmentY;
+            const color = TRACK_COLORS[track];
+            
+            for (let i = 0; i < 15; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 5 + 2;
+                particles.push({
+                    x: px,
+                    y: py,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    color: color,
+                    alpha: 1,
+                    size: Math.random() * 4 + 2
+                });
+            }
+        }
+
+        function triggerShake() {
+            container.classList.remove('shake-active');
+            void container.offsetWidth;
+            container.classList.add('shake-active');
+        }
+
+        // --- Input & Judgment Logic ---
+        function handleInput(trackIndex) {
+            if (state !== 'PLAYING') return;
+
+            drawTrackFlash(trackIndex);
+
+            const currentTime = audioCtx.currentTime - startTime;
+            
+            let targetNote = null;
+            for (let i = 0; i < notes.length; i++) {
+                if (notes[i].track === trackIndex && !notes[i].hit && !notes[i].missed) {
+                    targetNote = notes[i];
+                    break;
+                }
+            }
+
+            if (targetNote) {
+                const diff = Math.abs(targetNote.hitTime - currentTime);
+                
+                if (diff <= currentDifficulty.tolerancePerfect) {
+                    // PERFECT
+                    targetNote.hit = true;
+                    score += 100;
+                    combo++;
+                    if(combo > maxCombo) maxCombo = combo;
+                    spawnFloatingText('完美 (PERFECT)', trackIndex, 'Perfect');
+                    spawnParticles(trackIndex);
+                    playHitSound();
+                    triggerShake();
+                } else if (diff <= currentDifficulty.toleranceGood) {
+                    // GOOD
+                    targetNote.hit = true;
+                    score += 50;
+                    combo++;
+                    if(combo > maxCombo) maxCombo = combo;
+                    spawnFloatingText('良好 (GOOD)', trackIndex, 'Good');
+                    spawnParticles(trackIndex);
+                    playHitSound();
+                } else if (targetNote.hitTime - currentTime < currentDifficulty.toleranceMiss && currentTime - targetNote.hitTime < 0) {
+                   targetNote.hit = true;
+                   targetNote.missed = true;
+                   combo = 0;
+                   missCount++;
+                   spawnFloatingText('錯過 (MISS)', trackIndex, 'Miss');
+                   playMissSound();
+                }
+                updateHUD();
+            }
+
+            if (missCount >= currentDifficulty.maxMisses) {
+                triggerGameOver(false);
+            }
+        }
+
+        // Track flash effect data
+        let trackFlashes = [0, 0, 0, 0];
+        function drawTrackFlash(trackIndex) {
+            trackFlashes[trackIndex] = 1.0;
+        }
+
+        // Event Listeners
+        window.addEventListener('keydown', (e) => {
+            if (e.repeat) return;
+            const key = e.key.toLowerCase();
+            const trackIndex = TRACK_KEYS.indexOf(key);
+            if (trackIndex !== -1) {
+                handleInput(trackIndex);
+            }
+            if (key === 'escape' || key === 'p') {
+                if (state === 'PLAYING') pauseGame();
+                else if (state === 'PAUSED') resumeGame();
+            }
+        });
+
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                const touch = e.changedTouches[i];
+                const rect = canvas.getBoundingClientRect();
+                const touchX = touch.clientX - rect.left;
+                const trackIndex = Math.floor(touchX / (rect.width / 4));
+                if (trackIndex >= 0 && trackIndex <= 3) {
+                    handleInput(trackIndex);
+                }
+            }
+        }, { passive: false });
+
+        // Difficulty buttons setup
+        function setDifficulty(diffKey) {
+            currentDifficultyKey = diffKey;
+            currentDifficulty = DIFFICULTY_PRESETS[diffKey];
+            document.querySelectorAll('.diff-btn').forEach(btn => btn.classList.remove('active'));
+            if(diffKey === 'easy') document.getElementById('diffEasy').classList.add('active');
+            if(diffKey === 'medium') document.getElementById('diffMedium').classList.add('active');
+            if(diffKey === 'hard') document.getElementById('diffHard').classList.add('active');
+        }
+
+        document.getElementById('diffEasy').addEventListener('click', () => setDifficulty('easy'));
+        document.getElementById('diffMedium').addEventListener('click', () => setDifficulty('medium'));
+        document.getElementById('diffHard').addEventListener('click', () => setDifficulty('hard'));
+
+        // UI Buttons
+        document.getElementById('startBtn').addEventListener('click', startGame);
+        document.getElementById('pauseBtn').addEventListener('click', pauseGame);
+        document.getElementById('resumeBtn').addEventListener('click', resumeGame);
+        document.getElementById('restartBtn').addEventListener('click', () => {
+            if (audioCtx) {
+                audioCtx.close().then(() => {
+                    audioCtx = null;
+                    startGame();
+                });
+            } else {
+                startGame();
+            }
+        });
+
+        document.getElementById('leaderboardBtn').addEventListener('click', () => {
+            renderLeaderboard();
+            uiLeaderboardModal.classList.remove('hidden');
+        });
+        document.getElementById('showLeaderboardFromEndBtn').addEventListener('click', () => {
+            renderLeaderboard();
+            uiLeaderboardModal.classList.remove('hidden');
+        });
+        document.getElementById('closeLeaderboardBtn').addEventListener('click', () => {
+            uiLeaderboardModal.classList.add('hidden');
+        });
+        elSaveScoreBtn.addEventListener('click', saveCurrentScore);
+
+        // --- Render Engine ---
+        let bgOffset = 0;
+
+        function drawBackground() {
+            ctx.fillStyle = '#050510';
+            ctx.fillRect(0, 0, cw, ch);
+
+            ctx.strokeStyle = 'rgba(0, 243, 255, 0.1)';
+            ctx.lineWidth = 1;
+            
+            bgOffset += 2;
+            if (bgOffset > 50) bgOffset = 0;
+
+            ctx.beginPath();
+            for (let y = bgOffset; y < ch; y += 50) {
+                const perspectiveY = y + (y * y) / ch;
+                if(perspectiveY > ch) break;
+                ctx.moveTo(0, perspectiveY);
+                ctx.lineTo(cw, perspectiveY);
+            }
+            for (let x = 0; x <= cw; x += cw/8) {
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, ch);
+            }
+            ctx.stroke();
+        }
+
+        function gameLoop() {
+            if (state !== 'PLAYING') return;
+
+            const currentTime = audioCtx.currentTime - startTime;
+            
+            drawBackground();
+
+            // 1. Draw Tracks & Judgment Line
+            ctx.globalCompositeOperation = 'source-over';
+            
+            for (let i = 0; i < 4; i++) {
+                const tx = i * trackWidth;
+                
+                ctx.fillStyle = `rgba(255, 255, 255, 0.03)`;
+                ctx.fillRect(tx, 0, trackWidth, ch);
+                
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+                ctx.beginPath();
+                ctx.moveTo(tx, 0);
+                ctx.lineTo(tx, ch);
+                ctx.stroke();
+
+                if (trackFlashes[i] > 0) {
+                    ctx.fillStyle = TRACK_COLORS[i];
+                    ctx.globalAlpha = trackFlashes[i] * 0.3;
+                    ctx.fillRect(tx, 0, trackWidth, ch);
+                    trackFlashes[i] -= 0.1;
+                    if (trackFlashes[i] < 0) trackFlashes[i] = 0;
+                    ctx.globalAlpha = 1.0;
+                }
+
+                ctx.fillStyle = 'rgba(255,255,255,0.2)';
+                ctx.font = 'bold 20px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(TRACK_KEYS[i].toUpperCase(), tx + trackWidth/2, ch - 20);
+            }
+            
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+            ctx.beginPath();
+            ctx.moveTo(cw, 0);
+            ctx.lineTo(cw, ch);
+            ctx.stroke();
+
+            // Judgment Line
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#00f3ff';
+            ctx.fillStyle = '#00f3ff';
+            ctx.fillRect(0, judgmentY - 2, cw, 4);
+            ctx.shadowBlur = 0;
+
+            // 2. Process and Draw Notes
+            let allPassed = true;
+            
+            ctx.globalCompositeOperation = 'lighter';
+            for (let i = 0; i < notes.length; i++) {
+                let note = notes[i];
+                if (note.hit || note.missed) continue;
+
+                allPassed = false;
+                
+                const timeDiff = note.hitTime - currentTime;
+                const noteY = judgmentY - (timeDiff * currentDifficulty.noteSpeed);
+                
+                if (timeDiff < -currentDifficulty.toleranceMiss) {
+                    note.missed = true;
+                    combo = 0;
+                    missCount++;
+                    spawnFloatingText('錯過 (MISS)', note.track, 'Miss');
+                    playMissSound();
+                    updateHUD();
+                    if (missCount >= currentDifficulty.maxMisses) {
+                        triggerGameOver(false);
+                        return;
+                    }
+                    continue;
+                }
+
+                if (noteY > -50 && noteY < ch + 50) {
+                    const nx = note.track * trackWidth;
+                    const color = TRACK_COLORS[note.track];
+                    const noteHeight = 20;
+                    
+                    ctx.shadowBlur = 20;
+                    ctx.shadowColor = color;
+                    ctx.fillStyle = color;
+                    
+                    ctx.beginPath();
+                    ctx.roundRect(nx + 10, noteY - noteHeight/2, trackWidth - 20, noteHeight, 10);
+                    ctx.fill();
+                    
+                    ctx.fillStyle = '#fff';
+                    ctx.shadowBlur = 0;
+                    ctx.beginPath();
+                    ctx.roundRect(nx + 20, noteY - noteHeight/4, trackWidth - 40, noteHeight/2, 5);
+                    ctx.fill();
+                }
+            }
+            ctx.globalCompositeOperation = 'source-over';
+
+            // 3. Draw Particles
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.alpha -= 0.03;
+                
+                if (p.alpha <= 0) {
+                    particles.splice(i, 1);
+                    continue;
+                }
+                
+                ctx.globalAlpha = p.alpha;
+                ctx.fillStyle = p.color;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1.0;
+            ctx.shadowBlur = 0;
+
+            // 4. Draw Floating Texts
+            ctx.textAlign = 'center';
+            for (let i = floatingTexts.length - 1; i >= 0; i--) {
+                let ft = floatingTexts[i];
+                ft.y += ft.vy;
+                ft.life -= 0.02;
+                
+                if (ft.life <= 0) {
+                    floatingTexts.splice(i, 1);
+                    continue;
+                }
+                
+                ctx.globalAlpha = ft.life;
+                ctx.fillStyle = ft.color;
+                ctx.font = 'bold 20px sans-serif';
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = ft.color;
+                ctx.fillText(ft.text, ft.x, ft.y);
+            }
+            ctx.globalAlpha = 1.0;
+            ctx.shadowBlur = 0;
+
+            if (allPassed && currentTime > songDuration) {
+                if (particles.length === 0 && floatingTexts.length === 0) {
+                    triggerGameOver(true);
+                    return;
+                }
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Initialize Leaderboard View
+        renderLeaderboard();
+
+        if (!CanvasRenderingContext2D.prototype.roundRect) {
+            CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) {
+                if (w < 2 * r) r = w / 2;
+                if (h < 2 * r) r = h / 2;
+                this.moveTo(x + r, y);
+                this.arcTo(x + w, y, x + w, y + h, r);
+                this.arcTo(x + w, y + h, x, y + h, r);
+                this.arcTo(x, y + h, x, y, r);
+                this.arcTo(x, y, x + w, y, r);
+                return this;
+            }
+        }
+    </script>
+</body>
+</html>

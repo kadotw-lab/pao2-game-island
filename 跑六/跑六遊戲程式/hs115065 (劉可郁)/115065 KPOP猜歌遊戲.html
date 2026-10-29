@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>K-POP 歌詞猜歌大挑戰 (隨機動態題庫版)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&family=Poppins:wght@400;600;800;900&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        neonPink: '#FF007F',
+                        neonPurple: '#7B2CBF',
+                        neonCyan: '#00F5FF',
+                        neonGreen: '#00FF66',
+                        neonRed: '#FF3366',
+                        darkBg: '#0d0c1d'
+                    },
+                    fontFamily: {
+                        kr: ['"Noto Sans KR"', 'sans-serif'],
+                        main: ['"Poppins"', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #0d0c1d;
+            background-image: 
+                radial-gradient(circle at 10% 15%, rgba(123, 44, 191, 0.35) 0%, transparent 40%),
+                radial-gradient(circle at 90% 85%, rgba(255, 0, 127, 0.3) 0%, transparent 45%),
+                radial-gradient(circle at 50% 50%, rgba(0, 245, 255, 0.12) 0%, transparent 60%);
+            background-attachment: fixed;
+            color: #ffffff;
+            font-family: 'Poppins', 'Noto Sans KR', system-ui, sans-serif;
+            min-height: 100vh;
+            overflow-x: hidden;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .glass-card {
+            background: rgba(20, 16, 42, 0.85);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.65);
+        }
+
+        .glow-pink { box-shadow: 0 0 25px rgba(255, 0, 127, 0.5); }
+        .glow-cyan { box-shadow: 0 0 25px rgba(0, 245, 255, 0.5); }
+        .text-glow-pink { text-shadow: 0 0 14px rgba(255, 0, 127, 0.85); }
+        .text-glow-cyan { text-shadow: 0 0 14px rgba(0, 245, 255, 0.85); }
+
+        .option-btn {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .option-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            border-color: #00F5FF;
+            box-shadow: 0 0 20px rgba(0, 245, 255, 0.35);
+        }
+        .option-btn:active:not(:disabled) {
+            transform: translateY(1px);
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-10px); }
+            40%, 80% { transform: translateX(10px); }
+        }
+        .animate-shake { animation: shake 0.45s ease-in-out; }
+
+        @keyframes pulseGlowGreen {
+            0% { box-shadow: 0 0 5px #00FF66; }
+            50% { box-shadow: 0 0 25px #00FF66, 0 0 35px #00FF66; }
+            100% { box-shadow: 0 0 5px #00FF66; }
+        }
+        .correct-glow {
+            animation: pulseGlowGreen 0.6s infinite alternate;
+            border-color: #00FF66 !important;
+            background: rgba(0, 255, 102, 0.2) !important;
+        }
+
+        @keyframes pulseGlowRed {
+            0% { box-shadow: 0 0 5px #FF3366; }
+            50% { box-shadow: 0 0 25px #FF3366, 0 0 35px #FF3366; }
+            100% { box-shadow: 0 0 5px #FF3366; }
+        }
+        .wrong-glow {
+            animation: pulseGlowRed 0.6s infinite alternate;
+            border-color: #FF3366 !important;
+            background: rgba(255, 51, 102, 0.2) !important;
+        }
+
+        .screen {
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+        .screen-hidden {
+            opacity: 0;
+            pointer-events: none;
+            transform: scale(0.95);
+            display: none !important;
+        }
+
+        #confettiCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center p-3 sm:p-6 min-h-screen">
+
+    <canvas id="confettiCanvas"></canvas>
+
+    <div class="w-full max-w-2xl relative z-10">
+
+        <!-- START SCREEN -->
+        <div id="startScreen" class="screen glass-card rounded-3xl p-6 sm:p-10 text-center border border-purple-500/30">
+            <div class="inline-block px-4 py-1.5 rounded-full bg-neonPurple/30 border border-neonPink/50 text-neonPink text-xs sm:text-sm font-semibold tracking-wider mb-4 animate-pulse">
+                <i class="fa-solid fa-shuffle mr-1.5"></i> DYNAMIC RANDOM PLAYLIST
+            </div>
+            
+            <h1 class="text-3xl sm:text-5xl font-black tracking-tight mb-2 text-transparent bg-clip-text bg-gradient-to-r from-neonPink via-neonCyan to-neonGreen text-glow-pink">
+                K-POP 歌詞猜歌大挑戰
+            </h1>
+            
+            <p class="text-gray-300 text-sm sm:text-base mt-2 mb-8 leading-relaxed">
+                26首+ 大題庫隨機洗牌！每次遊玩皆獨一無二，涵蓋男團、女團、2代至5代及Solo神曲！
+            </p>
+
+            <div class="grid grid-cols-2 gap-4 mb-8 text-left max-w-md mx-auto">
+                <div class="p-3.5 rounded-2xl bg-black/30 border border-white/10 flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-xl bg-neonPink/20 text-neonPink flex items-center justify-center text-lg font-bold">
+                        <i class="fa-solid fa-stopwatch"></i>
+                    </div>
+                    <div>
+                        <div class="text-xs text-gray-400">限時關卡</div>
+                        <div class="text-sm font-bold text-white">每題 10 秒倒數</div>
+                    </div>
+                </div>
+
+                <div class="p-3.5 rounded-2xl bg-black/30 border border-white/10 flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-xl bg-neonCyan/20 text-neonCyan flex items-center justify-center text-lg font-bold">
+                        <i class="fa-solid fa-random"></i>
+                    </div>
+                    <div>
+                        <div class="text-xs text-gray-400">洗牌算法</div>
+                        <div class="text-sm font-bold text-white">隨機 10 題組合</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sound & Highscore Bar -->
+            <div class="flex items-center justify-center space-x-6 mb-8">
+                <div class="inline-flex items-center space-x-2 px-4 py-2 rounded-2xl bg-black/40 border border-yellow-500/30 text-yellow-400">
+                    <i class="fa-solid fa-trophy"></i>
+                    <span class="text-xs text-gray-300">最高分：</span>
+                    <span id="startHighScore" class="text-lg font-black tracking-wide">0</span>
+                </div>
+
+                <button id="soundToggleBtn" class="px-4 py-2 rounded-2xl bg-black/40 border border-white/20 text-gray-300 text-sm hover:text-white transition">
+                    <i id="soundIcon" class="fa-solid fa-volume-high mr-1 text-neonCyan"></i> 音效: 開
+                </button>
+            </div>
+
+            <div>
+                <button id="startBtn" class="w-full sm:w-auto px-10 py-4 rounded-2xl bg-gradient-to-r from-neonPink to-neonPurple text-white text-lg font-bold shadow-lg glow-pink hover:scale-105 active:scale-95 transition-all duration-300">
+                    <i class="fa-solid fa-play mr-2"></i> 開始挑戰
+                </button>
+            </div>
+        </div>
+
+        <!-- GAME SCREEN -->
+        <div id="gameScreen" class="screen glass-card rounded-3xl p-5 sm:p-8 border border-cyan-500/30 screen-hidden">
+            
+            <div class="flex items-center justify-between mb-4 text-xs sm:text-sm font-bold">
+                <div class="flex items-center space-x-2">
+                    <span class="px-3 py-1 rounded-full bg-neonPurple/40 border border-neonPurple text-neonCyan">
+                        <i class="fa-solid fa-flag mr-1"></i> 第 <span id="currentQuestionNum">1</span> / 10 關
+                    </span>
+                </div>
+
+                <div class="flex items-center space-x-4">
+                    <div class="text-gray-300">
+                        得分: <span id="currentScore" class="text-neonGreen text-base sm:text-lg font-extrabold">0</span>
+                    </div>
+                    <div class="text-gray-400 text-xs">
+                        最高: <span id="gameHighScore" class="text-yellow-400 font-bold">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="w-full bg-black/40 rounded-full h-2 mb-6 overflow-hidden border border-white/5">
+                <div id="progressBar" class="bg-gradient-to-r from-neonCyan via-neonPink to-neonGreen h-2 rounded-full transition-all duration-300 w-0"></div>
+            </div>
+
+            <!-- Countdown Timer -->
+            <div class="flex items-center justify-between bg-black/30 p-3 rounded-2xl mb-6 border border-white/10">
+                <div class="flex items-center space-x-2 text-xs font-semibold text-gray-300">
+                    <i class="fa-solid fa-clock text-neonPink text-sm"></i>
+                    <span>剩餘時間</span>
+                </div>
+                <div class="flex items-center space-x-3 flex-1 mx-4">
+                    <div class="w-full bg-gray-800 rounded-full h-2.5 overflow-hidden">
+                        <div id="timerBar" class="bg-neonPink h-2.5 rounded-full transition-all duration-100 ease-linear w-full"></div>
+                    </div>
+                </div>
+                <div id="timerText" class="text-neonPink font-black text-lg w-8 text-right">10</div>
+            </div>
+
+            <!-- Lyric Card -->
+            <div id="lyricCard" class="relative bg-black/40 rounded-2xl p-6 sm:p-8 mb-6 border border-white/10 text-center transition-all duration-300">
+                <div class="text-xs text-neonCyan font-semibold tracking-widest uppercase mb-2">
+                    <i class="fa-solid fa-quote-left mr-1 opacity-60"></i> K-POP 歌詞片段 <i class="fa-solid fa-quote-right ml-1 opacity-60"></i>
+                </div>
+                
+                <p id="koreanLyric" class="text-xl sm:text-2xl font-black text-white leading-relaxed my-2 tracking-wide font-kr">
+                    "Loading Lyric..."
+                </p>
+
+                <p id="romanLyric" class="text-xs sm:text-sm text-neonCyan/80 font-medium tracking-wide mb-2 italic">
+                    (Romanization)
+                </p>
+
+                <p id="translatedLyric" class="text-xs sm:text-sm text-gray-300 font-medium italic mt-2">
+                    (中文翻譯...)
+                </p>
+
+                <div class="mt-4 inline-flex items-center space-x-2 px-3 py-1 rounded-lg bg-white/5 border border-white/10 text-[11px] text-gray-400">
+                    <i class="fa-solid fa-compact-disc text-neonPurple"></i>
+                    <span id="hintTag">提示：世代 / 特徵</span>
+                </div>
+            </div>
+
+            <!-- Options Container -->
+            <div id="optionsContainer" class="space-y-3">
+                <!-- Buttons injected dynamically -->
+            </div>
+        </div>
+
+        <!-- RESULT SCREEN -->
+        <div id="resultScreen" class="screen glass-card rounded-3xl p-6 sm:p-10 text-center border border-neonGreen/30 screen-hidden">
+            <div class="w-20 h-20 mx-auto mb-4 rounded-full bg-neonPurple/20 border-2 border-neonPink flex items-center justify-center text-3xl text-neonPink shadow-lg glow-pink">
+                <i id="resultIcon" class="fa-solid fa-crown text-yellow-400"></i>
+            </div>
+
+            <h2 class="text-2xl sm:text-4xl font-black text-white mb-1">挑戰結束！</h2>
+            <p id="resultTitle" class="text-lg sm:text-xl font-bold text-neonCyan mb-6 text-glow-cyan">
+                K-POP 神級歌迷
+            </p>
+
+            <div class="grid grid-cols-2 gap-4 bg-black/40 p-4 rounded-2xl border border-white/10 mb-8 max-w-md mx-auto">
+                <div class="p-3">
+                    <div class="text-xs text-gray-400 mb-1">最終得分</div>
+                    <div id="finalScore" class="text-2xl sm:text-3xl font-black text-neonGreen">0</div>
+                </div>
+                <div class="p-3 border-l border-white/10">
+                    <div class="text-xs text-gray-400 mb-1">答對率</div>
+                    <div id="accuracyText" class="text-2xl sm:text-3xl font-black text-neonCyan">0%</div>
+                </div>
+            </div>
+
+            <div id="newHighscoreBadge" class="hidden mb-6 inline-flex items-center space-x-2 px-4 py-1.5 rounded-full bg-yellow-500/20 border border-yellow-400 text-yellow-300 text-xs sm:text-sm font-bold animate-bounce">
+                <i class="fa-solid fa-star text-yellow-400"></i>
+                <span>創下歷史新高分！</span>
+            </div>
+
+            <div>
+                <button id="restartBtn" class="w-full sm:w-auto px-10 py-4 rounded-2xl bg-gradient-to-r from-neonCyan to-neonPurple text-white text-lg font-bold shadow-lg glow-cyan hover:scale-105 active:scale-95 transition-all duration-300">
+                    <i class="fa-solid fa-rotate-right mr-2"></i> 重新洗牌再玩一次
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // Expanded 26-Song Database across multi-generations
+        const SONG_DATABASE = [
+            {
+                lyric: "내가 만든 쿠키~ 너를 위해 썼지~",
+                roman: "Naega mandeun cookie~ neoreul wihae sseotji~",
+                translation: "我做的 Cookie~ 是專門為你準備的~",
+                correct: "NewJeans - Cookie",
+                distractors: ["IVE - Eleven", "LE SSERAFIM - UNFORGIVEN"],
+                hint: "5代超人氣女團 / 2022出道即爆紅代表作"
+            },
+            {
+                lyric: "오랫동안 그리워했던 순간이 눈앞에 다가왔어",
+                roman: "Oraetdong-an geuriwohaetdeon sun-gani nun-ape dagawasseo",
+                translation: "期待已久的瞬間終究來到眼前的這一刻",
+                correct: "BTS - Dynamite",
+                distractors: ["SEVENTEEN - Super", "Stray Kids - S-Class"],
+                hint: "全球頂級男團 / 創下 Billboard 冠軍紀錄"
+            },
+            {
+                lyric: "Shut down, pop pop! No, you can't sit with us!",
+                roman: "Shut down, pop pop! No, you can't sit with us!",
+                translation: "關閉，爆發！不，你不能和我們坐在一起！",
+                correct: "BLACKPINK - Shut Down",
+                distractors: ["aespa - Drama", "(G)I-DLE - Queencard"],
+                hint: "全球現象級女團 / 古典採樣與強烈嘻哈節奏"
+            },
+            {
+                lyric: "I'm on the Next Level 졏고 있어, 절대 손을 잡지 마",
+                roman: "I'm on the Next Level jeotgo isseo, jeoldae soneul japji ma",
+                translation: "我在 Next Level 追尋著，絕對不要牽手",
+                correct: "aespa - Next Level",
+                distractors: ["ITZY - WANNABE", "NMIXX - O.O"],
+                hint: "4代元宇宙女團 / 洗腦手勢與轉調魔性神曲"
+            },
+            {
+                lyric: "Look at me, look at me now! SHY SHY SHY!",
+                roman: "Look at me, look at me now! SHY SHY SHY!",
+                translation: "看著我，現在看著我！SHY SHY SHY!",
+                correct: "TWICE - CHEER UP",
+                distractors: ["Red Velvet - Red Flavor", "GFRIEND - Rough"],
+                hint: "3代代表性女團 / 全民瘋狂模仿的撒嬌招牌詞"
+            },
+            {
+                lyric: "I LOVED YOU, I LOVED YOU~ 그렇게 너를 보낸다...",
+                roman: "I LOVED YOU, I LOVED YOU~ geureohke neoreul bonaenda...",
+                translation: "我曾愛過你，曾深愛過你~ 就這樣把你送走...",
+                correct: "DAY6 - You Were Beautiful",
+                distractors: ["IU - Through the Night", "Taeyeon - Fine"],
+                hint: "JYP實力派樂團 / 韓國樂壇經典逆襲感人搖滾曲"
+            },
+            {
+                lyric: "I'm fearlessly going forward, I'm UNFORGIVEN!",
+                roman: "I'm fearlessly going forward, I'm UNFORGIVEN!",
+                translation: "我毫無畏懼地前行，我是不受寬恕的！",
+                correct: "LE SSERAFIM - UNFORGIVEN",
+                distractors: ["IVE - I AM", "NewJeans - Hype Boy"],
+                hint: "4代勁舞女團 / 展現無畏世俗風格的強烈作品"
+            },
+            {
+                lyric: "That's my life, that's my style! I'm on top of the world!",
+                roman: "That's my life, that's my style! I'm on top of the world!",
+                translation: "那是我的生活，那是我的風格！我站在世界之顛！",
+                correct: "IVE - I AM",
+                distractors: ["aespa - Spicy", "STAYC - Teddy Bear"],
+                hint: "4代霸榜女團 / 展現極致自信與高音的爆款"
+            },
+            {
+                lyric: "손오공처럼 날아올라, 마치 Super!",
+                roman: "Son-ogong-cheoreom nara-olla, machi Super!",
+                translation: "像孫悟空一樣騰雲駕霧飛翔，如同 Super!",
+                correct: "SEVENTEEN - Super (손오공)",
+                distractors: ["BTS - MIC Drop", "ATEEZ - BOUNCY"],
+                hint: "3代刀群舞男團 / 結合國風概念與極致陣列的神曲"
+            },
+            {
+                lyric: "I'm a Queencard, I'm a Queencard! 너도 날 원하잖아!",
+                roman: "I'm a Queencard, I'm a Queencard! neodo nal wonhajana!",
+                translation: "我是 Queencard，我是 Queencard！你不也渴望著我嗎！",
+                correct: "(G)I-DLE - Queencard",
+                distractors: ["MAMAMOO - HIP", "ITZY - DALLA DALLA"],
+                hint: "4代全能創作女團 / 洗腦短影音爆款"
+            },
+            {
+                lyric: "너의 그 한마디 말도 그 웃음도 나에겐 큰 의미",
+                roman: "Neoeui geu hanmadi maldo geu useumdo naegen keun uimi",
+                translation: "你的那一句話、那抹微笑，對我來說都意義重大",
+                correct: "IU - Meaning of You",
+                distractors: ["Taeyeon - Weekend", "BOL4 - Some"],
+                hint: "國民 Solo 音源女王 / 溫暖清澈的復古名曲"
+            },
+            {
+                lyric: "Cause I'm feeling so right, 날 따라와 봐!",
+                roman: "Cause I'm feeling so right, nal ttarawa bwa!",
+                translation: "因為我感覺非常棒，快跟我過來吧！",
+                correct: "Stray Kids - S-Class",
+                distractors: ["ENHYPEN - Bite Me", "TXT - Sugar Rush Ride"],
+                hint: "4代告示牌200冠軍男團 / 自製作震撼節奏"
+            },
+            {
+                lyric: "BANG BANG BANG! 빵야 빵야 빵야!",
+                roman: "BANG BANG BANG! Ppang-ya ppang-ya ppang-ya!",
+                translation: "BANG BANG BANG! 砰砰砰！",
+                correct: "BIGBANG - BANG BANG BANG",
+                distractors: ["EXO - Monster", "SUPER JUNIOR - Black Suit"],
+                hint: "2代 K-POP 帝王男團 / 派對必點爆發力金曲"
+            },
+            {
+                lyric: "넌 나를 원해 넌 내게 빠져 넌 내게 미쳐",
+                roman: "Neon nareul wonhae neon naege ppajyeo neon naege michyeo",
+                translation: "你渴望著我，你為我沉迷，你為我狂熱",
+                correct: "TVXQ! (東方神起) - Mirotic",
+                distractors: ["SHINee - Lucifer", "2PM - Heartbeat"],
+                hint: "2代男團傳奇神曲 / 標誌性應援與高音旋律"
+            },
+            {
+                lyric: "Sorry Sorry Sorry Sorry 내가 내가 내가 먼저 네게 네게 빠져",
+                roman: "Sorry Sorry Sorry Sorry naega meonjeo nege ppajyeo",
+                translation: "對不起對不起，是我先為你神魂顛倒",
+                correct: "SUPER JUNIOR - Sorry, Sorry",
+                distractors: ["SS501 - U R Man", "BIGBANG - Fantastic Baby"],
+                hint: "韓流韓風全球狂潮開山洗腦神曲"
+            },
+            {
+                lyric: "Listen baby 내가 소중한 걸 가르쳐 줄게",
+                roman: "Listen baby naega sojunghan geol gareuchyeo julge",
+                translation: "Listen baby 我會教你珍貴的道理",
+                correct: "Girls' Generation - Gee",
+                distractors: ["Wonder Girls - Nobody", "KARA - Mister"],
+                hint: "2代女團傳奇名曲 / 螃蟹舞與彩色緊身褲熱潮"
+            },
+            {
+                lyric: "내가 제일 잘 나가! BamRatatata Tatatatata!",
+                roman: "Naega jeil jal naga! BamRatatata Tatatatata!",
+                translation: "我最吃得開！我最紅！",
+                correct: "2NE1 - I AM THE BEST",
+                distractors: ["BLACKPINK - Boombayah", "f(x) - Electric Shock"],
+                hint: "傳奇四人女團 / 殿堂級強烈嘻哈電音風格"
+            },
+            {
+                lyric: "Groovie, groovie, groovie, tone! Oh my god, she's a killer!",
+                roman: "Groovie, groovie, groovie, tone! Oh my god, she's a killer!",
+                translation: "天啊，她是個致命的誘惑！",
+                correct: "EXO - Growl",
+                distractors: ["NCT 127 - Kick It", "GOT7 - Just Right"],
+                hint: "3代百萬銷量奇蹟男團 / 校服一鏡到底經典舞曲"
+            },
+            {
+                lyric: "Seven days a week, every hour, every minute, every second",
+                roman: "Seven days a week, every hour, every minute, every second",
+                translation: "一星期七天，每小時、每分每秒",
+                correct: "Jungkook - Seven",
+                distractors: ["BTS - Butter", "Jimin - Like Crazy"],
+                hint: "BTS 成員 solo 爆款 / 霸榜全球 Billboard Hot 100"
+            },
+            {
+                lyric: "You got me looking for attention~",
+                roman: "You got me looking for attention~",
+                translation: "你吸引了我的注意力~",
+                correct: "NewJeans - Attention",
+                distractors: ["IVE - LOVE DIVE", "LE SSERAFIM - FEARLESS"],
+                hint: "5代潮流女團 / 甩頭舞與復古 Y2K 流行風"
+            },
+            {
+                lyric: "Chaotic energy, but I make it look so easy!",
+                roman: "Chaotic energy, but I make it look so easy!",
+                translation: "混亂的能量，但我讓一切看起來如此輕鬆！",
+                correct: "LE SSERAFIM - EASY",
+                distractors: ["ILLIT - Magnetic", "BABYMONSTER - SHEESH"],
+                hint: "4/5代潮酷女團 / 嘻哈 Trap 律動名曲"
+            },
+            {
+                lyric: "Super magnetic! 너에게 끌려가!",
+                roman: "Super magnetic! neoege kkeullyeoga!",
+                translation: "超強磁力！我被你深深吸引！",
+                correct: "ILLIT - Magnetic",
+                distractors: ["NewJeans - Super Shy", "STAYC - ASAP"],
+                hint: "5代話題女團 / 魔性手指舞洗腦旋律"
+            },
+            {
+                lyric: "I'm so lonely, lonely, lonely, lonely, lonely...",
+                roman: "I'm so lonely, lonely, lonely, lonely, lonely...",
+                translation: "我好孤獨，好孤獨...",
+                correct: "2NE1 - Lonely",
+                distractors: ["Taeyeon - I", "MAMAMOO - Starry Night"],
+                hint: "2代實力女團 / 抒情木吉他情感名曲"
+            },
+            {
+                lyric: "I'm a solo, I'm a solo, I'm going solo now!",
+                roman: "I'm a solo, I'm a solo, I'm going solo now!",
+                translation: "我現在要獨自閃耀！",
+                correct: "Jennie - SOLO",
+                distractors: ["BLACKPINK - Pink Venom", "Lisa - LALISA"],
+                hint: "BLACKPINK 成員個人出道轟動單曲"
+            },
+            {
+                lyric: "Ring ding dong, ring ding dong, ring diggi dingdiggi ding ding ding!",
+                roman: "Ring ding dong, ring ding dong, ring diggi...",
+                translation: "洗腦的高頻音律...",
+                correct: "SHINee - Ring Ding Dong",
+                distractors: ["SUPER JUNIOR - Bonamana", "INFINITE - Be Mine"],
+                hint: "2代男團高考禁曲 / 全民洗腦旋律"
+            },
+            {
+                lyric: "You can't stop me loving myself!",
+                roman: "You can't stop me loving myself!",
+                translation: "你無法阻止我愛我自己！",
+                correct: "BTS - IDOL",
+                distractors: ["Stray Kids - God's Menu", "SEVENTEEN - VERY NICE"],
+                hint: "BTS 結合韓國傳統國樂與非洲打擊樂的經典"
+            }
+        ];
+
+        class AudioSynth {
+            constructor() {
+                this.ctx = null;
+                this.muted = false;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                }
+            }
+
+            toggleMute() {
+                this.muted = !this.muted;
+                return this.muted;
+            }
+
+            playTap() {
+                if (this.muted) return;
+                this.init();
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(600, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(300, this.ctx.currentTime + 0.08);
+                gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.08);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.08);
+            }
+
+            playCorrect() {
+                if (this.muted) return;
+                this.init();
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                [523.25, 659.25, 783.99, 1046.50].forEach((freq, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.value = freq;
+                    gain.gain.setValueAtTime(0, now + idx * 0.06);
+                    gain.gain.linearRampToValueAtTime(0.2, now + idx * 0.06 + 0.02);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.06 + 0.35);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now + idx * 0.06);
+                    osc.stop(now + idx * 0.06 + 0.35);
+                });
+            }
+
+            playWrong() {
+                if (this.muted) return;
+                this.init();
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(160, now);
+                osc.frequency.linearRampToValueAtTime(110, now + 0.25);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.linearRampToValueAtTime(0.01, now + 0.25);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.25);
+            }
+
+            playFanfare() {
+                if (this.muted) return;
+                this.init();
+                if (!this.ctx) return;
+                const notes = [523.25, 659.25, 783.99, 1046.50, 1318.51];
+                const now = this.ctx.currentTime;
+                notes.forEach((freq, i) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.value = freq;
+                    gain.gain.setValueAtTime(0, now + i * 0.1);
+                    gain.gain.linearRampToValueAtTime(0.25, now + i * 0.1 + 0.05);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.1 + 0.5);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now + i * 0.1);
+                    osc.stop(now + i * 0.1 + 0.5);
+                });
+            }
+        }
+
+        const audioSynth = new AudioSynth();
+
+        class ConfettiManager {
+            constructor(canvasId) {
+                this.canvas = document.getElementById(canvasId);
+                this.ctx = this.canvas.getContext('2d');
+                this.particles = [];
+                this.animId = null;
+                this.resize();
+                window.addEventListener('resize', () => this.resize());
+            }
+
+            resize() {
+                this.canvas.width = window.innerWidth;
+                this.canvas.height = window.innerHeight;
+            }
+
+            burst() {
+                const colors = ['#FF007F', '#00F5FF', '#7B2CBF', '#00FF66', '#FFCC00'];
+                for (let i = 0; i < 90; i++) {
+                    this.particles.push({
+                        x: this.canvas.width / 2,
+                        y: this.canvas.height / 2,
+                        vx: (Math.random() - 0.5) * 20,
+                        vy: (Math.random() - 0.7) * 22,
+                        size: Math.random() * 8 + 4,
+                        color: colors[Math.floor(Math.random() * colors.length)],
+                        rotation: Math.random() * 360,
+                        vRot: (Math.random() - 0.5) * 12,
+                        life: 1,
+                        decay: Math.random() * 0.02 + 0.015
+                    });
+                }
+                if (!this.animId) this.animate();
+            }
+
+            animate() {
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                this.particles.forEach((p, idx) => {
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.vy += 0.4;
+                    p.rotation += p.vRot;
+                    p.life -= p.decay;
+
+                    this.ctx.save();
+                    this.ctx.translate(p.x, p.y);
+                    this.ctx.rotate((p.rotation * Math.PI) / 180);
+                    this.ctx.fillStyle = p.color;
+                    this.ctx.globalAlpha = Math.max(0, p.life);
+                    this.ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+                    this.ctx.restore();
+
+                    if (p.life <= 0) {
+                        this.particles.splice(idx, 1);
+                    }
+                });
+
+                if (this.particles.length > 0) {
+                    this.animId = requestAnimationFrame(() => this.animate());
+                } else {
+                    this.animId = null;
+                }
+            }
+        }
+
+        const confetti = new ConfettiManager('confettiCanvas');
+
+        class GameEngine {
+            constructor() {
+                this.questions = [];
+                this.currentIndex = 0;
+                this.score = 0;
+                this.highScore = parseInt(localStorage.getItem('kpop_quiz_highscore_v2') || '0', 10);
+                this.timer = null;
+                this.timeLeft = 10;
+                this.isAnswering = false;
+
+                // DOM
+                this.startScreen = document.getElementById('startScreen');
+                this.gameScreen = document.getElementById('gameScreen');
+                this.resultScreen = document.getElementById('resultScreen');
+
+                this.startHighScoreEl = document.getElementById('startHighScore');
+                this.gameHighScoreEl = document.getElementById('gameHighScore');
+                this.currentScoreEl = document.getElementById('currentScore');
+                this.currentQuestionNumEl = document.getElementById('currentQuestionNum');
+                this.progressBarEl = document.getElementById('progressBar');
+
+                this.timerBarEl = document.getElementById('timerBar');
+                this.timerTextEl = document.getElementById('timerText');
+
+                this.lyricCard = document.getElementById('lyricCard');
+                this.koreanLyricEl = document.getElementById('koreanLyric');
+                this.romanLyricEl = document.getElementById('romanLyric');
+                this.translatedLyricEl = document.getElementById('translatedLyric');
+                this.hintTagEl = document.getElementById('hintTag');
+                this.optionsContainer = document.getElementById('optionsContainer');
+
+                this.finalScoreEl = document.getElementById('finalScore');
+                this.accuracyTextEl = document.getElementById('accuracyText');
+                this.resultTitleEl = document.getElementById('resultTitle');
+                this.resultIconEl = document.getElementById('resultIcon');
+                this.newHighscoreBadge = document.getElementById('newHighscoreBadge');
+
+                this.bindEvents();
+                this.updateHighScoreDisplay();
+            }
+
+            bindEvents() {
+                document.getElementById('startBtn').addEventListener('click', () => {
+                    audioSynth.playTap();
+                    this.startGame();
+                });
+                document.getElementById('restartBtn').addEventListener('click', () => {
+                    audioSynth.playTap();
+                    this.startGame();
+                });
+
+                const soundBtn = document.getElementById('soundToggleBtn');
+                const soundIcon = document.getElementById('soundIcon');
+                soundBtn.addEventListener('click', () => {
+                    const isMuted = audioSynth.toggleMute();
+                    if (isMuted) {
+                        soundBtn.innerHTML = `<i class="fa-solid fa-volume-xmark mr-1 text-neonRed"></i> 音效: 關`;
+                    } else {
+                        soundBtn.innerHTML = `<i class="fa-solid fa-volume-high mr-1 text-neonCyan"></i> 音效: 開`;
+                        audioSynth.playTap();
+                    }
+                });
+            }
+
+            updateHighScoreDisplay() {
+                this.startHighScoreEl.textContent = this.highScore;
+                this.gameHighScoreEl.textContent = this.highScore;
+            }
+
+            // Fisher-Yates Shuffle Algorithm for unbiased randomization
+            fisherYatesShuffle(array) {
+                const arr = [...array];
+                for (let i = arr.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [arr[i], arr[j]] = [arr[j], arr[i]];
+                }
+                return arr;
+            }
+
+            startGame() {
+                // Randomly shuffle entire database and take 10 questions
+                this.questions = this.fisherYatesShuffle(SONG_DATABASE).slice(0, 10);
+                this.currentIndex = 0;
+                this.score = 0;
+                this.currentScoreEl.textContent = '0';
+
+                this.showScreen(this.gameScreen);
+                this.loadQuestion();
+            }
+
+            showScreen(targetScreen) {
+                [this.startScreen, this.gameScreen, this.resultScreen].forEach(s => {
+                    s.classList.add('screen-hidden');
+                });
+                targetScreen.classList.remove('screen-hidden');
+            }
+
+            loadQuestion() {
+                this.isAnswering = true;
+                const q = this.questions[this.currentIndex];
+
+                this.lyricCard.className = "relative bg-black/40 rounded-2xl p-6 sm:p-8 mb-6 border border-white/10 text-center transition-all duration-300";
+                this.currentQuestionNumEl.textContent = this.currentIndex + 1;
+                this.progressBarEl.style.width = `${((this.currentIndex) / 10) * 100}%`;
+
+                this.koreanLyricEl.textContent = `"${q.lyric}"`;
+                this.romanLyricEl.textContent = `(${q.roman})`;
+                this.translatedLyricEl.textContent = `譯：${q.translation}`;
+                this.hintTagEl.textContent = `提示：${q.hint}`;
+
+                // Shuffle options for this specific question
+                const options = this.fisherYatesShuffle([q.correct, ...q.distractors]);
+                this.optionsContainer.innerHTML = '';
+
+                options.forEach((optText, i) => {
+                    const btn = document.createElement('button');
+                    btn.className = 'option-btn w-full p-4 rounded-2xl bg-black/40 border border-white/10 text-white font-bold text-left text-sm sm:text-base flex items-center justify-between group';
+                    btn.innerHTML = `
+                        <div class="flex items-center space-x-3">
+                            <span class="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center text-xs text-neonCyan font-black group-hover:bg-neonCyan group-hover:text-black transition-colors">
+                                ${String.fromCharCode(65 + i)}
+                            </span>
+                            <span>${optText}</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-right opacity-0 group-hover:opacity-100 transition-opacity text-neonCyan text-xs"></i>
+                    `;
+                    btn.addEventListener('click', () => this.handleAnswer(optText, btn));
+                    this.optionsContainer.appendChild(btn);
+                });
+
+                this.resetTimer();
+            }
+
+            resetTimer() {
+                clearInterval(this.timer);
+                this.timeLeft = 10;
+                this.updateTimerUI();
+
+                this.timer = setInterval(() => {
+                    this.timeLeft--;
+                    this.updateTimerUI();
+
+                    if (this.timeLeft <= 0) {
+                        clearInterval(this.timer);
+                        this.handleTimeOut();
+                    }
+                }, 1000);
+            }
+
+            updateTimerUI() {
+                this.timerTextEl.textContent = this.timeLeft;
+                const percentage = (this.timeLeft / 10) * 100;
+                this.timerBarEl.style.width = `${percentage}%`;
+
+                if (this.timeLeft <= 3) {
+                    this.timerBarEl.className = "bg-neonRed h-2.5 rounded-full transition-all duration-100 ease-linear w-full";
+                    this.timerTextEl.className = "text-neonRed font-black text-lg w-8 text-right animate-pulse";
+                } else {
+                    this.timerBarEl.className = "bg-neonPink h-2.5 rounded-full transition-all duration-100 ease-linear w-full";
+                    this.timerTextEl.className = "text-neonPink font-black text-lg w-8 text-right";
+                }
+            }
+
+            handleAnswer(selectedOption, clickedBtn) {
+                if (!this.isAnswering) return;
+                this.isAnswering = false;
+                clearInterval(this.timer);
+
+                const currentQ = this.questions[this.currentIndex];
+                const isCorrect = selectedOption === currentQ.correct;
+
+                const allBtns = this.optionsContainer.querySelectorAll('button');
+                allBtns.forEach(btn => btn.disabled = true);
+
+                if (isCorrect) {
+                    audioSynth.playCorrect();
+                    confetti.burst();
+                    this.score += 10;
+                    this.currentScoreEl.textContent = this.score;
+
+                    clickedBtn.classList.add('correct-glow');
+                    this.lyricCard.classList.add('correct-glow');
+
+                    setTimeout(() => this.nextQuestion(), 1100);
+                } else {
+                    audioSynth.playWrong();
+                    clickedBtn.classList.add('wrong-glow');
+                    this.lyricCard.classList.add('animate-shake', 'wrong-glow');
+
+                    allBtns.forEach(btn => {
+                        if (btn.textContent.includes(currentQ.correct)) {
+                            btn.classList.add('correct-glow');
+                        }
+                    });
+
+                    setTimeout(() => this.nextQuestion(), 1600);
+                }
+            }
+
+            handleTimeOut() {
+                if (!this.isAnswering) return;
+                this.isAnswering = false;
+
+                audioSynth.playWrong();
+                this.lyricCard.classList.add('animate-shake', 'wrong-glow');
+
+                const currentQ = this.questions[this.currentIndex];
+                const allBtns = this.optionsContainer.querySelectorAll('button');
+                allBtns.forEach(btn => {
+                    btn.disabled = true;
+                    if (btn.textContent.includes(currentQ.correct)) {
+                        btn.classList.add('correct-glow');
+                    }
+                });
+
+                setTimeout(() => this.nextQuestion(), 1600);
+            }
+
+            nextQuestion() {
+                this.currentIndex++;
+                if (this.currentIndex < 10) {
+                    this.loadQuestion();
+                } else {
+                    this.endGame();
+                }
+            }
+
+            endGame() {
+                this.progressBarEl.style.width = '100%';
+                let isNewHigh = false;
+
+                if (this.score > this.highScore) {
+                    this.highScore = this.score;
+                    localStorage.setItem('kpop_quiz_highscore_v2', this.highScore.toString());
+                    this.updateHighScoreDisplay();
+                    isNewHigh = true;
+                }
+
+                this.finalScoreEl.textContent = this.score;
+                this.accuracyTextEl.textContent = `${(this.score / 100) * 100}%`;
+
+                if (this.score === 100) {
+                    this.resultTitleEl.textContent = "K-POP 神級歌迷 👑";
+                    this.resultIconEl.className = "fa-solid fa-crown text-yellow-400";
+                } else if (this.score >= 80) {
+                    this.resultTitleEl.textContent = "資深韓團粉絲 🔥";
+                    this.resultIconEl.className = "fa-solid fa-fire text-neonPink";
+                } else if (this.score >= 50) {
+                    this.resultTitleEl.textContent = "K-POP 愛好者 🎧";
+                    this.resultIconEl.className = "fa-solid fa-headphones text-neonCyan";
+                } else {
+                    this.resultTitleEl.textContent = "新手路人粉 🐣";
+                    this.resultIconEl.className = "fa-solid fa-seedling text-neonGreen";
+                }
+
+                if (isNewHigh && this.score > 0) {
+                    this.newHighscoreBadge.classList.remove('hidden');
+                } else {
+                    this.newHighscoreBadge.classList.add('hidden');
+                }
+
+                audioSynth.playFanfare();
+                confetti.burst();
+                this.showScreen(this.resultScreen);
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            window.game = new GameEngine();
+        });
+    </script>
+</body>
+</html>
