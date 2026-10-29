@@ -588,9 +588,12 @@ const CLUSTER = CLASSES.map((c, ci) => {
 });
 const clusterOf = new Array(DATA.length);
 CLUSTER.forEach((cl, ci) => cl.idx.forEach(i => clusterOf[i] = ci));
-const P = specs.map((s, i) => { const cl = CLUSTER[clusterOf[i]], j = cl.idx.indexOf(i);
-  const a = j * 2.39996 + 0.5, d = 1.75 * GAP_X * 0.75 * Math.sqrt(j + 0.5);
-  return cl.c.clone().add(new THREE.Vector2(Math.cos(a) * d, Math.sin(a) * d)); });
+// 所有班級混在一起，環繞中間遊樂園（順序打散）
+const order = DATA.map((d, i) => i); { const r = mulberry(4242); for (let k = order.length - 1; k > 0; k--){ const j = Math.floor(r() * (k + 1)); [order[k], order[j]] = [order[j], order[k]]; } }
+const rank = new Array(DATA.length); order.forEach((i, j) => rank[i] = j);
+const P = specs.map((s, i) => { const j = rank[i];
+  const a = j * 2.39996 + 0.5, d = HUB_R + 2.2 * GAP_X + 1.75 * GAP_X * 0.95 * Math.sqrt(j + 0.5);
+  return new THREE.Vector2(Math.cos(a) * d, Math.sin(a) * d); });
 function relax(iter, gravity){
   for (let it = 0; it < iter; it++){
     for (let i = 0; i < P.length; i++){
@@ -601,11 +604,11 @@ function relax(iter, gravity){
         const want = specs[i].R + specs[j].R + (specs[i].gap + specs[j].gap) * 0.5;
         if (dd < want){ v.multiplyScalar((want - dd) / dd * 0.5); P[i].sub(v); P[j].add(v); }
       }
-      if (gravity){ const c = CLUSTER[clusterOf[i]].c; P[i].sub(c).multiplyScalar(gravity).add(c); }
+      if (gravity) P[i].multiplyScalar(gravity);
     }
   }
 }
-relax(240, 0.9975); relax(80, 0);
+relax(240, 0.999); relax(80, 0);
 const WORLD_R = Math.max(...P.map((p, i) => p.length() + specs[i].R));
 
 /* =========================================================
@@ -683,7 +686,7 @@ DATA.forEach((isl, i) => {
   hit.position.y = 1.0; hit.userData.idx = i; group.add(hit); pickables.push(hit);
 
   const lbl = document.createElement('div'); lbl.className = 'lbl';
-  lbl.innerHTML = `<span class="no" style="background:${CLS[isl.cls].color}">${CLS[isl.cls].name}</span>${isl.name}`;
+  lbl.textContent = isl.name;
   $('#labels').appendChild(lbl);
 
   islands.push({ data: isl, group, board, baseY, phase: rnd()*6.28, lift: 0, hover: 0, lbl, genre, groundY, R: sp.R, topY: groundY + postLen + bh + 0.15 });
@@ -1532,7 +1535,7 @@ function renderList(){
   $('#list').innerHTML = rows.length ? rows.map(({ o, i }) => {
     const c = coverOf(o.data, o.data.games[0]);
     return `<button class="item" data-i="${i}">${c ? `<img loading="lazy" src="${enc(c)}" alt="">` : '<span class="ph">🏝️</span>'}
-      <span style="min-width:0"><span class="n"><i class="cchip" style="background:${CLS[o.data.cls].color}">${CLS[o.data.cls].name}</i>${o.data.name}<small>${o.data.id}</small></span>
+      <span style="min-width:0"><span class="n">${o.data.name}<small>${o.data.id}</small></span>
       <span class="g">${o.data.games.length ? o.data.games.map(g => g.title).join('、') : '遊戲施工中'}</span></span>
       ${played.has(o.data.id) ? '<span class="ok">✓ 玩過</span>' : ''}</button>`;
   }).join('') : '<div class="empty">找不到符合的島嶼</div>';
@@ -1573,7 +1576,7 @@ function showTip(i){
   const c = coverOf(d, g);
   tip.innerHTML = `${c ? `<img src="${enc(c)}" alt="">` : ''}<div><div class="t">${g ? g.title : '遊戲施工中'}</div>
     <div class="s">${g && g.sub ? g.sub : GENRE_NAME[islands[i].genre]}</div>
-    <div class="a">🧑‍🎨 ${CLS[d.cls].name}・${d.name}・${d.id}${d.games.length > 1 ? `<br>🎮 共 ${d.games.length} 款遊戲` : ''}</div>
+    <div class="a">🧑‍🎨 ${d.name}・${d.id}${d.games.length > 1 ? `<br>🎮 共 ${d.games.length} 款遊戲` : ''}</div>
     <span class="go">${d.games.length ? (played.has(d.id) ? '再玩一次 ▶' : '點一下開玩 ▶') : '查看封面'}</span></div>`;
   tip.classList.add('show');
 }
@@ -1613,7 +1616,7 @@ function openGame(i, gi){
   const c = coverOf(d, g);
   $('#mThumb').src = c ? enc(c) : ''; $('#mThumb').style.display = c ? '' : 'none';
   $('#mTitle').textContent = g ? g.title : `${d.name} 的島`;
-  $('#mSub').textContent = `${CLS[d.cls].name}・${d.name}・${d.id}${g && g.sub ? '・' + g.sub : ''}`;
+  $('#mSub').textContent = `${d.name}・${d.id}${g && g.sub ? '・' + g.sub : ''}`;
   const stage = $('#stage'), frame = $('#mFrame');
   if (!g || g.external){
     stage.classList.add('external'); frame.src = 'about:blank';
