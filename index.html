@@ -564,7 +564,7 @@ function rockFrom(pts, rnd){
 const rockMat = M(ROCK, { flat: true, extra: { side: THREE.DoubleSide } });
 
 /* ---------- 每座島的規格：大小、形狀 ---------- */
-const GAP_X = 4;   // 島嶼間距倍率（想再調鬆緊改這裡）
+const GAP_X = 8;   // 島嶼間距倍率（想再調鬆緊改這裡）
 const specs = DATA.map((isl, i) => {
   const rnd = mulberry((parseInt(isl.id, 10) || i + 1) * 7 + 3);
   let size = 0.7 + Math.pow(rnd(), 1.3) * 0.85;               // 0.7 ~ 1.55
@@ -576,7 +576,7 @@ const specs = DATA.map((isl, i) => {
 });
 
 /* ---------- 排列：自然散布（有近有遠） ---------- */
-const HUB_R = 10;   // 主城半徑：約一般島的 10 倍
+const HUB_R = 40;   // 主城半徑（遊樂園）
 // 每個班級一個群島：跑二在左、跑六在右（班級多時平均分布在主城四周）
 const CLUSTER = CLASSES.map((c, ci) => {
   const idx = DATA.map((d, i) => d.cls === c.key ? i : -1).filter(i => i >= 0);
@@ -726,19 +726,20 @@ sky.scale.setScalar(Math.max(1, WORLD_R * 6 / 200)); starPts.scale.copy(sky.scal
 
 /* ---------- 中央主城：文興遊戲群島遊樂園（一般島的 10 倍大） ---------- */
 let hubSign, hubTop, ferris; const parkAnims = [];
-const HUB_Y = 0.2, HUB_TOP = TOP_Y * 2;
+const HUB_R0 = 10, HUB_SCALE = HUB_R / HUB_R0;   // 主城以半徑 10 設計，再整體放大
+const HUB_TOP = TOP_Y * 2, HUB_Y = 0.6 - HUB_TOP * HUB_SCALE;
 const hubPads = [];
 {
-  const g = new THREE.Group(); g.position.set(0, HUB_Y, 0); world.add(g);
+  const g = new THREE.Group(); g.position.set(0, HUB_Y, 0); g.scale.setScalar(HUB_SCALE); world.add(g);
   const rnd = mulberry(2026);
-  const hubPts = outline('round', mulberry(7)).map(p => p.multiplyScalar(HUB_R));
+  const hubPts = outline('round', mulberry(7)).map(p => p.multiplyScalar(HUB_R0));
   const shell = new THREE.Group(); shell.scale.set(1, 2, 1); g.add(shell);
   hubTop = new THREE.Mesh(slabFrom(hubPts, 0.97, 0.16, 0.06), M(0xa9d48a)); hubTop.position.y = 0.34;
   const soil = new THREE.Mesh(slabFrom(hubPts, 0.965, 0.34, 0.04), M(SOIL));
   [hubTop, soil].forEach(m => { m.castShadow = m.receiveShadow = true; shell.add(m); });
-  const rock = new THREE.Mesh(rockFrom(hubPts, mulberry(9)), rockMat); rock.scale.set(1, 3.2, 1); rock.castShadow = true; g.add(rock);
-  for (let k = 0; k < 14; k++){ const st = new THREE.Mesh(G.sph, M(ROCK, {flat:true})); const a = rnd()*6.28, rr = HUB_R * (0.4 + rnd()*0.55);
-    st.scale.setScalar(0.25 + rnd()*0.5); st.position.set(Math.cos(a)*rr, -2 - rnd()*4, Math.sin(a)*rr); g.add(st); }
+  const rock = new THREE.Mesh(rockFrom(hubPts, mulberry(9)), rockMat); rock.scale.set(1, 1.3, 1); rock.castShadow = true; g.add(rock);
+  for (let k = 0; k < 14; k++){ const st = new THREE.Mesh(G.sph, M(ROCK, {flat:true})); const a = rnd()*6.28, rr = HUB_R0 * (0.4 + rnd()*0.55);
+    st.scale.setScalar(0.25 + rnd()*0.5); st.position.set(Math.cos(a)*rr, -1.2 - rnd()*1.6, Math.sin(a)*rr); g.add(st); }
 
   const d = new THREE.Group(); d.position.y = HUB_TOP;
   const used = [];                                   // 已佔用的圓 [x, z, r]
@@ -747,26 +748,26 @@ const hubPads = [];
   // 中央廣場＋放射狀道路
   put(d, G.cyl, M(0xf3e6d0), 0, 0.02, 0, 2.6, 0.04, 2.6);
   put(d, G.cyl, M(0xe8d6b8), 0, 0.03, 0, 1.9, 0.04, 1.9);
-  for (let k = 0; k < ROADS; k++){ const a = roadA(k), L = HUB_R * 0.9 - 2.4, mid = 2.4 + L/2;
+  for (let k = 0; k < ROADS; k++){ const a = roadA(k), L = HUB_R0 * 0.9 - 2.4, mid = 2.4 + L/2;
     put(d, G.box, M(0xeadfcd), Math.cos(a)*mid, 0.02, Math.sin(a)*mid, L, 0.04, 0.55, -a);
-    for (let s = 3; s < HUB_R * 0.88; s += 1.5){ const px = -Math.sin(a)*0.45, pz = Math.cos(a)*0.45; lamp(d, Math.cos(a)*s + px, Math.sin(a)*s + pz); }
+    for (let s = 3; s < HUB_R0 * 0.88; s += 1.5){ const px = -Math.sin(a)*0.45, pz = Math.cos(a)*0.45; lamp(d, Math.cos(a)*s + px, Math.sin(a)*s + pz); }
   }
   used.push([0, 0, 2.8]);
   const onRoad = (x, z, r) => { const a = Math.atan2(z, x), rr = Math.hypot(x, z);
     for (let k = 0; k < ROADS; k++){ let da = Math.abs(((a - roadA(k)) + Math.PI*3) % (Math.PI*2) - Math.PI); if (da * rr < r + 0.4) return true; } return false; };
   // 停機坪（飛行器的起降點）
-  for (let k = 0; k < ROADS; k += 2){ const a = roadA(k), rr = HUB_R * 0.9 + 0.2, x = Math.cos(a)*rr, z = Math.sin(a)*rr;
+  for (let k = 0; k < ROADS; k += 2){ const a = roadA(k), rr = HUB_R0 * 0.9 + 0.2, x = Math.cos(a)*rr, z = Math.sin(a)*rr;
     put(d, G.cyl, M(0x6b6880), x, 0.04, z, 0.85, 0.06, 0.85);
     put(d, G.box, M(0xfff8ec), x, 0.075, z, 0.5, 0.01, 0.08, -a); put(d, G.box, M(0xfff8ec), x + Math.cos(a+Math.PI/2)*0.22, 0.075, z + Math.sin(a+Math.PI/2)*0.22, 0.08, 0.01, 0.55, -a);
     put(d, G.box, M(0xfff8ec), x - Math.cos(a+Math.PI/2)*0.22, 0.075, z - Math.sin(a+Math.PI/2)*0.22, 0.08, 0.01, 0.55, -a);
     for (let q = 0; q < 6; q++){ const b = q/6*Math.PI*2; put(d, G.ball, lampMat, x + Math.cos(b)*0.82, 0.08, z + Math.sin(b)*0.82, 0.05); }
-    used.push([x, z, 1.1]); hubPads.push(new THREE.Vector3(x, HUB_Y + HUB_TOP + 0.15, z)); }
+    used.push([x, z, 1.1]); hubPads.push(new THREE.Vector3(x * HUB_SCALE, HUB_Y + (HUB_TOP + 0.15) * HUB_SCALE, z * HUB_SCALE)); }
   // 摩天輪
   { const a = roadA(2) + Math.PI/6, rr = 5.0, x = Math.cos(a)*rr, z = Math.sin(a)*rr;
     for (const s of [-1, 1]){ put(d, G.box, M(0xfff8ec), x + Math.cos(a)*0.35*s, 1.0, z + Math.sin(a)*0.35*s, 0.08, 2.1, 0.08, -a, 0, 0.25*s).rotation.set(0.25, -a + Math.PI/2, 0);
       put(d, G.box, M(0xfff8ec), x + Math.cos(a)*0.35*s, 1.0, z + Math.sin(a)*0.35*s, 0.08, 2.1, 0.08).rotation.set(-0.25, -a + Math.PI/2, 0); }
     put(d, G.box, M(0xd9c8ad), x, 0.08, z, 1.4, 0.16, 0.9, -a + Math.PI/2);
-    ferris = new THREE.Group(); ferris.position.set(x, HUB_TOP + HUB_Y + 2.0, z); ferris.rotation.y = -a; world.add(ferris);
+    ferris = new THREE.Group(); ferris.position.set(x, HUB_TOP + 2.0, z); ferris.rotation.y = -a; g.add(ferris);
     const wheel = new THREE.Group(); ferris.add(wheel); ferris.userData.wheel = wheel; ferris.userData.cabins = [];
     const rim = new THREE.Mesh(new THREE.TorusGeometry(1.7, 0.05, 6, 40), M(0xef6f53)); wheel.add(rim);
     const rim2 = new THREE.Mesh(new THREE.TorusGeometry(1.15, 0.03, 6, 32), M(0xf4c35a)); wheel.add(rim2);
@@ -922,7 +923,7 @@ const hubPads = [];
       put(d, G.box, M(0x3b3550), bx, by/2, bz, 0.006, by, 0.006); put(d, G.ball, M(TOY[(k+q)%7]), bx, by + 0.08, bz, 0.08, 0.1, 0.08); }
   }
   // --- 入口拱門（沒有停機坪的三條路） ---
-  for (let k = 1; k < ROADS; k += 2){ const a = roadA(k), rr = HUB_R * 0.93, x = Math.cos(a)*rr, z = Math.sin(a)*rr, px = -Math.sin(a)*0.5, pz = Math.cos(a)*0.5;
+  for (let k = 1; k < ROADS; k += 2){ const a = roadA(k), rr = HUB_R0 * 0.93, x = Math.cos(a)*rr, z = Math.sin(a)*rr, px = -Math.sin(a)*0.5, pz = Math.cos(a)*0.5;
     for (const s of [-1, 1]){ put(d, G.cyl, M(0xfff1dc), x + px*s, 0.75, z + pz*s, 0.09, 1.5, 0.09); put(d, G.ball, M(TOY[k]), x + px*s, 1.55, z + pz*s, 0.12); }
     put(d, G.box, M(0xef6f53), x, 1.4, z, 0.12, 0.28, 1.15, -a);
     put(d, G.box, M(0xf4c35a), x, 1.62, z, 0.1, 0.12, 0.8, -a);
@@ -1005,7 +1006,7 @@ const hubPads = [];
   // --- 樹木（點綴） ---
   let trees = 0;
   for (let tries = 0; tries < 1500 && trees < 70; tries++){
-    const a = rnd()*Math.PI*2, rr = 2.9 + rnd() * (HUB_R*0.94 - 2.9), x = Math.cos(a)*rr, z = Math.sin(a)*rr, s = 0.9 + rnd()*0.7;
+    const a = rnd()*Math.PI*2, rr = 2.9 + rnd() * (HUB_R0*0.94 - 2.9), x = Math.cos(a)*rr, z = Math.sin(a)*rr, s = 0.9 + rnd()*0.7;
     if (!free(x, z, 0.25*s) || onRoad(x, z, 0.15)) continue;
     tree(d, x, z, s, (rnd()*3)|0); used.push([x, z, 0.2*s]); trees++;
   }
@@ -1043,7 +1044,7 @@ async function addSign(){
   const p1 = new THREE.Mesh(G.cyl, M(0x3b3550)); p1.scale.set(0.06, 2.4, 0.06); p1.position.set(0, HUB_TOP + 5.0, 0); hubSign.add(p1);
 }
 addSign();
-addClassBanners();
+// addClassBanners();   // 群島上空的班級旗幟（目前不顯示）
 
 /* ---------- 雲朵、熱氣球、鳥 ---------- */
 const clouds = [];
@@ -1372,9 +1373,14 @@ function planTrip(v){
   v.dest = randomNode(v.node);
   const to = landingPoint(v.dest);
   const T = AIR_TYPES[v.type], dist = from.distanceTo(to);
-  const h = T.h[0] + Math.random()*(T.h[1]-T.h[0]) + Math.min(6, dist * 0.06);
+  let h = T.h[0] + Math.random()*(T.h[1]-T.h[0]) + Math.min(6, dist * 0.06);
   const side = new THREE.Vector3(to.z - from.z, 0, from.x - to.x).normalize().multiplyScalar((Math.random()-0.5) * dist * 0.35);
-  v.p = [from, from.clone().add(new THREE.Vector3(0, h, 0)).add(side), to.clone().add(new THREE.Vector3(0, h, 0)).add(side), to];
+  v.p = [from, from.clone().add(side), to.clone().add(side), to];
+  // 航線經過遊樂園上空時拉高，避開雲霄飛車、自由落體塔與招牌
+  const q = new THREE.Vector3(); let overHub = false;
+  for (let k = 0; k <= 20 && !overHub; k++){ bez(v.p, k/20, q); if (Math.hypot(q.x, q.z) < HUB_R + 4) overHub = true; }
+  if (overHub) h = Math.max(h, HUB_Y + (HUB_TOP + 9.8) * HUB_SCALE - Math.min(from.y, to.y) + T.h[0] * 0.3);
+  v.p[1].y += h; v.p[2].y += h;
   let len = 0, prev = from.clone(); for (let k = 1; k <= 12; k++){ const q = bez(v.p, k/12, new THREE.Vector3()); len += q.distanceTo(prev); prev = q; }
   v.len = len; v.t = 0; v.at = false;
 }
