@@ -1075,12 +1075,110 @@ for (let k = 0; k < 8; k++){
   g.traverse(m => { if (m.isMesh) m.castShadow = true; });
   scene.add(g); boats.push(g);
 }
+// ---- 海洋生物：鯨魚（浮上換氣、噴水、偶爾躍出）與海豚（成群跳躍）----
+function makeSeaWhale(){
+  const g = new THREE.Group(), b = new THREE.Group(); g.add(b);
+  const col = M(0x3f6f9e), belly = M(0xdfe8ef);
+  put(b, G.ball, col, 0, 0, 0, 0.5, 0.45, 1.25);
+  put(b, G.ball, belly, 0, -0.16, 0.15, 0.42, 0.3, 1.05);
+  put(b, G.ball, M(0x2b2838), 0.36, 0.05, 0.75, 0.05); put(b, G.ball, M(0x2b2838), -0.36, 0.05, 0.75, 0.05);
+  for (const s of [-1, 1]) put(b, G.box, col, 0.5*s, -0.18, 0.25, 0.5, 0.05, 0.22, 0, 0, -0.4*s);
+  const tail = new THREE.Group(); tail.position.z = -1.1; b.add(tail);
+  put(tail, G.ball, col, 0, 0, -0.2, 0.2, 0.17, 0.4);
+  for (const s of [-1, 1]) put(tail, G.box, col, 0.25*s, 0, -0.55, 0.55, 0.05, 0.26, 0.45*s, 0, 0);
+  g.userData = { body: b, tail }; g.traverse(m => { if (m.isMesh) m.castShadow = true; }); return g;
+}
+function makeDolphin(){
+  const g = new THREE.Group(), b = new THREE.Group(); g.add(b);
+  const col = M(0x7d9cb8), belly = M(0xeef3f7);
+  put(b, G.ball, col, 0, 0, 0, 0.17, 0.19, 0.62);
+  put(b, G.ball, belly, 0, -0.07, 0.08, 0.13, 0.11, 0.5);
+  put(b, G.cone, col, 0, -0.02, 0.68, 0.06, 0.2, 0.06, 0, Math.PI/2);
+  put(b, G.box, col, 0, 0.22, -0.05, 0.03, 0.22, 0.2, 0, -0.5);
+  for (const s of [-1, 1]) put(b, G.box, col, 0.16*s, -0.1, 0.18, 0.18, 0.02, 0.08, 0, 0, -0.4*s);
+  put(b, G.ball, M(0x2b2838), 0.1, 0.04, 0.45, 0.025); put(b, G.ball, M(0x2b2838), -0.1, 0.04, 0.45, 0.025);
+  for (const s of [-1, 1]) put(b, G.box, col, 0.12*s, 0, -0.68, 0.24, 0.02, 0.1, 0.4*s, 0, 0);
+  g.userData = { body: b }; g.traverse(m => { if (m.isMesh) m.castShadow = true; }); return g;
+}
+// 水花池
+const splashMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, depthWrite: false });
+const splashes = [];
+for (let k = 0; k < 14; k++){
+  const g = new THREE.Group(); g.visible = false; scene.add(g);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.08, 6, 20), splashMat.clone()); ring.rotation.x = Math.PI/2; g.add(ring);
+  const drops = [];
+  for (let q = 0; q < 7; q++){ const dm = new THREE.Mesh(G.ball, ring.material); dm.scale.setScalar(0.09); g.add(dm);
+    const a = q/7*Math.PI*2; drops.push({ m: dm, vx: Math.cos(a)*1.2, vz: Math.sin(a)*1.2, vy: 2.5 + Math.random()*1.5 }); }
+  splashes.push({ g, ring, drops, t: 1, size: 1 });
+}
+function splash(x, z, size = 1){
+  const s = splashes.find(o => o.t >= 1) || splashes[0];
+  s.t = 0; s.size = size; s.g.position.set(x, OCEAN_Y + 0.4, z); s.g.scale.setScalar(size); s.g.visible = true;
+}
+function updateSplashes(dt){
+  splashes.forEach(s => { if (s.t >= 1) return; s.t = Math.min(1, s.t + dt / 1.1);
+    s.ring.scale.setScalar(0.4 + s.t * 2.2); s.ring.material.opacity = 0.85 * (1 - s.t);
+    s.drops.forEach(d => { const tt = s.t * 1.1; d.m.position.set(d.vx * tt, d.vy * tt - 4.9 * tt * tt, d.vz * tt); });
+    if (s.t >= 1) s.g.visible = false; });
+}
+// 噴水柱
+const spoutMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8, depthWrite: false });
+const seaWhales = [];
+for (let k = 0; k < 2; k++){
+  const w = makeSeaWhale(); w.scale.setScalar(2.4); scene.add(w);
+  const spout = new THREE.Group(); w.add(spout); spout.position.set(0, 0.45, 0.4); spout.visible = false;
+  for (let q = 0; q < 6; q++){ const m = new THREE.Mesh(G.ball, spoutMat); m.position.set((Math.random()-0.5)*0.2, q*0.18, (Math.random()-0.5)*0.2); m.scale.setScalar(0.1 + q*0.025); spout.add(m); }
+  seaWhales.push({ w, spout, R: WORLD_R * (0.6 + k * 0.45), a: k * 3, dir: k ? -1 : 1, t0: k * 7, cyc: 22 + k * 5 });
+}
+const dolphinPods = [];
+for (let k = 0; k < 3; k++){
+  const pod = { R: WORLD_R * (0.4 + k * 0.35), a: k * 2.1, dir: k % 2 ? -1 : 1, members: [] };
+  for (let q = 0; q < 3; q++){ const d = makeDolphin(); d.scale.setScalar(2.2); scene.add(d);
+    pod.members.push({ d, lag: q * 0.35, side: (q - 1) * 1.6, phase: Math.random() * 3, period: 3.2 + Math.random() * 1.6, wasUp: false }); }
+  dolphinPods.push(pod);
+}
+const waveH = (x, z, t) => Math.sin(x * 0.16 + t * 0.7) * 0.45 + Math.cos(-z * 0.2 + t * 0.55) * 0.4;
+function updateSea(t, dt){
+  updateSplashes(dt);
+  // 鯨魚：大部分時間在水面游、偶爾噴水，每個週期躍出一次
+  seaWhales.forEach(o => {
+    o.a += o.dir * dt * 1.6 / o.R;
+    const x = Math.cos(o.a) * o.R, z = Math.sin(o.a) * o.R, c = (t + o.t0) % o.cyc;
+    const heading = -o.a + (o.dir > 0 ? 0 : Math.PI);
+    let y = OCEAN_Y - 0.55 + waveH(x, z, t) * 0.6, pitch = 0, roll = 0;
+    o.spout.visible = (c > 4 && c < 6.5) || (c > 12 && c < 13.5);
+    if (o.spout.visible) o.spout.scale.setScalar(0.6 + Math.sin(t * 10) * 0.1 + Math.min(1, (c % 4)) * 0.6);
+    const jS = o.cyc - 4, jD = 2.4;
+    if (c > jS && c < jS + jD){ const k = (c - jS) / jD; y = OCEAN_Y - 1 + Math.sin(k * Math.PI) * 6.5; pitch = -Math.cos(k * Math.PI) * 0.9; roll = k * 1.2;
+      if (!o.up){ o.up = true; splash(x, z, 2.2); } }
+    else if (o.up){ o.up = false; splash(x, z, 3); }
+    else if (c > jS - 1.5 && c <= jS) y = OCEAN_Y - 2.5;           // 先潛下去蓄力
+    o.w.position.set(x, y, z); o.w.rotation.set(0, heading, 0); o.w.userData.body.rotation.set(pitch, 0, roll);
+    o.w.userData.tail.rotation.x = Math.sin(t * 1.5) * 0.3;
+  });
+  // 海豚：一群三隻，輪流跳出水面
+  dolphinPods.forEach(p => {
+    p.a += p.dir * dt * 3.2 / p.R;
+    p.members.forEach(m => {
+      const a = p.a - p.dir * m.lag * 0.06, r = p.R + m.side;
+      const x = Math.cos(a) * r, z = Math.sin(a) * r;
+      const heading = -a + (p.dir > 0 ? 0 : Math.PI);
+      const c = (t + m.phase) % m.period, jD = 1.3;
+      let y = OCEAN_Y - 2.2, pitch = 0;
+      if (c < jD){ const k = c / jD; y = OCEAN_Y - 0.4 + Math.sin(k * Math.PI) * 3.2; pitch = -Math.cos(k * Math.PI) * 1.0;
+        if (!m.wasUp){ m.wasUp = true; splash(x, z, 0.9); } }
+      else if (m.wasUp){ m.wasUp = false; splash(x, z, 1.1); }
+      m.d.position.set(x, y, z); m.d.rotation.set(0, heading, 0); m.d.userData.body.rotation.x = pitch;
+    });
+  });
+}
 function updateOcean(t, dt){
   oceanU.uTime.value = t;
+  updateSea(t, dt);
   boats.forEach(b => { const u = b.userData; u.a += u.w * dt;
     const x = Math.cos(u.a) * u.R, z = Math.sin(u.a) * u.R;
     const w = Math.sin(x * 0.16 + t * 0.7) * 0.45 + Math.cos(-z * 0.2 + t * 0.55) * 0.4;
-    b.position.set(x, OCEAN_Y + w + 0.05, z); b.rotation.y = -u.a + (u.w > 0 ? Math.PI : 0); b.rotation.z = Math.sin(t * 1.3 + u.ph) * 0.08; });
+    b.position.set(x, OCEAN_Y + w + 0.05, z); b.rotation.y = -u.a + (u.w > 0 ? 0 : Math.PI); b.rotation.z = Math.sin(t * 1.3 + u.ph) * 0.08; });
 }
 
 /* =========================================================
@@ -1151,6 +1249,50 @@ function makeSkyBus(col){
     rotors.push(r); }
   g.userData = { spin: rotors, axis: 'y', body: b }; return g;
 }
+function makeSkyWhale(){
+  const g = new THREE.Group(), b = new THREE.Group(); g.add(b);
+  const blue = M(0x6f9fd8), belly = M(0xe9f0f5);
+  put(b, G.ball, blue, 0, 0, 0, 0.42, 0.38, 1.0);
+  put(b, G.ball, belly, 0, -0.12, 0.1, 0.36, 0.26, 0.85);
+  for (let q = 0; q < 5; q++) put(b, G.box, M(0xc9d8ea), 0, -0.3, 0.55 - q*0.18, 0.3, 0.015, 0.03);
+  put(b, G.ball, M(0x2b2838), 0.3, 0.06, 0.62, 0.05); put(b, G.ball, M(0x2b2838), -0.3, 0.06, 0.62, 0.05);
+  put(b, G.ball, M(0xf29bb5), 0.31, -0.04, 0.55, 0.05, 0.03, 0.05); put(b, G.ball, M(0xf29bb5), -0.31, -0.04, 0.55, 0.05, 0.03, 0.05);
+  for (const s of [-1, 1]) put(b, G.box, blue, 0.42*s, -0.12, 0.15, 0.4, 0.04, 0.18, 0, 0, -0.35*s);
+  const tail = new THREE.Group(); tail.position.z = -0.85; b.add(tail);
+  put(tail, G.ball, blue, 0, 0, -0.15, 0.16, 0.14, 0.32);
+  for (const s of [-1, 1]) put(tail, G.box, blue, 0.2*s, 0, -0.42, 0.42, 0.04, 0.2, 0.45*s, 0, 0);
+  // 背上的小房子
+  put(b, G.box, M(0xfff1dc), 0, 0.42, -0.1, 0.22, 0.16, 0.22); put(b, G.cone4, M(0xef6f53, {flat:true}), 0, 0.58, -0.1, 0.2, 0.16, 0.2, Math.PI/4);
+  put(b, G.box, winMat, 0, 0.42, 0.012, 0.06, 0.06, 0.01);
+  g.userData = { body: b, flap: tail }; return g;
+}
+function makePaperPlane(){
+  const g = new THREE.Group(), b = new THREE.Group(); g.add(b);
+  const geo = new THREE.BufferGeometry();
+  const v = [ 0,0,0.6,  -0.45,0.05,-0.5,  0,-0.02,-0.45,     // 左翼
+              0,0,0.6,   0,-0.02,-0.45,  0.45,0.05,-0.5,     // 右翼
+              0,0,0.6,   0,-0.18,-0.4,   0,-0.02,-0.45 ];    // 龍骨
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(v, 3)); geo.computeVertexNormals();
+  b.add(new THREE.Mesh(geo, M(0xfffdf8, {flat:true, extra:{side:THREE.DoubleSide}})));
+  put(b, G.box, M(0xef6f53), 0, -0.01, 0.0, 0.01, 0.02, 0.5);
+  g.userData = { body: b }; return g;
+}
+function makeBroom(){
+  const g = new THREE.Group(), b = new THREE.Group(); g.add(b);
+  put(b, G.cyl, M(0x9a6b45), 0, 0, 0.1, 0.03, 1.2, 0.03, 0, Math.PI/2);
+  put(b, G.cone, M(0xe8c56a, {flat:true}), 0, 0, -0.62, 0.17, 0.42, 0.17, 0, -Math.PI/2);
+  put(b, G.cyl, M(0xef6f53), 0, 0, -0.42, 0.06, 0.06, 0.06, 0, Math.PI/2);
+  // 騎掃帚的小魔法師
+  put(b, G.box, M(0x6f5fb8), 0, 0.17, -0.05, 0.16, 0.24, 0.14);
+  put(b, G.ball, M(0xffd2b0), 0, 0.36, -0.03, 0.08);
+  put(b, G.cone, M(0x6f5fb8), 0, 0.5, -0.05, 0.1, 0.24, 0.1, 0, -0.25);
+  put(b, G.box, M(0x6f5fb8), 0, 0.37, -0.05, 0.22, 0.02, 0.22);
+  put(b, G.box, M(0xf4c35a), 0, 0.44, -0.05, 0.11, 0.02, 0.11);
+  put(b, G.box, M(0x3b3550), 0.07, 0.04, 0.0, 0.04, 0.12, 0.05); put(b, G.box, M(0x3b3550), -0.07, 0.04, 0.0, 0.04, 0.12, 0.05);
+  put(b, G.box, M(0xef6f53), 0, 0.2, -0.16, 0.18, 0.2, 0.02, 0, 0.35);
+  for (let q = 0; q < 4; q++) put(b, G.ball, neonMats[q % 4], (Math.random()-0.5)*0.2, (Math.random()-0.5)*0.1, -0.85 - q*0.12, 0.025);
+  g.userData = { body: b }; return g;
+}
 function makeBalloonV(col, col2){
   const g = new THREE.Group(), b = new THREE.Group(); g.add(b);
   put(b, G.ball, M(col), 0, 0.55, 0, 0.42, 0.5, 0.42); put(b, G.cyl, M(col2), 0, 0.5, 0, 0.43, 0.1, 0.43);
@@ -1158,12 +1300,15 @@ function makeBalloonV(col, col2){
   for (const [x, z] of [[-1,-1],[1,-1],[-1,1],[1,1]]) put(b, G.cyl, M(0x3b3550), x*0.08, 0.0, z*0.08, 0.005, 0.32, 0.005);
   g.userData = { body: b, upright: true }; return g;
 }
-const AIR_TYPES = {
-  ufo:     { make: () => makeUFO(TOY[(Math.random()*7)|0]),     speed: 2.8, h: [6.5, 9.5], n: 4, scale: 1.5 },
-  bus:     { make: () => makeSkyBus([0xf4c35a, 0x7cc3a0, 0x6fb7e0][(Math.random()*3)|0]), speed: 1.9, h: [5, 7.5], n: 3, scale: 1.6 },
-  heli:    { make: () => makeHeli(TOY[(Math.random()*7)|0]),    speed: 2.3, h: [5, 7], n: 5, scale: 1.4 },
-  blimp:   { make: () => makeBlimp(TOY[(Math.random()*7)|0]),   speed: 1.2, h: [8.5, 11], n: 3, scale: 1.8 },
-  balloon: { make: () => makeBalloonV(TOY[(Math.random()*7)|0], TOY[(Math.random()*7)|0]), speed: 0.8, h: [6, 9], n: 4, scale: 1.5 },
+const AIR_TYPES = {   // 共 9 架
+  whale:   { make: () => makeSkyWhale(),   speed: 1.0, h: [9, 12], n: 1, scale: 2.4 },
+  paper:   { make: () => makePaperPlane(), speed: 2.6, h: [5, 8],  n: 1, scale: 1.8 },
+  broom:   { make: () => makeBroom(),      speed: 2.4, h: [6, 9],  n: 1, scale: 1.7 },
+  ufo:     { make: () => makeUFO(TOY[(Math.random()*7)|0]),     speed: 2.8, h: [6.5, 9.5], n: 2, scale: 1.5 },
+  bus:     { make: () => makeSkyBus([0xf4c35a, 0x7cc3a0, 0x6fb7e0][(Math.random()*3)|0]), speed: 1.9, h: [5, 7.5], n: 1, scale: 1.6 },
+  heli:    { make: () => makeHeli(TOY[(Math.random()*7)|0]),    speed: 2.3, h: [5, 7], n: 1, scale: 1.4 },
+  blimp:   { make: () => makeBlimp(TOY[(Math.random()*7)|0]),   speed: 1.2, h: [8.5, 11], n: 1, scale: 1.8 },
+  balloon: { make: () => makeBalloonV(TOY[(Math.random()*7)|0], TOY[(Math.random()*7)|0]), speed: 0.8, h: [6, 9], n: 1, scale: 1.5 },
 };
 const vehicles = [];
 const BZ = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
@@ -1217,9 +1362,11 @@ function updateVehicles(dt, t){
     bez(v.p, v.t, v.pos); v.obj.position.copy(v.pos);
     if (!u.upright){
       bezD(v.p, Math.min(v.t, 0.995), _tan);
-      if (v.type !== 'plane') _tan.y *= 0.15; else _tan.y *= 0.5;
+      if (v.type === 'paper' || v.type === 'broom') _tan.y *= 0.5; else _tan.y *= (v.type === 'whale' ? 0.3 : 0.15);
       if (_tan.lengthSq() > 1e-6){ _look.copy(v.pos).add(_tan); v.obj.lookAt(_look); }
-      u.body.rotation.z = Math.sin(t * 1.1 + v.phase) * (v.type === 'plane' ? 0.18 : 0.06);
+      u.body.rotation.z = Math.sin(t * 1.1 + v.phase) * (v.type === 'paper' ? 0.25 : v.type === 'broom' ? 0.15 : 0.06);
+      if (v.type === 'broom' || v.type === 'paper') u.body.position.y = Math.sin(t * 2.2 + v.phase) * 0.12;
+      if (u.flap){ u.flap.rotation.x = Math.sin(t * 1.6 + v.phase) * 0.35; u.body.position.y = Math.sin(t * 0.8 + v.phase) * 0.15; }
     } else {
       v.obj.position.y += Math.sin(t * 0.8 + v.phase) * 0.08;
     }
