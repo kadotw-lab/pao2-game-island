@@ -576,7 +576,7 @@ const specs = DATA.map((isl, i) => {
 });
 
 /* ---------- 排列：自然散布（有近有遠） ---------- */
-const HUB_R = 40;   // 主城半徑（遊樂園）
+const HUB_R = 80 / 3;   // 主城半徑（遊樂園，約 26.7）
 // 每個班級一個群島：跑二在左、跑六在右（班級多時平均分布在主城四周）
 const CLUSTER = CLASSES.map((c, ci) => {
   const idx = DATA.map((d, i) => d.cls === c.key ? i : -1).filter(i => i >= 0);
