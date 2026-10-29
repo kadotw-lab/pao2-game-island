@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<title>跑二遊戲島</title>
+<title>跑二遊戲群島</title>
 <meta name="description" content="國二跑班資訊科技・個人遊戲作品展：由六角空中島拼成的 3D 玩具城市，點島嶼就能直接玩。">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -180,7 +180,7 @@ body.night .hint{color:#e9e4ff;background:rgba(30,30,60,.5)}
     <circle cx="24" cy="15" r="2.4" fill="#fff8ec"/>
   </svg>
   <div>
-    <h1>跑二<em>遊戲島</em></h1>
+    <h1>跑二<em>遊戲群島</em></h1>
     <p>國二跑班資訊科技・個人遊戲作品展</p>
   </div>
 </header>
@@ -242,7 +242,7 @@ body.night .hint{color:#e9e4ff;background:rgba(30,30,60,.5)}
 <div class="loader" id="loader">
   <div class="in">
     <svg viewBox="0 0 48 48"><path d="M24 3 42 13.5v21L24 45 6 34.5v-21Z" fill="#7cc3a0"/><path d="M24 3 42 13.5 24 24 6 13.5Z" fill="#a7dcbd"/><path d="M24 24 42 13.5v21L24 45Z" fill="#559c7a"/><rect x="17" y="10" width="14" height="10" rx="2" fill="#ef6f53"/><path d="M15 11 24 4l9 7Z" fill="#c9533b"/></svg>
-    <h2>跑二遊戲島</h2>
+    <h2>跑二遊戲群島</h2>
     <p id="loadTx">島嶼升空中…</p>
     <div class="pb"><div id="loadBar"></div></div>
     <div class="err" id="loadErr"></div>
@@ -680,8 +680,8 @@ controls.maxDistance = WORLD_R * 6;
 const LABEL_FADE = Math.max(40, WORLD_R * 1.4);
 sky.scale.setScalar(Math.max(1, WORLD_R * 6 / 200)); starPts.scale.copy(sky.scale);
 
-/* ---------- 中央主城：跑二遊戲島（一般島的 10 倍大） ---------- */
-let hubSign, hubTop, ferris;
+/* ---------- 中央主城：跑二遊戲群島遊樂園（一般島的 10 倍大） ---------- */
+let hubSign, hubTop, ferris; const parkAnims = [];
 const HUB_Y = 0.2, HUB_TOP = TOP_Y * 2;
 const hubPads = [];
 {
@@ -717,12 +717,8 @@ const hubPads = [];
     put(d, G.box, M(0xfff8ec), x - Math.cos(a+Math.PI/2)*0.22, 0.075, z - Math.sin(a+Math.PI/2)*0.22, 0.08, 0.01, 0.55, -a);
     for (let q = 0; q < 6; q++){ const b = q/6*Math.PI*2; put(d, G.ball, lampMat, x + Math.cos(b)*0.82, 0.08, z + Math.sin(b)*0.82, 0.05); }
     used.push([x, z, 1.1]); hubPads.push(new THREE.Vector3(x, HUB_Y + HUB_TOP + 0.15, z)); }
-  // 池塘
-  { const a = roadA(0) + Math.PI/6, rr = 5.2, x = Math.cos(a)*rr, z = Math.sin(a)*rr;
-    put(d, G.cyl, M(0xe8d6b8), x, 0.02, z, 1.35, 0.04, 1.1); put(d, G.cyl, M(0x7fc6e8, {extra:{roughness:0.2}}), x, 0.04, z, 1.15, 0.04, 0.92);
-    put(d, G.box, M(0xfff8ec), x, 0.12, z, 0.15, 0.06, 0.1); used.push([x, z, 1.5]); }
   // 摩天輪
-  { const a = roadA(2) + Math.PI/6, rr = 5.6, x = Math.cos(a)*rr, z = Math.sin(a)*rr;
+  { const a = roadA(2) + Math.PI/6, rr = 5.0, x = Math.cos(a)*rr, z = Math.sin(a)*rr;
     for (const s of [-1, 1]){ put(d, G.box, M(0xfff8ec), x + Math.cos(a)*0.35*s, 1.0, z + Math.sin(a)*0.35*s, 0.08, 2.1, 0.08, -a, 0, 0.25*s).rotation.set(0.25, -a + Math.PI/2, 0);
       put(d, G.box, M(0xfff8ec), x + Math.cos(a)*0.35*s, 1.0, z + Math.sin(a)*0.35*s, 0.08, 2.1, 0.08).rotation.set(-0.25, -a + Math.PI/2, 0); }
     put(d, G.box, M(0xd9c8ad), x, 0.08, z, 1.4, 0.16, 0.9, -a + Math.PI/2);
@@ -746,24 +742,228 @@ const hubPads = [];
   for (const [x, z, ry] of [[0, 0.161, 0], [0, -0.161, Math.PI], [0.161, 0, Math.PI/2], [-0.161, 0, -Math.PI/2]]){
     put(core, G.cyl, M(0xfff8ec), x, 0.72, z, 0.11, 0.02, 0.11, ry, Math.PI/2);
     put(core, G.box, winMat, x*1.0, 0.35, z*1.0, 0.08, 0.14, 0.01, ry); }
-  // 房屋與樹木（隨機散布在主城）
-  let houses = 0;
-  for (let tries = 0; tries < 900 && houses < 46; tries++){
-    const a = rnd()*Math.PI*2, rr = 3.2 + rnd() * (HUB_R*0.86 - 3.2), x = Math.cos(a)*rr, z = Math.sin(a)*rr, s = 1.0 + rnd()*0.8;
-    if (!free(x, z, 0.38*s) || onRoad(x, z, 0.3*s)) continue;
-    const big = rnd() < 0.2;
-    if (big){ // 公寓
-      const h = 0.7 + rnd()*0.9; put(d, G.box, M([0xfff1dc, 0xfde3c8, 0xe9f0f5, 0xf7e1e6][houses % 4]), x, h*s/2, z, 0.5*s, h*s, 0.45*s, -a);
-      for (let fl = 0; fl < Math.floor(h/0.22); fl++) put(d, G.box, winMat, x + Math.cos(a)*0.226*s, (0.18 + fl*0.22)*s, z + Math.sin(a)*0.226*s, 0.01, 0.08*s, 0.34*s, -a);
-      put(d, G.box, M(TOY[(rnd()*7)|0]), x, h*s + 0.03, z, 0.54*s, 0.06, 0.49*s, -a);
-    } else house(d, x, z, -a + Math.PI/2, [0xfff1dc, 0xfde3c8, 0xfff8ec][houses % 3], TOY[(rnd()*7)|0], s);
-    used.push([x, z, 0.38*s]); houses++;
+  // ================= 遊樂園 =================
+  const sector = (k, rr) => { const a = roadA(k) + Math.PI / ROADS; return { a, x: Math.cos(a)*rr, z: Math.sin(a)*rr }; };
+  const ride = (x, z) => { const R = new THREE.Group(); R.position.set(x, HUB_TOP, z); g.add(R); return R; };
+  const shadowAll = o => o.traverse(m => { if (m.isMesh){ m.castShadow = true; m.receiveShadow = true; } });
+
+  // --- 旋轉木馬 ---
+  { const { x, z } = sector(0, 5.0); used.push([x, z, 1.8]);
+    put(d, G.cyl, M(0xfff1dc), x, 0.07, z, 1.6, 0.14, 1.6);
+    const R = ride(x, z), rot = new THREE.Group(); R.add(rot);
+    put(rot, G.cyl, M(0xf29bb5), 0, 0.17, 0, 1.45, 0.06, 1.45);
+    put(rot, G.cyl, M(0xf4c35a, {extra:{metalness:0.3}}), 0, 1.05, 0, 0.13, 1.8, 0.13);
+    put(rot, G.cyl, M(0xf4c35a), 0, 1.92, 0, 1.68, 0.16, 1.68);
+    put(rot, G.cone, M(0xef6f53, {flat:true}), 0, 2.4, 0, 1.75, 0.8, 1.75);
+    put(rot, G.ball, M(0xf4c35a), 0, 2.86, 0, 0.12);
+    for (let q = 0; q < 18; q++){ const b = q/18*Math.PI*2; put(rot, G.ball, lampMat, Math.cos(b)*1.7, 1.92, Math.sin(b)*1.7, 0.05); }
+    const horses = [];
+    for (let q = 0; q < 8; q++){ const b = q/8*Math.PI*2, hx = Math.cos(b)*1.05, hz = Math.sin(b)*1.05;
+      put(rot, G.cyl, M(0xf4c35a), hx, 1.05, hz, 0.025, 1.7, 0.025);
+      const h = new THREE.Group(); h.position.set(hx, 0.75, hz); h.rotation.y = -b; rot.add(h);
+      put(h, G.box, M([0xfff8ec, 0xf7e1e6, 0xe9f0f5, 0xfde3c8][q%4]), 0, 0, 0, 0.14, 0.17, 0.42);
+      put(h, G.box, M([0xfff8ec, 0xf7e1e6, 0xe9f0f5, 0xfde3c8][q%4]), 0, 0.17, 0.2, 0.11, 0.2, 0.12, 0, -0.4);
+      put(h, G.box, M(TOY[q%7]), 0, 0.1, 0.02, 0.15, 0.04, 0.16);
+      for (const [lx, lz] of [[-0.05,-0.15],[0.05,-0.15],[-0.05,0.15],[0.05,0.15]]) put(h, G.box, M(0x8a6d4a), lx, -0.15, lz, 0.03, 0.16, 0.03);
+      horses.push(h); }
+    shadowAll(R);
+    parkAnims.push(t => { rot.rotation.y = t * 0.5; horses.forEach((h, q) => h.position.y = 0.75 + Math.sin(t * 2.6 + q * 1.3) * 0.13); });
   }
+
+  // --- 海盜船 ---
+  { const { x, z, a } = sector(1, 5.0); used.push([x, z, 2.0]);
+    const R = ride(x, z); R.rotation.y = -a;               // 擺盪方向沿切線
+    put(d, G.box, M(0xd9c8ad), x, 0.06, z, 2.6, 0.12, 1.4, -a + Math.PI/2);
+    for (const s of [-1, 1]) for (const side of [-0.55, 0.55]){
+      put(R, G.box, M(0x6fb7e0), 0.5*s, 1.175, side, 0.1, 2.55, 0.1, 0, 0, s * 0.40); }
+    put(R, G.cyl, M(0x3b3550), 0, 2.35, 0, 0.07, 1.3, 0.07, 0, Math.PI/2);
+    const pivot = new THREE.Group(); pivot.position.y = 2.35; R.add(pivot);
+    for (const side of [-0.42, 0.42]) put(pivot, G.box, M(0x6fb7e0), 0, -0.85, side, 0.07, 1.7, 0.07);
+    const hull = new THREE.Group(); hull.position.y = -1.85; pivot.add(hull);
+    put(hull, G.box, M(0x9a6b45), 0, 0, 0, 1.9, 0.36, 0.7);
+    put(hull, G.box, M(0x9a6b45), 1.05, 0.15, 0, 0.45, 0.45, 0.62, 0, 0, 0.5);
+    put(hull, G.box, M(0x9a6b45), -1.05, 0.15, 0, 0.45, 0.45, 0.62, 0, 0, -0.5);
+    put(hull, G.box, M(0xf4c35a), 0, 0.2, 0, 1.95, 0.05, 0.72);
+    for (let q = 0; q < 5; q++) put(hull, G.box, M(0xef6f53), -0.7 + q*0.35, 0.12, 0, 0.08, 0.12, 0.6);
+    put(hull, G.cyl, M(0x8a5a3c), 0, 0.75, 0, 0.03, 1.1, 0.03);
+    put(hull, G.box, M(0xfff8ec), 0, 0.85, 0, 0.6, 0.55, 0.02);
+    put(hull, G.box, M(0x3b3550), 0, 1.3, 0, 0.2, 0.12, 0.01);
+    shadowAll(R);
+    parkAnims.push(t => { pivot.rotation.z = Math.sin(t * 0.9) * 1.0; });
+  }
+
+  // --- 自由落體塔 ---
+  { const { x, z } = sector(3, 4.8); used.push([x, z, 1.0]);
+    put(d, G.cyl, M(0xd9c8ad), x, 0.06, z, 0.9, 0.12, 0.9);
+    for (let s = 0; s < 11; s++) put(d, G.box, M(s % 2 ? 0xfff8ec : 0xef6f53), x, 0.3 + s*0.5, z, 0.32, 0.5, 0.32);
+    put(d, G.cone4, M(0xf4c35a, {flat:true}), x, 6.05, z, 0.35, 0.5, 0.35, Math.PI/4);
+    for (let s = 0; s < 10; s++) put(d, G.ball, lampMat, x + 0.17, 0.5 + s*0.55, z + 0.17, 0.035);
+    const R = ride(x, z), car = new THREE.Group(); R.add(car);
+    put(car, G.cyl, M(0x6fb7e0), 0, 0, 0, 0.5, 0.18, 0.5);
+    for (let q = 0; q < 8; q++){ const b = q/8*Math.PI*2; put(car, G.box, M(TOY[q%7]), Math.cos(b)*0.55, -0.08, Math.sin(b)*0.55, 0.13, 0.22, 0.13, -b);
+      put(car, G.ball, M(0xffd2b0), Math.cos(b)*0.55, 0.1, Math.sin(b)*0.55, 0.05); }
+    shadowAll(R);
+    parkAnims.push(t => { const c = t % 9; let y;
+      if (c < 5) y = 0.45 + (c/5) * 5.0; else if (c < 6.3) y = 5.45; else if (c < 6.8) { const k = (c-6.3)/0.5; y = 5.45 - k*k*4.9; } else { const k = (c-6.8)/2.2; y = 0.55 + Math.abs(Math.sin(k*Math.PI*2)) * 0.5 * (1-k); }
+      car.position.y = y; });
+  }
+
+  // --- 碰碰車場 ---
+  { const { x, z } = sector(3, 6.6); used.push([x, z, 1.2]);
+    put(d, G.cyl, M(0x5a6a8a), x, 0.04, z, 1.1, 0.08, 1.1);
+    for (let q = 0; q < 16; q++){ const b = q/16*Math.PI*2; put(d, G.box, M(q%2 ? 0xf4c35a : 0x3b3550), x + Math.cos(b)*1.1, 0.12, z + Math.sin(b)*1.1, 0.42, 0.12, 0.06, -b + Math.PI/2); }
+    const R = ride(x, z), cars = [];
+    for (let q = 0; q < 6; q++){ const c = new THREE.Group(); R.add(c);
+      put(c, G.box, M(TOY[q%7]), 0, 0.15, 0, 0.26, 0.12, 0.34); put(c, G.cyl, M(0x2b2838), 0, 0.1, 0, 0.2, 0.06, 0.24);
+      put(c, G.ball, M(0xffd2b0), 0, 0.28, -0.03, 0.05); put(c, G.cyl, M(0x3b3550), 0, 0.5, 0.1, 0.008, 0.6, 0.008);
+      cars.push({ c, r: 0.35 + (q%3)*0.22, w: (q%2 ? 1 : -1) * (0.6 + q*0.12), p: q }); }
+    shadowAll(R);
+    parkAnims.push(t => cars.forEach(o => { const ang = t*o.w + o.p; o.c.position.set(Math.cos(ang)*o.r + Math.sin(t*1.7+o.p)*0.15, 0, Math.sin(ang)*o.r); o.c.rotation.y = -ang + (o.w > 0 ? 0 : Math.PI) + Math.sin(t*3+o.p)*0.4; }));
+  }
+
+  // --- 旋轉鞦韆 ---
+  { const { x, z } = sector(4, 5.0); used.push([x, z, 1.9]);
+    put(d, G.cyl, M(0xfff1dc), x, 0.06, z, 1.3, 0.12, 1.3);
+    const R = ride(x, z);
+    put(R, G.cyl, M(0xf4c35a), 0, 1.45, 0, 0.14, 2.9, 0.14);
+    const top = new THREE.Group(); top.position.y = 2.75; R.add(top);
+    put(top, G.cone, M(0x6fb7e0, {flat:true}), 0, 0.3, 0, 1.05, 0.55, 1.05);
+    put(top, G.cyl, M(0xfff8ec), 0, 0, 0, 1.05, 0.12, 1.05);
+    for (let q = 0; q < 14; q++){ const b = q/14*Math.PI*2; put(top, G.ball, lampMat, Math.cos(b)*1.05, -0.04, Math.sin(b)*1.05, 0.04); }
+    const swings = [];
+    for (let q = 0; q < 12; q++){ const b = q/12*Math.PI*2;
+      const p = new THREE.Group(); p.rotation.y = -b; top.add(p);
+      const arm = new THREE.Group(); arm.position.x = 0.95; p.add(arm);
+      put(arm, G.box, M(0x3b3550), 0, -0.55, 0, 0.012, 1.1, 0.012);
+      put(arm, G.box, M(TOY[q%7]), 0, -1.12, 0, 0.13, 0.05, 0.13); put(arm, G.ball, M(0xffd2b0), 0, -1.0, 0, 0.045);
+      swings.push(arm); }
+    shadowAll(R);
+    parkAnims.push(t => { const sp = 1.2 + Math.sin(t*0.15)*0.6; top.rotation.y = -t * 1.3; top.rotation.z = Math.sin(t*0.4)*0.08; swings.forEach(s => s.rotation.z = 0.35 + sp*0.25); });
+  }
+
+  // --- 咖啡杯 ---
+  { const { x, z } = sector(5, 4.8); used.push([x, z, 1.6]);
+    const R = ride(x, z), plat = new THREE.Group(); R.add(plat);
+    put(plat, G.cyl, M(0xf7e1e6), 0, 0.06, 0, 1.45, 0.12, 1.45);
+    put(plat, G.cyl, M(0xf29bb5), 0, 0.13, 0, 0.35, 0.05, 0.35);
+    const cupGeo = new THREE.CylinderGeometry(0.33, 0.22, 0.32, 16, 1, true);
+    const cups = [];
+    for (let q = 0; q < 5; q++){ const b = q/5*Math.PI*2, c = new THREE.Group(); c.position.set(Math.cos(b)*0.9, 0.12, Math.sin(b)*0.9); plat.add(c);
+      const col = [0x6fb7e0, 0xf4c35a, 0x7cc3a0, 0xb88ad8, 0xef6f53][q];
+      put(c, cupGeo, M(col, {extra:{side:THREE.DoubleSide}}), 0, 0.2, 0, 1);
+      put(c, G.cyl, M(0xfff8ec), 0, 0.05, 0, 0.22, 0.06, 0.22);
+      put(c, G.torus, M(col), 0.36, 0.22, 0, 0.09, 0.09, 0.09);
+      put(c, G.ball, M(0xffd2b0), 0.1, 0.4, 0, 0.06); put(c, G.ball, M(0xffd2b0), -0.1, 0.4, 0.05, 0.06);
+      cups.push(c); }
+    shadowAll(R);
+    parkAnims.push(t => { plat.rotation.y = t * 0.45; cups.forEach((c, q) => c.rotation.y = t * (1.6 + q*0.3) * (q%2 ? 1 : -1)); });
+  }
+  // --- 馬戲團帳篷 ---
+  { const { x, z } = sector(5, 6.7); used.push([x, z, 1.2]);
+    for (let q = 0; q < 12; q++){ const b = q/12*Math.PI*2; put(d, G.box, M(q%2 ? 0xfff8ec : 0xef6f53), x + Math.cos(b)*0.98, 0.38, z + Math.sin(b)*0.98, 0.52, 0.76, 0.05, -b + Math.PI/2); }
+    put(d, G.cyl, M(0xef6f53), x, 0.38, z, 0.95, 0.76, 0.95);
+    put(d, G.cone, M(0xfff8ec, {flat:true}), x, 1.25, z, 1.12, 1.0, 1.12);
+    for (let q = 0; q < 6; q++){ const b = q/6*Math.PI*2; put(d, G.box, M(0xef6f53), x + Math.cos(b)*0.55, 1.22, z + Math.sin(b)*0.55, 0.1, 0.02, 1.0, -b + Math.PI/2, 0.82); }
+    put(d, G.cyl, M(0x3b3550), x, 1.95, z, 0.015, 0.5, 0.015); put(d, G.box, M(0xf4c35a), x + 0.12, 2.1, z, 0.22, 0.12, 0.01);
+  }
+  // --- 攤販＋氣球（廣場外圈） ---
+  for (let k = 0; k < ROADS; k++){ const a = roadA(k) + Math.PI/ROADS, rr = 3.25, x = Math.cos(a)*rr, z = Math.sin(a)*rr; used.push([x, z, 0.5]);
+    const col = TOY[k % 7];
+    for (const [px, pz] of [[-0.25,-0.18],[0.25,-0.18],[-0.25,0.18],[0.25,0.18]]){ const c = Math.cos(-a+Math.PI/2), s = Math.sin(-a+Math.PI/2);
+      put(d, G.cyl, M(0xfff8ec), x + px*c + pz*s, 0.25, z - px*s + pz*c, 0.02, 0.5, 0.02); }
+    for (let q = 0; q < 4; q++){ const off = -0.24 + q*0.16, c = Math.cos(-a+Math.PI/2), s = Math.sin(-a+Math.PI/2);
+      put(d, G.box, M(q%2 ? 0xfff8ec : col), x + off*c, 0.53, z - off*s, 0.16, 0.05, 0.48, -a + Math.PI/2, 0, 0); }
+    put(d, G.box, M(0xb98353), x, 0.15, z, 0.55, 0.3, 0.3, -a + Math.PI/2);
+    for (let q = 0; q < 5; q++){ const bx = x + Math.cos(a+0.3)*0.45 + (q%3)*0.06, bz = z + Math.sin(a+0.3)*0.45 + (q>2?0.07:0), by = 1.0 + (q%3)*0.15;
+      put(d, G.box, M(0x3b3550), bx, by/2, bz, 0.006, by, 0.006); put(d, G.ball, M(TOY[(k+q)%7]), bx, by + 0.08, bz, 0.08, 0.1, 0.08); }
+  }
+  // --- 入口拱門（沒有停機坪的三條路） ---
+  for (let k = 1; k < ROADS; k += 2){ const a = roadA(k), rr = HUB_R * 0.93, x = Math.cos(a)*rr, z = Math.sin(a)*rr, px = -Math.sin(a)*0.5, pz = Math.cos(a)*0.5;
+    for (const s of [-1, 1]){ put(d, G.cyl, M(0xfff1dc), x + px*s, 0.75, z + pz*s, 0.09, 1.5, 0.09); put(d, G.ball, M(TOY[k]), x + px*s, 1.55, z + pz*s, 0.12); }
+    put(d, G.box, M(0xef6f53), x, 1.4, z, 0.12, 0.28, 1.15, -a);
+    put(d, G.box, M(0xf4c35a), x, 1.62, z, 0.1, 0.12, 0.8, -a);
+    used.push([x, z, 0.7]); }
+
+  // --- 雲霄飛車 ---
+  { const N = 720, CR = 8.1, LOOP_A = 3.55, LOOP_W = 0.5, LR = 1.05;
+    const wrap = v => ((v % (Math.PI*2)) + Math.PI*2) % (Math.PI*2);
+    const gauss = (th, c, w) => { let dd = wrap(th - c); if (dd > Math.PI) dd -= Math.PI*2; return Math.exp(-(dd*dd)/(2*w*w)); };
+    const baseXZ = th => { const r = CR + 0.32*Math.sin(3*th + 0.6); return new THREE.Vector3(Math.cos(th)*r, 0, Math.sin(th)*r); };
+    const baseH = th => 1.15 + 3.9*Math.pow(Math.max(0, Math.min(1, (wrap(th) - 0.15) / 1.0)), 1.6) * (wrap(th) < 1.15 ? 1 : 0)
+                     + (wrap(th) >= 1.15 ? 3.9*Math.exp(-Math.pow((wrap(th)-1.15)/0.32, 2)) : 0)
+                     + 1.5*gauss(th, 2.35, 0.22) + 1.1*gauss(th, 4.75, 0.25) + 0.7*gauss(th, 5.6, 0.2);
+    const pts = [], lats = [];
+    for (let i = 0; i < N; i++){
+      const th = i / N * Math.PI * 2;
+      const p = baseXZ(th), T = baseXZ(th + 0.002).sub(baseXZ(th - 0.002)).normalize();
+      const L = new THREE.Vector3().crossVectors(T, new THREE.Vector3(0, 1, 0)).normalize();
+      p.y = baseH(th);
+      const u = (th - LOOP_A) / LOOP_W;
+      if (u > 0 && u < 1){
+        p.addScaledVector(T, LR * Math.sin(2*Math.PI*u));
+        p.y += LR * (1 - Math.cos(2*Math.PI*u));
+        p.addScaledVector(L, 0.32 * Math.sin(2*Math.PI*u));
+      }
+      pts.push(p); lats.push(L);
+    }
+    const curve = new THREE.CatmullRomCurve3(pts, true, 'centripetal');
+    const len = curve.getLength();
+    const latAt = u => { const tt = curve.getUtoTmapping(u) * N; const i = Math.floor(tt) % N, f = tt - Math.floor(tt);
+      return lats[i].clone().lerp(lats[(i+1) % N], f).normalize(); };
+    const frame = u => { const p = curve.getPointAt(u), T = curve.getTangentAt(u), L = latAt(u);
+      const Nn = new THREE.Vector3().crossVectors(L, T).normalize(); L.crossVectors(T, Nn).normalize(); return { p, T, L, N: Nn }; };
+    // 軌道
+    const S = 1400, railL = [], railR = [], spine = [];
+    for (let i = 0; i < S; i++){ const f = frame(i / S);
+      railL.push(f.p.clone().addScaledVector(f.L, -0.13)); railR.push(f.p.clone().addScaledVector(f.L, 0.13)); spine.push(f.p.clone().addScaledVector(f.N, -0.11)); }
+    const tube = (arr, r, col) => { const m = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(arr, true), S, r, 5, true), M(col)); d.add(m); };
+    tube(railL, 0.032, 0xef6f53); tube(railR, 0.032, 0xef6f53); tube(spine, 0.055, 0xf4c35a);
+    const mtx = new THREE.Matrix4();
+    for (let i = 0; i < S; i += 4){ const f = frame(i / S);
+      const tie = new THREE.Mesh(G.box, M(0x3b3550)); tie.scale.set(0.34, 0.025, 0.05);
+      mtx.makeBasis(f.L, f.N, f.T); tie.quaternion.setFromRotationMatrix(mtx); tie.position.copy(f.p).addScaledVector(f.N, -0.06); d.add(tie); }
+    // 支柱
+    for (let i = 0; i < S; i += 14){ const f = frame(i / S);
+      if (f.N.y < 0.92 || f.p.y < 0.5) continue;
+      const th = Math.atan2(f.p.z, f.p.x), uu = (wrap(th) - LOOP_A) / LOOP_W; if (uu > -0.05 && uu < 1.05) continue;
+      const hgt = f.p.y - 0.15;
+      put(d, G.box, M(0xfff8ec), f.p.x, hgt/2, f.p.z, 0.07, hgt, 0.07);
+      put(d, G.box, M(0xd9c8ad), f.p.x, 0.04, f.p.z, 0.2, 0.08, 0.2);
+      if (hgt > 2) put(d, G.box, M(0xfff8ec), f.p.x, hgt*0.5, f.p.z, 0.04, 0.04, 0.5, -th); }
+    // 迴環下的支架
+    for (const uu of [0.02, 0.98]){ const th = LOOP_A + uu*LOOP_W, p = baseXZ(th); put(d, G.box, M(0xfff8ec), p.x, 0.6, p.z, 0.08, 1.2, 0.08); }
+    // 車站
+    { const f = frame(0.04), th = Math.atan2(f.p.z, f.p.x);
+      put(d, G.box, M(0xfff1dc), f.p.x, 0.45, f.p.z, 1.2, 0.9, 0.8, -th);
+      put(d, G.box, M(0x6fb7e0), f.p.x, 1.95, f.p.z, 1.5, 0.08, 1.1, -th);
+      for (const [a1, a2] of [[-0.6,-0.45],[0.6,-0.45],[-0.6,0.45],[0.6,0.45]]){ const c = Math.cos(th), s = Math.sin(th);
+        put(d, G.box, M(0xfff8ec), f.p.x + a1*c - a2*s, 1.4, f.p.z + a1*s + a2*c, 0.05, 1.1, 0.05); } }
+    // 列車
+    const train = new THREE.Group(); train.position.y = HUB_TOP; g.add(train);
+    const cars = [];
+    for (let q = 0; q < 5; q++){ const c = new THREE.Group(); train.add(c);
+      put(c, G.box, M(q ? TOY[(q+1)%7] : 0xef6f53), 0, 0.12, 0, 0.3, 0.16, 0.44);
+      put(c, G.box, M(0x3b3550), 0, 0.22, -0.1, 0.26, 0.06, 0.08);
+      if (!q) put(c, G.box, M(0xf4c35a), 0, 0.14, 0.25, 0.26, 0.1, 0.08);
+      put(c, G.ball, M(0xffd2b0), -0.07, 0.3, 0.02, 0.05); put(c, G.ball, M(0xffd2b0), 0.07, 0.3, 0.02, 0.05);
+      put(c, G.ball, lampMat, 0, 0.12, 0.23, 0.025);
+      shadowAll(c); cars.push(c); }
+    let hMax = -1; for (const p of pts) hMax = Math.max(hMax, p.y);
+    let cu = 0;
+    parkAnims.push((t, dt) => {
+      const yNow = curve.getPointAt(cu).y;
+      const v = Math.min(9, Math.sqrt(1.1 + 2 * 6.5 * Math.max(0, hMax - yNow)));
+      cu = (cu + v * dt / len) % 1;
+      cars.forEach((c, q) => { const u = ((cu - q * 0.5 / len) % 1 + 1) % 1, f = frame(u);
+        mtx.makeBasis(f.L, f.N, f.T); c.quaternion.setFromRotationMatrix(mtx); c.position.copy(f.p); });
+    });
+  }
+  // --- 樹木（點綴） ---
   let trees = 0;
-  for (let tries = 0; tries < 1500 && trees < 130; tries++){
-    const a = rnd()*Math.PI*2, rr = 2.9 + rnd() * (HUB_R*0.94 - 2.9), x = Math.cos(a)*rr, z = Math.sin(a)*rr, s = 0.9 + rnd()*0.8;
-    if (!free(x, z, 0.2*s) || onRoad(x, z, 0.15)) continue;
-    tree(d, x, z, s, (rnd()*3)|0); used.push([x, z, 0.18*s]); trees++;
+  for (let tries = 0; tries < 1500 && trees < 70; tries++){
+    const a = rnd()*Math.PI*2, rr = 2.9 + rnd() * (HUB_R*0.94 - 2.9), x = Math.cos(a)*rr, z = Math.sin(a)*rr, s = 0.9 + rnd()*0.7;
+    if (!free(x, z, 0.25*s) || onRoad(x, z, 0.15)) continue;
+    tree(d, x, z, s, (rnd()*3)|0); used.push([x, z, 0.2*s]); trees++;
   }
   // 廣場上的樹與長椅
   for (let k = 0; k < 8; k++){ const a = k/8*Math.PI*2 + 0.2; tree(d, Math.cos(a)*2.2, Math.sin(a)*2.2, 1.1, k % 3); }
@@ -784,8 +984,8 @@ function makeSignTexture(){
   const cv = document.createElement('canvas'); cv.width = 1024; cv.height = 300; const x = cv.getContext('2d');
   x.fillStyle = '#fff8ec'; roundRect(x, 8, 8, 1008, 284, 70); x.fill();
   x.lineWidth = 14; x.strokeStyle = '#ef6f53'; roundRect(x, 22, 22, 980, 256, 58); x.stroke();
-  x.fillStyle = '#3b3550'; x.font = '900 128px "Noto Sans TC","Microsoft JhengHei",sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
-  x.fillText('跑二遊戲島', 512, 140);
+  x.fillStyle = '#3b3550'; x.font = '900 112px "Noto Sans TC","Microsoft JhengHei",sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.fillText('跑二遊戲群島', 512, 140);
   x.font = '700 40px "Noto Sans TC","Microsoft JhengHei",sans-serif'; x.fillStyle = '#6b6480';
   x.fillText(`${DATA.length} 座島嶼・點島開玩`, 512, 238);
   const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t;
@@ -1138,7 +1338,7 @@ function openGame(i, gi){
     markPlayed(d.id);
   }
 }
-function markPlayed(id){ if (!played.has(id)){ played.add(id); store.set('pao2.played', [...played]); refreshStats(); if (played.size === DATA.length) toast('🏆 你已經玩遍整座遊戲島！'); } }
+function markPlayed(id){ if (!played.has(id)){ played.add(id); store.set('pao2.played', [...played]); refreshStats(); if (played.size === DATA.length) toast('🏆 你已經玩遍整座遊戲群島！'); } }
 function closeGame(){ if (!modalOpen) return; modalOpen = false; Sound.duck(false); $('#modal').classList.remove('open'); setTimeout(() => { if (!modalOpen) $('#mFrame').src = 'about:blank'; }, 260); renderList(); }
 $('#mTabs').onclick = e => { const b = e.target.closest('button'); if (b && current) openGame(current.i, +b.dataset.k); };
 $('#mClose').onclick = closeGame;
@@ -1318,6 +1518,7 @@ function frame(){
   hubSign.userData.hands.h.rotation.z = -(hr % 12) / 12 * Math.PI * 2;
   hubSign.userData.hands.m.rotation.z = -(hr % 1) * Math.PI * 2;
   hubSign.position.y = HUB_Y; if (ferris){ ferris.userData.wheel.rotation.z = t * 0.12; ferris.userData.cabins.forEach(c => c.rotation.z = -t * 0.12); }
+  parkAnims.forEach(f => f(t, dt));
   if (signMesh) signMesh.rotation.y = Math.atan2(camera.position.x, camera.position.z);
   updateVehicles(dt, t);
   clouds.forEach(c => { c.position.x += c.userData.speed * dt; if (c.position.x > WORLD_R * 1.4) c.position.x = -WORLD_R * 1.4; });
