@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<title>跑二遊戲群島</title>
+<title>文興遊戲群島</title>
 <meta name="description" content="國一・國二跑班資訊科技・個人遊戲作品展：由六角空中島拼成的 3D 玩具城市，點島嶼就能直接玩。">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -181,7 +181,7 @@ body.night .hint{color:#e9e4ff;background:rgba(30,30,60,.5)}
     <circle cx="24" cy="15" r="2.4" fill="#fff8ec"/>
   </svg>
   <div>
-    <h1>跑二<em>遊戲群島</em></h1>
+    <h1>文興<em>遊戲群島</em></h1>
     <p id="brandSub">國一・國二跑班資訊科技・個人遊戲作品展</p>
   </div>
 </header>
@@ -244,7 +244,7 @@ body.night .hint{color:#e9e4ff;background:rgba(30,30,60,.5)}
 <div class="loader" id="loader">
   <div class="in">
     <svg viewBox="0 0 48 48"><path d="M24 3 42 13.5v21L24 45 6 34.5v-21Z" fill="#7cc3a0"/><path d="M24 3 42 13.5 24 24 6 13.5Z" fill="#a7dcbd"/><path d="M24 24 42 13.5v21L24 45Z" fill="#559c7a"/><rect x="17" y="10" width="14" height="10" rx="2" fill="#ef6f53"/><path d="M15 11 24 4l9 7Z" fill="#c9533b"/></svg>
-    <h2>跑二遊戲群島</h2>
+    <h2>文興遊戲群島</h2>
     <p id="loadTx">島嶼升空中…</p>
     <div class="pb"><div id="loadBar"></div></div>
     <div class="err" id="loadErr"></div>
@@ -724,7 +724,7 @@ async function addClassBanners(){
 }
 sky.scale.setScalar(Math.max(1, WORLD_R * 6 / 200)); starPts.scale.copy(sky.scale);
 
-/* ---------- 中央主城：跑二遊戲群島遊樂園（一般島的 10 倍大） ---------- */
+/* ---------- 中央主城：文興遊戲群島遊樂園（一般島的 10 倍大） ---------- */
 let hubSign, hubTop, ferris; const parkAnims = [];
 const HUB_Y = 0.2, HUB_TOP = TOP_Y * 2;
 const hubPads = [];
@@ -1029,7 +1029,7 @@ function makeSignTexture(){
   x.fillStyle = '#fff8ec'; roundRect(x, 8, 8, 1008, 284, 70); x.fill();
   x.lineWidth = 14; x.strokeStyle = '#ef6f53'; roundRect(x, 22, 22, 980, 256, 58); x.stroke();
   x.fillStyle = '#3b3550'; x.font = '900 112px "Noto Sans TC","Microsoft JhengHei",sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
-  x.fillText('跑二遊戲群島', 512, 140);
+  x.fillText('文興遊戲群島', 512, 140);
   x.font = '700 40px "Noto Sans TC","Microsoft JhengHei",sans-serif'; x.fillStyle = '#6b6480';
   x.fillText(`${DATA.length} 座島嶼・點島開玩`, 512, 238);
   const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t;
