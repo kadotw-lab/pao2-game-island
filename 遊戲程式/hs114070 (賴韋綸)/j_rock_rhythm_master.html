@@ -1,0 +1,1412 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Cyber Sakura - Rhythm Master</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Noto+Sans+TC:wght@500;700;900&family=Shippori+Mincho:wght@700;800&display=swap');
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #07050d;
+            font-family: 'Noto Sans TC', 'Orbitron', sans-serif;
+            color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Main Game Stage Frame - Cyber Wafuu Theme */
+        #game-container {
+            position: relative;
+            width: 100%;
+            max-width: 480px;
+            height: 100vh;
+            max-height: 880px;
+            background: linear-gradient(180deg, #0d0818 0%, #06040a 100%);
+            box-shadow: 0 0 50px rgba(255, 119, 168, 0.25), 0 0 100px rgba(255, 42, 95, 0.2);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            border: 1px solid rgba(255, 119, 168, 0.3);
+            border-radius: 14px;
+        }
+
+        /* Glassmorphism Top HUD */
+        #hud {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 12px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 15;
+            background: linear-gradient(180deg, rgba(20, 10, 30, 0.92) 0%, rgba(20, 10, 30, 0) 100%);
+            backdrop-filter: blur(8px);
+        }
+
+        .hud-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .top-nav-btn {
+            background: rgba(255, 119, 168, 0.15);
+            border: 1px solid rgba(255, 119, 168, 0.4);
+            color: #ff77a8;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            text-shadow: 0 0 5px rgba(255, 119, 168, 0.6);
+            box-shadow: 0 0 8px rgba(255, 119, 168, 0.2);
+            outline: none;
+        }
+
+        .top-nav-btn:hover {
+            background: rgba(255, 119, 168, 0.35);
+            box-shadow: 0 0 14px rgba(255, 119, 168, 0.7);
+            transform: scale(1.05);
+        }
+
+        .top-nav-btn:active {
+            transform: scale(0.95);
+        }
+
+        .hud-label {
+            font-size: 10px;
+            color: #ffc83b;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            text-shadow: 0 0 5px rgba(255, 200, 59, 0.8);
+        }
+
+        .hud-value {
+            font-size: 20px;
+            font-weight: 900;
+            font-family: 'Orbitron', monospace;
+            text-shadow: 0 0 10px rgba(255, 119, 168, 0.8);
+            letter-spacing: 1px;
+        }
+
+        /* Animated Glowing HP Bar */
+        #hp-container {
+            position: absolute;
+            top: 86px;
+            left: 20px;
+            right: 20px;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 4px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 119, 168, 0.2);
+            z-index: 10;
+            box-shadow: inset 0 0 6px rgba(0,0,0,0.8);
+        }
+
+        #hp-bar {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, #ff2a5f 0%, #ffc83b 50%, #ff77a8 100%);
+            box-shadow: 0 0 12px #ff77a8;
+            transition: width 0.15s cubic-bezier(0.1, 0.8, 0.3, 1);
+        }
+
+        /* Game Canvas */
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* Cyber Wafuu Overlays */
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(13, 8, 22, 0.93);
+            backdrop-filter: blur(14px);
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            align-items: center;
+            z-index: 20;
+            padding: 24px 20px;
+            text-align: center;
+            overflow-y: auto;
+            transition: opacity 0.3s ease;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        h1.title {
+            font-family: 'Shippori Mincho', 'Noto Sans TC', serif;
+            font-size: 32px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #ffffff 0%, #ff77a8 50%, #ffc83b 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 25px rgba(255, 119, 168, 0.5);
+            margin-bottom: 2px;
+            letter-spacing: 3px;
+        }
+
+        p.subtitle {
+            font-size: 11px;
+            color: #d0a8d8;
+            letter-spacing: 3px;
+            margin-bottom: 16px;
+            font-weight: 700;
+        }
+
+        /* Song Selector Carousel Cards */
+        .song-selector-wrapper {
+            position: relative;
+            width: 100%;
+            max-width: 360px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+
+        .nav-arrow {
+            background: rgba(255, 119, 168, 0.15);
+            border: 1px solid rgba(255, 119, 168, 0.4);
+            color: #ff77a8;
+            font-size: 22px;
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 0 10px rgba(255, 119, 168, 0.2);
+            z-index: 5;
+        }
+
+        .nav-arrow:hover {
+            background: rgba(255, 119, 168, 0.35);
+            transform: scale(1.1);
+            box-shadow: 0 0 16px rgba(255, 119, 168, 0.6);
+        }
+
+        .song-card {
+            width: 250px;
+            background: rgba(25, 15, 38, 0.88);
+            border: 2px solid #ff77a8;
+            border-radius: 16px;
+            padding: 18px 16px;
+            box-shadow: 0 8px 32px rgba(255, 119, 168, 0.3);
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .song-badge {
+            font-size: 10px;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-weight: 800;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+
+        .song-title-text {
+            font-family: 'Shippori Mincho', serif;
+            font-size: 20px;
+            font-weight: 800;
+            color: #fff;
+            margin-bottom: 4px;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+        }
+
+        .song-artist-text {
+            font-size: 12px;
+            color: #d0a8d8;
+            margin-bottom: 12px;
+            font-weight: 700;
+        }
+
+        .song-stats-row {
+            display: flex;
+            gap: 12px;
+            font-size: 11px;
+            color: #ffc83b;
+            font-weight: bold;
+        }
+
+        /* Cyber Glass Control Group */
+        .setting-panel {
+            background: rgba(30, 18, 48, 0.6);
+            border: 1px solid rgba(255, 119, 168, 0.25);
+            border-radius: 12px;
+            padding: 14px 20px;
+            margin-bottom: 16px;
+            width: 100%;
+            max-width: 320px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+
+        .setting-group {
+            margin: 8px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .setting-group label {
+            font-size: 12px;
+            color: #f0d8f8;
+            font-weight: 700;
+        }
+
+        select {
+            background: #140b22;
+            color: #ff77a8;
+            border: 1px solid #ff77a8;
+            padding: 5px 10px;
+            border-radius: 6px;
+            outline: none;
+            font-size: 12px;
+            font-weight: bold;
+            font-family: inherit;
+            box-shadow: 0 0 10px rgba(255, 119, 168, 0.2);
+        }
+
+        /* Glossy Wafuu Neon Button */
+        .btn {
+            position: relative;
+            background: linear-gradient(135deg, #ff2a5f 0%, #aa0066 100%);
+            border: none;
+            color: #fff;
+            padding: 12px 42px;
+            font-size: 16px;
+            font-weight: 900;
+            border-radius: 40px;
+            cursor: pointer;
+            box-shadow: 0 0 20px rgba(255, 42, 95, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.4);
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            letter-spacing: 2px;
+            margin-top: 6px;
+            outline: none;
+            overflow: hidden;
+        }
+
+        .btn:hover {
+            transform: scale(1.06);
+            box-shadow: 0 0 30px rgba(255, 119, 168, 0.8), inset 0 1px 1px rgba(255, 255, 255, 0.8);
+        }
+
+        .btn:active {
+            transform: scale(0.96);
+        }
+
+        /* Keybind visual hints */
+        .key-hints {
+            display: flex;
+            gap: 10px;
+            margin: 10px 0;
+        }
+
+        .key-box {
+            width: 40px;
+            height: 40px;
+            border: 2px solid rgba(255, 119, 168, 0.6);
+            border-radius: 8px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: 900;
+            font-size: 16px;
+            color: #ff77a8;
+            background: rgba(255, 119, 168, 0.1);
+            box-shadow: 0 0 12px rgba(255, 119, 168, 0.25);
+            text-shadow: 0 0 8px #ff77a8;
+        }
+
+        /* Result Screen UI */
+        .stat-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            width: 100%;
+            max-width: 300px;
+            margin: 16px 0;
+        }
+
+        .stat-item {
+            background: rgba(255, 255, 255, 0.04);
+            padding: 10px 14px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            text-align: left;
+        }
+
+        .rank-badge {
+            font-family: 'Shippori Mincho', serif;
+            font-size: 76px;
+            font-weight: 900;
+            background: linear-gradient(135deg, #ffc83b, #ff2a5f);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 30px rgba(255, 200, 59, 0.6);
+            line-height: 1;
+            margin: 6px 0;
+        }
+
+        /* Touch Controls Area */
+        #touch-controls {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 110px;
+            display: flex;
+            z-index: 12;
+        }
+
+        .touch-zone {
+            flex: 1;
+            height: 100%;
+            background: transparent;
+        }
+        
+        .touch-zone:active {
+            background: radial-gradient(circle at center, rgba(255, 119, 168, 0.35) 0%, transparent 80%);
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <!-- Top HUD -->
+    <div id="hud">
+        <div class="hud-item" style="align-items: flex-start; gap: 4px;">
+            <div style="display: flex; gap: 6px; margin-bottom: 2px;">
+                <button id="quick-home-btn" class="top-nav-btn" title="Main Menu">⛩️ 主選單</button>
+                <button id="quick-restart-btn" class="top-nav-btn" title="Restart Stage">🔄 重來</button>
+            </div>
+            <div>
+                <span class="hud-label">分數 SCORE</span>
+                <span id="score-val" class="hud-value" style="color: #ff77a8;">000000</span>
+            </div>
+        </div>
+        <div class="hud-item" style="text-align: center;">
+            <span class="hud-label">連擊 COMBO</span>
+            <span id="combo-val" class="hud-value" style="color: #ffc83b;">0</span>
+        </div>
+        <div class="hud-item" style="text-align: right;">
+            <span class="hud-label">最高紀錄 BEST</span>
+            <span id="highscore-val" class="hud-value" style="color: #ff2a5f;">000000</span>
+        </div>
+    </div>
+
+    <!-- Health Bar -->
+    <div id="hp-container">
+        <div id="hp-bar"></div>
+    </div>
+
+    <!-- Main Rendering Canvas -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- Mobile Touch Trigger Zone -->
+    <div id="touch-controls">
+        <div class="touch-zone" data-lane="0"></div>
+        <div class="touch-zone" data-lane="1"></div>
+        <div class="touch-zone" data-lane="2"></div>
+        <div class="touch-zone" data-lane="3"></div>
+    </div>
+
+    <!-- Overlay: Start Menu & Song Selection -->
+    <div id="start-screen" class="overlay">
+        <h1 class="title">CYBER SAKURA</h1>
+        <p class="subtitle">RHYTHM MASTER</p>
+
+        <!-- Song Selection Carousel Container -->
+        <div class="song-selector-wrapper">
+            <button id="prev-song-btn" class="nav-arrow">&lt;</button>
+
+            <div id="song-card" class="song-card">
+                <span id="song-badge" class="song-badge" style="background: rgba(255,42,95,0.2); color: #ff2a5f; border: 1px solid #ff2a5f;">HOT TRACK</span>
+                <div id="song-title" class="song-title-text">Sakura Bloom Burst</div>
+                <div id="song-artist" class="song-artist-text">STYLE: Cyber Shamisen Rock</div>
+                <div class="song-stats-row">
+                    <span id="song-bpm">⚡ BPM 180</span>
+                    <span id="song-genre">🌸 Cyber Sakura Rock</span>
+                </div>
+            </div>
+
+            <button id="next-song-btn" class="nav-arrow">&gt;</button>
+        </div>
+
+        <div class="setting-panel">
+            <div class="setting-group">
+                <label for="diff-select">遊戲難度</label>
+                <select id="diff-select">
+                    <option value="easy">簡單 Easy</option>
+                    <option value="normal" selected>普通 Normal</option>
+                    <option value="hard">困難 Hard</option>
+                    <option value="expert">大師 Expert</option>
+                </select>
+            </div>
+
+            <div class="setting-group">
+                <label for="speed-select">流速設定</label>
+                <select id="speed-select">
+                    <option value="1.0">1.0x (慢速)</option>
+                    <option value="1.5" selected>1.5x (標準)</option>
+                    <option value="2.0">2.0x (疾走)</option>
+                    <option value="2.5">2.5x (極速)</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="key-hints">
+            <div class="key-box">D</div>
+            <div class="key-box">F</div>
+            <div class="key-box">J</div>
+            <div class="key-box">K</div>
+        </div>
+
+        <button id="start-btn" class="btn">開始演奏</button>
+    </div>
+
+    <!-- Overlay: Pause Screen -->
+    <div id="pause-screen" class="overlay hidden" style="justify-content: center;">
+        <h1 class="title">遊戲暫停</h1>
+        <p class="subtitle">PAUSED</p>
+        <button id="resume-btn" class="btn">繼續演奏</button>
+        <button id="restart-btn" class="btn" style="background: linear-gradient(135deg, #332244, #553366); margin-top: 12px;">重新開始</button>
+    </div>
+
+    <!-- Overlay: Results Screen -->
+    <div id="result-screen" class="overlay hidden" style="justify-content: center;">
+        <h1 style="font-size: 22px; color: #ff77a8; letter-spacing: 3px; font-family: 'Shippori Mincho', serif;">演奏結束</h1>
+        <div id="rank-badge" class="rank-badge">EX</div>
+        
+        <div class="stat-grid">
+            <div class="stat-item">
+                <div class="hud-label">PERFECT</div>
+                <div id="res-perfect" class="hud-value" style="color: #ff77a8;">0</div>
+            </div>
+            <div class="stat-item">
+                <div class="hud-label">GREAT</div>
+                <div id="res-great" class="hud-value" style="color: #00e6a8;">0</div>
+            </div>
+            <div class="stat-item">
+                <div class="hud-label">GOOD</div>
+                <div id="res-good" class="hud-value" style="color: #ffc83b;">0</div>
+            </div>
+            <div class="stat-item">
+                <div class="hud-label">MISS</div>
+                <div id="res-miss" class="hud-value" style="color: #ff2a5f;">0</div>
+            </div>
+        </div>
+
+        <p id="res-score" style="font-size: 16px; font-weight: 900; margin-bottom: 12px; color: #fff;">最終得分: 0</p>
+        <button id="retry-btn" class="btn">再玩一次</button>
+    </div>
+</div>
+
+<script>
+    // --- Songs Database: Cyber Wafuu / Shamisen Fusion Theme ---
+    const SONGS = [
+        {
+            id: 'track1',
+            title: 'Sakura Bloom Burst',
+            artist: 'Cyber Shamisen Rock',
+            genre: 'Cyber Sakura Rock',
+            bpm: 182,
+            color: '#ff77a8',
+            roots: [146.83, 116.54, 130.81, 174.61], // Dm -> Bb -> C -> F
+            kickPattern: [0, 8, 10, 14],
+            snarePattern: [4, 12],
+            densityMod: 1.1
+        },
+        {
+            id: 'track2',
+            title: 'Kitsune Flame Night',
+            artist: 'Kitsune-Bi Electro Folk',
+            genre: 'Foxfire Synthwave',
+            bpm: 156,
+            color: '#ff2a5f',
+            roots: [110.00, 87.31, 130.81, 98.00], // Am -> F -> C -> G
+            kickPattern: [0, 6, 10],
+            snarePattern: [4, 12],
+            densityMod: 0.95
+        },
+        {
+            id: 'track3',
+            title: 'Demon Lord Dance',
+            artist: 'Taiko Cyber Metal',
+            genre: 'Taiko Speed Metal',
+            bpm: 208,
+            color: '#ffc83b',
+            roots: [164.81, 130.81, 146.83, 123.47], // Em -> C -> D -> Bm
+            kickPattern: [0, 4, 8, 12],
+            snarePattern: [4, 12],
+            densityMod: 1.35
+        },
+        {
+            id: 'track4',
+            title: 'Moonlight Gazing',
+            artist: 'Bamboo Moonlight',
+            genre: 'Moonlight Shamisen',
+            bpm: 138,
+            color: '#00e6a8',
+            roots: [174.61, 196.00, 164.81, 220.00], // F -> G -> Em -> Am
+            kickPattern: [0, 8, 10],
+            snarePattern: [4, 12],
+            densityMod: 0.85
+        }
+    ];
+
+    let currentSongIndex = 0;
+
+    // --- Web Audio API Wafuu Synthesizer Engine ---
+    class WafuuSoundEngine {
+        constructor() {
+            this.ctx = null;
+            this.isPlayingMusic = false;
+            this.nextNoteTime = 0;
+            this.beatCount = 0;
+            this.timerId = null;
+            this.currentSong = SONGS[0];
+            this.noiseBuffer = null;
+            this.spectrumEnergy = 0;
+        }
+
+        init() {
+            if (!this.ctx) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                this.ctx = new AudioContext();
+                this.createNoiseBuffer();
+            }
+            if (this.ctx.state === 'suspended') {
+                this.ctx.resume();
+            }
+        }
+
+        setSong(song) {
+            this.currentSong = song;
+        }
+
+        createNoiseBuffer() {
+            const bufferSize = this.ctx.sampleRate * 0.5;
+            this.noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+            const output = this.noiseBuffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                output[i] = Math.random() * 2 - 1;
+            }
+        }
+
+        // Shamisen / Wooden Clapper Hit Sound
+        playHitSound(lane, judgment) {
+            if (!this.ctx) return;
+            const now = this.ctx.currentTime;
+            
+            // Plucked Shamisen Osc
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            const filter = this.ctx.createBiquadFilter();
+
+            const frequencies = [587.33, 659.25, 783.99, 880.00]; // D5, E5, G5, A5
+            const freq = frequencies[lane] || 600;
+
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(freq, now);
+
+            // Fast decay filter envelope simulating plucked string
+            filter.type = 'bandpass';
+            filter.frequency.setValueAtTime(freq * 2.5, now);
+            filter.frequency.exponentialRampToValueAtTime(freq * 0.5, now + 0.12);
+            filter.Q.value = 4;
+
+            gain.gain.setValueAtTime(judgment === 'PERFECT' ? 0.4 : 0.25, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(this.ctx.destination);
+
+            osc.start(now);
+            osc.stop(now + 0.12);
+
+            // Add Wooden Hyoshigi Clapper snap
+            if (this.noiseBuffer) {
+                const snap = this.ctx.createBufferSource();
+                snap.buffer = this.noiseBuffer;
+                const snapFilter = this.ctx.createBiquadFilter();
+                snapFilter.type = 'highpass';
+                snapFilter.frequency.value = 3500;
+                const snapGain = this.ctx.createGain();
+                snapGain.gain.setValueAtTime(0.2, now);
+                snapGain.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
+
+                snap.connect(snapFilter);
+                snapFilter.connect(snapGain);
+                snapGain.connect(this.ctx.destination);
+                snap.start(now);
+                snap.stop(now + 0.03);
+            }
+        }
+
+        playMissSound() {
+            if (!this.ctx) return;
+            const now = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(110, now);
+            osc.frequency.linearRampToValueAtTime(40, now + 0.18);
+
+            gain.gain.setValueAtTime(0.25, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+
+            osc.start(now);
+            osc.stop(now + 0.18);
+        }
+
+        startMusic() {
+            this.init();
+            this.isPlayingMusic = true;
+            this.beatCount = 0;
+            this.nextNoteTime = this.ctx.currentTime;
+            this.scheduler();
+        }
+
+        stopMusic() {
+            this.isPlayingMusic = false;
+            clearTimeout(this.timerId);
+        }
+
+        scheduler() {
+            while (this.nextNoteTime < this.ctx.currentTime + 0.1) {
+                this.playWafuuBeat(this.beatCount, this.nextNoteTime);
+                const secondsPer16th = 60.0 / (this.currentSong.bpm * 4);
+                this.nextNoteTime += secondsPer16th;
+                this.beatCount++;
+            }
+            if (this.isPlayingMusic) {
+                this.timerId = setTimeout(() => this.scheduler(), 25);
+            }
+        }
+
+        playWafuuBeat(beat, time) {
+            const step16 = beat % 16;
+            const song = this.currentSong;
+
+            // Deep Taiko Drum Kick
+            if (song.kickPattern.includes(step16)) {
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.frequency.setValueAtTime(160, time);
+                osc.frequency.exponentialRampToValueAtTime(22, time + 0.14);
+                gain.gain.setValueAtTime(0.75, time);
+                gain.gain.exponentialRampToValueAtTime(0.001, time + 0.14);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(time);
+                osc.stop(time + 0.14);
+
+                this.spectrumEnergy = 1.0;
+            }
+
+            // Snare / Taiko Side Rim
+            if (song.snarePattern.includes(step16)) {
+                if (this.noiseBuffer) {
+                    const noise = this.ctx.createBufferSource();
+                    noise.buffer = this.noiseBuffer;
+                    const noiseFilter = this.ctx.createBiquadFilter();
+                    noiseFilter.type = 'highpass';
+                    noiseFilter.frequency.value = 1200;
+                    const noiseGain = this.ctx.createGain();
+                    noiseGain.gain.setValueAtTime(0.4, time);
+                    noiseGain.gain.exponentialRampToValueAtTime(0.001, time + 0.1);
+                    noise.connect(noiseFilter);
+                    noiseFilter.connect(noiseGain);
+                    noiseGain.connect(this.ctx.destination);
+                    noise.start(time);
+                    noise.stop(time + 0.1);
+                }
+            }
+
+            // Traditional Shamisen Riff Melody
+            if (step16 % 2 === 0) {
+                const measure = Math.floor(beat / 16) % 4;
+                const freq = song.roots[measure];
+
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(freq, time);
+
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'bandpass';
+                filter.frequency.setValueAtTime(1800, time);
+                filter.frequency.exponentialRampToValueAtTime(400, time + 0.12);
+                filter.Q.value = 3;
+
+                gain.gain.setValueAtTime(0.22, time);
+                gain.gain.exponentialRampToValueAtTime(0.001, time + 0.12);
+
+                osc.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                osc.start(time);
+                osc.stop(time + 0.12);
+            }
+        }
+    }
+
+    const soundEngine = new WafuuSoundEngine();
+
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // Lane Cyber Sakura Palettes
+    const LANE_COLORS = ['#ff77a8', '#ff2a5f', '#ffc83b', '#00e6a8'];
+    const LANE_KEYS = ['D', 'F', 'J', 'K'];
+
+    // Game States
+    const STATES = { MENU: 0, PLAYING: 1, PAUSED: 2, GAMEOVER: 3 };
+    let currentState = STATES.MENU;
+
+    // Game Variables
+    let score = 0;
+    let combo = 0;
+    let maxCombo = 0;
+    let hp = 100;
+    let highScore = parseInt(localStorage.getItem('jrock_rhythm_highscore') || '0');
+    let speedMultiplier = 1.5;
+    let currentDifficulty = 'normal';
+    let startTime = 0;
+    let notes = [];
+    let particles = [];
+    let shockwaves = [];
+    let hitEffects = [0, 0, 0, 0];
+    let keyPressState = [false, false, false, false];
+    let judgeText = { text: '', color: '#fff', alpha: 0, scale: 1 };
+
+    // Background Sakura Floating Petals Array
+    let sakuraPetals = [];
+
+    // Statistics
+    let stats = { perfect: 0, great: 0, good: 0, miss: 0 };
+
+    document.getElementById('highscore-val').innerText = String(highScore).padStart(6, '0');
+
+    // Initialize Sakura Petals
+    for (let i = 0; i < 35; i++) {
+        sakuraPetals.push({
+            x: Math.random() * 480,
+            y: Math.random() * 880,
+            size: Math.random() * 6 + 4,
+            speedY: Math.random() * 1.5 + 0.6,
+            speedX: Math.sin(Math.random() * Math.PI) * 0.8,
+            angle: Math.random() * Math.PI * 2,
+            rotSpeed: (Math.random() - 0.5) * 0.05
+        });
+    }
+
+    // Update Song Selection UI
+    function updateSongCardUI() {
+        const song = SONGS[currentSongIndex];
+        const card = document.getElementById('song-card');
+        const badge = document.getElementById('song-badge');
+        
+        document.getElementById('song-title').innerText = song.title;
+        document.getElementById('song-artist').innerText = `STYLE: ${song.artist}`;
+        document.getElementById('song-bpm').innerText = `⚡ BPM ${song.bpm}`;
+        document.getElementById('song-genre').innerText = `🌸 ${song.genre}`;
+
+        card.style.borderColor = song.color;
+        card.style.boxShadow = `0 8px 32px ${song.color}40`;
+        
+        badge.style.background = `${song.color}20`;
+        badge.style.color = song.color;
+        badge.style.border = `1px solid ${song.color}`;
+    }
+
+    document.getElementById('prev-song-btn').addEventListener('click', () => {
+        currentSongIndex = (currentSongIndex - 1 + SONGS.length) % SONGS.length;
+        updateSongCardUI();
+    });
+
+    document.getElementById('next-song-btn').addEventListener('click', () => {
+        currentSongIndex = (currentSongIndex + 1) % SONGS.length;
+        updateSongCardUI();
+    });
+
+    // Chart Generator tailored to song BPM
+    function generateChart(song, difficulty) {
+        const chart = [];
+        const bpm = song.bpm;
+        const beatInterval = 60 / bpm;
+        
+        const songDurationInSeconds = 180; 
+        const totalBeats = Math.floor((bpm / 60) * songDurationInSeconds); 
+
+        let stepIncrement = 0.5;
+        let densityProb = 0.7 * song.densityMod;
+        let allowDouble = false;
+
+        if (difficulty === 'easy') {
+            stepIncrement = 1.0;
+            densityProb *= 0.8;
+        } else if (difficulty === 'normal') {
+            stepIncrement = 0.5;
+            densityProb *= 0.95;
+        } else if (difficulty === 'hard') {
+            stepIncrement = 0.25;
+            densityProb *= 1.1;
+            allowDouble = true;
+        } else if (difficulty === 'expert') {
+            stepIncrement = 0.25;
+            densityProb *= 1.35;
+            allowDouble = true;
+        }
+
+        let lastLane = -1;
+        for (let beat = 4; beat < totalBeats; beat += stepIncrement) {
+            if (Math.random() < densityProb) {
+                let lane;
+                do {
+                    lane = Math.floor(Math.random() * 4);
+                } while (lane === lastLane && Math.random() < 0.6);
+
+                lastLane = lane;
+                
+                chart.push({
+                    time: beat * beatInterval,
+                    lane: lane,
+                    hit: false,
+                    missed: false
+                });
+
+                if (allowDouble && Math.random() < (difficulty === 'expert' ? 0.35 : 0.18)) {
+                    let secondLane = (lane + 2) % 4;
+                    chart.push({
+                        time: beat * beatInterval,
+                        lane: secondLane,
+                        hit: false,
+                        missed: false
+                    });
+                }
+            }
+        }
+        return chart;
+    }
+
+    // Input Handlers
+    const keyMap = { d: 0, f: 1, j: 2, k: 3 };
+
+    window.addEventListener('keydown', (e) => {
+        const key = e.key.toLowerCase();
+        if (key === 'escape' && (currentState === STATES.PLAYING || currentState === STATES.PAUSED)) {
+            togglePause();
+            return;
+        }
+
+        if (currentState === STATES.PLAYING && keyMap.hasOwnProperty(key)) {
+            const laneIndex = keyMap[key];
+            if (!keyPressState[laneIndex]) {
+                keyPressState[laneIndex] = true;
+                handleTap(laneIndex);
+            }
+        }
+    });
+
+    window.addEventListener('keyup', (e) => {
+        const key = e.key.toLowerCase();
+        if (keyMap.hasOwnProperty(key)) {
+            const laneIndex = keyMap[key];
+            keyPressState[laneIndex] = false;
+        }
+    });
+
+    // Mobile Touch Zone Listeners
+    document.querySelectorAll('.touch-zone').forEach(zone => {
+        zone.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            if (currentState === STATES.PLAYING) {
+                const laneIndex = parseInt(zone.getAttribute('data-lane'));
+                keyPressState[laneIndex] = true;
+                handleTap(laneIndex);
+            }
+        });
+        zone.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            const laneIndex = parseInt(zone.getAttribute('data-lane'));
+            keyPressState[laneIndex] = false;
+        });
+    });
+
+    // Hit Judgment Logic with Wafuu Badges
+    function handleTap(lane) {
+        hitEffects[lane] = 1.0;
+        const currentTime = (performance.now() - startTime) / 1000;
+        
+        let targetNote = null;
+        let minDiff = Infinity;
+
+        for (let note of notes) {
+            if (note.lane === lane && !note.hit && !note.missed) {
+                const diff = Math.abs(note.time - currentTime);
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    targetNote = note;
+                }
+            }
+        }
+
+        if (targetNote && minDiff < 0.16) {
+            targetNote.hit = true;
+            let judgment = '';
+
+            if (minDiff <= 0.045) {
+                judgment = 'PERFECT';
+                score += 1000 + combo * 10;
+                combo++;
+                hp = Math.min(100, hp + 3);
+                stats.perfect++;
+                showJudge('PERFECT', '#ff77a8');
+            } else if (minDiff <= 0.09) {
+                judgment = 'GREAT';
+                score += 650 + combo * 5;
+                combo++;
+                hp = Math.min(100, hp + 1.5);
+                stats.great++;
+                showJudge('GREAT', '#00e6a8');
+            } else {
+                judgment = 'GOOD';
+                score += 350;
+                combo++;
+                stats.good++;
+                showJudge('GOOD', '#ffc83b');
+            }
+
+            if (combo > maxCombo) maxCombo = combo;
+            spawnParticles(lane);
+            spawnShockwave(lane);
+            soundEngine.playHitSound(lane, judgment);
+            updateHUD();
+        }
+    }
+
+    function showJudge(text, color) {
+        judgeText = { text: text, color: color, alpha: 1.0, scale: 1.4 };
+    }
+
+    function spawnParticles(lane) {
+        const laneWidth = canvas.width / 4;
+        const x = lane * laneWidth + laneWidth / 2;
+        const y = canvas.height - 90;
+
+        for (let i = 0; i < 16; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = Math.random() * 9 + 3;
+            particles.push({
+                x: x,
+                y: y,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                size: Math.random() * 6 + 3,
+                color: LANE_COLORS[lane],
+                alpha: 1.0,
+                isPetal: Math.random() < 0.5
+            });
+        }
+    }
+
+    function spawnShockwave(lane) {
+        const laneWidth = canvas.width / 4;
+        const x = lane * laneWidth + laneWidth / 2;
+        const y = canvas.height - 90;
+
+        shockwaves.push({
+            x: x,
+            y: y,
+            radius: 10,
+            maxRadius: 60,
+            color: LANE_COLORS[lane],
+            alpha: 1.0
+        });
+    }
+
+    function updateHUD() {
+        document.getElementById('score-val').innerText = String(score).padStart(6, '0');
+        document.getElementById('combo-val').innerText = combo;
+        document.getElementById('hp-bar').style.width = Math.max(0, hp) + '%';
+    }
+
+    // Start / Pause / Reset Logic
+    function startGame() {
+        const selectedSong = SONGS[currentSongIndex];
+        soundEngine.setSong(selectedSong);
+
+        speedMultiplier = parseFloat(document.getElementById('speed-select').value);
+        currentDifficulty = document.getElementById('diff-select').value;
+        
+        score = 0;
+        combo = 0;
+        maxCombo = 0;
+        hp = 100;
+        stats = { perfect: 0, great: 0, good: 0, miss: 0 };
+        notes = generateChart(selectedSong, currentDifficulty);
+        particles = [];
+        shockwaves = [];
+        
+        updateHUD();
+
+        document.getElementById('start-screen').classList.add('hidden');
+        document.getElementById('pause-screen').classList.add('hidden');
+        document.getElementById('result-screen').classList.add('hidden');
+
+        currentState = STATES.PLAYING;
+        startTime = performance.now();
+        soundEngine.startMusic();
+    }
+
+    function returnToMainMenu() {
+        soundEngine.stopMusic();
+        currentState = STATES.MENU;
+        document.getElementById('pause-screen').classList.add('hidden');
+        document.getElementById('result-screen').classList.add('hidden');
+        document.getElementById('start-screen').classList.remove('hidden');
+    }
+
+    function togglePause() {
+        if (currentState === STATES.PLAYING) {
+            currentState = STATES.PAUSED;
+            soundEngine.stopMusic();
+            document.getElementById('pause-screen').classList.remove('hidden');
+        } else if (currentState === STATES.PAUSED) {
+            currentState = STATES.PLAYING;
+            document.getElementById('pause-screen').classList.add('hidden');
+            soundEngine.startMusic();
+        }
+    }
+
+    function endGame() {
+        currentState = STATES.GAMEOVER;
+        soundEngine.stopMusic();
+
+        if (score > highScore) {
+            highScore = score;
+            localStorage.setItem('jrock_rhythm_highscore', highScore);
+            document.getElementById('highscore-val').innerText = String(highScore).padStart(6, '0');
+        }
+
+        let rank = 'C';
+        const accuracy = (stats.perfect * 100 + stats.great * 60 + stats.good * 30) / Math.max(1, (notes.length * 100));
+        if (accuracy > 88) rank = 'EX';
+        else if (accuracy > 72) rank = 'S';
+        else if (accuracy > 55) rank = 'A';
+        else if (accuracy > 35) rank = 'B';
+
+        const diffNames = { easy: '簡單', normal: '普通', hard: '困難', expert: '大師' };
+        document.getElementById('rank-badge').innerText = rank;
+        document.getElementById('res-perfect').innerText = stats.perfect;
+        document.getElementById('res-great').innerText = stats.great;
+        document.getElementById('res-good').innerText = stats.good;
+        document.getElementById('res-miss').innerText = stats.miss;
+        document.getElementById('res-score').innerText = `[${SONGS[currentSongIndex].title} - ${diffNames[currentDifficulty]}] 得分: ${score}`;
+
+        document.getElementById('result-screen').classList.remove('hidden');
+    }
+
+    // --- Canvas Main Render Loop ---
+    function render() {
+        const container = document.getElementById('game-container');
+        if (canvas.width !== container.clientWidth || canvas.height !== container.clientHeight) {
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+        }
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        const laneWidth = canvas.width / 4;
+        const hitLineY = canvas.height - 90;
+        const activeSong = SONGS[currentSongIndex];
+
+        // Draw Ambient Sakura Falling Petals Background
+        for (let p of sakuraPetals) {
+            p.y += p.speedY;
+            p.x += Math.sin(p.angle) * 0.5;
+            p.angle += p.rotSpeed;
+
+            if (p.y > canvas.height + 10) {
+                p.y = -10;
+                p.x = Math.random() * canvas.width;
+            }
+
+            ctx.save();
+            ctx.translate(p.x, p.y);
+            ctx.rotate(p.angle);
+            ctx.fillStyle = 'rgba(255, 119, 168, 0.35)';
+            ctx.beginPath();
+            ctx.ellipse(0, 0, p.size, p.size * 0.5, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+
+        // Background Concert Visualizer Bars
+        if (soundEngine.spectrumEnergy > 0) {
+            soundEngine.spectrumEnergy -= 0.05;
+        }
+
+        const numBars = 16;
+        const barWidth = canvas.width / numBars;
+        ctx.fillStyle = `${activeSong.color}20`;
+        for (let i = 0; i < numBars; i++) {
+            const h = (Math.sin(i + performance.now() * 0.005) * 0.5 + 0.5) * 130 * (soundEngine.spectrumEnergy + 0.2);
+            ctx.fillRect(i * barWidth + 2, canvas.height - h, barWidth - 4, h);
+        }
+
+        // Torii / Wafuu Stage Ambient Spotlights
+        const spotX1 = canvas.width * 0.25 + Math.sin(performance.now() * 0.002) * 50;
+        const spotX2 = canvas.width * 0.75 - Math.sin(performance.now() * 0.002) * 50;
+
+        const gradSpot1 = ctx.createRadialGradient(spotX1, 0, 10, spotX1, canvas.height * 0.7, 220);
+        gradSpot1.addColorStop(0, `${activeSong.color}30`);
+        gradSpot1.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = gradSpot1;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        const gradSpot2 = ctx.createRadialGradient(spotX2, 0, 10, spotX2, canvas.height * 0.7, 220);
+        gradSpot2.addColorStop(0, 'rgba(255, 200, 59, 0.2)');
+        gradSpot2.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = gradSpot2;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Track Dividers & Receptors
+        for (let i = 0; i < 4; i++) {
+            const x = i * laneWidth;
+
+            ctx.strokeStyle = 'rgba(255, 119, 168, 0.12)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, canvas.height);
+            ctx.stroke();
+
+            if (hitEffects[i] > 0) {
+                const gradient = ctx.createLinearGradient(0, hitLineY - 200, 0, hitLineY);
+                gradient.addColorStop(0, 'rgba(255, 255, 255, 0)');
+                gradient.addColorStop(1, LANE_COLORS[i].replace('rgb', 'rgba').replace(')', `, ${hitEffects[i] * 0.38})`));
+                ctx.fillStyle = gradient;
+                ctx.fillRect(x, hitLineY - 200, laneWidth, 200);
+                hitEffects[i] -= 0.06;
+            }
+
+            const isPressed = keyPressState[i];
+            const receptorY = hitLineY + (isPressed ? 4 : 0);
+            
+            ctx.save();
+            ctx.shadowBlur = isPressed ? 22 : 8;
+            ctx.shadowColor = LANE_COLORS[i];
+            ctx.strokeStyle = LANE_COLORS[i];
+            ctx.lineWidth = isPressed ? 3 : 2;
+            ctx.fillStyle = isPressed ? LANE_COLORS[i] : 'rgba(20, 10, 30, 0.65)';
+            
+            ctx.beginPath();
+            ctx.roundRect(x + 8, receptorY - 14, laneWidth - 16, 28, 8);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = isPressed ? '#000' : LANE_COLORS[i];
+            ctx.font = '900 15px Orbitron';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(LANE_KEYS[i], x + laneWidth / 2, receptorY);
+            ctx.restore();
+        }
+
+        // Hit Target Laser Line
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = '#ff77a8';
+        ctx.strokeStyle = 'rgba(255, 119, 168, 0.9)';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(0, hitLineY);
+        ctx.lineTo(canvas.width, hitLineY);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        // Falling Notes (Japanese Oval Magatama / Petal Shape)
+        if (currentState === STATES.PLAYING) {
+            const currentTime = (performance.now() - startTime) / 1000;
+            const noteSpeedPx = 420 * speedMultiplier;
+
+            let activeNotesCount = 0;
+
+            for (let note of notes) {
+                const timeDiff = note.time - currentTime;
+                const noteY = hitLineY - (timeDiff * noteSpeedPx);
+
+                if (!note.hit && !note.missed && timeDiff < -0.16) {
+                    note.missed = true;
+                    combo = 0;
+                    hp -= 8;
+                    stats.miss++;
+                    showJudge('MISS', '#ff2a5f');
+                    soundEngine.playMissSound();
+                    updateHUD();
+
+                    if (hp <= 0) {
+                        endGame();
+                        break;
+                    }
+                }
+
+                if (!note.hit && !note.missed) {
+                    activeNotesCount++;
+                }
+
+                if (noteY > -60 && noteY < canvas.height + 60 && !note.hit) {
+                    const x = note.lane * laneWidth + 10;
+                    const width = laneWidth - 20;
+
+                    ctx.save();
+                    ctx.shadowBlur = 16;
+                    ctx.shadowColor = LANE_COLORS[note.lane];
+
+                    const noteGrad = ctx.createLinearGradient(x, noteY - 12, x, noteY + 12);
+                    noteGrad.addColorStop(0, '#ffffff');
+                    noteGrad.addColorStop(0.5, LANE_COLORS[note.lane]);
+                    noteGrad.addColorStop(1, '#200818');
+
+                    ctx.fillStyle = noteGrad;
+                    ctx.beginPath();
+                    ctx.roundRect(x, noteY - 12, width, 24, 12);
+                    ctx.fill();
+
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                    ctx.beginPath();
+                    ctx.roundRect(x + 4, noteY - 9, width - 8, 5, 3);
+                    ctx.fill();
+
+                    ctx.restore();
+                }
+            }
+
+            if (activeNotesCount === 0 && notes.length > 0 && currentTime > notes[notes.length - 1].time + 1.5) {
+                endGame();
+            }
+        }
+
+        // Shockwaves & Particle Effects
+        for (let i = shockwaves.length - 1; i >= 0; i--) {
+            const sw = shockwaves[i];
+            sw.radius += 3.5;
+            sw.alpha -= 0.05;
+
+            if (sw.alpha <= 0) {
+                shockwaves.splice(i, 1);
+            } else {
+                ctx.save();
+                ctx.globalAlpha = sw.alpha;
+                ctx.strokeStyle = sw.color;
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(sw.x, sw.y, sw.radius, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.restore();
+            }
+        }
+
+        for (let i = particles.length - 1; i >= 0; i--) {
+            const p = particles[i];
+            p.x += p.vx;
+            p.y += p.vy;
+            p.vy += 0.2;
+            p.alpha -= 0.035;
+
+            if (p.alpha <= 0) {
+                particles.splice(i, 1);
+            } else {
+                ctx.save();
+                ctx.globalAlpha = p.alpha;
+                ctx.fillStyle = p.color;
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = p.color;
+                ctx.beginPath();
+                if (p.isPetal) {
+                    ctx.ellipse(p.x, p.y, p.size, p.size * 0.5, p.vx, 0, Math.PI * 2);
+                } else {
+                    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                }
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        // Judgment Feedback Text
+        if (judgeText.alpha > 0) {
+            ctx.save();
+            ctx.translate(canvas.width / 2, hitLineY - 90);
+            ctx.scale(judgeText.scale, judgeText.scale);
+            ctx.font = '800 28px "Shippori Mincho", "Noto Sans TC"';
+            ctx.textAlign = 'center';
+            ctx.fillStyle = judgeText.color;
+            ctx.shadowColor = judgeText.color;
+            ctx.shadowBlur = 20;
+            ctx.globalAlpha = judgeText.alpha;
+            ctx.fillText(judgeText.text, 0, 0);
+            ctx.restore();
+
+            judgeText.alpha -= 0.035;
+            judgeText.scale = Math.max(1.0, judgeText.scale - 0.025);
+        }
+
+        requestAnimationFrame(render);
+    }
+
+    // UI Buttons Attachment
+    document.getElementById('quick-home-btn').addEventListener('click', returnToMainMenu);
+    document.getElementById('quick-restart-btn').addEventListener('click', startGame);
+
+    document.getElementById('start-btn').addEventListener('click', startGame);
+    document.getElementById('resume-btn').addEventListener('click', togglePause);
+    document.getElementById('restart-btn').addEventListener('click', startGame);
+    document.getElementById('retry-btn').addEventListener('click', startGame);
+
+    // Initial Setup
+    updateSongCardUI();
+    requestAnimationFrame(render);
+</script>
+</body>
+</html>

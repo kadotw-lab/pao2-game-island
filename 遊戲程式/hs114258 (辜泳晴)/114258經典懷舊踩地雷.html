@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>經典踩地雷 Pro - Minesweeper Pro</title>
+    <style>
+        :root {
+            --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+            --panel-bg: rgba(30, 41, 59, 0.7);
+            --panel-border: rgba(255, 255, 255, 0.1);
+            --cell-bg: rgba(51, 65, 85, 0.8);
+            --cell-hover: rgba(71, 85, 105, 0.9);
+            --cell-revealed: rgba(15, 23, 42, 0.6);
+            --accent-cyan: #38bdf8;
+            --accent-pink: #f43f5e;
+            --accent-gold: #fbbf24;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --cell-size: 32px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+
+        body {
+            background: var(--bg-gradient);
+            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 12px;
+            overflow-x: hidden;
+        }
+
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            max-width: 100%;
+            width: fit-content;
+        }
+
+        /* 頂部控制與設定列 */
+        .control-bar {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--panel-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--panel-border);
+            padding: 10px 16px;
+            border-radius: 14px 14px 0 0;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .diff-select {
+            background: rgba(15, 23, 42, 0.8);
+            color: var(--text-main);
+            border: 1px solid var(--panel-border);
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .mode-toggle-btn {
+            background: rgba(15, 23, 42, 0.8);
+            color: var(--text-main);
+            border: 1px solid var(--panel-border);
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .mode-toggle-btn.flag-mode {
+            background: rgba(244, 63, 94, 0.2);
+            border-color: var(--accent-pink);
+            color: #fecdd3;
+        }
+
+        .dashboard {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--panel-bg);
+            backdrop-filter: blur(12px);
+            border-left: 1px solid var(--panel-border);
+            border-right: 1px solid var(--panel-border);
+            padding: 12px 20px;
+        }
+
+        .digital-counter {
+            background: #020617;
+            color: var(--accent-pink);
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 1.8rem;
+            font-weight: bold;
+            padding: 4px 12px;
+            border-radius: 8px;
+            border: 1px solid rgba(244, 63, 94, 0.3);
+            letter-spacing: 2px;
+            min-width: 80px;
+            text-align: center;
+            box-shadow: inset 0 0 8px rgba(0,0,0,0.8);
+        }
+
+        .digital-counter.timer {
+            color: var(--accent-cyan);
+            border-color: rgba(56, 189, 248, 0.3);
+        }
+
+        .face-btn {
+            background: linear-gradient(145deg, #334155, #1e293b);
+            border: 1px solid var(--panel-border);
+            font-size: 1.8rem;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            transition: transform 0.1s;
+        }
+
+        .face-btn:active {
+            transform: scale(0.92);
+        }
+
+        .board-wrapper {
+            background: var(--panel-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--panel-border);
+            border-radius: 0 0 14px 14px;
+            padding: 14px;
+            max-width: 95vw;
+            overflow: auto;
+            display: flex;
+            justify-content: center;
+        }
+
+        .mine-board {
+            display: grid;
+            gap: 3px;
+            background: rgba(15, 23, 42, 0.5);
+            padding: 4px;
+            border-radius: 10px;
+        }
+
+        .cell {
+            width: var(--cell-size);
+            height: var(--cell-size);
+            background: var(--cell-bg);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 1.1rem;
+            cursor: pointer;
+            box-shadow: inset 1px 1px 0 rgba(255,255,255,0.15),
+                        0 2px 4px rgba(0,0,0,0.2);
+            transition: background 0.15s, transform 0.05s;
+        }
+
+        .cell:hover:not(.revealed):not(.flagged) {
+            background: var(--cell-hover);
+        }
+
+        .cell.revealed {
+            background: var(--cell-revealed);
+            box-shadow: inset 1px 1px 3px rgba(0,0,0,0.5);
+            cursor: default;
+        }
+
+        .cell.mine-hit {
+            background: var(--accent-pink) !important;
+            animation: pulse-red 0.4s ease;
+        }
+
+        .cell.flagged {
+            color: var(--accent-pink);
+        }
+
+        /* 數字顏色定義 */
+        .c-1 { color: #3b82f6; }
+        .c-2 { color: #22c55e; }
+        .c-3 { color: #ef4444; }
+        .c-4 { color: #a855f7; }
+        .c-5 { color: #f97316; }
+        .c-6 { color: #06b6d4; }
+        .c-7 { color: #eab308; }
+        .c-8 { color: #ec4899; }
+
+        .best-score-tag {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 10px;
+            text-align: center;
+        }
+
+        .op-hint {
+            font-size: 0.75rem;
+            color: var(--accent-cyan);
+            margin-top: 6px;
+            text-align: center;
+            opacity: 0.9;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(8px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            z-index: 100;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-card {
+            background: #1e293b;
+            border: 1px solid var(--panel-border);
+            padding: 28px;
+            border-radius: 20px;
+            text-align: center;
+            max-width: 320px;
+            width: 90%;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+        }
+
+        .modal-title {
+            font-size: 1.8rem;
+            margin-bottom: 10px;
+        }
+
+        .modal-btn {
+            background: linear-gradient(135deg, var(--accent-cyan), #0284c7);
+            color: #000;
+            font-weight: bold;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 20px;
+            margin-top: 18px;
+            cursor: pointer;
+            font-size: 1rem;
+            box-shadow: 0 4px 14px rgba(56, 189, 248, 0.4);
+        }
+
+        #confetti-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 99;
+        }
+
+        @keyframes pulse-red {
+            0% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+
+        @media (max-width: 600px) {
+            :root {
+                --cell-size: 28px;
+            }
+            .dashboard {
+                padding: 10px;
+            }
+            .digital-counter {
+                font-size: 1.4rem;
+                min-width: 65px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <!-- 頂部切換選項列 -->
+        <div class="control-bar">
+            <select id="diff-select" class="diff-select">
+                <option value="easy">初級 (9x9 - 10雷)</option>
+                <option value="medium" selected>中級 (16x16 - 40雷)</option>
+                <option value="hard">高級 (30x16 - 99雷)</option>
+            </select>
+            <button id="mode-toggle-btn" class="mode-toggle-btn">
+                <span id="mode-icon">⛏️</span>
+                <span id="mode-text">模式: 挖礦</span>
+            </button>
+        </div>
+
+        <!-- 遊戲儀表板 -->
+        <div class="dashboard">
+            <div id="mine-counter" class="digital-counter">040</div>
+            <button id="face-btn" class="face-btn">🙂</button>
+            <div id="timer" class="digital-counter timer">000</div>
+        </div>
+
+        <!-- 棋盤包覆區域 -->
+        <div class="board-wrapper">
+            <div id="mine-board" class="mine-board"></div>
+        </div>
+
+        <!-- 最佳紀錄標籤 -->
+        <div id="best-score-tag" class="best-score-tag">最高紀錄: -- 秒</div>
+        <div class="op-hint">💡 電腦端：點右鍵插旗 | 手機端：切換頂部【🚩 插旗模式】或長按格子</div>
+    </div>
+
+    <!-- 遊戲勝負彈窗 Modal -->
+    <div id="modal-overlay" class="modal-overlay">
+        <div class="modal-card">
+            <h2 id="modal-title" class="modal-title">🎉 挑戰成功！</h2>
+            <p id="modal-desc" style="color: var(--text-muted);">完成時間: 45 秒</p>
+            <button id="modal-btn" class="modal-btn">再玩一次</button>
+        </div>
+    </div>
+
+    <!-- 勝場彩帶 Canvas -->
+    <canvas id="confetti-canvas"></canvas>
+
+    <script>
+        class SoundFX {
+            constructor() {
+                this.ctx = null;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                }
+            }
+
+            playClick() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(400, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(200, this.ctx.currentTime + 0.05);
+                gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.05);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.05);
+            }
+
+            playFlag() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(600, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(900, this.ctx.currentTime + 0.08);
+                gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.08);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.08);
+            }
+
+            playBoom() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(120, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(30, this.ctx.currentTime + 0.5);
+                gain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.5);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.5);
+            }
+
+            playWin() {
+                if (!this.ctx) return;
+                const notes = [440, 554.37, 659.25, 880];
+                notes.forEach((freq, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.value = freq;
+                    const startTime = this.ctx.currentTime + idx * 0.1;
+                    gain.gain.setValueAtTime(0.2, startTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.2);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(startTime);
+                    osc.stop(startTime + 0.2);
+                });
+            }
+        }
+
+        class ConfettiSystem {
+            constructor(canvas) {
+                this.canvas = canvas;
+                this.ctx = canvas.getContext('2d');
+                this.particles = [];
+                this.animId = null;
+                this.resize();
+                window.addEventListener('resize', () => this.resize());
+            }
+
+            resize() {
+                this.canvas.width = window.innerWidth;
+                this.canvas.height = window.innerHeight;
+            }
+
+            trigger() {
+                this.particles = [];
+                const colors = ['#38bdf8', '#f43f5e', '#fbbf24', '#34d399', '#a78bfa'];
+                for (let i = 0; i < 120; i++) {
+                    this.particles.push({
+                        x: window.innerWidth / 2,
+                        y: window.innerHeight / 2,
+                        vx: (Math.random() - 0.5) * 18,
+                        vy: (Math.random() - 0.7) * 18,
+                        size: Math.random() * 8 + 4,
+                        color: colors[Math.floor(Math.random() * colors.length)],
+                        rotation: Math.random() * Math.PI * 2,
+                        rotSpeed: (Math.random() - 0.5) * 0.2,
+                        life: 1.0
+                    });
+                }
+                if (!this.animId) this.loop();
+            }
+
+            loop() {
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                this.particles.forEach((p, idx) => {
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.vy += 0.3; // 重力
+                    p.rotation += p.rotSpeed;
+                    p.life -= 0.012;
+
+                    this.ctx.save();
+                    this.ctx.translate(p.x, p.y);
+                    this.ctx.rotate(p.rotation);
+                    this.ctx.fillStyle = p.color;
+                    this.ctx.globalAlpha = Math.max(0, p.life);
+                    this.ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+                    this.ctx.restore();
+
+                    if (p.life <= 0) this.particles.splice(idx, 1);
+                });
+
+                if (this.particles.length > 0) {
+                    this.animId = requestAnimationFrame(() => this.loop());
+                } else {
+                    this.animId = null;
+                    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                }
+            }
+        }
+
+        const DIFFICULTIES = {
+            easy: { rows: 9, cols: 9, mines: 10 },
+            medium: { rows: 16, cols: 16, mines: 40 },
+            hard: { rows: 16, cols: 30, mines: 99 }
+        };
+
+        const sound = new SoundFX();
+        const confetti = new ConfettiSystem(document.getElementById('confetti-canvas'));
+
+        let currentDiff = 'medium';
+        let rows = 16;
+        let cols = 16;
+        let totalMines = 40;
+
+        let board = []; // 2D 陣列: { mine, revealed, flagged, count }
+        let gameState = 'READY'; // 'READY', 'PLAYING', 'GAMEOVER', 'VICTORY'
+        let flagsCount = 0;
+        let timer = 0;
+        let timerInterval = null;
+        let isFlagMode = false; // 行動端模式切換
+
+        // DOM 元素
+        const boardEl = document.getElementById('mine-board');
+        const mineCounterEl = document.getElementById('mine-counter');
+        const timerEl = document.getElementById('timer');
+        const faceBtn = document.getElementById('face-btn');
+        const diffSelect = document.getElementById('diff-select');
+        const modeToggleBtn = document.getElementById('mode-toggle-btn');
+        const modeIcon = document.getElementById('mode-icon');
+        const modeText = document.getElementById('mode-text');
+        const bestScoreTag = document.getElementById('best-score-tag');
+        const modalOverlay = document.getElementById('modal-overlay');
+        const modalTitle = document.getElementById('modal-title');
+        const modalDesc = document.getElementById('modal-desc');
+        const modalBtn = document.getElementById('modal-btn');
+
+        function initGame() {
+            sound.init();
+            const config = DIFFICULTIES[currentDiff];
+            rows = config.rows;
+            cols = config.cols;
+            totalMines = config.mines;
+
+            gameState = 'READY';
+            flagsCount = 0;
+            timer = 0;
+            clearInterval(timerInterval);
+            timerInterval = null;
+
+            updateCounters();
+            faceBtn.textContent = '🙂';
+            modalOverlay.classList.remove('active');
+
+            // 初始化空白數據結構
+            board = Array(rows).fill(null).map(() => 
+                Array(cols).fill(null).map(() => ({
+                    mine: false,
+                    revealed: false,
+                    flagged: false,
+                    count: 0
+                }))
+            );
+
+            renderBoardDOM();
+            updateBestScoreDisplay();
+        }
+
+        // 渲染 CSS Grid 網格結構
+        function renderBoardDOM() {
+            boardEl.innerHTML = '';
+            boardEl.style.gridTemplateColumns = `repeat(${cols}, var(--cell-size))`;
+
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    const cellEl = document.createElement('div');
+                    cellEl.classList.add('cell');
+                    cellEl.dataset.row = r;
+                    cellEl.dataset.col = c;
+
+                    let touchTimer = null;
+                    let longPressed = false;
+
+                    // 點擊事件 (防止手機長按後誤觸翻開)
+                    cellEl.addEventListener('click', (e) => {
+                        if (longPressed) {
+                            longPressed = false;
+                            return;
+                        }
+                        handleCellClick(r, c);
+                    });
+
+                    // 右鍵插旗
+                    cellEl.addEventListener('contextmenu', (e) => {
+                        e.preventDefault();
+                        handleRightClick(r, c);
+                    });
+
+                    // 長按觸控支援 (350ms 自動觸發插旗)
+                    cellEl.addEventListener('touchstart', (e) => {
+                        longPressed = false;
+                        touchTimer = setTimeout(() => {
+                            longPressed = true;
+                            handleRightClick(r, c);
+                        }, 350);
+                    }, { passive: true });
+
+                    cellEl.addEventListener('touchend', () => {
+                        if (touchTimer) {
+                            clearTimeout(touchTimer);
+                            touchTimer = null;
+                        }
+                    });
+
+                    cellEl.addEventListener('touchmove', () => {
+                        if (touchTimer) {
+                            clearTimeout(touchTimer);
+                            touchTimer = null;
+                        }
+                    });
+
+                    boardEl.appendChild(cellEl);
+                }
+            }
+        }
+
+        function generateMines(firstR, firstC) {
+            let placedMines = 0;
+            while (placedMines < totalMines) {
+                const r = Math.floor(Math.random() * rows);
+                const c = Math.floor(Math.random() * cols);
+
+                // 確保點擊點及其周圍 8 格絕不放置地雷
+                const isSafeZone = Math.abs(r - firstR) <= 1 && Math.abs(c - firstC) <= 1;
+
+                if (!board[r][c].mine && !isSafeZone) {
+                    board[r][c].mine = true;
+                    placedMines++;
+                }
+            }
+
+            // 計算周圍數字
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    if (!board[r][c].mine) {
+                        board[r][c].count = countSurroundingMines(r, c);
+                    }
+                }
+            }
+        }
+
+        function countSurroundingMines(r, c) {
+            let count = 0;
+            for (let dr = -1; dr <= 1; dr++) {
+                for (let dc = -1; dc <= 1; dc++) {
+                    const nr = r + dr;
+                    const nc = c + dc;
+                    if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) {
+                        if (board[nr][nc].mine) count++;
+                    }
+                }
+            }
+            return count;
+        }
+
+        function handleCellClick(r, c) {
+            if (gameState === 'GAMEOVER' || gameState === 'VICTORY') return;
+
+            // 行動端旗子模式處理
+            if (isFlagMode) {
+                handleRightClick(r, c);
+                return;
+            }
+
+            const cell = board[r][c];
+            if (cell.flagged) return;
+
+            // 首次點擊觸發計時與地雷生成
+            if (gameState === 'READY') {
+                gameState = 'PLAYING';
+                generateMines(r, c);
+                startTimer();
+            }
+
+            // 若點擊已翻開的數字格 -> 觸發雙擊掃雷 (Chording)
+            if (cell.revealed) {
+                if (cell.count > 0) chordCell(r, c);
+                return;
+            }
+
+            // 踩雷 Game Over
+            if (cell.mine) {
+                triggerGameOver(r, c);
+                return;
+            }
+
+            sound.playClick();
+            revealCellBFS(r, c);
+            checkWinCondition();
+        }
+
+        // BFS 廣度優先擴展翻開
+        function revealCellBFS(startR, startC) {
+            const queue = [[startR, startC]];
+
+            while (queue.length > 0) {
+                const [r, c] = queue.shift();
+                const cell = board[r][c];
+
+                if (cell.revealed || cell.flagged) continue;
+
+                cell.revealed = true;
+                updateCellDOM(r, c);
+
+                // 若為空白格 (0 地雷)，擴展周圍 8 格
+                if (cell.count === 0) {
+                    for (let dr = -1; dr <= 1; dr++) {
+                        for (let dc = -1; dc <= 1; dc++) {
+                            const nr = r + dr;
+                            const nc = c + dc;
+                            if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) {
+                                if (!board[nr][nc].revealed && !board[nr][nc].flagged) {
+                                    queue.push([nr, nc]);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 右鍵 / 插旗控制
+        function handleRightClick(r, c) {
+            if (gameState === 'GAMEOVER' || gameState === 'VICTORY') return;
+            const cell = board[r][c];
+
+            if (cell.revealed) return;
+
+            cell.flagged = !cell.flagged;
+            flagsCount += cell.flagged ? 1 : -1;
+            sound.playFlag();
+
+            // 觸控微震動回饋
+            if (navigator.vibrate) {
+                navigator.vibrate(30);
+            }
+
+            updateCellDOM(r, c);
+            updateCounters();
+        }
+
+        function chordCell(r, c) {
+            const cell = board[r][c];
+            let flagCount = 0;
+
+            // 統計周圍旗子數
+            for (let dr = -1; dr <= 1; dr++) {
+                for (let dc = -1; dc <= 1; dc++) {
+                    const nr = r + dr;
+                    const nc = c + dc;
+                    if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) {
+                        if (board[nr][nc].flagged) flagCount++;
+                    }
+                }
+            }
+
+            // 旗子數等於數字時，翻開剩餘未插旗格
+            if (flagCount === cell.count) {
+                let hitMine = false;
+                for (let dr = -1; dr <= 1; dr++) {
+                    for (let dc = -1; dc <= 1; dc++) {
+                        const nr = r + dr;
+                        const nc = c + dc;
+                        if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) {
+                            const neighbor = board[nr][nc];
+                            if (!neighbor.revealed && !neighbor.flagged) {
+                                if (neighbor.mine) {
+                                    hitMine = true;
+                                    triggerGameOver(nr, nc);
+                                } else {
+                                    revealCellBFS(nr, nc);
+                                }
+                            }
+                        }
+                    }
+                }
+                if (!hitMine) {
+                    sound.playClick();
+                    checkWinCondition();
+                }
+            }
+        }
+
+        function updateCellDOM(r, c) {
+            const cellEl = boardEl.children[r * cols + c];
+            const cell = board[r][c];
+
+            cellEl.className = 'cell';
+
+            if (cell.revealed) {
+                cellEl.classList.add('revealed');
+                if (cell.mine) {
+                    cellEl.textContent = '💣';
+                } else if (cell.count > 0) {
+                    cellEl.textContent = cell.count;
+                    cellEl.classList.add(`c-${cell.count}`);
+                } else {
+                    cellEl.textContent = '';
+                }
+            } else if (cell.flagged) {
+                cellEl.classList.add('flagged');
+                cellEl.textContent = '🚩';
+            } else {
+                cellEl.textContent = '';
+            }
+        }
+
+        function updateCounters() {
+            const remaining = totalMines - flagsCount;
+            mineCounterEl.textContent = String(Math.max(-99, remaining)).padStart(3, '0');
+            timerEl.textContent = String(Math.min(999, timer)).padStart(3, '0');
+        }
+
+        function startTimer() {
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                timer++;
+                timerEl.textContent = String(Math.min(999, timer)).padStart(3, '0');
+            }, 1000);
+        }
+
+        function checkWinCondition() {
+            let revealedCount = 0;
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    if (board[r][c].revealed && !board[r][c].mine) {
+                        revealedCount++;
+                    }
+                }
+            }
+
+            // 非地雷格全部翻開即可獲勝
+            if (revealedCount === (rows * cols - totalMines)) {
+                gameState = 'VICTORY';
+                clearInterval(timerInterval);
+                faceBtn.textContent = '😎';
+                sound.playWin();
+                confetti.trigger();
+
+                // 儲存最高紀錄
+                saveBestScore(timer);
+
+                setTimeout(() => {
+                    modalTitle.textContent = '🎉 勝利！地雷已清除';
+                    modalDesc.textContent = `通關時間：${timer} 秒`;
+                    modalOverlay.classList.add('active');
+                }, 400);
+            }
+        }
+
+        function triggerGameOver(hitR, hitC) {
+            gameState = 'GAMEOVER';
+            clearInterval(timerInterval);
+            faceBtn.textContent = '😵';
+            sound.playBoom();
+
+            // 顯示所有地雷
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    if (board[r][c].mine) {
+                        board[r][c].revealed = true;
+                        updateCellDOM(r, c);
+                    }
+                }
+            }
+
+            // 標註被踩爆的地雷
+            const hitEl = boardEl.children[hitR * cols + hitC];
+            if (hitEl) hitEl.classList.add('mine-hit');
+
+            setTimeout(() => {
+                modalTitle.textContent = '💥 踩到地雷了！';
+                modalDesc.textContent = '別灰心，再接再厲！';
+                modalOverlay.classList.add('active');
+            }, 600);
+        }
+
+        function saveBestScore(score) {
+            const key = `minesweeper_best_${currentDiff}`;
+            const currentBest = localStorage.getItem(key);
+            if (!currentBest || score < parseInt(currentBest)) {
+                localStorage.setItem(key, score);
+                updateBestScoreDisplay();
+            }
+        }
+
+        function updateBestScoreDisplay() {
+            const key = `minesweeper_best_${currentDiff}`;
+            const best = localStorage.getItem(key);
+            bestScoreTag.textContent = best ? `最高紀錄 (${currentDiff.toUpperCase()}): ${best} 秒` : `最高紀錄 (${currentDiff.toUpperCase()}): -- 秒`;
+        }
+
+        faceBtn.addEventListener('click', initGame);
+        modalBtn.addEventListener('click', initGame);
+
+        diffSelect.addEventListener('change', (e) => {
+            currentDiff = e.target.value;
+            initGame();
+        });
+
+        modeToggleBtn.addEventListener('click', () => {
+            isFlagMode = !isFlagMode;
+            if (isFlagMode) {
+                modeToggleBtn.classList.add('flag-mode');
+                modeIcon.textContent = '🚩';
+                modeText.textContent = '模式: 插旗';
+            } else {
+                modeToggleBtn.classList.remove('flag-mode');
+                modeIcon.textContent = '⛏️';
+                modeText.textContent = '模式: 挖礦';
+            }
+        });
+
+        // 啟動首局遊戲
+        initGame();
+    </script>
+</body>
+</html>

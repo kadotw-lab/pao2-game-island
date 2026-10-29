@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>水果狂歡消消樂 - Juicy Fruit Splash</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Noto+Sans+TC:wght@500;700;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-gradient: linear-gradient(135deg, #2d0b3f 0%, #150524 100%);
+    }
+
+    body {
+      font-family: 'Fredoka', 'Noto Sans TC', sans-serif;
+      background: #120321;
+      color: #ffffff;
+      touch-action: manipulation;
+      user-select: none;
+      -webkit-user-select: none;
+      overflow: hidden;
+    }
+
+    /* Glassmorphism styling */
+    .glass-panel {
+      background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    }
+
+    .glass-btn {
+      background: linear-gradient(135deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.05) 100%);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+      transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .glass-btn:active {
+      transform: scale(0.95);
+    }
+
+    /* Tile Animations */
+    .tile {
+      transition: transform 0.2s ease-out, opacity 0.2s ease, top 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), left 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+      cursor: pointer;
+    }
+
+    .tile.selected {
+      transform: scale(1.12);
+      z-index: 20;
+      box-shadow: 0 0 20px rgba(255, 230, 0, 0.9);
+      border-color: #ffea00;
+    }
+
+    /* 調整彈跳動畫僅在特定登場時使用 */
+    .tile-pop {
+      animation: popIn 0.2s ease-out forwards;
+    }
+
+    @keyframes popIn {
+      0% { transform: scale(0.8); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    /* Floating Score Effect */
+    @keyframes floatUp {
+      0% { opacity: 1; transform: translateY(0) scale(1); }
+      100% { opacity: 0; transform: translateY(-60px) scale(1.3); }
+    }
+
+    .floating-score {
+      position: absolute;
+      pointer-events: none;
+      animation: floatUp 0.8s ease-out forwards;
+      font-weight: 900;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+      z-index: 50;
+    }
+
+    /* Shimmer effect for powerups */
+    .shimmer {
+      position: relative;
+      overflow: hidden;
+    }
+    .shimmer::after {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: linear-gradient(60deg, transparent 30%, rgba(255,255,255,0.3) 50%, transparent 70%);
+      transform: rotate(30deg);
+      animation: shimmerMove 3s infinite;
+    }
+    @keyframes shimmerMove {
+      0% { transform: translate(-100%, -100%) rotate(30deg); }
+      100% { transform: translate(100%, 100%) rotate(30deg); }
+    }
+  </style>
+</head>
+<body class="w-screen h-screen flex flex-col items-center justify-center relative bg-gradient-to-br from-slate-950 via-purple-950 to-slate-900">
+
+  <!-- Background Canvas for Juice Splashes & Particles -->
+  <canvas id="fxCanvas" class="absolute inset-0 pointer-events-none z-10 w-full h-full"></canvas>
+
+  <!-- Main Game Container -->
+  <div id="app" class="relative w-full max-w-md h-full max-h-[920px] flex flex-col justify-between items-center p-3 sm:p-4 z-20">
+    
+    <!-- Top Bar: Scores & Stats -->
+    <header class="w-full glass-panel rounded-2xl p-3 flex flex-col gap-2 shadow-xl border border-white/10">
+      <div class="flex justify-between items-center">
+        <!-- Logo / Title -->
+        <div class="flex items-center gap-2">
+          <span class="text-3xl">🍎</span>
+          <div>
+            <h1 class="font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-pink-400 to-purple-300 text-lg leading-tight">
+              水果狂歡
+            </h1>
+            <span id="modeLabel" class="text-[10px] text-pink-300 font-bold tracking-widest uppercase bg-pink-950/60 px-2 py-0.5 rounded-full border border-pink-500/30">
+              關卡挑戰
+            </span>
+          </div>
+        </div>
+
+        <!-- Audio & Pause Buttons -->
+        <div class="flex items-center gap-2">
+          <button id="btnSound" class="w-9 h-9 rounded-xl glass-btn flex items-center justify-center text-lg text-amber-300">
+            🔊
+          </button>
+          <button id="btnPause" class="w-9 h-9 rounded-xl glass-btn flex items-center justify-center text-lg text-cyan-300">
+            ⏸️
+          </button>
+        </div>
+      </div>
+
+      <!-- Stats Grid -->
+      <div class="grid grid-cols-3 gap-2 text-center pt-1 border-t border-white/10">
+        <!-- Score -->
+        <div class="bg-black/30 rounded-xl p-1.5 flex flex-col">
+          <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">目前分數</span>
+          <span id="scoreText" class="text-xl font-black text-amber-300 drop-shadow">0</span>
+        </div>
+        <!-- Moves or Time Target -->
+        <div class="bg-black/30 rounded-xl p-1.5 flex flex-col">
+          <span id="targetLabel" class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">剩餘步數</span>
+          <span id="targetText" class="text-xl font-black text-pink-400 drop-shadow">25</span>
+        </div>
+        <!-- High Score -->
+        <div class="bg-black/30 rounded-xl p-1.5 flex flex-col">
+          <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">最高紀錄</span>
+          <span id="highScoreText" class="text-xl font-black text-emerald-400 drop-shadow">0</span>
+        </div>
+      </div>
+
+      <!-- Level Target Progress Bar -->
+      <div class="w-full bg-slate-900/80 rounded-full h-2.5 overflow-hidden p-0.5 border border-white/10 relative">
+        <div id="progressBar" class="h-full rounded-full bg-gradient-to-r from-pink-500 via-purple-500 to-amber-400 transition-all duration-300 shadow-[0_0_10px_#ff007f]" style="width: 0%;"></div>
+      </div>
+    </header>
+
+    <!-- Middle: Combo Banner Overlay & Game Board -->
+    <main class="relative w-full flex-1 flex flex-col items-center justify-center my-2">
+      
+      <!-- Combo Float Banner -->
+      <div id="comboBanner" class="absolute -top-4 z-30 pointer-events-none opacity-0 transition-all duration-300 transform scale-50 flex flex-col items-center">
+        <span id="comboText" class="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-orange-400 to-pink-500 drop-shadow-[0_4px_10px_rgba(255,0,127,0.8)] italic">
+          3 COMBO!
+        </span>
+        <span id="comboSubtext" class="text-xs text-cyan-300 font-bold tracking-widest uppercase drop-shadow">SUPER JUICY!</span>
+      </div>
+
+      <!-- Game Board Frame -->
+      <div id="boardContainer" class="relative glass-panel rounded-3xl p-2.5 sm:p-3 w-full aspect-square max-w-[360px] max-h-[360px] sm:max-w-[380px] sm:max-h-[380px] border border-amber-300/30 flex items-center justify-center shadow-2xl">
+        <div id="grid" class="relative w-full h-full rounded-2xl overflow-hidden bg-slate-950/60 border border-white/5">
+          <!-- Dynamically populated tile items -->
+        </div>
+      </div>
+    </main>
+
+    <!-- Bottom: Power-ups Toolbar -->
+    <footer class="w-full glass-panel rounded-2xl p-2.5 flex justify-around items-center gap-2 border border-white/10">
+      <!-- Bomb Powerup -->
+      <button data-powerup="bomb" class="powerup-btn relative glass-btn flex-1 py-2 rounded-xl flex flex-col items-center justify-center border border-pink-500/30 group">
+        <span class="text-2xl group-hover:scale-125 transition-transform">💣</span>
+        <span class="text-[10px] font-bold text-pink-300 mt-0.5">爆炸水果</span>
+        <span id="countBomb" class="absolute -top-1.5 -right-1.5 bg-pink-600 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border border-white shadow">2</span>
+      </button>
+
+      <!-- Rainbow Powerup -->
+      <button data-powerup="rainbow" class="powerup-btn relative glass-btn flex-1 py-2 rounded-xl flex flex-col items-center justify-center border border-purple-500/30 group">
+        <span class="text-2xl group-hover:scale-125 transition-transform">🌈</span>
+        <span class="text-[10px] font-bold text-purple-300 mt-0.5">彩虹清除</span>
+        <span id="countRainbow" class="absolute -top-1.5 -right-1.5 bg-purple-600 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border border-white shadow">1</span>
+      </button>
+
+      <!-- Line Clear Powerup -->
+      <button data-powerup="line" class="powerup-btn relative glass-btn flex-1 py-2 rounded-xl flex flex-col items-center justify-center border border-cyan-500/30 group">
+        <span class="text-2xl group-hover:scale-125 transition-transform">⚡</span>
+        <span class="text-[10px] font-bold text-cyan-300 mt-0.5">十字閃電</span>
+        <span id="countLine" class="absolute -top-1.5 -right-1.5 bg-cyan-600 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border border-white shadow">2</span>
+      </button>
+
+      <!-- Shuffle Powerup -->
+      <button data-powerup="shuffle" class="powerup-btn relative glass-btn flex-1 py-2 rounded-xl flex flex-col items-center justify-center border border-amber-500/30 group">
+        <span class="text-2xl group-hover:scale-125 transition-transform">🔄</span>
+        <span class="text-[10px] font-bold text-amber-300 mt-0.5">重洗盤面</span>
+        <span id="countShuffle" class="absolute -top-1.5 -right-1.5 bg-amber-600 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border border-white shadow">3</span>
+      </button>
+    </footer>
+
+    <!-- Start Screen Modal -->
+    <div id="startModal" class="absolute inset-0 z-50 flex flex-col items-center justify-center p-6 bg-slate-950/90 backdrop-blur-md">
+      <div class="glass-panel rounded-3xl p-6 w-full max-w-xs flex flex-col items-center text-center gap-5 border border-amber-300/40 shadow-2xl">
+        <div class="text-6xl animate-bounce">🍓</div>
+        <div>
+          <h2 class="font-extrabold text-3xl text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-pink-400 to-purple-300">
+            水果狂歡消消樂
+          </h2>
+          <p class="text-xs text-slate-300 mt-1">連線 3 個或以上相同水果進行爆裂消除！</p>
+        </div>
+
+        <!-- Mode Select -->
+        <div class="w-full flex flex-col gap-2.5">
+          <button data-startmode="LEVEL" class="start-btn w-full py-3.5 rounded-2xl glass-btn font-extrabold text-amber-300 border border-amber-400/40 hover:scale-105 transition text-sm">
+            🏆 經典步數挑戰
+          </button>
+          <button data-startmode="TIMED" class="start-btn w-full py-3.5 rounded-2xl glass-btn font-extrabold text-pink-300 border border-pink-400/40 hover:scale-105 transition text-sm">
+            ⏱️ 60秒極速狂歡
+          </button>
+          <button data-startmode="ENDLESS" class="start-btn w-full py-3.5 rounded-2xl glass-btn font-extrabold text-emerald-300 border border-emerald-400/40 hover:scale-105 transition text-sm">
+            ♾️ 無盡休閒模式
+          </button>
+        </div>
+
+        <div class="text-[11px] text-slate-400 bg-black/40 p-2.5 rounded-xl border border-white/5 w-full">
+          💡 技巧：連續連擊可獲得多倍分數與解鎖強力爆破道具！
+        </div>
+      </div>
+    </div>
+
+    <!-- Pause Screen Modal -->
+    <div id="pauseModal" class="absolute inset-0 z-50 hidden flex-col items-center justify-center p-6 bg-slate-950/85 backdrop-blur-md">
+      <div class="glass-panel rounded-3xl p-6 w-full max-w-xs flex flex-col items-center text-center gap-4 border border-cyan-400/40">
+        <h3 class="font-extrabold text-2xl text-cyan-300">遊戲暫停</h3>
+        <div class="w-full flex flex-col gap-2.5 my-2">
+          <button id="btnResume" class="w-full py-3 rounded-xl bg-cyan-500/80 hover:bg-cyan-400 font-bold text-slate-950 transition">
+            繼續遊戲
+          </button>
+          <button id="btnRestart" class="w-full py-3 rounded-xl glass-btn font-bold text-slate-200">
+            重新開始
+          </button>
+          <button id="btnQuit" class="w-full py-3 rounded-xl glass-btn font-bold text-rose-400 border-rose-500/30">
+            返回選單
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Result / Game Over Modal -->
+    <div id="resultModal" class="absolute inset-0 z-50 hidden flex-col items-center justify-center p-6 bg-slate-950/90 backdrop-blur-md">
+      <div class="glass-panel rounded-3xl p-6 w-full max-w-xs flex flex-col items-center text-center gap-4 border border-pink-500/40 shadow-2xl">
+        <div id="resultEmoji" class="text-6xl">🎉</div>
+        <h3 id="resultTitle" class="font-extrabold text-3xl text-amber-300">挑戰成功！</h3>
+        
+        <div class="w-full bg-black/40 rounded-2xl p-4 border border-white/10 flex flex-col gap-2 text-sm">
+          <div class="flex justify-between items-center">
+            <span class="text-slate-400">最終得分</span>
+            <span id="resFinalScore" class="font-extrabold text-xl text-amber-300">0</span>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="text-slate-400">最大連擊</span>
+            <span id="resMaxCombo" class="font-extrabold text-lg text-pink-400">0 COMBO</span>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="text-slate-400">消除水果數</span>
+            <span id="resFruitCount" class="font-extrabold text-lg text-emerald-400">0 個</span>
+          </div>
+        </div>
+
+        <div class="w-full flex gap-3">
+          <button id="btnPlayAgain" class="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-amber-400 to-pink-500 font-extrabold text-slate-950 shadow-lg hover:brightness-110 transition">
+            再玩一次
+          </button>
+          <button id="btnMenu" class="py-3.5 px-4 rounded-xl glass-btn font-bold text-slate-300">
+            選單
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // --- FRUIT DEFINITIONS & ASSETS ---
+    const FRUITS = [
+      { id: 0, name: 'Apple',      emoji: '🍎', color: '#ff4d4d', splash: '#ff3333' },
+      { id: 1, name: 'Banana',     emoji: '🍌', color: '#ffdd59', splash: '#ffc048' },
+      { id: 2, name: 'Grape',      emoji: '🍇', color: '#a55eea', splash: '#8854d0' },
+      { id: 3, name: 'Orange',     emoji: '🍊', color: '#ff9f43', splash: '#feca57' },
+      { id: 4, name: 'Strawberry', emoji: '🍓', color: '#ff3838', splash: '#ff4d4d' },
+      { id: 5, name: 'Watermelon', emoji: '🍉', color: '#2ed573', splash: '#26de81' }
+    ];
+
+    const GRID_SIZE = 7; // 7x7 grid
+    let grid = [];
+    let score = 0;
+    let highScore = parseInt(localStorage.getItem('juicy_fruit_highscore') || '0');
+    let movesLeft = 25;
+    let timeLeft = 60;
+    let targetScore = 2500;
+    let combo = 0;
+    let maxCombo = 0;
+    let totalFruitsCleared = 0;
+    let gameMode = 'LEVEL'; // 'LEVEL', 'TIMED', 'ENDLESS'
+    let isPlaying = false;
+    let isPaused = false;
+    let timerInterval = null;
+    let activePowerup = null;
+
+    let powerupCounts = {
+      bomb: 2,
+      rainbow: 1,
+      line: 2,
+      shuffle: 3
+    };
+
+    let selectedTile = null; // {r, c}
+    let isAnimating = false;
+
+    // --- WEB AUDIO API SYNTHESIZER ---
+    class SoundEngine {
+      constructor() {
+        this.ctx = null;
+        this.enabled = true;
+      }
+
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          this.ctx = new AudioContext();
+        }
+      }
+
+      playPop(comboCount = 1) {
+        if (!this.enabled || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        // Higher pitch for bigger combos!
+        const baseFreq = 300 + Math.min(comboCount * 80, 800);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(baseFreq, now);
+        osc.frequency.exponentialRampToValueAtTime(baseFreq * 2.2, now + 0.1);
+
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.start(now);
+        osc.stop(now + 0.1);
+      }
+
+      playBombSound() {
+        if (!this.enabled || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(180, now);
+        osc.frequency.exponentialRampToValueAtTime(30, now + 0.3);
+
+        gain.gain.setValueAtTime(0.5, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.start(now);
+        osc.stop(now + 0.3);
+      }
+
+      playSwapSound() {
+        if (!this.enabled || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(400, now);
+        osc.frequency.linearRampToValueAtTime(600, now + 0.08);
+
+        gain.gain.setValueAtTime(0.15, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.start(now);
+        osc.stop(now + 0.08);
+      }
+
+      playWinSound() {
+        if (!this.enabled || !this.ctx) return;
+        const notes = [523.25, 659.25, 783.99, 1046.50]; // C, E, G, C
+        notes.forEach((freq, idx) => {
+          setTimeout(() => {
+            if (!this.ctx) return;
+            const now = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, now);
+            gain.gain.setValueAtTime(0.25, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+
+            osc.start(now);
+            osc.stop(now + 0.25);
+          }, idx * 100);
+        });
+      }
+    }
+
+    const soundEngine = new SoundEngine();
+
+    // --- CANVAS FX PARTICLE SYSTEM ---
+    const fxCanvas = document.getElementById('fxCanvas');
+    const fxCtx = fxCanvas.getContext('2d');
+    let particles = [];
+
+    function resizeCanvas() {
+      fxCanvas.width = window.innerWidth;
+      fxCanvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    class Particle {
+      constructor(x, y, color) {
+        this.x = x;
+        this.y = y;
+        this.color = color;
+        this.radius = Math.random() * 6 + 3;
+        const angle = Math.random() * Math.PI * 2;
+        const speed = Math.random() * 8 + 3;
+        this.vx = Math.cos(angle) * speed;
+        this.vy = Math.sin(angle) * speed;
+        this.gravity = 0.25;
+        this.alpha = 1.0;
+        this.decay = Math.random() * 0.03 + 0.02;
+      }
+
+      update() {
+        this.vx *= 0.95;
+        this.vy += this.gravity;
+        this.x += this.vx;
+        this.y += this.vy;
+        this.alpha -= this.decay;
+      }
+
+      draw(ctx) {
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, this.alpha);
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    function createSplashes(x, y, color, count = 16) {
+      for (let i = 0; i < count; i++) {
+        particles.push(new Particle(x, y, color));
+      }
+    }
+
+    function updateParticles() {
+      fxCtx.clearRect(0, 0, fxCanvas.width, fxCanvas.height);
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.update();
+        p.draw(fxCtx);
+        if (p.alpha <= 0) particles.splice(i, 1);
+      }
+      requestAnimationFrame(updateParticles);
+    }
+    requestAnimationFrame(updateParticles);
+
+    // --- BOARD MATRIX LOGIC ---
+    function initGrid() {
+      grid = [];
+      for (let r = 0; r < GRID_SIZE; r++) {
+        grid[r] = [];
+        for (let c = 0; c < GRID_SIZE; c++) {
+          let fruitId;
+          // Prevent initial 3-in-a-row matches
+          do {
+            fruitId = Math.floor(Math.random() * FRUITS.length);
+          } while (
+            (r >= 2 && grid[r-1][c] === fruitId && grid[r-2][c] === fruitId) ||
+            (c >= 2 && grid[r][c-1] === fruitId && grid[r][c-2] === fruitId)
+          );
+          grid[r][c] = fruitId;
+        }
+      }
+      renderGrid();
+    }
+
+    function renderGrid() {
+      const gridEl = document.getElementById('grid');
+      gridEl.innerHTML = '';
+
+      const tileSize = 100 / GRID_SIZE;
+
+      for (let r = 0; r < GRID_SIZE; r++) {
+        for (let c = 0; c < GRID_SIZE; c++) {
+          const fruitId = grid[r][c];
+          if (fruitId === null) continue;
+
+          const fruit = FRUITS[fruitId];
+          const tile = document.createElement('div');
+          
+          // 移除全盤 tile-pop 類別，避免每次選取或重繪時全畫面閃爍
+          tile.className = `tile absolute rounded-2xl flex items-center justify-center border border-white/10 shadow-md ${selectedTile && selectedTile.r === r && selectedTile.c === c ? 'selected' : ''}`;
+          
+          tile.style.width = `${tileSize}%`;
+          tile.style.height = `${tileSize}%`;
+          tile.style.top = `${r * tileSize}%`;
+          tile.style.left = `${c * tileSize}%`;
+          tile.style.backgroundColor = 'rgba(255, 255, 255, 0.08)';
+
+          tile.setAttribute('data-r', r);
+          tile.setAttribute('data-c', c);
+
+          tile.innerHTML = `<span class="text-2xl sm:text-3xl select-none transform transition-transform group-hover:scale-110">${fruit.emoji}</span>`;
+
+          // Tap / Click Handler
+          tile.addEventListener('click', (e) => onTileClick(r, c, e));
+
+          gridEl.appendChild(tile);
+        }
+      }
+    }
+
+    function onTileClick(r, c, event) {
+      if (!isPlaying || isPaused || isAnimating) return;
+      soundEngine.init();
+
+      // Power-up activation check
+      if (activePowerup) {
+        usePowerupOnTile(r, c);
+        return;
+      }
+
+      if (!selectedTile) {
+        // First tile select
+        selectedTile = { r, c };
+        soundEngine.playSwapSound();
+        renderGrid();
+      } else {
+        // Second tile select
+        const r1 = selectedTile.r;
+        const c1 = selectedTile.c;
+        const r2 = r;
+        const c2 = c;
+
+        // Check if adjacent
+        const isAdjacent = (Math.abs(r1 - r2) + Math.abs(c1 - c2)) === 1;
+
+        if (isAdjacent) {
+          attemptSwap(r1, c1, r2, c2);
+          selectedTile = null;
+        } else {
+          // Change selection
+          selectedTile = { r, c };
+          soundEngine.playSwapSound();
+          renderGrid();
+        }
+      }
+    }
+
+    async function attemptSwap(r1, c1, r2, c2) {
+      isAnimating = true;
+
+      // Swap in data array
+      swapData(r1, c1, r2, c2);
+      soundEngine.playSwapSound();
+      renderGrid();
+
+      await delay(200);
+
+      const matches = findMatches();
+      if (matches.length > 0) {
+        // Valid match! Deduct moves if Level mode
+        if (gameMode === 'LEVEL') {
+          movesLeft--;
+          updateHUD();
+        }
+        combo = 0;
+        await processMatches();
+      } else {
+        // No match, swap back
+        swapData(r1, c1, r2, c2);
+        renderGrid();
+      }
+
+      isAnimating = false;
+      checkGameEndCondition();
+    }
+
+    function swapData(r1, c1, r2, c2) {
+      const temp = grid[r1][c1];
+      grid[r1][c1] = grid[r2][c2];
+      grid[r2][c2] = temp;
+    }
+
+    function findMatches() {
+      const matchSet = new Set();
+
+      // Horizontal check
+      for (let r = 0; r < GRID_SIZE; r++) {
+        for (let c = 0; c < GRID_SIZE - 2; c++) {
+          const val = grid[r][c];
+          if (val !== null && val === grid[r][c+1] && val === grid[r][c+2]) {
+            matchSet.add(`${r},${c}`);
+            matchSet.add(`${r},${c+1}`);
+            matchSet.add(`${r},${c+2}`);
+          }
+        }
+      }
+
+      // Vertical check
+      for (let c = 0; c < GRID_SIZE; c++) {
+        for (let r = 0; r < GRID_SIZE - 2; r++) {
+          const val = grid[r][c];
+          if (val !== null && val === grid[r+1][c] && val === grid[r+2][c]) {
+            matchSet.add(`${r},${c}`);
+            matchSet.add(`${r+1},${c}`);
+            matchSet.add(`${r+2},${c}`);
+          }
+        }
+      }
+
+      return Array.from(matchSet).map(s => {
+        const [r, c] = s.split(',').map(Number);
+        return { r, c };
+      });
+    }
+
+    async function processMatches() {
+      let matches = findMatches();
+
+      while (matches.length > 0) {
+        combo++;
+        if (combo > maxCombo) maxCombo = combo;
+
+        soundEngine.playPop(combo);
+        showComboBanner(combo);
+
+        // Calculate Score with Combo Multiplier
+        const baseScore = matches.length * 20;
+        const roundScore = Math.round(baseScore * (1 + (combo - 1) * 0.5));
+        score += roundScore;
+        totalFruitsCleared += matches.length;
+
+        updateHUD();
+
+        // Trigger Juice Burst Effects
+        const gridRect = document.getElementById('grid').getBoundingClientRect();
+        const tileSize = gridRect.width / GRID_SIZE;
+
+        matches.forEach(({ r, c }) => {
+          const fruitVal = grid[r][c];
+          if (fruitVal !== null) {
+            const fruit = FRUITS[fruitVal];
+            const px = gridRect.left + (c + 0.5) * tileSize;
+            const py = gridRect.top + (r + 0.5) * tileSize;
+            createSplashes(px, py, fruit.splash, 12);
+            showFloatingScore(px, py, `+${roundScore}`);
+          }
+          grid[r][c] = null; // Clear tile
+        });
+
+        renderGrid();
+        await delay(250);
+
+        // Drop tiles down
+        dropTiles();
+        renderGrid();
+        await delay(200);
+
+        // Refill top
+        fillTop();
+        renderGrid();
+        await delay(250);
+
+        // Check cascaded matches
+        matches = findMatches();
+      }
+
+      // Check if grid has valid moves left
+      if (!hasPossibleMoves()) {
+        shuffleGrid();
+      }
+    }
+
+    function dropTiles() {
+      for (let c = 0; c < GRID_SIZE; c++) {
+        let emptyR = GRID_SIZE - 1;
+        for (let r = GRID_SIZE - 1; r >= 0; r--) {
+          if (grid[r][c] !== null) {
+            if (r !== emptyR) {
+              grid[emptyR][c] = grid[r][c];
+              grid[r][c] = null;
+            }
+            emptyR--;
+          }
+        }
+      }
+    }
+
+    function fillTop() {
+      for (let r = 0; r < GRID_SIZE; r++) {
+        for (let c = 0; c < GRID_SIZE; c++) {
+          if (grid[r][c] === null) {
+            grid[r][c] = Math.floor(Math.random() * FRUITS.length);
+          }
+        }
+      }
+    }
+
+    function usePowerupOnTile(r, c) {
+      if (!activePowerup) return;
+
+      const gridRect = document.getElementById('grid').getBoundingClientRect();
+      const tileSize = gridRect.width / GRID_SIZE;
+
+      let clearedTiles = [];
+
+      if (activePowerup === 'bomb') {
+        // Clear 3x3 area
+        soundEngine.playBombSound();
+        for (let dr = -1; dr <= 1; dr++) {
+          for (let dc = -1; dc <= 1; dc++) {
+            const nr = r + dr;
+            const nc = c + dc;
+            if (nr >= 0 && nr < GRID_SIZE && nc >= 0 && nc < GRID_SIZE) {
+              clearedTiles.push({ r: nr, c: nc });
+            }
+          }
+        }
+        powerupCounts.bomb--;
+      } else if (activePowerup === 'rainbow') {
+        // Clear all fruits of same type
+        soundEngine.playPop(3);
+        const targetType = grid[r][c];
+        for (let nr = 0; nr < GRID_SIZE; nr++) {
+          for (let nc = 0; nc < GRID_SIZE; nc++) {
+            if (grid[nr][nc] === targetType) {
+              clearedTiles.push({ r: nr, c: nc });
+            }
+          }
+        }
+        powerupCounts.rainbow--;
+      } else if (activePowerup === 'line') {
+        // Clear row and column
+        soundEngine.playBombSound();
+        for (let i = 0; i < GRID_SIZE; i++) {
+          clearedTiles.push({ r: r, c: i });
+          clearedTiles.push({ r: i, c: c });
+        }
+        powerupCounts.line--;
+      }
+
+      // Process powerup clearing
+      clearedTiles.forEach(({ r, c }) => {
+        const val = grid[r][c];
+        if (val !== null) {
+          const fruit = FRUITS[val];
+          const px = gridRect.left + (c + 0.5) * tileSize;
+          const py = gridRect.top + (r + 0.5) * tileSize;
+          createSplashes(px, py, fruit.splash, 15);
+          grid[r][c] = null;
+        }
+      });
+
+      score += clearedTiles.length * 35;
+      totalFruitsCleared += clearedTiles.length;
+
+      deactivatePowerups();
+      updateHUD();
+      renderGrid();
+
+      setTimeout(async () => {
+        dropTiles();
+        fillTop();
+        renderGrid();
+        await processMatches();
+      }, 300);
+    }
+
+    function shuffleGrid() {
+      let allTiles = [];
+      for (let r = 0; r < GRID_SIZE; r++) {
+        for (let c = 0; c < GRID_SIZE; c++) {
+          allTiles.push(grid[r][c]);
+        }
+      }
+
+      // Fisher-Yates Shuffle
+      for (let i = allTiles.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [allTiles[i], allTiles[j]] = [allTiles[j], allTiles[i]];
+      }
+
+      let idx = 0;
+      for (let r = 0; r < GRID_SIZE; r++) {
+        for (let c = 0; c < GRID_SIZE; c++) {
+          grid[r][c] = allTiles[idx++];
+        }
+      }
+
+      renderGrid();
+      soundEngine.playSwapSound();
+    }
+
+    function hasPossibleMoves() {
+      // Check horizontal adjacent swaps
+      for (let r = 0; r < GRID_SIZE; r++) {
+        for (let c = 0; c < GRID_SIZE - 1; c++) {
+          swapData(r, c, r, c + 1);
+          const matches = findMatches();
+          swapData(r, c, r, c + 1); // Swap back
+          if (matches.length > 0) return true;
+        }
+      }
+      // Check vertical adjacent swaps
+      for (let r = 0; r < GRID_SIZE - 1; r++) {
+        for (let c = 0; c < GRID_SIZE; c++) {
+          swapData(r, c, r + 1, c);
+          const matches = findMatches();
+          swapData(r, c, r + 1, c); // Swap back
+          if (matches.length > 0) return true;
+        }
+      }
+      return false;
+    }
+
+    function updateHUD() {
+      document.getElementById('scoreText').innerText = score;
+      document.getElementById('highScoreText').innerText = highScore;
+
+      // Update Target/Moves Text according to Mode
+      if (gameMode === 'LEVEL') {
+        document.getElementById('targetLabel').innerText = '剩餘步數';
+        document.getElementById('targetText').innerText = movesLeft;
+        const progress = Math.min(100, (score / targetScore) * 100);
+        document.getElementById('progressBar').style.width = `${progress}%`;
+      } else if (gameMode === 'TIMED') {
+        document.getElementById('targetLabel').innerText = '剩餘時間';
+        document.getElementById('targetText').innerText = `${timeLeft}s`;
+        document.getElementById('progressBar').style.width = `${(timeLeft / 60) * 100}%`;
+      } else { // ENDLESS
+        document.getElementById('targetLabel').innerText = '無盡模式';
+        document.getElementById('targetText').innerText = '∞';
+        document.getElementById('progressBar').style.width = '100%';
+      }
+
+      // Update powerup counts
+      document.getElementById('countBomb').innerText = powerupCounts.bomb;
+      document.getElementById('countRainbow').innerText = powerupCounts.rainbow;
+      document.getElementById('countLine').innerText = powerupCounts.line;
+      document.getElementById('countShuffle').innerText = powerupCounts.shuffle;
+    }
+
+    function showComboBanner(c) {
+      if (c <= 1) return;
+      const banner = document.getElementById('comboBanner');
+      const text = document.getElementById('comboText');
+      const subtext = document.getElementById('comboSubtext');
+
+      text.innerText = `${c} COMBO!`;
+      if (c >= 5) subtext.innerText = '🔥 UNSTOPPABLE!';
+      else if (c >= 3) subtext.innerText = '⚡ SUPER JUICY!';
+      else subtext.innerText = '✨ SWEET MATCH!';
+
+      banner.style.opacity = '1';
+      banner.style.transform = 'scale(1.2)';
+
+      setTimeout(() => {
+        banner.style.transform = 'scale(1)';
+      }, 100);
+
+      clearTimeout(window.comboTimer);
+      window.comboTimer = setTimeout(() => {
+        banner.style.opacity = '0';
+      }, 1200);
+    }
+
+    function showFloatingScore(x, y, txt) {
+      const el = document.createElement('div');
+      el.className = 'floating-score text-xl font-black text-amber-300';
+      el.style.left = `${x}px`;
+      el.style.top = `${y}px`;
+      el.innerText = txt;
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 800);
+    }
+
+    function startGame(mode) {
+      gameMode = mode;
+      score = 0;
+      combo = 0;
+      maxCombo = 0;
+      totalFruitsCleared = 0;
+      movesLeft = 25;
+      timeLeft = 60;
+      targetScore = 2500;
+      isPlaying = true;
+      isPaused = false;
+      selectedTile = null;
+
+      powerupCounts = { bomb: 2, rainbow: 1, line: 2, shuffle: 3 };
+
+      document.getElementById('startModal').classList.add('hidden');
+      document.getElementById('pauseModal').classList.add('hidden');
+      document.getElementById('resultModal').classList.add('hidden');
+
+      const modeNames = { LEVEL: '關卡挑戰', TIMED: '60秒極速', ENDLESS: '無盡模式' };
+      document.getElementById('modeLabel').innerText = modeNames[mode];
+
+      if (gameMode === 'TIMED') {
+        startTimer();
+      } else {
+        clearInterval(timerInterval);
+      }
+
+      initGrid();
+      updateHUD();
+    }
+
+    function startTimer() {
+      clearInterval(timerInterval);
+      timerInterval = setInterval(() => {
+        if (!isPlaying || isPaused) return;
+        timeLeft--;
+        updateHUD();
+        if (timeLeft <= 0) {
+          endGame();
+        }
+      }, 1000);
+    }
+
+    function checkGameEndCondition() {
+      if (gameMode === 'LEVEL') {
+        if (score >= targetScore) {
+          endGame(true);
+        } else if (movesLeft <= 0) {
+          endGame(false);
+        }
+      }
+    }
+
+    function endGame(isWin = true) {
+      isPlaying = false;
+      clearInterval(timerInterval);
+
+      if (score > highScore) {
+        highScore = score;
+        localStorage.setItem('juicy_fruit_highscore', highScore);
+      }
+
+      const resModal = document.getElementById('resultModal');
+      const resTitle = document.getElementById('resultTitle');
+      const resEmoji = document.getElementById('resultEmoji');
+
+      if (gameMode === 'LEVEL') {
+        if (isWin) {
+          resTitle.innerText = '通關成功！';
+          resEmoji.innerText = '👑';
+          soundEngine.playWinSound();
+        } else {
+          resTitle.innerText = '步數耗盡！';
+          resEmoji.innerText = '💔';
+        }
+      } else {
+        resTitle.innerText = '挑戰完成！';
+        resEmoji.innerText = '🎉';
+        soundEngine.playWinSound();
+      }
+
+      document.getElementById('resFinalScore').innerText = score;
+      document.getElementById('resMaxCombo').innerText = `${maxCombo} COMBO`;
+      document.getElementById('resFruitCount').innerText = `${totalFruitsCleared} 個`;
+
+      resModal.classList.remove('hidden');
+      resModal.classList.add('flex');
+    }
+
+    // --- POWERUP BUTTON HANDLERS ---
+    document.querySelectorAll('.powerup-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const type = btn.getAttribute('data-powerup');
+        if (powerupCounts[type] <= 0) return;
+
+        if (type === 'shuffle') {
+          powerupCounts.shuffle--;
+          shuffleGrid();
+          updateHUD();
+          return;
+        }
+
+        if (activePowerup === type) {
+          deactivatePowerups();
+        } else {
+          deactivatePowerups();
+          activePowerup = type;
+          btn.classList.add('ring-2', 'ring-amber-300', 'bg-white/20');
+        }
+      });
+    });
+
+    function deactivatePowerups() {
+      activePowerup = null;
+      document.querySelectorAll('.powerup-btn').forEach(b => {
+        b.classList.remove('ring-2', 'ring-amber-300', 'bg-white/20');
+      });
+    }
+
+    // --- UI & MODAL EVENT LISTENERS ---
+    document.querySelectorAll('.start-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const mode = btn.getAttribute('data-startmode');
+        startGame(mode);
+      });
+    });
+
+    document.getElementById('btnSound').addEventListener('click', () => {
+      soundEngine.enabled = !soundEngine.enabled;
+      document.getElementById('btnSound').innerText = soundEngine.enabled ? '🔊' : '🔇';
+    });
+
+    document.getElementById('btnPause').addEventListener('click', () => {
+      if (!isPlaying) return;
+      isPaused = true;
+      document.getElementById('pauseModal').classList.remove('hidden');
+      document.getElementById('pauseModal').classList.add('flex');
+    });
+
+    document.getElementById('btnResume').addEventListener('click', () => {
+      isPaused = false;
+      document.getElementById('pauseModal').classList.add('hidden');
+      document.getElementById('pauseModal').classList.remove('flex');
+    });
+
+    document.getElementById('btnRestart').addEventListener('click', () => {
+      startGame(gameMode);
+    });
+
+    document.getElementById('btnQuit').addEventListener('click', () => {
+      document.getElementById('pauseModal').classList.add('hidden');
+      document.getElementById('startModal').classList.remove('hidden');
+      isPlaying = false;
+    });
+
+    document.getElementById('btnPlayAgain').addEventListener('click', () => {
+      startGame(gameMode);
+    });
+
+    document.getElementById('btnMenu').addEventListener('click', () => {
+      document.getElementById('resultModal').classList.add('hidden');
+      document.getElementById('startModal').classList.remove('hidden');
+    });
+
+    // Helper Utility
+    function delay(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    // Init HUD highscore display on boot
+    document.getElementById('highScoreText').innerText = highScore;
+  </script>
+</body>
+</html>

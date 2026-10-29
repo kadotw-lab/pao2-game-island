@@ -1,0 +1,1261 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>霸霸烤雞店 - Ba Ba Roasted Chicken</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Google Fonts: Noto Sans TC & Fredoka -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+  
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            warm: {
+              50: '#fffbeedb',
+              100: '#fef3c7',
+              200: '#fde68a',
+              300: '#fcd34d',
+              400: '#fbbf24',
+              500: '#f59e0b',
+              600: '#d97706',
+              700: '#b45309',
+              800: '#92400e',
+              900: '#78350f',
+            },
+            roast: {
+              brown: '#8D4925',
+              dark: '#5c2d12',
+              cream: '#FFF8EA',
+              gold: '#FBBF24',
+              accent: '#EF4444'
+            }
+          },
+          fontFamily: {
+            sans: ['Noto Sans TC', 'Fredoka', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  
+  <style>
+    body {
+      font-family: 'Noto Sans TC', 'Fredoka', sans-serif;
+      background-color: #FFF2DF;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+    }
+    
+    @keyframes rotateRoast {
+      0% { transform: rotate(0deg) scale(1); }
+      50% { transform: rotate(180deg) scale(1.08); }
+      100% { transform: rotate(360deg) scale(1); }
+    }
+    .anim-roast {
+      animation: rotateRoast 2.5s infinite linear;
+    }
+
+    @keyframes brushSwipe {
+      0% { transform: rotate(-15deg) translateY(0px); }
+      50% { transform: rotate(15deg) translateY(-8px); }
+      100% { transform: rotate(-15deg) translateY(0px); }
+    }
+    .anim-brush {
+      animation: brushSwipe 0.5s infinite ease-in-out;
+    }
+
+    .meter-shadow {
+      box-shadow: inset 0 2px 5px rgba(0,0,0,0.25), 0 4px 10px rgba(0,0,0,0.15);
+    }
+  </style>
+</head>
+<body class="bg-[#FFF2DF] text-roast-dark min-h-screen flex flex-col justify-between overflow-x-hidden">
+
+  <header class="bg-gradient-to-r from-warm-500 via-warm-400 to-warm-500 text-white p-3 md:p-4 shadow-lg border-b-4 border-warm-600 sticky top-0 z-30">
+    <div class="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-2">
+      <!-- Title -->
+      <div class="flex items-center gap-2">
+        <span class="text-3xl md:text-4xl">🐔</span>
+        <h1 class="text-xl md:text-2xl font-black tracking-wide drop-shadow text-amber-950">霸霸烤雞店</h1>
+      </div>
+
+      <!-- Stats Bar -->
+      <div class="flex flex-wrap items-center gap-2 md:gap-4 text-xs md:text-sm font-bold bg-amber-900/30 p-2 rounded-xl backdrop-blur-sm border border-amber-300/40">
+        <!-- Money -->
+        <div class="flex items-center gap-1.5 bg-warm-100 text-amber-900 px-3 py-1 rounded-lg shadow-sm">
+          <i class="fa-solid fa-coins text-amber-600"></i>
+          <span class="whitespace-nowrap">營業額: $<span id="hud-money">0</span> / $30,000</span>
+        </div>
+        <!-- Reviews -->
+        <div class="flex items-center gap-1.5 bg-warm-100 text-amber-900 px-3 py-1 rounded-lg shadow-sm">
+          <i class="fa-solid fa-star text-yellow-500"></i>
+          <span class="whitespace-nowrap">好評: <span id="hud-reviews">0</span> / 50</span>
+        </div>
+        <!-- Penalty Notice -->
+        <div id="hud-penalty-badge" class="hidden flex items-center gap-1 bg-red-500 text-white px-2 py-1 rounded-lg text-xs animate-pulse">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          <span>客流減半中 (<span id="penalty-time-left">300</span>s)</span>
+        </div>
+      </div>
+
+      <!-- Waiter Toggle Button -->
+      <button id="btn-waiter-toggle" onclick="toggleWaiter()" class="bg-amber-800 hover:bg-amber-900 text-amber-100 font-bold px-3 py-1.5 rounded-xl shadow border-2 border-amber-600 transition text-xs md:text-sm flex items-center gap-2">
+        <i class="fa-solid fa-user-tie"></i>
+        <span>僱用服務員 ($500/分)</span>
+        <span id="waiter-status-tag" class="bg-gray-600 text-white text-[10px] px-2 py-0.5 rounded-full">未啟用</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="max-w-6xl w-full mx-auto p-2 md:p-4 flex-1 flex flex-col justify-center">
+
+    <!-- View 1: Dining Hall / Delivery View -->
+    <div id="view-hall" class="bg-warm-50 rounded-2xl border-4 border-amber-300 shadow-xl p-3 md:p-4 flex flex-col relative overflow-hidden min-h-[530px]">
+      
+      <div class="flex justify-between items-center mb-2 px-2">
+        <div class="font-bold text-amber-900 flex items-center gap-2 text-sm md:text-base">
+          <i class="fa-solid fa-store text-warm-600"></i> 霸霸烤雞店外場 (點擊客人口罩氣泡接單，完工後送餐)
+        </div>
+        <div class="text-xs text-amber-800 bg-amber-100 px-2.5 py-1 rounded-full border border-amber-300">
+          鍵盤 [W A S D / 箭頭] 或畫面右下角按鈕移動
+        </div>
+      </div>
+
+      <!-- Canvas for Restaurant Floor -->
+      <div class="relative flex-1 rounded-xl overflow-hidden border-2 border-amber-200 bg-[#F5E6CA] min-h-[360px]">
+        <canvas id="canvas-hall" class="w-full h-full block"></canvas>
+
+        <!-- On-screen D-Pad for Touch/Mobile -->
+        <div class="absolute bottom-3 right-3 grid grid-cols-3 gap-1 w-28 h-28 opacity-85 md:opacity-100 z-10">
+          <div></div>
+          <button onclick="movePlayer('Up')" class="bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold rounded-lg shadow text-lg flex items-center justify-center">▲</button>
+          <div></div>
+          <button onclick="movePlayer('Left')" class="bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold rounded-lg shadow text-lg flex items-center justify-center">◀</button>
+          <button onclick="movePlayer('Down')" class="bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold rounded-lg shadow text-lg flex items-center justify-center">▼</button>
+          <button onclick="movePlayer('Right')" class="bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold rounded-lg shadow text-lg flex items-center justify-center">▶</button>
+        </div>
+      </div>
+
+      <!-- Bottom Serving Item Bar -->
+      <div class="mt-3 bg-amber-100 border-2 border-amber-300 rounded-xl p-2.5 md:p-3 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="text-2xl md:text-3xl bg-amber-200 p-2 rounded-xl">🍱</div>
+          <div>
+            <div class="text-xs text-amber-700 font-bold">當前托盤準備送到外場之餐點：</div>
+            <div id="holding-food-text" class="font-black text-amber-950 text-sm md:text-base">無 (點擊客人頭上點餐氣泡開始烤雞)</div>
+          </div>
+        </div>
+        <button id="btn-cancel-delivery" onclick="cancelHoldingFood()" class="hidden bg-red-100 hover:bg-red-200 text-red-700 text-xs font-bold px-3 py-1.5 rounded-lg border border-red-300">
+          棄單
+        </button>
+      </div>
+
+    </div>
+
+    <!-- View 2: Kitchen Roasting & Seasoning Station -->
+    <div id="view-kitchen" class="hidden bg-warm-50 rounded-2xl border-4 border-amber-300 shadow-xl p-4 md:p-6 flex flex-col items-center relative min-h-[530px]">
+      
+      <!-- Top Stage Title Header -->
+      <div class="w-full flex justify-between items-center border-b-2 border-amber-200 pb-3 mb-3">
+        <div>
+          <span id="kitchen-dish-title" class="text-lg md:text-xl font-black text-amber-900">金黃起司雞 (整隻)</span>
+          <span id="kitchen-seasoning-req" class="ml-2 text-xs md:text-sm bg-amber-200 text-amber-800 px-2 py-0.5 rounded-md font-bold">需求調料：胡椒</span>
+        </div>
+        <div id="kitchen-step-indicator" class="bg-amber-600 text-white text-xs md:text-sm px-3 py-1 rounded-full font-bold shadow">
+          步驟 1/3: 旋轉控制校準烘烤
+        </div>
+      </div>
+
+      <!-- STEP A: ROASTING CALIBRATION -->
+      <div id="stage-roasting" class="w-full flex flex-col items-center justify-center flex-1">
+        
+        <!-- Roasting Animation Area -->
+        <div class="relative w-36 h-36 md:w-44 md:h-44 my-1 flex items-center justify-center">
+          <div class="absolute inset-0 rounded-full border-4 border-dashed border-amber-400 bg-amber-100/60 flex items-center justify-center"></div>
+          <div id="roast-chicken-emoji" class="text-6xl md:text-7xl anim-roast transform transition-transform">🐔</div>
+          <div class="absolute -bottom-2 text-2xl animate-bounce">🔥</div>
+        </div>
+
+        <!-- Dynamic Radial Meter Canvas -->
+        <div class="relative my-2 flex justify-center">
+          <canvas id="canvas-roast-meter" width="220" height="220" class="block rounded-full meter-shadow"></canvas>
+        </div>
+
+        <!-- Calibration Click Button -->
+        <button id="btn-calibrate" onclick="triggerRoastCalibration()" class="mt-1 bg-gradient-to-r from-amber-500 to-warm-600 hover:from-amber-600 hover:to-warm-700 active:scale-95 text-white font-black text-lg px-8 py-2.5 rounded-2xl shadow-lg border-2 border-amber-700 transition transform">
+          🔥 點擊校準烘烤 🔥
+        </button>
+
+        <!-- Bottom 3 calibration results circles indicator -->
+        <div class="mt-4 flex items-center gap-4 bg-amber-100 px-6 py-2 rounded-2xl border border-amber-300">
+          <span class="text-xs font-bold text-amber-800">烘烤品質紀錄：</span>
+          <div class="flex gap-3">
+            <div id="res-circle-0" class="w-8 h-8 rounded-full border-2 border-amber-400 bg-gray-200 flex items-center justify-center text-xs font-bold">1</div>
+            <div id="res-circle-1" class="w-8 h-8 rounded-full border-2 border-amber-400 bg-gray-200 flex items-center justify-center text-xs font-bold">2</div>
+            <div id="res-circle-2" class="w-8 h-8 rounded-full border-2 border-amber-400 bg-gray-200 flex items-center justify-center text-xs font-bold">3</div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- STEP B: CHEESE POURING / MID SEASONING (Specific to Cheese Chicken) -->
+      <div id="stage-mid-season" class="hidden w-full flex flex-col items-center justify-center flex-1 py-6">
+        <div class="text-6xl my-4 animate-bounce">🧀</div>
+        <h3 class="text-xl font-black text-amber-900 mb-2">澆上濃郁起司！</h3>
+        <p class="text-sm text-amber-700 mb-6 text-center max-w-sm">金黃起司雞需要在第一次烘烤後澆上起司，準備進行二次金黃微焦烘烤！</p>
+        <button onclick="applyMidCheese()" class="bg-amber-500 hover:bg-amber-600 text-white font-black text-lg px-8 py-3 rounded-2xl shadow-lg border-2 border-amber-700">
+          ✨ 澆上起司醬 ✨
+        </button>
+      </div>
+
+      <!-- STEP C: SAUCE BRUSHING MINIGAME -->
+      <div id="stage-brushing" class="hidden w-full flex flex-col items-center justify-center flex-1">
+        
+        <div class="relative w-36 h-36 my-1 flex items-center justify-center">
+          <div id="brush-chicken-emoji" class="text-6xl">🐔</div>
+          <div id="brush-tool-emoji" class="absolute -right-2 top-2 text-4xl anim-brush">🧹</div>
+        </div>
+
+        <p class="text-xs md:text-sm font-bold text-amber-800 mb-2 text-center max-w-md">
+          <span class="text-amber-900 font-black">按住按鈕讀條往前推進</span>，<span class="text-amber-900 font-black">放開時讀條倒退回退</span>！<br/>請將讀條保持在 <span class="text-green-600 font-black">綠色區域</span> 累積達到 5 秒！
+        </p>
+
+        <!-- Brushing Bar Canvas -->
+        <div class="w-full max-w-md my-2 px-2">
+          <canvas id="canvas-brush-meter" width="400" height="44" class="w-full rounded-xl meter-shadow border-2 border-amber-400"></canvas>
+        </div>
+
+        <!-- Progress Counter -->
+        <div class="text-sm font-bold text-amber-900 my-1">
+          刷醬累積進度: <span id="brush-time-text" class="text-green-600 text-lg font-black">0.0</span> / 5.0 秒
+        </div>
+
+        <!-- Press & Hold Button (Touch + Mouse support) -->
+        <button id="btn-brush-hold" 
+                onmousedown="startBrushingHold()" onmouseup="endBrushingHold()" onmouseleave="endBrushingHold()"
+                ontouchstart="startBrushingHold(event)" ontouchend="endBrushingHold(event)"
+                class="mt-3 bg-gradient-to-r from-emerald-500 to-green-600 active:from-emerald-600 active:to-green-700 text-white font-black text-lg px-10 py-3.5 rounded-2xl shadow-lg border-2 border-green-700 select-none touch-none">
+          🖐️ 長按刷醬 (放開回退) 🖐️
+        </button>
+
+      </div>
+
+      <!-- STEP D: FINAL SEASONING & CUTTING -->
+      <div id="stage-seasoning" class="hidden w-full flex flex-col items-center justify-center flex-1">
+        <div class="text-5xl my-2">🧂</div>
+        <h3 class="text-lg font-black text-amber-900 mb-1">加入顧客要求的調味料與備餐</h3>
+        <p class="text-xs text-amber-700 mb-4">顧客點選要求調料：<span id="seasoning-target-name" class="font-black text-amber-900 text-base">胡椒</span></p>
+
+        <!-- Seasoning buttons selection -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6 w-full max-w-md">
+          <button onclick="selectSeasoning('起司')" class="btn-season-opt bg-amber-100 hover:bg-amber-200 border-2 border-amber-300 rounded-xl p-3 text-sm font-bold text-amber-900 flex flex-col items-center">
+            <span class="text-2xl">🧀</span>起司
+          </button>
+          <button onclick="selectSeasoning('迷迭香')" class="btn-season-opt bg-amber-100 hover:bg-amber-200 border-2 border-amber-300 rounded-xl p-3 text-sm font-bold text-amber-900 flex flex-col items-center">
+            <span class="text-2xl">🌿</span>迷迭香
+          </button>
+          <button onclick="selectSeasoning('香草')" class="btn-season-opt bg-amber-100 hover:bg-amber-200 border-2 border-amber-300 rounded-xl p-3 text-sm font-bold text-amber-900 flex flex-col items-center">
+            <span class="text-2xl">🌱</span>香草
+          </button>
+          <button onclick="selectSeasoning('胡椒')" class="btn-season-opt bg-amber-100 hover:bg-amber-200 border-2 border-amber-300 rounded-xl p-3 text-sm font-bold text-amber-900 flex flex-col items-center">
+            <span class="text-2xl">🌶️</span>胡椒
+          </button>
+        </div>
+
+        <!-- Cutting Section if Half Chicken -->
+        <div id="section-cutting" class="hidden bg-amber-100/80 border-2 border-dashed border-amber-400 p-3.5 rounded-xl flex flex-col items-center mb-4 w-full max-w-md">
+          <span class="text-xs font-bold text-amber-800 mb-2">此餐點為【半隻】，出餐前必須進行切分：</span>
+          <button id="btn-cut-chicken" onclick="performCut()" class="bg-red-500 hover:bg-red-600 text-white font-bold text-sm px-6 py-2 rounded-xl shadow flex items-center gap-2">
+            <i class="fa-solid fa-scissors"></i> 進行切分 (咔嚓)
+          </button>
+          <span id="cut-status-text" class="hidden text-xs font-black text-green-600 mt-1">✓ 已完成切分！</span>
+        </div>
+
+        <button id="btn-finish-cooking" onclick="finishCookingAndPrepareServe()" disabled class="opacity-50 bg-amber-600 text-white font-black text-base px-8 py-3 rounded-2xl shadow-lg border-2 border-amber-700">
+          完成備餐，準備出餐！
+        </button>
+
+      </div>
+
+    </div>
+
+    <!-- Win Overlay Modal -->
+    <div id="modal-gameover" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div class="bg-warm-50 border-4 border-amber-400 rounded-3xl p-6 md:p-8 max-w-md w-full text-center shadow-2xl relative">
+        <div id="gameover-icon" class="text-6xl mb-3">🏆</div>
+        <h2 id="gameover-title" class="text-2xl md:text-3xl font-black text-amber-950 mb-2">恭喜通關霸霸烤雞店！</h2>
+        <p id="gameover-desc" class="text-sm text-amber-800 mb-6">您展現了絕妙的烤雞技巧與經營頭腦，成功達成了連鎖烤雞大亨的傳奇！</p>
+        
+        <div class="bg-amber-100 p-4 rounded-2xl mb-6 text-left text-xs md:text-sm font-bold text-amber-900 space-y-2">
+          <div>💰 最終累積營業額：$<span id="go-stat-money">0</span></div>
+          <div>⭐ 最終累積好評數：<span id="go-stat-reviews">0</span> 讚</div>
+          <div>⏱️ 總營業時間：<span id="go-stat-time">0</span> 秒</div>
+        </div>
+
+        <button onclick="restartGame()" class="w-full bg-amber-500 hover:bg-amber-600 text-white font-black text-lg py-3 rounded-2xl shadow-lg border-2 border-amber-700 transition">
+          🔄 重新開店
+        </button>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Footer Log Bar -->
+  <footer class="bg-amber-900 text-amber-100 p-2 md:p-3 text-xs border-t-2 border-amber-700">
+    <div class="max-w-6xl mx-auto flex items-center gap-3">
+      <span class="font-bold text-warm-300 shrink-0"><i class="fa-solid fa-bell"></i> 店務日誌:</span>
+      <div id="game-log" class="truncate font-sans text-amber-200">霸霸烤雞店隆重開幕！點擊客人頭上氣泡即可開啟烤雞！</div>
+    </div>
+  </footer>
+
+  <script>
+    /* ===================================================================
+       GAME CONFIGURATION & CONSTANTS
+       =================================================================== */
+    const CONFIG = {
+      WIN_MONEY: 30000,
+      WIN_REVIEWS: 50,
+      CUSTOMER_PATIENCE_TIME: 60, // Set to 60 seconds customer patience!
+      PENALTY_DURATION: 300, // 5 mins in seconds
+      WAITER_COST_PER_MIN: 500,
+      MENU: {
+        '金黃起司雞': { halfPrice: 300, wholePrice: 600, speedModifier: 1.0, zoneScale: 1.0 },
+        'Q彈捲毛雞': { halfPrice: 250, wholePrice: 500, speedModifier: 0.65, zoneScale: 0.75 },
+        '經典蕭子雞': { halfPrice: 300, wholePrice: 600, speedModifier: 0.55, zoneScale: 0.65 }
+      },
+      SEASONINGS: ['起司', '迷迭香', '香草', '胡椒']
+    };
+
+    /* ===================================================================
+       GAME STATE VARIABLES
+       =================================================================== */
+    let gameState = {
+      money: 0,
+      positiveReviews: 0,
+      negativeReviews: 0,
+      startTime: Date.now(),
+      waiterHired: false,
+      penaltyActive: false,
+      penaltyEndTime: 0,
+      
+      customers: [],
+      nextCustomerId: 1,
+
+      player: { x: 200, y: 180, speed: 5 },
+      waiter: { x: 120, y: 180, speed: 6 },
+
+      holdingOrder: null,
+      currentCooking: null
+    };
+
+    /* ===================================================================
+       AUDIO SYNTHESIZER (Pure Web Audio API Sound Generator)
+       =================================================================== */
+    const AudioEngine = {
+      ctx: null,
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          this.ctx = new AudioContext();
+        }
+      },
+      playBeep(freq = 440, type = 'sine', duration = 0.15) {
+        if (!this.ctx) return;
+        try {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = type;
+          osc.frequency.value = freq;
+          gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start();
+          osc.stop(this.ctx.currentTime + duration);
+        } catch(e){}
+      },
+      playSuccess() {
+        this.playBeep(523.25, 'triangle', 0.1);
+        setTimeout(() => this.playBeep(659.25, 'triangle', 0.15), 100);
+      },
+      playFail() {
+        this.playBeep(220, 'sawtooth', 0.2);
+        setTimeout(() => this.playBeep(180, 'sawtooth', 0.3), 150);
+      }
+    };
+
+    /* ===================================================================
+       DOM ELEMENT REFERENCES
+       =================================================================== */
+    const dom = {
+      hudMoney: document.getElementById('hud-money'),
+      hudReviews: document.getElementById('hud-reviews'),
+      hudPenaltyBadge: document.getElementById('hud-penalty-badge'),
+      penaltyTimeLeft: document.getElementById('penalty-time-left'),
+      btnWaiterToggle: document.getElementById('btn-waiter-toggle'),
+      waiterStatusTag: document.getElementById('waiter-status-tag'),
+      
+      viewHall: document.getElementById('view-hall'),
+      viewKitchen: document.getElementById('view-kitchen'),
+      canvasHall: document.getElementById('canvas-hall'),
+      holdingFoodText: document.getElementById('holding-food-text'),
+      btnCancelDelivery: document.getElementById('btn-cancel-delivery'),
+
+      kitchenDishTitle: document.getElementById('kitchen-dish-title'),
+      kitchenSeasoningReq: document.getElementById('kitchen-seasoning-req'),
+      kitchenStepIndicator: document.getElementById('kitchen-step-indicator'),
+      
+      stageRoasting: document.getElementById('stage-roasting'),
+      stageMidSeason: document.getElementById('stage-mid-season'),
+      stageBrushing: document.getElementById('stage-brushing'),
+      stageSeasoning: document.getElementById('stage-seasoning'),
+
+      canvasRoastMeter: document.getElementById('canvas-roast-meter'),
+      canvasBrushMeter: document.getElementById('canvas-brush-meter'),
+      
+      resCircle0: document.getElementById('res-circle-0'),
+      resCircle1: document.getElementById('res-circle-1'),
+      resCircle2: document.getElementById('res-circle-2'),
+
+      brushTimeText: document.getElementById('brush-time-text'),
+      seasoningTargetName: document.getElementById('seasoning-target-name'),
+      sectionCutting: document.getElementById('section-cutting'),
+      btnCutChicken: document.getElementById('btn-cut-chicken'),
+      cutStatusText: document.getElementById('cut-status-text'),
+      btnFinishCooking: document.getElementById('btn-finish-cooking'),
+
+      modalGameover: document.getElementById('modal-gameover'),
+      goStatMoney: document.getElementById('go-stat-money'),
+      goStatReviews: document.getElementById('go-stat-reviews'),
+      goStatTime: document.getElementById('go-stat-time'),
+
+      gameLog: document.getElementById('game-log')
+    };
+
+    /* ===================================================================
+       INITIALIZATION & MAIN GAME LOOP
+       =================================================================== */
+    window.onload = function() {
+      resizeHallCanvas();
+      window.addEventListener('resize', resizeHallCanvas);
+
+      setupControls();
+
+      // Timers
+      setInterval(gameTick, 1000);
+      requestAnimationFrame(renderLoop);
+
+      // Start customer spawning loop
+      scheduleNextCustomerSpawn();
+
+      logMessage('店務日誌：霸霸烤雞店正式開始營業！客人等待時間為 60 秒！');
+    };
+
+    function resizeHallCanvas() {
+      const parent = dom.canvasHall.parentElement;
+      dom.canvasHall.width = parent.clientWidth;
+      dom.canvasHall.height = parent.clientHeight;
+    }
+
+    function logMessage(msg) {
+      dom.gameLog.innerText = msg;
+    }
+
+    function updateHUD() {
+      dom.hudMoney.innerText = Math.floor(gameState.money).toLocaleString();
+      const effectiveReviews = Math.max(0, gameState.positiveReviews - gameState.negativeReviews);
+      dom.hudReviews.innerText = effectiveReviews;
+
+      if (gameState.penaltyActive) {
+        const remaining = Math.max(0, Math.ceil((gameState.penaltyEndTime - Date.now()) / 1000));
+        dom.penaltyTimeLeft.innerText = remaining;
+
+        if (remaining <= 0) {
+          gameState.penaltyActive = false;
+          dom.hudPenaltyBadge.classList.add('hidden');
+          logMessage('負評處罰時間結束，客流量恢復正常！');
+        } else {
+          dom.hudPenaltyBadge.classList.remove('hidden');
+        }
+      }
+
+      // Check Victory condition
+      if (effectiveReviews >= CONFIG.WIN_REVIEWS || gameState.money >= CONFIG.WIN_MONEY) {
+        triggerVictory();
+      }
+    }
+
+    /* ===================================================================
+       CUSTOMER & DINING HALL LOGIC
+       =================================================================== */
+    const TABLES = [
+      { id: 1, x: 120, y: 100, occupied: false },
+      { id: 2, x: 280, y: 100, occupied: false },
+      { id: 3, x: 440, y: 100, occupied: false },
+      { id: 4, x: 120, y: 260, occupied: false },
+      { id: 5, x: 280, y: 260, occupied: false },
+      { id: 6, x: 440, y: 260, occupied: false },
+    ];
+
+    function scheduleNextCustomerSpawn() {
+      let baseDelay = Math.random() * 4000 + 4000;
+      if (gameState.penaltyActive) {
+        baseDelay *= 2.0; // Spawn interval doubled during penalty
+      }
+
+      setTimeout(() => {
+        spawnCustomer();
+        scheduleNextCustomerSpawn();
+      }, baseDelay);
+    }
+
+    function spawnCustomer() {
+      const emptyTable = TABLES.find(t => !t.occupied);
+      if (!emptyTable) return;
+
+      const types = Object.keys(CONFIG.MENU);
+      const chosenType = types[Math.floor(Math.random() * types.length)];
+      const portion = Math.random() > 0.5 ? '半隻' : '整隻';
+      const seasoning = CONFIG.SEASONINGS[Math.floor(Math.random() * CONFIG.SEASONINGS.length)];
+      const price = portion === '半隻' ? CONFIG.MENU[chosenType].halfPrice : CONFIG.MENU[chosenType].wholePrice;
+
+      const customer = {
+        id: gameState.nextCustomerId++,
+        tableId: emptyTable.id,
+        x: emptyTable.x,
+        y: emptyTable.y,
+        dishType: chosenType,
+        portion: portion,
+        seasoning: seasoning,
+        price: price,
+        spawnTime: Date.now(),
+        patience: CONFIG.CUSTOMER_PATIENCE_TIME, // 60 seconds
+        status: 'WAITING',
+        avatar: ['🐱', '🐶', '🦊', '🐰', '🐻'][Math.floor(Math.random() * 5)]
+      };
+
+      emptyTable.occupied = true;
+      gameState.customers.push(customer);
+      logMessage(`新客人到店！桌位 #${emptyTable.id} 點了【${customer.portion}${customer.dishType}】(調料:${customer.seasoning})`);
+    }
+
+    function gameTick() {
+      const now = Date.now();
+
+      // Customer patience check (60s countdown)
+      for (let i = gameState.customers.length - 1; i >= 0; i--) {
+        const c = gameState.customers[i];
+        const elapsed = Math.floor((now - c.spawnTime) / 1000);
+        c.remainingPatience = Math.max(0, c.patience - elapsed);
+
+        if (c.remainingPatience <= 0 && c.status === 'WAITING') {
+          logMessage(`⚠️ 桌位 #${c.tableId} 的客人等候滿 60 秒生氣離開，留下負評！`);
+          gameState.negativeReviews++;
+          applyPenalty();
+          
+          const tbl = TABLES.find(t => t.id === c.tableId);
+          if (tbl) tbl.occupied = false;
+          gameState.customers.splice(i, 1);
+        }
+      }
+
+      // Waiter continuous fee ($500 / 60 sec = ~$8.33 / sec)
+      if (gameState.waiterHired) {
+        const costPerSec = CONFIG.WAITER_COST_PER_MIN / 60;
+        gameState.money = Math.max(0, gameState.money - costPerSec);
+        updateWaiterAI();
+      }
+
+      updateHUD();
+    }
+
+    function applyPenalty() {
+      gameState.penaltyActive = true;
+      gameState.penaltyEndTime = Date.now() + (CONFIG.PENALTY_DURATION * 1000);
+      AudioEngine.playFail();
+    }
+
+    function toggleWaiter() {
+      AudioEngine.init();
+      gameState.waiterHired = !gameState.waiterHired;
+      if (gameState.waiterHired) {
+        dom.btnWaiterToggle.classList.replace('bg-amber-800', 'bg-green-700');
+        dom.waiterStatusTag.innerText = '服務中';
+        dom.waiterStatusTag.classList.replace('bg-gray-600', 'bg-green-500');
+        logMessage('已雇用服務員！將自動幫忙送餐給外場客人。');
+      } else {
+        dom.btnWaiterToggle.classList.replace('bg-green-700', 'bg-amber-800');
+        dom.waiterStatusTag.innerText = '未啟用';
+        dom.waiterStatusTag.classList.replace('bg-green-500', 'bg-gray-600');
+        logMessage('服務員已即時停止服務。');
+      }
+    }
+
+    function updateWaiterAI() {
+      if (!gameState.holdingOrder) return;
+
+      const target = gameState.customers.find(c => c.id === gameState.holdingOrder.customerId);
+      if (!target) return;
+
+      const dx = target.x - gameState.waiter.x;
+      const dy = target.y - gameState.waiter.y;
+      const dist = Math.hypot(dx, dy);
+
+      if (dist < 10) {
+        deliverFoodToCustomer(target);
+      } else {
+        gameState.waiter.x += (dx / dist) * gameState.waiter.speed;
+        gameState.waiter.y += (dy / dist) * gameState.waiter.speed;
+      }
+    }
+
+    /* ===================================================================
+       CONTROLS & RENDERING HALL CANVAS
+       =================================================================== */
+    const keysPressed = {};
+    function setupControls() {
+      window.addEventListener('keydown', e => {
+        AudioEngine.init();
+        keysPressed[e.key] = true;
+      });
+      window.addEventListener('keyup', e => {
+        keysPressed[e.key] = false;
+      });
+
+      dom.canvasHall.addEventListener('click', e => {
+        AudioEngine.init();
+        const rect = dom.canvasHall.getBoundingClientRect();
+        const scaleX = dom.canvasHall.width / rect.width;
+        const scaleY = dom.canvasHall.height / rect.height;
+        const clickX = (e.clientX - rect.left) * scaleX;
+        const clickY = (e.clientY - rect.top) * scaleY;
+
+        gameState.customers.forEach(c => {
+          if (c.status === 'WAITING') {
+            const bubbleX = c.x;
+            const bubbleY = c.y - 45;
+            const dist = Math.hypot(clickX - bubbleX, clickY - bubbleY);
+            if (dist < 38) {
+              startCookingForCustomer(c);
+            }
+          }
+        });
+      });
+    }
+
+    function movePlayer(dir) {
+      AudioEngine.init();
+      const speed = gameState.player.speed * 3.5;
+      if (dir === 'Up') gameState.player.y -= speed;
+      if (dir === 'Down') gameState.player.y += speed;
+      if (dir === 'Left') gameState.player.x -= speed;
+      if (dir === 'Right') gameState.player.x += speed;
+      clampPlayerPos();
+    }
+
+    function clampPlayerPos() {
+      const w = dom.canvasHall.width;
+      const h = dom.canvasHall.height;
+      gameState.player.x = Math.max(30, Math.min(w - 30, gameState.player.x));
+      gameState.player.y = Math.max(30, Math.min(h - 30, gameState.player.y));
+    }
+
+    function renderLoop() {
+      if (keysPressed['ArrowUp'] || keysPressed['w'] || keysPressed['W']) gameState.player.y -= gameState.player.speed;
+      if (keysPressed['ArrowDown'] || keysPressed['s'] || keysPressed['S']) gameState.player.y += gameState.player.speed;
+      if (keysPressed['ArrowLeft'] || keysPressed['a'] || keysPressed['A']) gameState.player.x -= gameState.player.speed;
+      if (keysPressed['ArrowRight'] || keysPressed['d'] || keysPressed['D']) gameState.player.x += gameState.player.speed;
+      clampPlayerPos();
+
+      if (gameState.holdingOrder) {
+        const target = gameState.customers.find(c => c.id === gameState.holdingOrder.customerId);
+        if (target) {
+          const dist = Math.hypot(target.x - gameState.player.x, target.y - gameState.player.y);
+          if (dist < 40) {
+            deliverFoodToCustomer(target);
+          }
+        }
+      }
+
+      drawHall();
+
+      if (cookingActive) {
+        updateAndDrawKitchenMeters();
+      }
+
+      requestAnimationFrame(renderLoop);
+    }
+
+    function drawHall() {
+      const ctx = dom.canvasHall.getContext('2d');
+      const w = dom.canvasHall.width;
+      const h = dom.canvasHall.height;
+
+      // Floor Tile Background
+      ctx.fillStyle = '#F5E6CA';
+      ctx.fillRect(0, 0, w, h);
+
+      ctx.strokeStyle = '#E2D0B0';
+      ctx.lineWidth = 1;
+      const tileSize = 40;
+      for (let x = 0; x < w; x += tileSize) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+      }
+      for (let y = 0; y < h; y += tileSize) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+      }
+
+      // Kitchen Counter Area
+      ctx.fillStyle = '#8D4925';
+      ctx.fillRect(10, 10, 85, 60);
+      ctx.fillStyle = '#FFF';
+      ctx.font = 'bold 12px Noto Sans TC';
+      ctx.fillText('🍳 廚房出餐', 20, 45);
+
+      // Dining Tables
+      TABLES.forEach(tbl => {
+        ctx.fillStyle = '#D97706';
+        ctx.beginPath();
+        ctx.arc(tbl.x, tbl.y, 25, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#B45309';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        ctx.fillStyle = '#FFF8EA';
+        ctx.font = 'bold 10px Noto Sans TC';
+        ctx.textAlign = 'center';
+        ctx.fillText(`桌 ${tbl.id}`, tbl.x, tbl.y + 4);
+      });
+
+      // Customers
+      gameState.customers.forEach(c => {
+        ctx.font = '26px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(c.avatar, c.x, c.y + 8);
+
+        if (c.status === 'WAITING') {
+          const bx = c.x;
+          const by = c.y - 42;
+
+          ctx.fillStyle = '#FFFFFF';
+          ctx.strokeStyle = '#D97706';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.roundRect(bx - 58, by - 22, 116, 44, 10);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.beginPath();
+          ctx.moveTo(bx - 6, by + 22);
+          ctx.lineTo(bx, by + 28);
+          ctx.lineTo(bx + 6, by + 22);
+          ctx.fill();
+
+          ctx.fillStyle = '#78350F';
+          ctx.font = 'bold 10px Noto Sans TC';
+          ctx.fillText(`${c.portion}${c.dishType}`, bx, by - 6);
+          
+          // Color warning for patience
+          const patienceSec = c.remainingPatience || 60;
+          ctx.fillStyle = patienceSec < 15 ? '#DC2626' : '#EF4444';
+          ctx.fillText(`[${c.seasoning}] ⏱️${patienceSec}s`, bx, by + 10);
+        }
+      });
+
+      // Waiter
+      if (gameState.waiterHired) {
+        ctx.font = '24px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('🤵', gameState.waiter.x, gameState.waiter.y);
+      }
+
+      // Player Chef
+      ctx.font = '28px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('👨‍🍳', gameState.player.x, gameState.player.y);
+
+      if (gameState.holdingOrder) {
+        ctx.font = '16px sans-serif';
+        ctx.fillText('🍱', gameState.player.x + 15, gameState.player.y - 15);
+      }
+    }
+
+    /* ===================================================================
+       COOKING MINIGAME LOGIC
+       =================================================================== */
+    let cookingActive = false;
+    let roastAngle = 0;
+    let roastSpeed = 0.05; // 1 second full revolution
+    let calibrationStep = 0;
+    let calibrationResults = [];
+
+    let zoneConfig = {
+      perfectRange: 0.35,
+      normalRange: 0.85
+    };
+
+    // Brush State variables
+    let brushPointer = 0;
+    let isHoldingBrush = false;
+    let brushAccumulatedTime = 0;
+
+    function startCookingForCustomer(customer) {
+      cookingActive = true;
+      gameState.currentCooking = {
+        customer: customer,
+        dishType: customer.dishType,
+        portion: customer.portion,
+        seasoning: customer.seasoning,
+        stage: 'ROASTING',
+        roastCount: 0,
+        results: [],
+        hasCut: false,
+        selectedSeasoning: null
+      };
+
+      const spec = CONFIG.MENU[customer.dishType];
+      roastSpeed = 0.10 * spec.speedModifier; // 1 second full revolution (~0.1 rad per frame)
+      zoneConfig.perfectRange = 0.35 * spec.zoneScale;
+      zoneConfig.normalRange = 0.85 * spec.zoneScale;
+
+      dom.viewHall.classList.add('hidden');
+      dom.viewKitchen.classList.remove('hidden');
+
+      dom.kitchenDishTitle.innerText = `${customer.dishType} (${customer.portion})`;
+      dom.kitchenSeasoningReq.innerText = `需求調料：${customer.seasoning}`;
+
+      resetRoastStage();
+      logMessage(`進入廚房！開始烘烤【${customer.dishType}】...`);
+    }
+
+    function resetRoastStage() {
+      calibrationStep = 0;
+      calibrationResults = [];
+      roastAngle = 0;
+
+      [dom.resCircle0, dom.resCircle1, dom.resCircle2].forEach((el, idx) => {
+        el.className = 'w-8 h-8 rounded-full border-2 border-amber-400 bg-gray-200 flex items-center justify-center text-xs font-bold';
+        el.innerText = idx + 1;
+      });
+
+      dom.stageRoasting.classList.remove('hidden');
+      dom.stageMidSeason.classList.add('hidden');
+      dom.stageBrushing.classList.add('hidden');
+      dom.stageSeasoning.classList.add('hidden');
+
+      if (gameState.currentCooking.roastCount === 0) {
+        dom.kitchenStepIndicator.innerText = '步驟 1/3: 旋轉校準烘烤';
+      } else {
+        dom.kitchenStepIndicator.innerText = '步驟 2/3: 二次金黃微焦烘烤';
+      }
+    }
+
+    function triggerRoastCalibration() {
+      if (!cookingActive || calibrationStep >= 3) return;
+
+      AudioEngine.playBeep(600, 'sine', 0.1);
+
+      const currentNorm = roastAngle % (Math.PI * 2);
+      const targetCenter = Math.PI * 1.5;
+      let diff = Math.abs(currentNorm - targetCenter);
+      if (diff > Math.PI) diff = (Math.PI * 2) - diff;
+
+      let result = 'BURNT';
+      if (diff <= zoneConfig.perfectRange) {
+        result = 'PERFECT';
+      } else if (diff <= zoneConfig.normalRange) {
+        result = 'NORMAL';
+      }
+
+      calibrationResults.push(result);
+      gameState.currentCooking.results.push(result);
+
+      const circleEl = [dom.resCircle0, dom.resCircle1, dom.resCircle2][calibrationStep];
+      if (result === 'PERFECT') {
+        circleEl.className = 'w-8 h-8 rounded-full bg-green-500 text-white font-black flex items-center justify-center text-xs shadow';
+        circleEl.innerText = '完美';
+      } else if (result === 'NORMAL') {
+        circleEl.className = 'w-8 h-8 rounded-full bg-orange-400 text-white font-black flex items-center justify-center text-xs shadow';
+        circleEl.innerText = '普通';
+      } else {
+        circleEl.className = 'w-8 h-8 rounded-full bg-yellow-400 text-amber-950 font-black flex items-center justify-center text-xs shadow';
+        circleEl.innerText = '烤焦';
+      }
+
+      calibrationStep++;
+
+      if (calibrationStep >= 3) {
+        setTimeout(finishRoastStage, 500);
+      }
+    }
+
+    function finishRoastStage() {
+      const current = gameState.currentCooking;
+
+      if (current.dishType === '金黃起司雞' && current.roastCount === 0) {
+        current.roastCount = 1;
+        dom.stageRoasting.classList.add('hidden');
+        dom.stageMidSeason.classList.remove('hidden');
+        dom.kitchenStepIndicator.innerText = '中間步驟: 澆上起司醬';
+        return;
+      }
+
+      startBrushingStage();
+    }
+
+    function applyMidCheese() {
+      AudioEngine.playSuccess();
+      logMessage('已澆上濃郁起司！進行第二次金黃微焦烘烤...');
+      resetRoastStage();
+    }
+
+    /* Brush Stage setup */
+    function startBrushingStage() {
+      gameState.currentCooking.stage = 'BRUSHING';
+      brushPointer = 0;
+      isHoldingBrush = false;
+      brushAccumulatedTime = 0;
+
+      dom.stageRoasting.classList.add('hidden');
+      dom.stageMidSeason.classList.add('hidden');
+      dom.stageBrushing.classList.remove('hidden');
+      dom.kitchenStepIndicator.innerText = '步驟 2/3: 長按刷醬 (綠色區累積滿 5 秒)';
+    }
+
+    /* Press/Hold events for Brushing Meter */
+    function startBrushingHold(e) {
+      if (e) e.preventDefault();
+      AudioEngine.init();
+      isHoldingBrush = true;
+    }
+
+    function endBrushingHold(e) {
+      if (e) e.preventDefault();
+      isHoldingBrush = false;
+    }
+
+    /* Seasoning & Cutting Stage */
+    function startSeasoningStage() {
+      gameState.currentCooking.stage = 'SEASONING';
+      dom.stageBrushing.classList.add('hidden');
+      dom.stageSeasoning.classList.remove('hidden');
+      dom.kitchenStepIndicator.innerText = '步驟 3/3: 調味與備餐切分';
+
+      dom.seasoningTargetName.innerText = gameState.currentCooking.seasoning;
+
+      if (gameState.currentCooking.portion === '半隻') {
+        dom.sectionCutting.classList.remove('hidden');
+        dom.cutStatusText.classList.add('hidden');
+        dom.btnCutChicken.disabled = false;
+        dom.btnCutChicken.classList.remove('opacity-50');
+      } else {
+        dom.sectionCutting.classList.add('hidden');
+        gameState.currentCooking.hasCut = true;
+      }
+
+      checkCookingFinishReady();
+    }
+
+    function selectSeasoning(name) {
+      AudioEngine.playBeep(500, 'sine', 0.1);
+      gameState.currentCooking.selectedSeasoning = name;
+
+      document.querySelectorAll('.btn-season-opt').forEach(btn => {
+        if (btn.innerText.includes(name)) {
+          btn.classList.add('border-amber-600', 'bg-amber-300');
+        } else {
+          btn.classList.remove('border-amber-600', 'bg-amber-300');
+        }
+      });
+
+      checkCookingFinishReady();
+    }
+
+    function performCut() {
+      AudioEngine.playBeep(800, 'triangle', 0.15);
+      gameState.currentCooking.hasCut = true;
+      dom.cutStatusText.classList.remove('hidden');
+      dom.btnCutChicken.disabled = true;
+      dom.btnCutChicken.classList.add('opacity-50');
+      checkCookingFinishReady();
+    }
+
+    function checkCookingFinishReady() {
+      const c = gameState.currentCooking;
+      if (c && c.selectedSeasoning && c.hasCut) {
+        dom.btnFinishCooking.disabled = false;
+        dom.btnFinishCooking.classList.remove('opacity-50');
+      }
+    }
+
+    function finishCookingAndPrepareServe() {
+      cookingActive = false;
+      const c = gameState.currentCooking;
+
+      gameState.holdingOrder = {
+        customerId: c.customer.id,
+        tableId: c.customer.tableId,
+        dishType: c.dishType,
+        portion: c.portion,
+        seasoning: c.selectedSeasoning,
+        targetSeasoning: c.seasoning,
+        results: c.results,
+        price: c.customer.price
+      };
+
+      dom.viewKitchen.classList.add('hidden');
+      dom.viewHall.classList.remove('hidden');
+
+      dom.holdingFoodText.innerText = `【${c.portion}${c.dishType}】(調料: ${c.selectedSeasoning})`;
+      dom.btnCancelDelivery.classList.remove('hidden');
+
+      logMessage(`烤雞完成！請操作廚師將餐點送到 桌 #${c.customer.tableId}！`);
+      AudioEngine.playSuccess();
+    }
+
+    function cancelHoldingFood() {
+      gameState.holdingOrder = null;
+      dom.holdingFoodText.innerText = '無 (點擊客人口罩氣泡開始烤雞)';
+      dom.btnCancelDelivery.classList.add('hidden');
+      logMessage('已棄單當前托盤餐點。');
+    }
+
+    /* ===================================================================
+       CANVAS METERS (ROASTING RADIAL & BRUSHING BAR)
+       =================================================================== */
+    function updateAndDrawKitchenMeters() {
+      if (!gameState.currentCooking) return;
+
+      if (gameState.currentCooking.stage === 'ROASTING') {
+        drawRadialRoastMeter();
+      } else if (gameState.currentCooking.stage === 'BRUSHING') {
+        updateAndDrawBrushMeter();
+      }
+    }
+
+    function drawRadialRoastMeter() {
+      const ctx = dom.canvasRoastMeter.getContext('2d');
+      const w = dom.canvasRoastMeter.width;
+      const h = dom.canvasRoastMeter.height;
+      const cx = w / 2;
+      const cy = h / 2;
+      const radius = 85;
+
+      ctx.clearRect(0, 0, w, h);
+
+      roastAngle = (roastAngle + roastSpeed) % (Math.PI * 2);
+
+      // Yellow/Burnt Area Base
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+      ctx.fillStyle = '#FDE047';
+      ctx.fill();
+
+      const targetCenter = Math.PI * 1.5;
+
+      // Orange Zone
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, radius, targetCenter - zoneConfig.normalRange, targetCenter + zoneConfig.normalRange);
+      ctx.closePath();
+      ctx.fillStyle = '#FB923C';
+      ctx.fill();
+
+      // Red Zone
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, radius, targetCenter - zoneConfig.perfectRange, targetCenter + zoneConfig.perfectRange);
+      ctx.closePath();
+      ctx.fillStyle = '#EF4444';
+      ctx.fill();
+
+      // Inner Circle
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius - 35, 0, Math.PI * 2);
+      ctx.fillStyle = '#FFF8EA';
+      ctx.fill();
+
+      ctx.fillStyle = '#78350F';
+      ctx.font = 'bold 11px Noto Sans TC';
+      ctx.textAlign = 'center';
+      ctx.fillText('紅:完美 | 橘:普通 | 黃:烤焦', cx, cy + 4);
+
+      // Rotating Needle
+      const needleX = cx + Math.cos(roastAngle) * (radius - 5);
+      const needleY = cy + Math.sin(roastAngle) * (radius - 5);
+
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(needleX, needleY);
+      ctx.strokeStyle = '#374151';
+      ctx.lineWidth = 4;
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(cx, cy, 8, 0, Math.PI * 2);
+      ctx.fillStyle = '#1F2937';
+      ctx.fill();
+    }
+
+    function updateAndDrawBrushMeter() {
+      const ctx = dom.canvasBrushMeter.getContext('2d');
+      const w = dom.canvasBrushMeter.width;
+      const h = dom.canvasBrushMeter.height;
+
+      // Pointer movement: Pressing moves forward (~1 sec per cycle), releasing retreats
+      const stepSpeed = 0.02; // ~1 second sweep
+      if (isHoldingBrush) {
+        brushPointer = Math.min(1.0, brushPointer + stepSpeed);
+      } else {
+        brushPointer = Math.max(0.0, brushPointer - stepSpeed);
+      }
+
+      // Check if pointer is in designated green zones
+      const inZone1 = (brushPointer >= 0.20 && brushPointer <= 0.40);
+      const inZone2 = (brushPointer >= 0.65 && brushPointer <= 0.85);
+      const isInGreenZone = inZone1 || inZone2;
+
+      // Accumulate progress time if in green zone
+      if (isInGreenZone) {
+        brushAccumulatedTime = Math.min(5.0, brushAccumulatedTime + 0.033);
+      }
+
+      dom.brushTimeText.innerText = brushAccumulatedTime.toFixed(1);
+
+      ctx.clearRect(0, 0, w, h);
+
+      // Meter Background (Red/Out of zone)
+      ctx.fillStyle = '#FCA5A5';
+      ctx.fillRect(0, 0, w, h);
+
+      // Two Target Green Bands
+      ctx.fillStyle = '#22C55E';
+      ctx.fillRect(w * 0.20, 0, w * 0.20, h);
+      ctx.fillRect(w * 0.65, 0, w * 0.20, h);
+
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 12px Noto Sans TC';
+      ctx.textAlign = 'center';
+      ctx.fillText('綠色區', w * 0.30, h / 2 + 4);
+      ctx.fillText('綠色區', w * 0.75, h / 2 + 4);
+
+      // Moving Indicator Line
+      const px = brushPointer * w;
+      ctx.fillStyle = '#111827';
+      ctx.fillRect(px - 3, 0, 6, h);
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(px - 3, 0, 6, h);
+
+      // Completion Check
+      if (brushAccumulatedTime >= 5.0) {
+        AudioEngine.playSuccess();
+        logMessage('刷醬累積滿 5 秒成功！準備進行調味備餐...');
+        startSeasoningStage();
+      }
+    }
+
+    /* ===================================================================
+       FINAL DELIVERY & REVIEW EVALUATION
+       =================================================================== */
+    function deliverFoodToCustomer(customer) {
+      const order = gameState.holdingOrder;
+      if (!order || order.customerId !== customer.id) return;
+
+      // Reset Positions on Delivery (Mandatory Reset)
+      gameState.player.x = 200;
+      gameState.player.y = 180;
+      gameState.waiter.x = 120;
+      gameState.waiter.y = 180;
+
+      const burntCount = order.results.filter(r => r === 'BURNT').length;
+      const perfectCount = order.results.filter(r => r === 'PERFECT').length;
+      const correctSeasoning = (order.seasoning === order.targetSeasoning);
+
+      let isPositive = false;
+      let reviewText = '';
+
+      if (burntCount >= 1 || !correctSeasoning) {
+        isPositive = false;
+        reviewText = (!correctSeasoning) ? '調味料加錯了！極度不滿！' : '烤焦了太難吃了！給負評！';
+      } else if (perfectCount >= 2) {
+        isPositive = true;
+        reviewText = '烘烤得太完美了！金黃酥脆給好評！';
+      } else {
+        isPositive = true;
+        reviewText = '味道還不錯，給個好評！';
+      }
+
+      if (isPositive) {
+        gameState.positiveReviews++;
+        gameState.money += order.price;
+        AudioEngine.playSuccess();
+        logMessage(`🎉 桌 #${customer.tableId} 出餐成功！獲得 $${order.price}。顧客評價：「${reviewText}」`);
+      } else {
+        gameState.negativeReviews++;
+        applyPenalty();
+        logMessage(`😭 桌 #${customer.tableId} 顧客留下負評！顧客評價：「${reviewText}」`);
+      }
+
+      const tbl = TABLES.find(t => t.id === customer.tableId);
+      if (tbl) tbl.occupied = false;
+
+      const idx = gameState.customers.findIndex(c => c.id === customer.id);
+      if (idx !== -1) gameState.customers.splice(idx, 1);
+
+      cancelHoldingFood();
+      updateHUD();
+    }
+
+    function triggerVictory() {
+      const totalSec = Math.floor((Date.now() - gameState.startTime) / 1000);
+      dom.goStatMoney.innerText = Math.floor(gameState.money).toLocaleString();
+      dom.goStatReviews.innerText = Math.max(0, gameState.positiveReviews - gameState.negativeReviews);
+      dom.goStatTime.innerText = totalSec;
+
+      dom.modalGameover.classList.remove('hidden');
+      AudioEngine.playSuccess();
+    }
+
+    function restartGame() {
+      gameState = {
+        money: 0,
+        positiveReviews: 0,
+        negativeReviews: 0,
+        startTime: Date.now(),
+        waiterHired: false,
+        penaltyActive: false,
+        penaltyEndTime: 0,
+        customers: [],
+        nextCustomerId: 1,
+        player: { x: 200, y: 180, speed: 5 },
+        waiter: { x: 120, y: 180, speed: 6 },
+        holdingOrder: null,
+        currentCooking: null
+      };
+
+      TABLES.forEach(t => t.occupied = false);
+      cancelHoldingFood();
+      dom.modalGameover.classList.add('hidden');
+      dom.viewKitchen.classList.add('hidden');
+      dom.viewHall.classList.remove('hidden');
+
+      updateHUD();
+      logMessage('店務日誌：霸霸烤雞店重新開幕！');
+    }
+  </script>
+</body>
+</html>

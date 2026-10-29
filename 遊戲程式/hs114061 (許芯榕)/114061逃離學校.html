@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>逃離學校 Escape From School</title>
+    <!-- Tailwind CSS for standard UI layout -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * {
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+        body {
+            background-color: #1a1a2e;
+            color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+        }
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        canvas {
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            background: #000;
+        }
+        .pixel-corners {
+            clip-path: polygon(
+                0 4px, 4px 4px, 4px 0,
+                calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px,
+                100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%,
+                4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px)
+            );
+        }
+        .shake {
+            animation: shake 0.3s cubic-bezier(.36,.07,.19,.97) both;
+        }
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-2px, 0, 0); }
+            20%, 80% { transform: translate3d(4px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-6px, 0, 0); }
+            40%, 60% { transform: translate3d(6px, 0, 0); }
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen m-0 p-0 select-none">
+
+    <div id="game-container">
+        <!-- Canvas Element -->
+        <canvas id="gameCanvas"></canvas>
+
+        <!-- UI HUD Overlays -->
+        <div id="hud" class="absolute top-4 left-4 right-4 flex justify-between items-center pointer-events-none hidden">
+            <!-- Left Info: Distance & Score -->
+            <div class="bg-slate-900/80 backdrop-blur border-2 border-indigo-500 rounded-xl p-3 flex gap-6 text-white shadow-lg">
+                <div>
+                    <div class="text-xs text-indigo-300 font-bold uppercase tracking-wider">逃離距離</div>
+                    <div class="text-2xl font-black"><span id="score-text">0</span> <span class="text-sm font-normal">m</span></div>
+                </div>
+                <div>
+                    <div class="text-xs text-amber-300 font-bold uppercase tracking-wider">假條收集</div>
+                    <div class="text-2xl font-black text-amber-400" id="items-text">0</div>
+                </div>
+                <div>
+                    <div class="text-xs text-emerald-300 font-bold uppercase tracking-wider">當前區域</div>
+                    <div class="text-sm font-bold text-emerald-400 mt-1" id="zone-text">走廊廊道</div>
+                </div>
+            </div>
+
+            <!-- Right Info: Health & High Score -->
+            <div class="bg-slate-900/80 backdrop-blur border-2 border-indigo-500 rounded-xl p-3 flex gap-6 text-white shadow-lg">
+                <div>
+                    <div class="text-xs text-rose-300 font-bold uppercase tracking-wider">生命值</div>
+                    <div class="text-xl flex gap-1 mt-1" id="health-hearts">❤️❤️❤️</div>
+                </div>
+                <div>
+                    <div class="text-xs text-purple-300 font-bold uppercase tracking-wider">最高紀錄</div>
+                    <div class="text-2xl font-black text-purple-300"><span id="highscore-text">0</span> m</div>
+                </div>
+                <!-- Pause Button -->
+                <button id="pause-btn" class="pointer-events-auto bg-indigo-600 hover:bg-indigo-500 text-white font-bold p-2 rounded-lg flex items-center justify-center transition active:scale-95">
+                    ⏸️
+                </button>
+            </div>
+        </div>
+
+        <!-- Start Overlay -->
+        <div id="start-overlay" class="absolute inset-0 bg-slate-950/85 backdrop-blur-md flex flex-col justify-center items-center p-6 text-center z-10">
+            <div class="max-w-md w-full bg-slate-900 border-4 border-indigo-500 p-8 rounded-2xl shadow-2xl relative">
+                <div class="absolute -top-7 left-1/2 transform -translate-x-1/2 bg-indigo-600 text-white font-black px-6 py-2 rounded-full border-2 border-white shadow-lg text-lg">
+                    橫向跑酷小遊戲
+                </div>
+                <h1 class="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-rose-500 to-indigo-400 mb-2 mt-2">
+                    🏃 逃離學校！
+                </h1>
+                <p class="text-slate-300 text-sm mb-6">下課鐘聲響起，教官正在後面狂追！快點逃出學校吧！</p>
+                
+                <div class="bg-slate-800/80 rounded-xl p-4 mb-6 text-left border border-slate-700 text-xs text-slate-300 space-y-2">
+                    <div class="font-bold text-indigo-400 text-sm mb-1">🎮 操作指南：</div>
+                    <div>• <span class="bg-slate-700 px-1.5 py-0.5 rounded text-white font-mono">Space</span> / <span class="bg-slate-700 px-1.5 py-0.5 rounded text-white font-mono">↑</span> / 螢幕上方：<strong class="text-emerald-400">跳躍</strong></div>
+                    <div>• <span class="bg-slate-700 px-1.5 py-0.5 rounded text-white font-mono">↓</span> / 螢幕下方：<strong class="text-amber-400">滑行蹲下</strong></div>
+                    <div>• <span class="bg-slate-700 px-1.5 py-0.5 rounded text-white font-mono">P</span>：<strong class="text-indigo-300">暫停遊戲</strong></div>
+                    <div class="pt-2 border-t border-slate-700/50 text-slate-400">
+                        ⚠️ 撞到障礙物會扣血或減速，被教官抓到就輸了！路上的提神飲料可獲得無敵與加速效果！
+                    </div>
+                </div>
+
+                <button id="start-btn" class="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-black text-xl py-4 rounded-xl shadow-lg transform transition active:scale-95 border-b-4 border-emerald-800">
+                    🚀 開始逃跑！
+                </button>
+            </div>
+        </div>
+
+        <!-- Pause Overlay -->
+        <div id="pause-overlay" class="absolute inset-0 bg-slate-950/75 backdrop-blur-sm flex flex-col justify-center items-center p-6 text-center z-20 hidden">
+            <div class="bg-slate-900 border-2 border-indigo-500 p-8 rounded-2xl shadow-2xl max-w-xs w-full">
+                <h2 class="text-3xl font-extrabold text-white mb-6">⏸️ 遊戲暫停</h2>
+                <button id="resume-btn" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl mb-3 transition shadow-lg">
+                    繼續遊戲
+                </button>
+                <button id="restart-from-pause-btn" class="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 rounded-xl transition">
+                    重新開始
+                </button>
+            </div>
+        </div>
+
+        <!-- Game Over Overlay -->
+        <div id="gameover-overlay" class="absolute inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col justify-center items-center p-6 text-center z-30 hidden">
+            <div class="max-w-md w-full bg-slate-900 border-4 border-rose-600 p-8 rounded-2xl shadow-2xl relative">
+                <div class="text-6xl mb-2">👮‍♂️💨</div>
+                <h2 class="text-3xl font-extrabold text-rose-500 mb-1">你被抓到了！</h2>
+                <p id="gameover-reason" class="text-slate-300 text-sm mb-6">慘了！你被教官抓回教室補習了...</p>
+
+                <div class="bg-slate-800 rounded-xl p-4 mb-6 grid grid-cols-2 gap-4 border border-slate-700">
+                    <div class="text-center border-r border-slate-700">
+                        <div class="text-xs text-slate-400">本次逃離距離</div>
+                        <div id="final-score" class="text-2xl font-black text-white mt-1">0 m</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-xs text-slate-400">歷史最高紀錄</div>
+                        <div id="final-highscore" class="text-2xl font-black text-amber-400 mt-1">0 m</div>
+                    </div>
+                </div>
+
+                <button id="restart-btn" class="w-full bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-400 hover:to-amber-400 text-white font-black text-xl py-4 rounded-xl shadow-lg transform transition active:scale-95 border-b-4 border-rose-800">
+                    🔄 再次嘗試逃跑
+                </button>
+            </div>
+        </div>
+
+        <!-- Mobile Touch Controls -->
+        <div id="mobile-controls" class="absolute bottom-6 left-4 right-4 flex justify-between pointer-events-auto sm:hidden hidden z-10">
+            <button id="mobile-slide" class="bg-amber-600/80 active:bg-amber-500 text-white font-black text-lg p-6 rounded-2xl border-2 border-amber-300/50 shadow-lg active:scale-95 backdrop-blur">
+                👇 蹲下
+            </button>
+            <button id="mobile-jump" class="bg-indigo-600/80 active:bg-indigo-500 text-white font-black text-lg p-6 rounded-2xl border-2 border-indigo-300/50 shadow-lg active:scale-95 backdrop-blur">
+                👆 跳躍
+            </button>
+        </div>
+    </div>
+
+    <!-- JavaScript Game Engine logic -->
+    <script>
+        // --- Web Audio API 音效生成器 ---
+        class SoundEffects {
+            constructor() {
+                this.ctx = null;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                }
+            }
+
+            playJump() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(150, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(600, this.ctx.currentTime + 0.15);
+                
+                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.15);
+            }
+
+            playItem() {
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(523.25, now); // C5
+                osc.frequency.setValueAtTime(659.25, now + 0.08); // E5
+                osc.frequency.setValueAtTime(783.99, now + 0.16); // G5
+
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(now + 0.3);
+            }
+
+            playHit() {
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(120, now);
+                osc.frequency.linearRampToValueAtTime(40, now + 0.2);
+
+                gain.gain.setValueAtTime(0.4, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(now + 0.2);
+            }
+
+            playBoost() {
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(300, now);
+                osc.frequency.exponentialRampToValueAtTime(800, now + 0.25);
+
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(now + 0.25);
+            }
+        }
+
+        const audio = new SoundEffects();
+
+        // --- 遊戲全域狀態與變數 ---
+        const GAME_STATES = { MENU: 'MENU', PLAYING: 'PLAYING', PAUSED: 'PAUSED', GAMEOVER: 'GAMEOVER' };
+        let currentState = GAME_STATES.MENU;
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Layout Dimensions
+        let width = 800;
+        let height = 400;
+        let groundY = 320;
+
+        // Game Metrics & Multipliers
+        let distance = 0;
+        let itemsCollected = 0;
+        let baseSpeed = 5;
+        let currentSpeed = baseSpeed;
+        let health = 3;
+        let highScore = localStorage.getItem('school_escape_highscore') || 0;
+
+        // Chaser Mechanics
+        let teacherDistance = 150; // Distance behind player
+        const MAX_TEACHER_DIST = 220;
+
+        // Zones Configuration
+        const ZONES = [
+            { name: '走廊廊道', distance: 0, bg: '#1e293b', floor: '#334155', accent: '#475569' },
+            { name: '操場跑道', distance: 300, bg: '#0284c7', floor: '#b91c1c', accent: '#dc2626' },
+            { name: '學校大門', distance: 700, bg: '#4c1d95', floor: '#15803d', accent: '#16a34a' }
+        ];
+
+        // --- 遊戲實體類別 ---
+
+        // 1. 玩家 (Player)
+        class Player {
+            constructor() {
+                this.x = 200;
+                this.y = groundY - 60;
+                this.w = 40;
+                this.h = 60;
+                this.vy = 0;
+                this.gravity = 0.65;
+                this.isJumping = false;
+                this.isDucking = false;
+                this.duckHeight = 30;
+                this.normalHeight = 60;
+                this.invincibleTimer = 0;
+                this.boostTimer = 0;
+                this.frame = 0;
+            }
+
+            reset() {
+                this.x = 200;
+                this.y = groundY - this.normalHeight;
+                this.w = 40;
+                this.h = this.normalHeight;
+                this.vy = 0;
+                this.isJumping = false;
+                this.isDucking = false;
+                this.invincibleTimer = 0;
+                this.boostTimer = 0;
+            }
+
+            jump() {
+                if (!this.isJumping && !this.isDucking) {
+                    this.vy = -13.5;
+                    this.isJumping = true;
+                    audio.playJump();
+                }
+            }
+
+            duck(enable) {
+                if (this.isJumping) return;
+                if (enable && !this.isDucking) {
+                    this.isDucking = true;
+                    this.h = this.duckHeight;
+                    this.y = groundY - this.duckHeight;
+                } else if (!enable && this.isDucking) {
+                    this.isDucking = false;
+                    this.h = this.normalHeight;
+                    this.y = groundY - this.normalHeight;
+                }
+            }
+
+            update() {
+                // Apply Gravity
+                if (this.isJumping) {
+                    this.vy += this.gravity;
+                    this.y += this.vy;
+
+                    if (this.y >= groundY - this.h) {
+                        this.y = groundY - this.h;
+                        this.vy = 0;
+                        this.isJumping = false;
+                    }
+                }
+
+                if (this.invincibleTimer > 0) this.invincibleTimer--;
+                if (this.boostTimer > 0) this.boostTimer--;
+
+                this.frame++;
+            }
+
+            draw() {
+                ctx.save();
+                
+                // Invincibility Flash
+                if (this.invincibleTimer > 0 && Math.floor(this.frame / 4) % 2 === 0) {
+                    ctx.globalAlpha = 0.5;
+                }
+
+                // Speed Boost Glow Effect
+                if (this.boostTimer > 0) {
+                    ctx.shadowBlur = 15;
+                    ctx.shadowColor = '#38bdf8';
+                }
+
+                // Render Player Pixel Silhouette / Shapes
+                const px = this.x;
+                const py = this.y;
+
+                if (this.isDucking) {
+                    // Ducking Pose
+                    ctx.fillStyle = '#3b82f6'; // Uniform Blue
+                    ctx.fillRect(px, py + 10, this.w + 10, this.h - 10);
+                    ctx.fillStyle = '#fca5a5'; // Head
+                    ctx.fillRect(px + 30, py + 5, 15, 15);
+                    ctx.fillStyle = '#1e293b'; // Backpack
+                    ctx.fillRect(px + 5, py, 15, 12);
+                } else {
+                    // Standing / Running Pose
+                    // Backpack
+                    ctx.fillStyle = '#6366f1';
+                    ctx.fillRect(px - 8, py + 15, 12, 25);
+
+                    // Body Uniform
+                    ctx.fillStyle = '#2563eb';
+                    ctx.fillRect(px + 8, py + 18, 24, 25);
+
+                    // Head
+                    ctx.fillStyle = '#fca5a5';
+                    ctx.fillRect(px + 10, py, 20, 18);
+                    
+                    // Hair
+                    ctx.fillStyle = '#475569';
+                    ctx.fillRect(px + 8, py - 3, 24, 8);
+
+                    // Animated Legs
+                    ctx.fillStyle = '#1e293b';
+                    const legOffset = Math.sin(this.frame * 0.2) * 10;
+                    if (this.isJumping) {
+                        ctx.fillRect(px + 8, py + 43, 10, 12);
+                        ctx.fillRect(px + 22, py + 38, 10, 12);
+                    } else {
+                        ctx.fillRect(px + 8 + legOffset, py + 43, 10, 17);
+                        ctx.fillRect(px + 22 - legOffset, py + 43, 10, 17);
+                    }
+                }
+
+                ctx.restore();
+            }
+        }
+
+        // 2. 追趕者/教官 (Teacher / Chaser)
+        class Chaser {
+            constructor() {
+                this.w = 45;
+                this.h = 70;
+                this.frame = 0;
+            }
+
+            draw() {
+                const x = player.x - teacherDistance;
+                const y = groundY - this.h;
+
+                if (x + this.w < 0) return; // Hidden off-screen if too far behind
+
+                ctx.save();
+                // Teacher Body
+                ctx.fillStyle = '#991b1b'; // Dark Red Suit
+                ctx.fillRect(x + 10, y + 20, 25, 30);
+
+                // Pants
+                ctx.fillStyle = '#1e293b';
+                const legOffset = Math.sin(this.frame * 0.25) * 8;
+                ctx.fillRect(x + 10 + legOffset, y + 50, 10, 20);
+                ctx.fillRect(x + 25 - legOffset, y + 50, 10, 20);
+
+                // Head
+                ctx.fillStyle = '#fecdd3';
+                ctx.fillRect(x + 12, y + 2, 20, 18);
+
+                // Glasses / Angry Expression
+                ctx.fillStyle = '#000000';
+                ctx.fillRect(x + 22, y + 6, 8, 4);
+
+                // Whistle or Clipboard
+                ctx.fillStyle = '#fbbf24';
+                ctx.fillRect(x + 32, y + 28, 12, 16);
+
+                ctx.restore();
+                this.frame++;
+            }
+        }
+
+        // 3. 障礙物 (Obstacles)
+        class Obstacle {
+            constructor(type, x) {
+                this.x = x;
+                this.type = type; // 'DESK' (jump over), 'PAPER' (duck under), 'BUCKET'
+                this.markedForDeletion = false;
+
+                if (type === 'DESK') {
+                    this.w = 45;
+                    this.h = 40;
+                    this.y = groundY - this.h;
+                } else if (type === 'BUCKET') {
+                    this.w = 30;
+                    this.h = 30;
+                    this.y = groundY - this.h;
+                } else if (type === 'PAPER') { // Floating aerial obstacle
+                    this.w = 35;
+                    this.h = 30;
+                    this.y = groundY - 75; // Requires ducking
+                }
+            }
+
+            update(speed) {
+                this.x -= speed;
+                if (this.x + this.w < -50) this.markedForDeletion = true;
+            }
+
+            draw() {
+                ctx.save();
+                if (this.type === 'DESK') {
+                    // School Desk
+                    ctx.fillStyle = '#b45309';
+                    ctx.fillRect(this.x, this.y, this.w, 10);
+                    ctx.fillStyle = '#78350f';
+                    ctx.fillRect(this.x + 4, this.y + 10, 6, this.h - 10);
+                    ctx.fillRect(this.x + this.w - 10, this.y + 10, 6, this.h - 10);
+                } else if (this.type === 'BUCKET') {
+                    // Wet Bucket & Caution
+                    ctx.fillStyle = '#0284c7';
+                    ctx.fillRect(this.x, this.y, this.w, this.h);
+                    ctx.fillStyle = '#38bdf8';
+                    ctx.fillRect(this.x - 5, this.y + this.h - 4, this.w + 10, 4); // Puddle
+                } else if (this.type === 'PAPER') {
+                    // Flying Homework/Test Paper
+                    ctx.fillStyle = '#f8fafc';
+                    ctx.fillRect(this.x, this.y, this.w, this.h);
+                    ctx.fillStyle = '#ef4444';
+                    ctx.fillRect(this.x + 5, this.y + 5, 12, 3); // Red F grade
+                    ctx.fillStyle = '#94a3b8';
+                    ctx.fillRect(this.x + 5, this.y + 12, 20, 2);
+                    ctx.fillRect(this.x + 5, this.y + 18, 20, 2);
+                }
+                ctx.restore();
+            }
+        }
+
+        // 4. 道具 (Items)
+        class Item {
+            constructor(type, x) {
+                this.x = x;
+                this.type = type; // 'DRINK' (speed/invincible), 'NOTE' (extra score)
+                this.w = 25;
+                this.h = 25;
+                this.y = groundY - 65 - Math.random() * 40;
+                this.markedForDeletion = false;
+                this.floatOffset = Math.random() * Math.PI * 2;
+            }
+
+            update(speed) {
+                this.x -= speed;
+                if (this.x + this.w < -50) this.markedForDeletion = true;
+            }
+
+            draw() {
+                ctx.save();
+                const hoverY = this.y + Math.sin(Date.now() * 0.005 + this.floatOffset) * 5;
+
+                if (this.type === 'DRINK') {
+                    // Energy Drink Bottle
+                    ctx.fillStyle = '#06b6d4';
+                    ctx.fillRect(this.x + 5, hoverY, 15, 25);
+                    ctx.fillStyle = '#facc15';
+                    ctx.fillRect(this.x + 8, hoverY + 6, 9, 12);
+                } else if (this.type === 'NOTE') {
+                    // Hall Pass Note
+                    ctx.fillStyle = '#fef08a';
+                    ctx.fillRect(this.x, hoverY, 22, 22);
+                    ctx.fillStyle = '#16a34a';
+                    ctx.fillRect(this.x + 4, hoverY + 4, 14, 14); // Stamp
+                }
+                ctx.restore();
+            }
+        }
+
+        // 5. 粒子與浮動文字 (Particles & Floating Text)
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.vx = (Math.random() - 0.5) * 6;
+                this.vy = (Math.random() - 0.5) * 6;
+                this.size = Math.random() * 5 + 2;
+                this.alpha = 1;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.alpha -= 0.03;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, this.alpha);
+                ctx.fillStyle = this.color;
+                ctx.fillRect(this.x, this.y, this.size, this.size);
+                ctx.restore();
+            }
+        }
+
+        class FloatingText {
+            constructor(text, x, y, color) {
+                this.text = text;
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.alpha = 1;
+            }
+
+            update() {
+                this.y -= 1.5;
+                this.alpha -= 0.02;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, this.alpha);
+                ctx.fillStyle = this.color;
+                ctx.font = 'bold 16px sans-serif';
+                ctx.fillText(this.text, this.x, this.y);
+                ctx.restore();
+            }
+        }
+
+        // --- 核心遊戲引擎邏輯 ---
+        const player = new Player();
+        const chaser = new Chaser();
+        let obstacles = [];
+        let items = [];
+        let particles = [];
+        let floatingTexts = [];
+        let spawnTimer = 0;
+
+        function resizeCanvas() {
+            const container = document.getElementById('game-container');
+            width = container.clientWidth;
+            height = container.clientHeight;
+            canvas.width = width;
+            canvas.height = height;
+            groundY = height - 80;
+            if (player) player.y = groundY - player.h;
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        function spawnEntities() {
+            spawnTimer++;
+            if (spawnTimer > Math.max(45, 100 - Math.floor(distance / 20))) {
+                spawnTimer = 0;
+                
+                // Spawn Obstacle or Item
+                const rand = Math.random();
+                if (rand < 0.7) {
+                    const types = ['DESK', 'BUCKET', 'PAPER'];
+                    const chosenType = types[Math.floor(Math.random() * types.length)];
+                    obstacles.push(new Obstacle(chosenType, width + 50));
+                } else {
+                    const itemTypes = ['DRINK', 'NOTE'];
+                    const chosenItem = itemTypes[Math.floor(Math.random() * itemTypes.length)];
+                    items.push(new Item(chosenItem, width + 50));
+                }
+            }
+        }
+
+        function createExplosion(x, y, color) {
+            for (let i = 0; i < 15; i++) {
+                particles.push(new Particle(x, y, color));
+            }
+        }
+
+        function getCurrentZone() {
+            for (let i = ZONES.length - 1; i >= 0; i--) {
+                if (distance >= ZONES[i].distance) return ZONES[i];
+            }
+            return ZONES[0];
+        }
+
+        function checkCollisions() {
+            // Player vs Obstacles
+            obstacles.forEach(obs => {
+                if (!obs.markedForDeletion &&
+                    player.x < obs.x + obs.w &&
+                    player.x + player.w > obs.x &&
+                    player.y < obs.y + obs.h &&
+                    player.y + player.h > obs.y) {
+
+                    if (player.invincibleTimer > 0) {
+                        // Destroy obstacle without damage if invincible
+                        obs.markedForDeletion = true;
+                        createExplosion(obs.x, obs.y, '#f59e0b');
+                    } else {
+                        // Take Damage / Slow down
+                        obs.markedForDeletion = true;
+                        health--;
+                        teacherDistance = Math.max(30, teacherDistance - 50); // Teacher moves closer!
+                        player.invincibleTimer = 60; // 1 sec invincibility flash
+                        audio.playHit();
+                        createExplosion(player.x, player.y, '#ef4444');
+                        floatingTexts.push(new FloatingText('痛！速度變慢了！', player.x, player.y - 10, '#ef4444'));
+
+                        // Screen Shake Effect
+                        document.getElementById('game-container').classList.add('shake');
+                        setTimeout(() => document.getElementById('game-container').classList.remove('shake'), 300);
+
+                        if (health <= 0) {
+                            triggerGameOver('生命值歸零，你體力不支被逮住了！');
+                        }
+                    }
+                }
+            });
+
+            // Player vs Items
+            items.forEach(it => {
+                if (!it.markedForDeletion &&
+                    player.x < it.x + it.w &&
+                    player.x + player.w > it.x &&
+                    player.y < it.y + it.h &&
+                    player.y + player.h > it.y) {
+
+                    it.markedForDeletion = true;
+                    if (it.type === 'DRINK') {
+                        audio.playBoost();
+                        player.boostTimer = 180; // 3 Seconds speed boost
+                        player.invincibleTimer = 180;
+                        teacherDistance = Math.min(MAX_TEACHER_DIST, teacherDistance + 30);
+                        floatingTexts.push(new FloatingText('⚡ 提神飲料！加速無敵！', player.x, player.y - 10, '#38bdf8'));
+                        createExplosion(it.x, it.y, '#38bdf8');
+                    } else if (it.type === 'NOTE') {
+                        audio.playItem();
+                        itemsCollected++;
+                        distance += 30; // Extra Distance Bonus
+                        floatingTexts.push(new FloatingText('+30m 請假條！', player.x, player.y - 10, '#4ade80'));
+                        createExplosion(it.x, it.y, '#4ade80');
+                    }
+                }
+            });
+        }
+
+        function updateGame() {
+            if (currentState !== GAME_STATES.PLAYING) return;
+
+            // Speed & Distance Scaling
+            currentSpeed = baseSpeed + Math.floor(distance / 100) * 0.5 + (player.boostTimer > 0 ? 3 : 0);
+            distance += Math.floor(currentSpeed * 0.1);
+
+            // Gradually push teacher back if running safely
+            if (teacherDistance < MAX_TEACHER_DIST && Math.random() < 0.05) {
+                teacherDistance += 0.5;
+            }
+
+            // Check Teacher Caught Player Condition
+            if (teacherDistance <= 40) {
+                triggerGameOver('教官抓到你了！逃跑失敗！');
+                return;
+            }
+
+            player.update();
+            spawnEntities();
+
+            // Update Obstacles & Items
+            obstacles.forEach(obs => obs.update(currentSpeed));
+            items.forEach(it => it.update(currentSpeed));
+            particles.forEach(p => p.update());
+            floatingTexts.forEach(ft => ft.update());
+
+            // Filter out old entities
+            obstacles = obstacles.filter(obs => !obs.markedForDeletion);
+            items = items.filter(it => !it.markedForDeletion);
+            particles = particles.filter(p => p.alpha > 0);
+            floatingTexts = floatingTexts.filter(ft => ft.alpha > 0);
+
+            checkCollisions();
+            updateHUD();
+        }
+
+        // --- 繪製畫面 (Rendering) ---
+        function renderParallaxBackground(zone) {
+            // Sky/Background Color
+            ctx.fillStyle = zone.bg;
+            ctx.fillRect(0, 0, width, height);
+
+            // Parallax Mountains / School Buildings Silhouette
+            ctx.fillStyle = zone.accent;
+            const bgOffset = (distance * 0.5) % 100;
+            for (let i = -1; i < width / 100 + 2; i++) {
+                ctx.fillRect(i * 100 - bgOffset, groundY - 150, 80, 150);
+                // Windows
+                ctx.fillStyle = '#fef08a';
+                ctx.fillRect(i * 100 - bgOffset + 15, groundY - 130, 15, 20);
+                ctx.fillRect(i * 100 - bgOffset + 45, groundY - 130, 15, 20);
+                ctx.fillStyle = zone.accent;
+            }
+
+            // Ground Track
+            ctx.fillStyle = zone.floor;
+            ctx.fillRect(0, groundY, width, height - groundY);
+
+            // Ground Lines Effect
+            ctx.fillStyle = '#ffffff';
+            ctx.globalAlpha = 0.3;
+            const floorOffset = (distance * 2) % 40;
+            for (let i = -1; i < width / 40 + 1; i++) {
+                ctx.fillRect(i * 40 - floorOffset, groundY + 20, 20, 4);
+            }
+            ctx.globalAlpha = 1.0;
+        }
+
+        function drawGame() {
+            const zone = getCurrentZone();
+            renderParallaxBackground(zone);
+
+            // Draw Game Objects
+            obstacles.forEach(obs => obs.draw());
+            items.forEach(it => it.draw());
+            chaser.draw();
+            player.draw();
+            particles.forEach(p => p.draw());
+            floatingTexts.forEach(ft => ft.draw());
+        }
+
+        function gameLoop() {
+            updateGame();
+            drawGame();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // --- UI & State Management ---
+        function updateHUD() {
+            document.getElementById('score-text').innerText = distance;
+            document.getElementById('items-text').innerText = itemsCollected;
+            document.getElementById('highscore-text').innerText = highScore;
+
+            const zone = getCurrentZone();
+            document.getElementById('zone-text').innerText = zone.name;
+
+            // Health Hearts UI
+            let heartsStr = '';
+            for (let i = 0; i < health; i++) heartsStr += '❤️';
+            document.getElementById('health-hearts').innerText = heartsStr || '💀';
+        }
+
+        function startGame() {
+            audio.init();
+            distance = 0;
+            itemsCollected = 0;
+            health = 3;
+            teacherDistance = 150;
+            obstacles = [];
+            items = [];
+            particles = [];
+            floatingTexts = [];
+            player.reset();
+
+            currentState = GAME_STATES.PLAYING;
+
+            document.getElementById('start-overlay').classList.add('hidden');
+            document.getElementById('gameover-overlay').classList.add('hidden');
+            document.getElementById('pause-overlay').classList.add('hidden');
+            document.getElementById('hud').classList.remove('hidden');
+            document.getElementById('mobile-controls').classList.remove('hidden');
+        }
+
+        function triggerGameOver(reason) {
+            currentState = GAME_STATES.GAMEOVER;
+            audio.playHit();
+
+            if (distance > highScore) {
+                highScore = distance;
+                localStorage.setItem('school_escape_highscore', highScore);
+            }
+
+            document.getElementById('gameover-reason').innerText = reason;
+            document.getElementById('final-score').innerText = `${distance} m`;
+            document.getElementById('final-highscore').innerText = `${highScore} m`;
+
+            document.getElementById('gameover-overlay').classList.remove('hidden');
+            document.getElementById('hud').classList.add('hidden');
+            document.getElementById('mobile-controls').classList.add('hidden');
+        }
+
+        function togglePause() {
+            if (currentState === GAME_STATES.PLAYING) {
+                currentState = GAME_STATES.PAUSED;
+                document.getElementById('pause-overlay').classList.remove('hidden');
+            } else if (currentState === GAME_STATES.PAUSED) {
+                currentState = GAME_STATES.PLAYING;
+                document.getElementById('pause-overlay').classList.add('hidden');
+            }
+        }
+
+        // --- 事件監聽器 (Controls & Event Handlers) ---
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' || e.code === 'ArrowUp') {
+                if (currentState === GAME_STATES.PLAYING) player.jump();
+                e.preventDefault();
+            } else if (e.code === 'ArrowDown') {
+                if (currentState === GAME_STATES.PLAYING) player.duck(true);
+                e.preventDefault();
+            } else if (e.code === 'KeyP') {
+                togglePause();
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.code === 'ArrowDown') {
+                if (currentState === GAME_STATES.PLAYING) player.duck(false);
+            }
+        });
+
+        // Touch Control Setup for Mobile
+        const jumpBtn = document.getElementById('mobile-jump');
+        const slideBtn = document.getElementById('mobile-slide');
+
+        jumpBtn.addEventListener('touchstart', (e) => { e.preventDefault(); if (currentState === GAME_STATES.PLAYING) player.jump(); });
+        slideBtn.addEventListener('touchstart', (e) => { e.preventDefault(); if (currentState === GAME_STATES.PLAYING) player.duck(true); });
+        slideBtn.addEventListener('touchend', (e) => { e.preventDefault(); if (currentState === GAME_STATES.PLAYING) player.duck(false); });
+
+        // Touch Gestures on Canvas directly
+        let touchStartY = 0;
+        canvas.addEventListener('touchstart', (e) => {
+            touchStartY = e.touches[0].clientY;
+        }, { passive: true });
+
+        canvas.addEventListener('touchend', (e) => {
+            const touchEndY = e.changedTouches[0].clientY;
+            const diffY = touchEndY - touchStartY;
+
+            if (currentState === GAME_STATES.PLAYING) {
+                if (diffY < -30) player.jump(); // Swipe Up
+                else if (diffY > 30) {          // Swipe Down
+                    player.duck(true);
+                    setTimeout(() => player.duck(false), 600);
+                }
+            }
+        }, { passive: true });
+
+        // Button Click Listeners
+        document.getElementById('start-btn').addEventListener('click', startGame);
+        document.getElementById('restart-btn').addEventListener('click', startGame);
+        document.getElementById('pause-btn').addEventListener('click', togglePause);
+        document.getElementById('resume-btn').addEventListener('click', togglePause);
+        document.getElementById('restart-from-pause-btn').addEventListener('click', startGame);
+
+        // Start Initial Render Engine
+        requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>

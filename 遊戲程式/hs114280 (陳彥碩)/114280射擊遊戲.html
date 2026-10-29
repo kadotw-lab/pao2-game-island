@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Neon Cyber Road</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #03010a;
+            color: #ffffff;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .neon-border-cyan {
+            box-shadow: 0 0 20px rgba(0, 240, 255, 0.4), inset 0 0 15px rgba(0, 240, 255, 0.2);
+            border: 2px solid #00f0ff;
+        }
+
+        .neon-text-cyan {
+            color: #00f0ff;
+            text-shadow: 0 0 10px rgba(0, 240, 255, 0.8), 0 0 25px rgba(0, 240, 255, 0.5);
+        }
+
+        .neon-text-pink {
+            color: #ff0055;
+            text-shadow: 0 0 10px rgba(255, 0, 85, 0.8), 0 0 25px rgba(255, 0, 85, 0.5);
+        }
+
+        .neon-text-yellow {
+            color: #ffea00;
+            text-shadow: 0 0 10px rgba(255, 234, 0, 0.8);
+        }
+
+        .neon-button {
+            background: linear-gradient(135deg, #00f0ff, #7000ff);
+            border: none;
+            color: #ffffff;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            box-shadow: 0 0 25px rgba(0, 240, 255, 0.6);
+            transition: all 0.2s ease;
+        }
+
+        .neon-button:hover {
+            box-shadow: 0 0 35px rgba(0, 240, 255, 0.9);
+            transform: translateY(-2px);
+        }
+
+        .neon-button:active {
+            transform: scale(0.96);
+        }
+
+        .overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(3, 1, 10, 0.88);
+            backdrop-filter: blur(10px);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 30;
+            transition: opacity 0.3s ease;
+        }
+
+        .hidden-screen {
+            display: none !important;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* Screen Shake effect */
+        .shake {
+            animation: shake 0.3s cubic-bezier(.36,.07,.19,.97) both;
+        }
+
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-2px, 2px, 0); }
+            20%, 80% { transform: translate3d(4px, -4px, 0); }
+            30%, 50%, 70% { transform: translate3d(-6px, 6px, 0); }
+            40%, 60% { transform: translate3d(6px, -6px, 0); }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Main Game Frame Wrapper -->
+    <div id="game-wrapper" class="relative w-full max-w-xl h-full max-h-[920px] flex flex-col items-center justify-between p-3 my-auto">
+        
+        <!-- Top HUD Header Dashboard -->
+        <div class="w-full grid grid-cols-3 gap-2 bg-slate-950/80 border border-cyan-500/40 rounded-2xl p-3 mb-2 backdrop-blur-md">
+            <!-- Speedometer -->
+            <div class="flex flex-col items-start justify-center">
+                <span class="text-[10px] text-slate-400 font-mono tracking-widest">SPEED</span>
+                <div class="flex items-baseline gap-1">
+                    <span id="speed-display" class="text-2xl font-black neon-text-cyan">0</span>
+                    <span class="text-xs text-cyan-400/70 font-mono">KM/H</span>
+                </div>
+            </div>
+
+            <!-- Score & High Score -->
+            <div class="flex flex-col items-center justify-center border-x border-cyan-500/20 px-2">
+                <span class="text-[10px] text-slate-400 font-mono tracking-widest">SCORE</span>
+                <span id="score-display" class="text-2xl font-black neon-text-yellow">0</span>
+                <span class="text-[9px] text-slate-500 font-mono mt-0.5">BEST: <span id="high-score-display">0</span></span>
+            </div>
+
+            <!-- Health & Nitro Gauges -->
+            <div class="flex flex-col justify-center items-end gap-1.5">
+                <!-- Health Hearts -->
+                <div class="flex items-center gap-1">
+                    <span class="text-[10px] text-slate-400 font-mono mr-1">HP</span>
+                    <div id="hp-container" class="flex gap-1">
+                        <span class="text-red-500 text-sm">♥</span>
+                        <span class="text-red-500 text-sm">♥</span>
+                        <span class="text-red-500 text-sm">♥</span>
+                    </div>
+                </div>
+                <!-- Nitro Bar -->
+                <div class="w-24">
+                    <div class="flex justify-between items-center text-[9px] font-mono mb-0.5 text-cyan-300">
+                        <span>NITRO</span>
+                        <span id="nitro-text">READY</span>
+                    </div>
+                    <div class="w-full h-2 bg-slate-900 border border-cyan-500/50 rounded-full overflow-hidden p-0.5">
+                        <div id="nitro-bar" class="h-full bg-gradient-to-r from-cyan-500 to-fuchsia-500 rounded-full transition-all duration-75" style="width: 100%;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Canvas Container -->
+        <div class="relative w-full aspect-[9/14] max-h-[640px] bg-slate-950 rounded-2xl overflow-hidden neon-border-cyan flex items-center justify-center">
+            <canvas id="gameCanvas" class="w-full h-full block"></canvas>
+
+            <!-- Start Game Overlay -->
+            <div id="start-screen" class="overlay">
+                <h1 class="text-4xl sm:text-5xl font-black neon-text-cyan mb-1 tracking-widest text-center">CYBER ROAD</h1>
+                <p class="text-fuchsia-400 text-xs font-mono mb-6 tracking-wider">NEON HYPER-DRIVE 2088</p>
+                <button id="start-btn" class="neon-button px-10 py-3.5 rounded-full text-lg cursor-pointer">START DRIVE</button>
+                <div class="mt-8 text-xs text-slate-400 text-center space-y-2 max-w-xs bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+                    <p>🎮 <span class="text-cyan-300">A / D</span> or <span class="text-cyan-300">← / →</span> : Steer</p>
+                    <p>⚡ <span class="text-fuchsia-400">W / ↑ / Shift</span> : Nitro Boost</p>
+                    <p>📱 <span class="text-cyan-300">Touch / Drag</span> : Mobile Control</p>
+                </div>
+            </div>
+
+            <!-- Pause Screen Overlay -->
+            <div id="pause-screen" class="overlay hidden-screen">
+                <h2 class="text-3xl font-black neon-text-cyan mb-4">SYSTEM PAUSED</h2>
+                <button id="resume-btn" class="neon-button px-8 py-3 rounded-full text-base cursor-pointer">RESUME</button>
+            </div>
+
+            <!-- Game Over Overlay -->
+            <div id="gameover-screen" class="overlay hidden-screen">
+                <h2 class="text-4xl font-black neon-text-pink mb-1">VEHICLE DESTROYED</h2>
+                <p class="text-slate-400 text-xs font-mono mb-4">CRITICAL IMPACT DETECTED</p>
+                <div class="bg-slate-900/80 border border-slate-800 p-4 rounded-xl text-center mb-6 w-56">
+                    <p class="text-xs text-slate-400">FINAL SCORE</p>
+                    <p id="final-score" class="text-3xl font-black neon-text-yellow my-1">0</p>
+                    <p class="text-[10px] text-slate-500">MAX SPEED: <span id="final-speed" class="text-cyan-400">0</span> KM/H</p>
+                </div>
+                <button id="restart-btn" class="neon-button px-10 py-3.5 rounded-full text-lg cursor-pointer">RETRY</button>
+            </div>
+        </div>
+
+        <!-- Touch Controls for Mobile -->
+        <div class="w-full flex justify-between items-center gap-3 mt-3 md:hidden">
+            <button id="btn-left" class="flex-1 py-3 bg-slate-900/80 border border-cyan-500/40 rounded-xl text-cyan-400 font-bold text-xl active:bg-cyan-500/30">◀</button>
+            <button id="btn-nitro" class="px-6 py-3 bg-fuchsia-900/50 border border-fuchsia-500/60 rounded-xl text-fuchsia-300 font-bold text-sm active:bg-fuchsia-500/50">⚡ NITRO</button>
+            <button id="btn-right" class="flex-1 py-3 bg-slate-900/80 border border-cyan-500/40 rounded-xl text-cyan-400 font-bold text-xl active:bg-cyan-500/30">▶</button>
+        </div>
+    </div>
+
+    <!-- JavaScript Audio Synthesizer & Game Engine -->
+    <script>
+        class SoundSynth {
+            constructor() {
+                this.ctx = null;
+                this.engineOsc = null;
+                this.engineGain = null;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            startEngine() {
+                if (!this.ctx || this.engineOsc) return;
+                this.engineOsc = this.ctx.createOscillator();
+                this.engineGain = this.ctx.createGain();
+
+                this.engineOsc.type = 'sawtooth';
+                this.engineOsc.frequency.setValueAtTime(55, this.ctx.currentTime); // Low rumble tone
+
+                this.engineGain.gain.setValueAtTime(0.05, this.ctx.currentTime);
+
+                this.engineOsc.connect(this.engineGain);
+                this.engineGain.connect(this.ctx.destination);
+
+                this.engineOsc.start();
+            }
+
+            updateEngine(speedRatio, isNitro) {
+                if (!this.engineOsc || !this.ctx) return;
+                const targetFreq = 50 + speedRatio * 160 + (isNitro ? 60 : 0);
+                this.engineOsc.frequency.setTargetAtTime(targetFreq, this.ctx.currentTime, 0.1);
+            }
+
+            stopEngine() {
+                if (this.engineOsc) {
+                    this.engineOsc.stop();
+                    this.engineOsc.disconnect();
+                    this.engineOsc = null;
+                }
+            }
+
+            playOrbSound() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(523.25, this.ctx.currentTime); // C5
+                osc.frequency.exponentialRampToValueAtTime(1046.50, this.ctx.currentTime + 0.15); // C6
+
+                gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.15);
+            }
+
+            playNitroDropSound() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(300, this.ctx.currentTime);
+                osc.frequency.linearRampToValueAtTime(800, this.ctx.currentTime + 0.2);
+
+                gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.2);
+            }
+
+            playExplosionSound() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(120, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(20, this.ctx.currentTime + 0.4);
+
+                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.4);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.4);
+            }
+        }
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const sound = new SoundSynth();
+
+        let gameState = 'START'; // START, PLAYING, PAUSED, GAMEOVER
+        let score = 0;
+        let highScore = parseInt(localStorage.getItem('cyber_road_highscore') || '0');
+        let speed = 0;
+        let maxSpeed = 320;
+        let baseSpeed = 140;
+        let hp = 3;
+        let nitroAmount = 100;
+        let isNitroActive = false;
+        let maxReachedSpeed = 0;
+
+        // Player Vehicle state
+        let playerX = 0; // Normalized -1.0 (left) to 1.0 (right)
+        let targetPlayerX = 0;
+
+        // Pseudo 3D Horizon setup
+        let roadPosition = 0; // Tracks speed progression
+        let horizonY = 0;
+        let particles = [];
+        let obstacles = [];
+        let collectibles = [];
+
+        // UI DOM elements
+        const speedDisplay = document.getElementById('speed-display');
+        const scoreDisplay = document.getElementById('score-display');
+        const highScoreDisplay = document.getElementById('high-score-display');
+        const hpContainer = document.getElementById('hp-container');
+        const nitroBar = document.getElementById('nitro-bar');
+        const nitroText = document.getElementById('nitro-text');
+        const startScreen = document.getElementById('start-screen');
+        const pauseScreen = document.getElementById('pause-screen');
+        const gameoverScreen = document.getElementById('gameover-screen');
+        const finalScoreDisplay = document.getElementById('final-score');
+        const finalSpeedDisplay = document.getElementById('final-speed');
+        const gameWrapper = document.getElementById('game-wrapper');
+
+        highScoreDisplay.textContent = highScore;
+
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+            horizonY = canvas.height * 0.42;
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        class Particle {
+            constructor(x, y, color, speedX, speedY, radius, decay) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.vx = speedX;
+                this.vy = speedY;
+                this.radius = radius;
+                this.alpha = 1.0;
+                this.decay = decay || 0.02;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.alpha -= this.decay;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, this.alpha);
+                ctx.fillStyle = this.color;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        function createExplosion(x, y, color, count = 25) {
+            for (let i = 0; i < count; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const spd = Math.random() * 8 + 2;
+                particles.push(new Particle(
+                    x, y, color,
+                    Math.cos(angle) * spd,
+                    Math.sin(angle) * spd,
+                    Math.random() * 4 + 2,
+                    Math.random() * 0.03 + 0.015
+                ));
+            }
+        }
+
+        function spawnObstacle() {
+            if (gameState !== 'PLAYING') return;
+            const laneX = (Math.random() * 1.6 - 0.8); // Normalized lane X
+            const types = ['ENEMY_CAR', 'CYBER_TRUCK', 'BARRIER'];
+            const type = types[Math.floor(Math.random() * types.length)];
+            
+            obstacles.push({
+                x: laneX,
+                z: 1000, // Distance on Pseudo-3D Z axis
+                type: type,
+                color: type === 'ENEMY_CAR' ? '#ff0055' : (type === 'CYBER_TRUCK' ? '#9900ff' : '#ff9900')
+            });
+        }
+
+        function spawnCollectible() {
+            if (gameState !== 'PLAYING') return;
+            const laneX = (Math.random() * 1.6 - 0.8);
+            const type = Math.random() > 0.4 ? 'ORB' : 'NITRO';
+
+            collectibles.push({
+                x: laneX,
+                z: 1000,
+                type: type,
+                color: type === 'ORB' ? '#ffea00' : '#00f0ff'
+            });
+        }
+
+        function drawCyberSkyline() {
+            // Dark Neon Gradient Sky
+            const skyGrad = ctx.createLinearGradient(0, 0, 0, horizonY);
+            skyGrad.addColorStop(0, '#03010a');
+            skyGrad.addColorStop(0.7, '#15002a');
+            skyGrad.addColorStop(1, '#3b0054');
+            ctx.fillStyle = skyGrad;
+            ctx.fillRect(0, 0, canvas.width, horizonY);
+
+            // Synthwave Sun
+            const sunRadius = canvas.width * 0.18;
+            const sunX = canvas.width * 0.5;
+            const sunY = horizonY - 10;
+
+            const sunGrad = ctx.createLinearGradient(0, sunY - sunRadius, 0, sunY + sunRadius);
+            sunGrad.addColorStop(0, '#ffea00');
+            sunGrad.addColorStop(0.5, '#ff0055');
+            sunGrad.addColorStop(1, '#3a0050');
+
+            ctx.save();
+            ctx.fillStyle = sunGrad;
+            ctx.shadowBlur = 25;
+            ctx.shadowColor = '#ff0055';
+            ctx.beginPath();
+            ctx.arc(sunX, sunY, sunRadius, Math.PI, 0, false);
+            ctx.fill();
+
+            // Sun horizontal grid blinds
+            ctx.fillStyle = '#03010a';
+            for (let i = 0; i < 6; i++) {
+                const blindH = 2 + i * 1.5;
+                const blindY = sunY - sunRadius * 0.5 + i * 8;
+                ctx.fillRect(sunX - sunRadius, blindY, sunRadius * 2, blindH);
+            }
+            ctx.restore();
+
+            // Background Horizon Skyline Silhouette
+            ctx.fillStyle = '#0a0218';
+            const bldWidth = canvas.width / 12;
+            for (let i = 0; i < 12; i++) {
+                const h = 20 + Math.sin(i * 99) * 40 + (i % 3) * 20;
+                ctx.fillRect(i * bldWidth, horizonY - h, bldWidth - 2, h);
+            }
+        }
+
+        function drawPseudo3DRoad() {
+            // Road Ground Base
+            const groundGrad = ctx.createLinearGradient(0, horizonY, 0, canvas.height);
+            groundGrad.addColorStop(0, '#0d0221');
+            groundGrad.addColorStop(1, '#020008');
+            ctx.fillStyle = groundGrad;
+            ctx.fillRect(0, horizonY, canvas.width, canvas.height - horizonY);
+
+            // Road Perspective Trapezoid
+            const roadTopWidth = canvas.width * 0.12;
+            const roadBottomWidth = canvas.width * 0.95;
+
+            const topLeft = canvas.width / 2 - roadTopWidth / 2;
+            const topRight = canvas.width / 2 + roadTopWidth / 2;
+            const bottomLeft = canvas.width / 2 - roadBottomWidth / 2;
+            const bottomRight = canvas.width / 2 + roadBottomWidth / 2;
+
+            // Draw Dark Road Surface
+            ctx.save();
+            ctx.fillStyle = '#090514';
+            ctx.beginPath();
+            ctx.moveTo(topLeft, horizonY);
+            ctx.lineTo(topRight, horizonY);
+            ctx.lineTo(bottomRight, canvas.height);
+            ctx.lineTo(bottomLeft, canvas.height);
+            ctx.closePath();
+            ctx.fill();
+
+            // Neon Road Side Borders
+            ctx.strokeStyle = '#00f0ff';
+            ctx.lineWidth = 4;
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#00f0ff';
+
+            ctx.beginPath();
+            ctx.moveTo(topLeft, horizonY);
+            ctx.lineTo(bottomLeft, canvas.height);
+            ctx.moveTo(topRight, horizonY);
+            ctx.lineTo(bottomRight, canvas.height);
+            ctx.stroke();
+
+            // Dynamic Moving Perspective Grid Lines (Depth Lines)
+            ctx.strokeStyle = 'rgba(255, 0, 128, 0.4)';
+            ctx.lineWidth = 2;
+            ctx.shadowBlur = 8;
+            ctx.shadowColor = '#ff0080';
+
+            const numHorizontalLines = 16;
+            for (let i = 0; i < numHorizontalLines; i++) {
+                // Exponential spacing for 3D depth perception
+                const lineZ = (i + (roadPosition % 1)) / numHorizontalLines;
+                const y = horizonY + Math.pow(lineZ, 2.5) * (canvas.height - horizonY);
+
+                const currentWidth = roadTopWidth + Math.pow(lineZ, 2.5) * (roadBottomWidth - roadTopWidth);
+                const x1 = canvas.width / 2 - currentWidth / 2;
+                const x2 = canvas.width / 2 + currentWidth / 2;
+
+                ctx.beginPath();
+                ctx.moveTo(x1, y);
+                ctx.lineTo(x2, y);
+                ctx.stroke();
+            }
+
+            // Lane Divider Dashes
+            ctx.strokeStyle = 'rgba(0, 240, 255, 0.5)';
+            ctx.lineWidth = 2;
+            const lanes = [-0.33, 0.33];
+            lanes.forEach(laneOffset => {
+                for (let i = 0; i < numHorizontalLines; i++) {
+                    const lineZ = (i + (roadPosition % 1)) / numHorizontalLines;
+                    const y = horizonY + Math.pow(lineZ, 2.5) * (canvas.height - horizonY);
+                    const currentWidth = roadTopWidth + Math.pow(lineZ, 2.5) * (roadBottomWidth - roadTopWidth);
+                    const x = canvas.width / 2 + laneOffset * currentWidth;
+
+                    if (i % 2 === 0) {
+                        ctx.beginPath();
+                        ctx.arc(x, y, 1.5, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+            });
+
+            ctx.restore();
+        }
+
+        function drawCyberCar(screenX, screenY, scale, color, isPlayer = false) {
+            ctx.save();
+            ctx.translate(screenX, screenY);
+            ctx.scale(scale, scale);
+
+            const carW = 60;
+            const carH = 90;
+
+            // Vehicle Glow Base
+            ctx.shadowBlur = isPlayer ? 20 : 12;
+            ctx.shadowColor = color;
+
+            // Main Cyber Body Chassis
+            ctx.fillStyle = '#080812';
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 3;
+
+            ctx.beginPath();
+            ctx.moveTo(-carW * 0.4, -carH * 0.5); // Top Left
+            ctx.lineTo(carW * 0.4, -carH * 0.5);  // Top Right
+            ctx.lineTo(carW * 0.5, carH * 0.4);   // Bottom Right
+            ctx.lineTo(-carW * 0.5, carH * 0.4);  // Bottom Left
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Windshield / Cabin
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.moveTo(-carW * 0.25, -carH * 0.2);
+            ctx.lineTo(carW * 0.25, -carH * 0.2);
+            ctx.lineTo(carW * 0.3, carH * 0.1);
+            ctx.lineTo(-carW * 0.3, carH * 0.1);
+            ctx.closePath();
+            ctx.fill();
+
+            // Headlights / Taillights
+            ctx.fillStyle = isPlayer ? '#00f0ff' : '#ff0055';
+            const lightY = isPlayer ? -carH * 0.48 : carH * 0.38;
+            ctx.fillRect(-carW * 0.4, lightY, carW * 0.2, 4);
+            ctx.fillRect(carW * 0.2, lightY, carW * 0.2, 4);
+
+            // Nitro Thrust Flames for Player
+            if (isPlayer && isNitroActive) {
+                ctx.fillStyle = '#00f0ff';
+                ctx.shadowBlur = 25;
+                ctx.shadowColor = '#00f0ff';
+                ctx.beginPath();
+                ctx.moveTo(-carW * 0.2, carH * 0.4);
+                ctx.lineTo(0, carH * 0.8 + Math.random() * 15);
+                ctx.lineTo(carW * 0.2, carH * 0.4);
+                ctx.closePath();
+                ctx.fill();
+            }
+
+            ctx.restore();
+        }
+
+        function drawCollectibleOrb(screenX, screenY, scale, type) {
+            ctx.save();
+            ctx.translate(screenX, screenY);
+            ctx.scale(scale, scale);
+
+            const color = type === 'ORB' ? '#ffea00' : '#00f0ff';
+            ctx.fillStyle = color;
+            ctx.shadowBlur = 18;
+            ctx.shadowColor = color;
+
+            ctx.beginPath();
+            ctx.arc(0, 0, 16, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Inner icon
+            ctx.fillStyle = '#000000';
+            ctx.font = 'bold 12px monospace';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(type === 'ORB' ? '$' : '⚡', 0, 1);
+
+            ctx.restore();
+        }
+
+        let obstacleSpawnTimer = 0;
+        let collectibleSpawnTimer = 0;
+
+        function updateGameLogic(delta) {
+            if (gameState !== 'PLAYING') return;
+
+            // Handle Nitro Consumption & Speed Calculations
+            if (isNitroActive && nitroAmount > 0) {
+                speed = Math.min(maxSpeed, speed + delta * 220);
+                nitroAmount = Math.max(0, nitroAmount - delta * 45);
+                if (nitroAmount === 0) isNitroActive = false;
+            } else {
+                // Accelerate gradually to base target speed
+                const targetSpeed = baseSpeed + Math.floor(score / 200) * 10;
+                if (speed < targetSpeed) speed += delta * 40;
+                if (speed > targetSpeed && !isNitroActive) speed -= delta * 60;
+            }
+
+            // Update UI Gauges
+            maxReachedSpeed = Math.max(maxReachedSpeed, Math.round(speed));
+            speedDisplay.textContent = Math.round(speed);
+            score += Math.round((speed / 100) * delta * 60);
+            scoreDisplay.textContent = score;
+
+            // Smooth Player Steering Interpolation
+            playerX += (targetPlayerX - playerX) * 0.15;
+
+            // Sound Engine Frequency Sync
+            sound.updateEngine(speed / maxSpeed, isNitroActive);
+
+            // Progress Road Depth
+            roadPosition += (speed / 1000);
+
+            // Nitro Recharge slowly over time
+            if (!isNitroActive && nitroAmount < 100) {
+                nitroAmount = Math.min(100, nitroAmount + delta * 6);
+            }
+            nitroBar.style.width = `${nitroAmount}%`;
+            nitroText.textContent = isNitroActive ? 'BOOST' : (nitroAmount >= 30 ? 'READY' : 'LOW');
+
+            // Spawning Logic
+            obstacleSpawnTimer += delta;
+            if (obstacleSpawnTimer > Math.max(0.6, 2.2 - (speed / 150))) {
+                spawnObstacle();
+                obstacleSpawnTimer = 0;
+            }
+
+            collectibleSpawnTimer += delta;
+            if (collectibleSpawnTimer > 1.8) {
+                spawnCollectible();
+                collectibleSpawnTimer = 0;
+            }
+
+            // Calculate 3D to 2D projection for player position
+            const playerScreenY = canvas.height * 0.82;
+            const playerRoadWidth = canvas.width * 0.75;
+            const playerScreenX = canvas.width / 2 + playerX * (playerRoadWidth / 2);
+
+            // Update & Check Obstacles
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                const obs = obstacles[i];
+                obs.z -= speed * delta * 2.8;
+
+                if (obs.z <= 0) {
+                    obstacles.splice(i, 1);
+                    continue;
+                }
+
+                // 3D Perspective Projection Formulas
+                const zRatio = (1000 - obs.z) / 1000;
+                const lineZ = Math.pow(zRatio, 2.5);
+                const screenY = horizonY + lineZ * (canvas.height - horizonY);
+                const currentRoadWidth = (canvas.width * 0.12) + lineZ * (canvas.width * 0.83);
+                const screenX = canvas.width / 2 + obs.x * (currentRoadWidth / 2);
+                const scale = 0.2 + lineZ * 0.8;
+
+                // Collision Check near player baseline
+                if (obs.z < 180 && obs.z > 40) {
+                    const dist = Math.abs(screenX - playerScreenX);
+                    if (dist < 40 * scale) {
+                        // Crash Impact
+                        createExplosion(screenX, screenY, obs.color, 30);
+                        sound.playExplosionSound();
+                        gameWrapper.classList.add('shake');
+                        setTimeout(() => gameWrapper.classList.remove('shake'), 300);
+
+                        hp--;
+                        updateHpUI();
+                        obstacles.splice(i, 1);
+
+                        if (hp <= 0) {
+                            triggerGameOver();
+                            return;
+                        }
+                    }
+                }
+            }
+
+            // Update & Check Collectibles
+            for (let i = collectibles.length - 1; i >= 0; i--) {
+                const item = collectibles[i];
+                item.z -= speed * delta * 2.8;
+
+                if (item.z <= 0) {
+                    collectibles.splice(i, 1);
+                    continue;
+                }
+
+                const zRatio = (1000 - item.z) / 1000;
+                const lineZ = Math.pow(zRatio, 2.5);
+                const screenY = horizonY + lineZ * (canvas.height - horizonY);
+                const currentRoadWidth = (canvas.width * 0.12) + lineZ * (canvas.width * 0.83);
+                const screenX = canvas.width / 2 + item.x * (currentRoadWidth / 2);
+                const scale = 0.2 + lineZ * 0.8;
+
+                if (item.z < 180 && item.z > 40) {
+                    const dist = Math.abs(screenX - playerScreenX);
+                    if (dist < 45 * scale) {
+                        if (item.type === 'ORB') {
+                            score += 250;
+                            sound.playOrbSound();
+                            createExplosion(screenX, screenY, '#ffea00', 12);
+                        } else if (item.type === 'NITRO') {
+                            nitroAmount = Math.min(100, nitroAmount + 40);
+                            sound.playNitroDropSound();
+                            createExplosion(screenX, screenY, '#00f0ff', 12);
+                        }
+                        collectibles.splice(i, 1);
+                    }
+                }
+            }
+        }
+
+        let lastTime = performance.now();
+
+        function renderGameLoop(currentTime) {
+            const delta = Math.min(0.1, (currentTime - lastTime) / 1000);
+            lastTime = currentTime;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Pseudo-3D World Background
+            drawCyberSkyline();
+            drawPseudo3DRoad();
+
+            // Render Collectibles
+            collectibles.forEach(item => {
+                const zRatio = (1000 - item.z) / 1000;
+                if (zRatio > 0) {
+                    const lineZ = Math.pow(zRatio, 2.5);
+                    const screenY = horizonY + lineZ * (canvas.height - horizonY);
+                    const currentRoadWidth = (canvas.width * 0.12) + lineZ * (canvas.width * 0.83);
+                    const screenX = canvas.width / 2 + item.x * (currentRoadWidth / 2);
+                    const scale = 0.2 + lineZ * 0.8;
+                    drawCollectibleOrb(screenX, screenY, scale, item.type);
+                }
+            });
+
+            // Render Obstacle Cars
+            obstacles.forEach(obs => {
+                const zRatio = (1000 - obs.z) / 1000;
+                if (zRatio > 0) {
+                    const lineZ = Math.pow(zRatio, 2.5);
+                    const screenY = horizonY + lineZ * (canvas.height - horizonY);
+                    const currentRoadWidth = (canvas.width * 0.12) + lineZ * (canvas.width * 0.83);
+                    const screenX = canvas.width / 2 + obs.x * (currentRoadWidth / 2);
+                    const scale = 0.2 + lineZ * 0.8;
+                    drawCyberCar(screenX, screenY, scale, obs.color, false);
+                }
+            });
+
+            // Render Player Vehicle
+            const playerScreenY = canvas.height * 0.82;
+            const playerRoadWidth = canvas.width * 0.75;
+            const playerScreenX = canvas.width / 2 + playerX * (playerRoadWidth / 2);
+            drawCyberCar(playerScreenX, playerScreenY, 1.0, '#00f0ff', true);
+
+            // Particles Rendering
+            particles.forEach((p, idx) => {
+                p.update();
+                p.draw();
+                if (p.alpha <= 0) particles.splice(idx, 1);
+            });
+
+            // Update Engine Logic
+            updateGameLogic(delta);
+
+            requestAnimationFrame(renderGameLoop);
+        }
+
+        function updateHpUI() {
+            hpContainer.innerHTML = '';
+            for (let i = 0; i < 3; i++) {
+                const heart = document.createElement('span');
+                heart.className = i < hp ? 'text-red-500 text-sm' : 'text-slate-700 text-sm';
+                heart.textContent = '♥';
+                hpContainer.appendChild(heart);
+            }
+        }
+
+        function resetGame() {
+            score = 0;
+            speed = baseSpeed;
+            maxReachedSpeed = 0;
+            hp = 3;
+            nitroAmount = 100;
+            playerX = 0;
+            targetPlayerX = 0;
+            obstacles = [];
+            collectibles = [];
+            particles = [];
+            updateHpUI();
+            scoreDisplay.textContent = '0';
+        }
+
+        function startGame() {
+            sound.init();
+            sound.startEngine();
+            resetGame();
+            gameState = 'PLAYING';
+            startScreen.classList.add('hidden-screen');
+            gameoverScreen.classList.add('hidden-screen');
+            pauseScreen.classList.add('hidden-screen');
+        }
+
+        function triggerGameOver() {
+            gameState = 'GAMEOVER';
+            sound.stopEngine();
+
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('cyber_road_highscore', highScore.toString());
+                highScoreDisplay.textContent = highScore;
+            }
+
+            finalScoreDisplay.textContent = score;
+            finalSpeedDisplay.textContent = maxReachedSpeed;
+            gameoverScreen.classList.remove('hidden-screen');
+        }
+
+        function togglePause() {
+            if (gameState === 'PLAYING') {
+                gameState = 'PAUSED';
+                sound.stopEngine();
+                pauseScreen.classList.remove('hidden-screen');
+            } else if (gameState === 'PAUSED') {
+                gameState = 'PLAYING';
+                sound.startEngine();
+                pauseScreen.classList.add('hidden-screen');
+            }
+        }
+
+        // Keyboard Controllers
+        const keys = {};
+        window.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+
+            if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') targetPlayerX = Math.max(-0.85, targetPlayerX - 0.28);
+            if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') targetPlayerX = Math.min(0.85, targetPlayerX + 0.28);
+            if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp' || e.key === 'Shift') isNitroActive = true;
+            if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') togglePause();
+        });
+
+        window.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+            if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp' || e.key === 'Shift') isNitroActive = false;
+        });
+
+        // Touch & Mobile Button Handlers
+        document.getElementById('btn-left').addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            targetPlayerX = Math.max(-0.85, targetPlayerX - 0.35);
+        });
+
+        document.getElementById('btn-right').addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            targetPlayerX = Math.min(0.85, targetPlayerX + 0.35);
+        });
+
+        const nitroBtn = document.getElementById('btn-nitro');
+        nitroBtn.addEventListener('touchstart', (e) => { e.preventDefault(); isNitroActive = true; });
+        nitroBtn.addEventListener('touchend', (e) => { e.preventDefault(); isNitroActive = false; });
+
+        // Touch Drag Control on Canvas
+        let touchStartX = 0;
+        canvas.addEventListener('touchstart', (e) => {
+            touchStartX = e.touches[0].clientX;
+        }, { passive: true });
+
+        canvas.addEventListener('touchmove', (e) => {
+            if (gameState !== 'PLAYING') return;
+            const diffX = e.touches[0].clientX - touchStartX;
+            targetPlayerX = Math.max(-0.85, Math.min(0.85, targetPlayerX + diffX * 0.005));
+            touchStartX = e.touches[0].clientX;
+        }, { passive: true });
+
+        // UI Event Listeners
+        document.getElementById('start-btn').addEventListener('click', startGame);
+        document.getElementById('restart-btn').addEventListener('click', startGame);
+        document.getElementById('resume-btn').addEventListener('click', togglePause);
+
+        // Start render loop
+        requestAnimationFrame(renderGameLoop);
+    </script>
+</body>
+</html>

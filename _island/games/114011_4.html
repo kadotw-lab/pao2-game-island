@@ -1,0 +1,1411 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>3D 螺旋降落塔 (Helix Tower Smash)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js r128 CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #090d16;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+        }
+
+        #game-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.88);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        .neon-title {
+            text-shadow: 0 0 12px rgba(245, 158, 11, 0.7), 0 0 24px rgba(239, 68, 68, 0.5);
+        }
+
+        @keyframes fireGlow {
+            0% { transform: scale(1); filter: drop-shadow(0 0 8px #f97316); }
+            50% { transform: scale(1.06); filter: drop-shadow(0 0 20px #ef4444); }
+            100% { transform: scale(1); filter: drop-shadow(0 0 8px #f97316); }
+        }
+
+        .fire-badge-anim {
+            animation: fireGlow 0.45s infinite ease-in-out;
+        }
+    </style>
+</head>
+<body class="relative w-full h-full overflow-hidden select-none">
+
+    <!-- 3D Canvas -->
+    <canvas id="game-canvas"></canvas>
+
+    <!-- Top HUD Bar -->
+    <div id="hud-overlay" class="absolute top-0 left-0 w-full p-4 flex justify-between items-center pointer-events-none z-10 hidden">
+        <div class="flex flex-col gap-0.5">
+            <div id="hud-mode-title" class="text-xs uppercase tracking-widest text-amber-400 font-bold">闖關模式</div>
+            <div id="hud-score" class="text-3xl sm:text-4xl font-black text-white tracking-tight">0</div>
+            <div class="text-xs text-slate-400 font-bold tracking-wide">BEST: <span id="hud-best">0</span></div>
+        </div>
+
+        <!-- Currency Display -->
+        <div class="flex items-center gap-3 bg-slate-900/80 backdrop-blur-md px-3 py-1.5 rounded-full border border-slate-700/60 shadow-lg">
+            <div class="flex items-center gap-1 font-extrabold text-amber-400 text-sm sm:text-base">
+                <span>🪙</span>
+                <span id="hud-coins">0</span>
+            </div>
+            <div class="w-px h-4 bg-slate-700"></div>
+            <div class="flex items-center gap-1 font-extrabold text-cyan-400 text-sm sm:text-base">
+                <span>💎</span>
+                <span id="hud-gems">0</span>
+            </div>
+        </div>
+
+        <!-- Fireball Rocket Combo Badge -->
+        <div id="fireball-badge" class="hidden flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-amber-500 via-orange-500 to-red-600 text-white font-black text-sm sm:text-base shadow-xl fire-badge-anim">
+            <span class="text-lg">🔥</span>
+            <span id="combo-text">火箭破壞 (1 次)</span>
+        </div>
+
+        <!-- Pause Button -->
+        <button id="btn-pause" class="pointer-events-auto bg-slate-800/80 hover:bg-slate-700 text-white p-3 rounded-full border border-slate-600/50 transition-all active:scale-95 shadow-md">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+        </button>
+    </div>
+
+    <!-- Start Main Menu Overlay -->
+    <div id="menu-screen" class="absolute inset-0 flex items-center justify-center p-4 z-20 bg-slate-950/75 backdrop-blur-md">
+        <div class="glass-panel p-8 sm:p-10 rounded-3xl max-w-md w-full text-center shadow-2xl flex flex-col items-center border border-white/10">
+            <div class="w-16 h-16 mb-3 rounded-2xl bg-gradient-to-tr from-amber-500 to-red-500 flex items-center justify-center shadow-lg shadow-amber-500/30">
+                <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path>
+                </svg>
+            </div>
+            <h1 class="text-3xl sm:text-4xl font-black text-white mb-1 tracking-wide neon-title">3D 螺旋降落塔</h1>
+            <p class="text-xs uppercase tracking-widest text-amber-400 font-bold mb-4">Helix Tower Smash 3D</p>
+            
+            <!-- Currency Header in Menu -->
+            <div class="flex items-center justify-center gap-6 mb-4 w-full bg-slate-900/80 py-2 rounded-2xl border border-slate-800">
+                <div class="flex items-center gap-2 font-black text-amber-400 text-lg">
+                    <span>🪙</span>
+                    <span id="menu-coins">0</span>
+                </div>
+                <div class="flex items-center gap-2 font-black text-cyan-400 text-lg">
+                    <span>💎</span>
+                    <span id="menu-gems">0</span>
+                </div>
+            </div>
+
+            <!-- Game Mode Selector -->
+            <div class="w-full mb-5 bg-slate-900/90 p-1.5 rounded-2xl flex border border-slate-800">
+                <button id="mode-btn-level" class="flex-1 py-2.5 rounded-xl font-black text-sm transition-all bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md">
+                    🎯 闖關模式 <span id="menu-level-num" class="text-xs block font-normal opacity-90">第 1 關</span>
+                </button>
+                <button id="mode-btn-endless" class="flex-1 py-2.5 rounded-xl font-black text-sm transition-all text-slate-400 hover:text-white">
+                    ♾️ 無盡模式 <span class="text-xs block font-normal opacity-75">無限下落</span>
+                </button>
+            </div>
+
+            <div class="bg-slate-900/90 rounded-2xl p-4 w-full mb-6 text-left border border-slate-800 text-xs sm:text-sm text-slate-300 space-y-2.5">
+                <div class="flex items-center gap-3">
+                    <span class="text-amber-400 font-bold text-lg">↔️</span>
+                    <span><strong>操控：</strong>拖曳螢幕 / 鍵盤 ⬅️ ➡️ 旋轉塔身對準缺口。</span>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span class="text-emerald-400 font-bold text-lg">🎁</span>
+                    <span><strong>闖關模式：</strong>抵達終點平台獲勝，獲得通關寶箱 (金幣 / 寶石)！</span>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span class="text-cyan-400 font-bold text-lg">🪙</span>
+                    <span><strong>無盡模式：</strong>過一層加 1 金幣，累積 1,000 層獲得隨機神秘大寶箱！</span>
+                </div>
+            </div>
+
+            <button id="btn-start" class="w-full py-4 rounded-2xl bg-gradient-to-r from-amber-500 hover:from-amber-400 to-red-500 hover:to-red-400 text-white font-black text-lg tracking-wider shadow-lg shadow-amber-500/25 transition-all transform hover:-translate-y-0.5 active:translate-y-0">
+                開始遊戲
+            </button>
+        </div>
+    </div>
+
+    <!-- Pause Overlay -->
+    <div id="pause-screen" class="absolute inset-0 flex items-center justify-center p-4 z-30 bg-slate-950/80 backdrop-blur-md hidden">
+        <div class="glass-panel p-8 rounded-3xl max-w-xs w-full text-center shadow-2xl space-y-3">
+            <h2 class="text-2xl font-bold text-white mb-2">遊戲暫停</h2>
+            <button id="btn-resume" class="w-full py-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-base transition-all shadow-md">
+                繼續遊戲
+            </button>
+            <button id="btn-restart-pause" class="w-full py-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-base transition-all border border-slate-700">
+                重新開始
+            </button>
+            <button id="btn-home-pause" class="w-full py-3.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 font-semibold text-base transition-all border border-slate-700/60">
+                🏠 返回主選單
+            </button>
+        </div>
+    </div>
+
+    <!-- Game Over Overlay -->
+    <div id="gameover-screen" class="absolute inset-0 flex items-center justify-center p-4 z-40 bg-slate-950/85 backdrop-blur-md hidden">
+        <div class="glass-panel p-8 rounded-3xl max-w-sm w-full text-center shadow-2xl border border-red-500/20">
+            <div id="new-record-badge" class="hidden inline-block mb-3 px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 font-bold text-xs tracking-wider border border-amber-500/40">
+                🎉 刷新歷史最高紀錄！
+            </div>
+            <h2 class="text-3xl font-black text-white mb-1">GAME OVER</h2>
+            <p class="text-slate-400 text-sm mb-6">觸碰到危險尖刺區域！</p>
+
+            <div class="bg-slate-900/90 rounded-2xl p-4 mb-6 space-y-3 border border-slate-800">
+                <div class="flex justify-between items-center text-sm">
+                    <span class="text-slate-400 font-medium">本次得分</span>
+                    <span id="final-score" class="text-2xl font-extrabold text-white">0</span>
+                </div>
+                <div class="h-px bg-slate-800 w-full"></div>
+                <div class="flex justify-between items-center text-sm">
+                    <span class="text-slate-400 font-medium">歷史最高分</span>
+                    <span id="final-best" class="text-lg font-bold text-amber-400">0</span>
+                </div>
+            </div>
+
+            <div class="flex gap-3">
+                <button id="btn-restart" class="flex-1 py-4 rounded-2xl bg-gradient-to-r from-amber-500 to-red-500 hover:from-amber-400 hover:to-red-400 text-white font-black text-base tracking-wider shadow-lg shadow-red-500/25 transition-all transform hover:-translate-y-0.5 active:translate-y-0">
+                    再試一次
+                </button>
+                <button id="btn-home-gameover" class="flex-1 py-4 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-base transition-all border border-slate-700">
+                    🏠 主選單
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Level Complete Win Overlay -->
+    <div id="levelwin-screen" class="absolute inset-0 flex items-center justify-center p-4 z-50 bg-slate-950/85 backdrop-blur-md hidden">
+        <div class="glass-panel p-8 rounded-3xl max-w-sm w-full text-center shadow-2xl border border-emerald-500/30">
+            <div class="w-16 h-16 mx-auto mb-3 rounded-2xl bg-gradient-to-tr from-emerald-400 to-teal-500 flex items-center justify-center shadow-lg shadow-emerald-500/30">
+                <span class="text-3xl">🏆</span>
+            </div>
+            <h2 class="text-3xl font-black text-white mb-1">闖關成功！</h2>
+            <p id="win-level-subtitle" class="text-amber-400 font-bold text-sm mb-5">順利完成 第 1 關</p>
+
+            <div class="bg-slate-900/90 rounded-2xl p-5 mb-6 border border-slate-800 flex flex-col items-center justify-center">
+                <span class="text-xs uppercase tracking-widest text-slate-400 font-bold mb-2">獲得通關獎勵</span>
+                <div id="win-reward-box" class="flex items-center gap-3 text-3xl font-black text-amber-400">
+                    <span>🪙</span>
+                    <span id="win-reward-amount">+100</span>
+                </div>
+            </div>
+
+            <div class="flex gap-3">
+                <button id="btn-next-level" class="flex-1 py-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-black text-base tracking-wider shadow-lg shadow-emerald-500/25 transition-all transform hover:-translate-y-0.5 active:translate-y-0">
+                    下一關
+                </button>
+                <button id="btn-home-levelwin" class="flex-1 py-4 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-base transition-all border border-slate-700">
+                    🏠 主選單
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 1000 Tier Treasure Chest Overlay -->
+    <div id="chest-screen" class="absolute inset-0 flex items-center justify-center p-4 z-50 bg-slate-950/85 backdrop-blur-md hidden">
+        <div class="glass-panel p-8 rounded-3xl max-w-sm w-full text-center shadow-2xl border border-amber-500/40 fire-badge-anim">
+            <div class="w-20 h-20 mx-auto mb-3 rounded-3xl bg-gradient-to-tr from-amber-400 via-orange-500 to-yellow-300 flex items-center justify-center shadow-xl shadow-amber-500/40">
+                <span class="text-4xl">🎁</span>
+            </div>
+            <h2 class="text-3xl font-black text-white mb-1">千層寶箱開啟！</h2>
+            <p id="chest-subtitle" class="text-amber-400 font-bold text-sm mb-5">在無盡模式中達成 1,000 層里程碑！</p>
+
+            <div class="bg-slate-900/90 rounded-2xl p-5 mb-6 border border-slate-800 flex flex-col items-center justify-center">
+                <span class="text-xs uppercase tracking-widest text-slate-400 font-bold mb-2">幸運寶箱大獎</span>
+                <div id="chest-reward-box" class="flex items-center gap-3 text-3xl font-black text-cyan-400">
+                    <span>💎</span>
+                    <span id="chest-reward-amount">+80</span>
+                </div>
+            </div>
+
+            <button id="btn-claim-chest" class="w-full py-4 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white font-black text-lg tracking-wider shadow-lg shadow-amber-500/25 transition-all transform hover:-translate-y-0.5 active:translate-y-0">
+                收下獎勵並繼續
+            </button>
+        </div>
+    </div>
+
+    <script>
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    if (AudioCtx) this.ctx = new AudioCtx();
+                }
+                if (this.ctx && this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            playBounce() {
+                if (!this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(380, this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(130, this.ctx.currentTime + 0.12);
+                    
+                    gain.gain.setValueAtTime(0.35, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.12);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.12);
+                } catch(e){}
+            }
+
+            playShatter() {
+                if (!this.ctx) return;
+                try {
+                    const bufferSize = this.ctx.sampleRate * 0.18;
+                    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                    const data = buffer.getChannelData(0);
+                    for (let i = 0; i < bufferSize; i++) {
+                        data[i] = Math.random() * 2 - 1;
+                    }
+
+                    const noise = this.ctx.createBufferSource();
+                    noise.buffer = buffer;
+
+                    const filter = this.ctx.createBiquadFilter();
+                    filter.type = 'lowpass';
+                    filter.frequency.setValueAtTime(1500, this.ctx.currentTime);
+                    filter.frequency.exponentialRampToValueAtTime(180, this.ctx.currentTime + 0.18);
+
+                    const gain = this.ctx.createGain();
+                    gain.gain.setValueAtTime(0.45, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.18);
+
+                    noise.connect(filter);
+                    filter.connect(gain);
+                    gain.connect(this.ctx.destination);
+
+                    noise.start();
+                    noise.stop(this.ctx.currentTime + 0.18);
+                } catch(e){}
+            }
+
+            playFireballSmash() {
+                if (!this.ctx) return;
+                try {
+                    const now = this.ctx.currentTime;
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(340, now);
+                    osc.frequency.exponentialRampToValueAtTime(45, now + 0.32);
+
+                    gain.gain.setValueAtTime(0.75, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.32);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.32);
+
+                    this.playShatter();
+                } catch(e){}
+            }
+
+            playDeath() {
+                if (!this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(360, this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(40, this.ctx.currentTime + 0.45);
+
+                    gain.gain.setValueAtTime(0.65, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.45);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.45);
+                } catch(e){}
+            }
+
+            playWin() {
+                if (!this.ctx) return;
+                try {
+                    const now = this.ctx.currentTime;
+                    const notes = [440, 554.37, 659.25, 880];
+                    notes.forEach((freq, idx) => {
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.type = 'triangle';
+                        osc.frequency.setValueAtTime(freq, now + idx * 0.1);
+                        gain.gain.setValueAtTime(0.4, now + idx * 0.1);
+                        gain.gain.exponentialRampToValueAtTime(0.01, now + idx * 0.1 + 0.3);
+                        osc.connect(gain);
+                        gain.connect(this.ctx.destination);
+                        osc.start(now + idx * 0.1);
+                        osc.stop(now + idx * 0.1 + 0.3);
+                    });
+                } catch(e){}
+            }
+
+            playChest() {
+                if (!this.ctx) return;
+                try {
+                    const now = this.ctx.currentTime;
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(261.63, now);
+                    osc.frequency.exponentialRampToValueAtTime(1046.5, now + 0.4);
+                    gain.gain.setValueAtTime(0.6, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.4);
+                } catch(e){}
+            }
+        }
+
+        const soundEngine = new SoundEngine();
+
+        const STATES = { INIT: 'INIT', MENU: 'MENU', PLAYING: 'PLAYING', PAUSED: 'PAUSED', GAMEOVER: 'GAMEOVER', LEVELWIN: 'LEVELWIN', CHEST: 'CHEST' };
+        let currentState = STATES.INIT;
+
+        // Modes & Currencies
+        let gameMode = 'LEVEL'; // 'LEVEL' or 'ENDLESS'
+        let currentLevel = parseInt(localStorage.getItem('helix_current_level') || '1', 10);
+        let coins = parseInt(localStorage.getItem('helix_coins') || '0', 10);
+        let gems = parseInt(localStorage.getItem('helix_gems') || '0', 10);
+
+        let score = 0;
+        let highScore = parseInt(localStorage.getItem('helix_smash_highscore') || '0', 10);
+        let endlessTiersPassed = 0;
+        let levelTotalTiers = 12;
+        let finishPlatformMesh = null;
+
+        // Tower Geometry & Physics Constants
+        const TOWER_RADIUS = 1.3;
+        const TIER_OUTER_RADIUS = 3.6;
+        const TIER_INNER_RADIUS = 1.32;
+        const TIER_SPACING = 3.8;
+        const TIER_THICKNESS = 0.35;
+        const SEGMENTS_PER_TIER = 12; // 30 degrees per slice
+        const GRAVITY = -32.0;
+        const BOUNCE_VELOCITY = 11.2;
+
+        let towerGroup;
+        let ballMesh;
+        let ballLight;
+        let ballVelY = 0;
+        let continuousFallTiers = 0;
+        let isFireball = false;
+        let fireballSmashRemaining = 0;
+
+        let activeTiers = [];
+        let particles = [];
+        let debrisList = [];
+        let dynamicSpikesList = [];
+        let lowestTierIndex = 0;
+
+        let scene, camera, renderer;
+        let targetTowerAngle = 0;
+
+        let cameraShakeTime = 0;
+        let cameraShakeIntensity = 0;
+
+        let isDragging = false;
+        let previousMouseX = 0;
+        let keyState = { Left: false, Right: false };
+
+        function initThree() {
+            const canvas = document.getElementById('game-canvas');
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x090d16);
+            scene.fog = new THREE.FogExp2(0x090d16, 0.02);
+
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera.position.set(0, 6, 11);
+            camera.lookAt(0, 0, 0);
+
+            renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, powerPreference: 'high-performance' });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.95);
+            dirLight.position.set(12, 22, 15);
+            dirLight.castShadow = true;
+            dirLight.shadow.mapSize.width = 1024;
+            dirLight.shadow.mapSize.height = 1024;
+            scene.add(dirLight);
+
+            towerGroup = new THREE.Group();
+            scene.add(towerGroup);
+
+            // Central Pole Cylinder
+            const poleGeo = new THREE.CylinderGeometry(TOWER_RADIUS, TOWER_RADIUS, 450, 32);
+            const poleMat = new THREE.MeshStandardMaterial({
+                color: 0x1e293b,
+                roughness: 0.35,
+                metalness: 0.75
+            });
+            const poleMesh = new THREE.Mesh(poleGeo, poleMat);
+            poleMesh.position.y = -180;
+            poleMesh.receiveShadow = true;
+            towerGroup.add(poleMesh);
+
+            // Bouncing Player Ball Mesh
+            const ballGeo = new THREE.SphereGeometry(0.42, 32, 32);
+            const ballMat = new THREE.MeshStandardMaterial({
+                color: 0x38bdf8,
+                emissive: 0x0284c7,
+                emissiveIntensity: 0.45,
+                roughness: 0.2,
+                metalness: 0.5
+            });
+            ballMesh = new THREE.Mesh(ballGeo, ballMat);
+            ballMesh.castShadow = true;
+            ballMesh.position.set(0, 0, TIER_OUTER_RADIUS - 0.7);
+            scene.add(ballMesh);
+
+            ballLight = new THREE.PointLight(0x38bdf8, 1.8, 6);
+            ballMesh.add(ballLight);
+
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        function onWindowResize() {
+            if (!camera || !renderer) return;
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function createSectorGeometry(innerR, outerR, startAngle, endAngle, height) {
+            const shape = new THREE.Shape();
+            shape.absarc(0, 0, outerR, startAngle, endAngle, false);
+            shape.absarc(0, 0, innerR, endAngle, startAngle, true);
+
+            const extrudeSettings = {
+                depth: height,
+                bevelEnabled: true,
+                bevelSegments: 2,
+                steps: 1,
+                bevelSize: 0.03,
+                bevelThickness: 0.03
+            };
+
+            const geom = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+            geom.rotateX(Math.PI / 2);
+            return geom;
+        }
+
+        const THEME_PALETTES = [
+            { safe: 0x10b981, safeEmissive: 0x064e3b, spike: 0xef4444 }, // Emerald / Red
+            { safe: 0xf59e0b, safeEmissive: 0x78350f, spike: 0xa855f7 }, // Amber / Purple
+            { safe: 0x06b6d4, safeEmissive: 0x164e63, spike: 0xf43f5e }, // Cyan / Rose
+            { safe: 0x84cc16, safeEmissive: 0x3f6212, spike: 0xd97706 }  // Lime / Orange
+        ];
+
+        function generateTier(tierIndex) {
+            const tierY = -tierIndex * TIER_SPACING;
+
+            // In LEVEL mode, check if we reached the finish line platform
+            if (gameMode === 'LEVEL' && tierIndex === levelTotalTiers) {
+                generateFinishPlatform(tierY, tierIndex);
+                return;
+            } else if (gameMode === 'LEVEL' && tierIndex > levelTotalTiers) {
+                return; // Stop generating past finish platform
+            }
+
+            const tierGroup = new THREE.Group();
+            tierGroup.position.y = tierY;
+            tierGroup.userData = { index: tierIndex, sectors: [], shattered: false, passed: false };
+
+            const palette = THEME_PALETTES[Math.floor(tierIndex / 6) % THEME_PALETTES.length];
+
+            const safeMat = new THREE.MeshStandardMaterial({
+                color: palette.safe,
+                emissive: palette.safeEmissive,
+                emissiveIntensity: 0.25,
+                roughness: 0.3,
+                metalness: 0.2
+            });
+
+            const spikeMat = new THREE.MeshStandardMaterial({
+                color: palette.spike,
+                emissive: 0x450a0a,
+                emissiveIntensity: 0.5,
+                roughness: 0.2,
+                metalness: 0.6
+            });
+
+            const angleStep = (Math.PI * 2) / SEGMENTS_PER_TIER;
+            
+            // Gap sectors (2 to 3 consecutive gap slices)
+            const numGaps = Math.floor(Math.random() * 2) + 2; 
+            const gapStartIdx = Math.floor(Math.random() * SEGMENTS_PER_TIER);
+
+            const gapIndices = new Set();
+            for (let i = 0; i < numGaps; i++) {
+                gapIndices.add((gapStartIdx + i) % SEGMENTS_PER_TIER);
+            }
+
+            // Static Spikes
+            const numSpikes = tierIndex < 2 ? 0 : Math.floor(Math.random() * 2) + 1;
+            const spikeIndices = new Set();
+            if (tierIndex > 0) {
+                for (let i = 0; i < SEGMENTS_PER_TIER; i++) {
+                    if (!gapIndices.has(i) && Math.random() < 0.35 && spikeIndices.size < numSpikes) {
+                        spikeIndices.add(i);
+                    }
+                }
+            }
+
+            // Dynamic Moving Spike sector placement
+            const hasDynamicSpike = tierIndex > 2 && Math.random() < 0.45;
+            let dynamicSpikeSectorIdx = -1;
+            if (hasDynamicSpike) {
+                for (let i = 0; i < SEGMENTS_PER_TIER; i++) {
+                    if (!gapIndices.has(i) && !spikeIndices.has(i)) {
+                        dynamicSpikeSectorIdx = i;
+                        break;
+                    }
+                }
+            }
+
+            for (let i = 0; i < SEGMENTS_PER_TIER; i++) {
+                const startA = i * angleStep;
+                const endA = (i + 1) * angleStep;
+
+                if (gapIndices.has(i)) {
+                    tierGroup.userData.sectors.push({ type: 'GAP', startAngle: startA, endAngle: endA });
+                    continue;
+                }
+
+                const isSpike = spikeIndices.has(i);
+                const geom = createSectorGeometry(TIER_INNER_RADIUS, TIER_OUTER_RADIUS, startA, endA, TIER_THICKNESS);
+                const mesh = new THREE.Mesh(geom, isSpike ? spikeMat : safeMat);
+                mesh.castShadow = true;
+                mesh.receiveShadow = true;
+                tierGroup.add(mesh);
+
+                if (isSpike) {
+                    const midA = (startA + endA) / 2;
+                    const spikeR = (TIER_INNER_RADIUS + TIER_OUTER_RADIUS) / 2;
+                    const spikeConeGeo = new THREE.ConeGeometry(0.35, 0.75, 5);
+                    const spikeMesh = new THREE.Mesh(spikeConeGeo, spikeMat);
+                    spikeMesh.position.set(Math.cos(midA) * spikeR, 0.35, Math.sin(midA) * spikeR);
+                    spikeMesh.castShadow = true;
+                    tierGroup.add(spikeMesh);
+                }
+
+                if (i === dynamicSpikeSectorIdx) {
+                    const midA = (startA + endA) / 2;
+                    const spikeR = (TIER_INNER_RADIUS + TIER_OUTER_RADIUS) / 2;
+                    const dSpikeGeo = new THREE.ConeGeometry(0.38, 0.85, 6);
+                    const dSpikeMat = new THREE.MeshStandardMaterial({
+                        color: 0xf97316,
+                        emissive: 0x9a3412,
+                        metalness: 0.8,
+                        roughness: 0.2
+                    });
+                    const dSpikeMesh = new THREE.Mesh(dSpikeGeo, dSpikeMat);
+                    dSpikeMesh.position.set(Math.cos(midA) * spikeR, 0.4, Math.sin(midA) * spikeR);
+                    dSpikeMesh.castShadow = true;
+                    tierGroup.add(dSpikeMesh);
+
+                    dynamicSpikesList.push({
+                        mesh: dSpikeMesh,
+                        baseAngle: midA,
+                        currentAngle: midA,
+                        radius: spikeR,
+                        tierIndex: tierIndex,
+                        speed: 2.5 + Math.random() * 1.5,
+                        amplitude: angleStep * 0.45
+                    });
+                }
+
+                tierGroup.userData.sectors.push({
+                    type: isSpike ? 'SPIKE' : 'SAFE',
+                    startAngle: startA,
+                    endAngle: endA,
+                    mesh: mesh
+                });
+            }
+
+            towerGroup.add(tierGroup);
+            activeTiers.push(tierGroup);
+        }
+
+        function generateFinishPlatform(tierY, tierIndex) {
+            const finishGroup = new THREE.Group();
+            finishGroup.position.y = tierY;
+            finishGroup.userData = { index: tierIndex, isFinishPlatform: true, shattered: false };
+
+            const diskGeo = new THREE.CylinderGeometry(TIER_OUTER_RADIUS, TIER_OUTER_RADIUS, TIER_THICKNESS, 32);
+            const diskMat = new THREE.MeshStandardMaterial({
+                color: 0x10b981,
+                emissive: 0x059669,
+                emissiveIntensity: 0.6,
+                roughness: 0.2,
+                metalness: 0.8
+            });
+
+            finishPlatformMesh = new THREE.Mesh(diskGeo, diskMat);
+            finishPlatformMesh.position.y = -TIER_THICKNESS / 2;
+            finishPlatformMesh.receiveShadow = true;
+            finishGroup.add(finishPlatformMesh);
+
+            // Victory Glowing Ring
+            const ringGeo = new THREE.TorusGeometry(TIER_OUTER_RADIUS - 0.2, 0.15, 16, 32);
+            ringGeo.rotateX(Math.PI / 2);
+            const ringMat = new THREE.MeshBasicMaterial({ color: 0xfacc15 });
+            const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+            ringMesh.position.y = 0.05;
+            finishGroup.add(ringMesh);
+
+            towerGroup.add(finishGroup);
+            activeTiers.push(finishGroup);
+        }
+
+        function triggerCameraShake(intensity = 0.3) {
+            cameraShakeIntensity = intensity;
+            cameraShakeTime = 0.25;
+        }
+
+        function createShockwave(pos, isFireball = false) {
+            const ringGeo = new THREE.RingGeometry(1.2, 1.6, 32);
+            ringGeo.rotateX(-Math.PI / 2);
+            const ringMat = new THREE.MeshBasicMaterial({
+                color: isFireball ? 0xff4500 : 0x34d399,
+                side: THREE.DoubleSide,
+                transparent: true,
+                opacity: 0.95
+            });
+            const wave = new THREE.Mesh(ringGeo, ringMat);
+            wave.position.copy(pos);
+            wave.position.y += 0.1;
+            wave.userData = { life: 1.0, expandSpeed: isFireball ? 18 : 11 };
+            scene.add(wave);
+            particles.push(wave);
+        }
+
+        function createShatterParticles(position, isFireballImpact = false) {
+            const particleCount = isFireballImpact ? 50 : 28;
+
+            for (let i = 0; i < particleCount; i++) {
+                let geom;
+                const shapeRand = Math.random();
+                if (shapeRand < 0.4) {
+                    geom = new THREE.BoxGeometry(0.2, 0.2, 0.2);
+                } else if (shapeRand < 0.75) {
+                    geom = new THREE.TetrahedronGeometry(0.18);
+                } else {
+                    geom = new THREE.OctahedronGeometry(0.15);
+                }
+
+                const pColor = isFireballImpact 
+                    ? (Math.random() > 0.5 ? 0xff4500 : (Math.random() > 0.3 ? 0xf97316 : 0xfacc15)) 
+                    : (Math.random() > 0.4 ? 0x34d399 : 0x10b981);
+
+                const mat = new THREE.MeshStandardMaterial({
+                    color: pColor,
+                    roughness: 0.3,
+                    metalness: 0.5,
+                    transparent: true,
+                    opacity: 1
+                });
+                const p = new THREE.Mesh(geom, mat);
+                p.position.copy(position);
+                p.position.x += (Math.random() - 0.5) * 2.5;
+                p.position.z += (Math.random() - 0.5) * 2.5;
+
+                const speedMult = isFireballImpact ? 2.4 : 1.4;
+                p.userData = {
+                    vel: new THREE.Vector3(
+                        (Math.random() - 0.5) * 16 * speedMult,
+                        Math.random() * 10 * speedMult + 2,
+                        (Math.random() - 0.5) * 16 * speedMult
+                    ),
+                    rotVel: new THREE.Vector3(Math.random() * 18, Math.random() * 18, Math.random() * 18),
+                    life: 1.0
+                };
+
+                scene.add(p);
+                particles.push(p);
+            }
+        }
+
+        function createFireballTrailParticle(position) {
+            const geom = new THREE.SphereGeometry(0.18 + Math.random() * 0.15, 8, 8);
+            const mat = new THREE.MeshBasicMaterial({
+                color: Math.random() > 0.5 ? 0xef4444 : 0xf97316,
+                transparent: true,
+                opacity: 0.95
+            });
+            const p = new THREE.Mesh(geom, mat);
+            p.position.copy(position);
+            p.position.x += (Math.random() - 0.5) * 0.35;
+            p.position.z += (Math.random() - 0.5) * 0.35;
+
+            p.userData = {
+                vel: new THREE.Vector3(0, Math.random() * 2 + 1.5, 0),
+                rotVel: new THREE.Vector3(0, 0, 0),
+                life: 0.45
+            };
+            scene.add(p);
+            particles.push(p);
+        }
+
+        function updateParticles(dt) {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+
+                if (p.userData.expandSpeed) {
+                    p.userData.life -= dt * 3.2;
+                    if (p.userData.life <= 0) {
+                        scene.remove(p);
+                        p.geometry.dispose();
+                        p.material.dispose();
+                        particles.splice(i, 1);
+                        continue;
+                    }
+                    const scale = 1 + (1 - p.userData.life) * p.userData.expandSpeed * 0.22;
+                    p.scale.set(scale, scale, scale);
+                    p.material.opacity = p.userData.life;
+                    continue;
+                }
+
+                p.userData.life -= dt * 2.2;
+                if (p.userData.life <= 0) {
+                    scene.remove(p);
+                    p.geometry.dispose();
+                    p.material.dispose();
+                    particles.splice(i, 1);
+                    continue;
+                }
+
+                p.position.addScaledVector(p.userData.vel, dt);
+                p.userData.vel.y += GRAVITY * dt * 0.35;
+                p.rotation.x += p.userData.rotVel.x * dt;
+                p.rotation.y += p.userData.rotVel.y * dt;
+                p.material.opacity = p.userData.life;
+            }
+        }
+
+        function updateDebris(dt) {
+            for (let i = debrisList.length - 1; i >= 0; i--) {
+                const d = debrisList[i];
+                d.userData.life -= dt * 2.0;
+
+                if (d.userData.life <= 0) {
+                    scene.remove(d);
+                    if (d.geometry) d.geometry.dispose();
+                    if (d.material) d.material.dispose();
+                    debrisList.splice(i, 1);
+                    continue;
+                }
+
+                d.position.addScaledVector(d.userData.vel, dt);
+                d.userData.vel.y += GRAVITY * dt * 0.45;
+
+                d.rotation.x += d.userData.rotVel.x * dt;
+                d.rotation.y += d.userData.rotVel.y * dt;
+                d.rotation.z += d.userData.rotVel.z * dt;
+
+                const scale = Math.max(0.01, d.userData.life);
+                d.scale.set(scale, scale, scale);
+                if (d.material) {
+                    d.material.opacity = Math.pow(d.userData.life, 1.4);
+                }
+            }
+        }
+
+        function shatterTier(tier, isFireballSmash = false) {
+            if (tier.userData.shattered) return;
+            tier.userData.shattered = true;
+
+            const worldPos = new THREE.Vector3();
+            tier.getWorldPosition(worldPos);
+
+            createShatterParticles(worldPos, isFireballSmash);
+            createShockwave(worldPos, isFireballSmash);
+
+            // Clean up dynamic spikes attached to this tier
+            dynamicSpikesList = dynamicSpikesList.filter(ds => ds.tierIndex !== tier.userData.index);
+
+            // Detach each sector mesh into independent flying 3D debris
+            const children = [...tier.children];
+            children.forEach(child => {
+                if (!child.geometry) return;
+
+                const sectorWorldPos = new THREE.Vector3();
+                const sectorWorldQuat = new THREE.Quaternion();
+                child.getWorldPosition(sectorWorldPos);
+                child.getWorldQuaternion(sectorWorldQuat);
+
+                scene.add(child);
+                child.position.copy(sectorWorldPos);
+                child.quaternion.copy(sectorWorldQuat);
+
+                const outwardDir = new THREE.Vector3(sectorWorldPos.x, 0, sectorWorldPos.z).normalize();
+                if (outwardDir.lengthSq() < 0.001) outwardDir.set(0, 0, 1);
+
+                const force = isFireballSmash ? (22 + Math.random() * 12) : (13 + Math.random() * 8);
+                const upwardForce = isFireballSmash ? (7 + Math.random() * 8) : (3.5 + Math.random() * 5);
+
+                child.userData = {
+                    vel: outwardDir.multiplyScalar(force).add(new THREE.Vector3(0, upwardForce, 0)),
+                    rotVel: new THREE.Vector3(
+                        (Math.random() - 0.5) * 14,
+                        (Math.random() - 0.5) * 14,
+                        (Math.random() - 0.5) * 14
+                    ),
+                    life: 1.0
+                };
+
+                if (child.material) {
+                    child.material = child.material.clone();
+                    child.material.transparent = true;
+                }
+
+                debrisList.push(child);
+            });
+
+            towerGroup.remove(tier);
+            const idx = activeTiers.indexOf(tier);
+            if (idx > -1) activeTiers.splice(idx, 1);
+        }
+
+        function setupControls() {
+            const canvas = document.getElementById('game-canvas');
+
+            canvas.addEventListener('mousedown', (e) => {
+                if (currentState !== STATES.PLAYING) return;
+                isDragging = true;
+                previousMouseX = e.clientX;
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (!isDragging || currentState !== STATES.PLAYING) return;
+                const deltaX = e.clientX - previousMouseX;
+                previousMouseX = e.clientX;
+                targetTowerAngle += deltaX * 0.0085;
+            });
+
+            window.addEventListener('mouseup', () => { isDragging = false; });
+
+            canvas.addEventListener('touchstart', (e) => {
+                if (currentState !== STATES.PLAYING) return;
+                if (e.touches.length > 0) {
+                    isDragging = true;
+                    previousMouseX = e.touches[0].clientX;
+                }
+            }, { passive: true });
+
+            window.addEventListener('touchmove', (e) => {
+                if (!isDragging || currentState !== STATES.PLAYING) return;
+                if (e.touches.length > 0) {
+                    const deltaX = e.touches[0].clientX - previousMouseX;
+                    previousMouseX = e.touches[0].clientX;
+                    targetTowerAngle += deltaX * 0.011;
+                }
+            }, { passive: true });
+
+            window.addEventListener('touchend', () => { isDragging = false; });
+
+            window.addEventListener('keydown', (e) => {
+                if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keyState.Left = true;
+                if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keyState.Right = true;
+                if (e.key === 'Escape' || e.key === 'p' || e.key === 'P') {
+                    togglePause();
+                }
+            });
+
+            window.addEventListener('keyup', (e) => {
+                if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keyState.Left = false;
+                if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keyState.Right = false;
+            });
+
+            document.getElementById('btn-start').addEventListener('click', () => {
+                soundEngine.init();
+                startGame();
+            });
+
+            document.getElementById('btn-pause').addEventListener('click', togglePause);
+            document.getElementById('btn-resume').addEventListener('click', togglePause);
+            document.getElementById('btn-restart-pause').addEventListener('click', () => {
+                togglePause();
+                startGame();
+            });
+            document.getElementById('btn-restart').addEventListener('click', () => {
+                startGame();
+            });
+
+            // Return to Main Menu Handlers
+            const returnToMainMenu = () => {
+                setGameState(STATES.MENU);
+            };
+            document.getElementById('btn-home-pause').addEventListener('click', returnToMainMenu);
+            document.getElementById('btn-home-gameover').addEventListener('click', returnToMainMenu);
+            document.getElementById('btn-home-levelwin').addEventListener('click', returnToMainMenu);
+
+            // Mode Selector Buttons
+            const btnLevel = document.getElementById('mode-btn-level');
+            const btnEndless = document.getElementById('mode-btn-endless');
+
+            btnLevel.addEventListener('click', () => {
+                gameMode = 'LEVEL';
+                btnLevel.className = "flex-1 py-2.5 rounded-xl font-black text-sm transition-all bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md";
+                btnEndless.className = "flex-1 py-2.5 rounded-xl font-black text-sm transition-all text-slate-400 hover:text-white";
+                updateCurrencyUI();
+            });
+
+            btnEndless.addEventListener('click', () => {
+                gameMode = 'ENDLESS';
+                btnEndless.className = "flex-1 py-2.5 rounded-xl font-black text-sm transition-all bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md";
+                btnLevel.className = "flex-1 py-2.5 rounded-xl font-black text-sm transition-all text-slate-400 hover:text-white";
+                updateCurrencyUI();
+            });
+
+            // Reward Modals Handlers
+            document.getElementById('btn-next-level').addEventListener('click', () => {
+                setGameState(STATES.PLAYING);
+                startGame();
+            });
+
+            document.getElementById('btn-claim-chest').addEventListener('click', () => {
+                setGameState(STATES.PLAYING);
+            });
+
+            updateCurrencyUI();
+        }
+
+        function updateCurrencyUI() {
+            document.getElementById('hud-coins').textContent = coins;
+            document.getElementById('hud-gems').textContent = gems;
+            document.getElementById('menu-coins').textContent = coins;
+            document.getElementById('menu-gems').textContent = gems;
+            document.getElementById('menu-level-num').textContent = `第 ${currentLevel} 關`;
+        }
+
+        function saveCurrencies() {
+            localStorage.setItem('helix_coins', coins.toString());
+            localStorage.setItem('helix_gems', gems.toString());
+            localStorage.setItem('helix_current_level', currentLevel.toString());
+            updateCurrencyUI();
+        }
+
+        function setGameState(state) {
+            currentState = state;
+            const menuScreen = document.getElementById('menu-screen');
+            const pauseScreen = document.getElementById('pause-screen');
+            const gameoverScreen = document.getElementById('gameover-screen');
+            const levelwinScreen = document.getElementById('levelwin-screen');
+            const chestScreen = document.getElementById('chest-screen');
+            const hudOverlay = document.getElementById('hud-overlay');
+
+            menuScreen.classList.add('hidden');
+            pauseScreen.classList.add('hidden');
+            gameoverScreen.classList.add('hidden');
+            levelwinScreen.classList.add('hidden');
+            chestScreen.classList.add('hidden');
+            hudOverlay.classList.add('hidden');
+
+            if (state === STATES.MENU) {
+                menuScreen.classList.remove('hidden');
+            } else if (state === STATES.PLAYING) {
+                hudOverlay.classList.remove('hidden');
+            } else if (state === STATES.PAUSED) {
+                hudOverlay.classList.remove('hidden');
+                pauseScreen.classList.remove('hidden');
+            } else if (state === STATES.GAMEOVER) {
+                hudOverlay.classList.remove('hidden');
+                gameoverScreen.classList.remove('hidden');
+            } else if (state === STATES.LEVELWIN) {
+                hudOverlay.classList.remove('hidden');
+                levelwinScreen.classList.remove('hidden');
+            } else if (state === STATES.CHEST) {
+                hudOverlay.classList.remove('hidden');
+                chestScreen.classList.remove('hidden');
+            }
+        }
+
+        function togglePause() {
+            if (currentState === STATES.PLAYING) {
+                setGameState(STATES.PAUSED);
+            } else if (currentState === STATES.PAUSED) {
+                setGameState(STATES.PLAYING);
+            }
+        }
+
+        function startGame() {
+            // Clean up existing tower tiers
+            activeTiers.forEach(tier => towerGroup.remove(tier));
+            activeTiers = [];
+            dynamicSpikesList = [];
+            finishPlatformMesh = null;
+            
+            // Clean particles & debris
+            particles.forEach(p => scene.remove(p));
+            particles = [];
+
+            debrisList.forEach(d => {
+                scene.remove(d);
+                if (d.geometry) d.geometry.dispose();
+                if (d.material) d.material.dispose();
+            });
+            debrisList = [];
+
+            // Reset scores & variables
+            score = 0;
+            endlessTiersPassed = 0;
+            continuousFallTiers = 0;
+            isFireball = false;
+            fireballSmashRemaining = 0;
+            ballVelY = 0;
+            targetTowerAngle = 0;
+            towerGroup.rotation.y = 0;
+
+            levelTotalTiers = 10 + currentLevel * 2;
+
+            if (gameMode === 'LEVEL') {
+                document.getElementById('hud-mode-title').textContent = `闖關模式 - 第 ${currentLevel} 關`;
+            } else {
+                document.getElementById('hud-mode-title').textContent = `無盡模式`;
+            }
+
+            document.getElementById('hud-score').textContent = '0';
+            document.getElementById('hud-best').textContent = highScore;
+            document.getElementById('fireball-badge').classList.add('hidden');
+            updateCurrencyUI();
+
+            // Reset ball position
+            ballMesh.position.set(0, 1.2, TIER_OUTER_RADIUS - 0.7);
+            
+            // Set initial ball material
+            ballMesh.material.color.setHex(0x38bdf8);
+            ballMesh.material.emissive.setHex(0x0284c7);
+            ballLight.color.setHex(0x38bdf8);
+
+            // Generate initial tiers
+            lowestTierIndex = 0;
+            const initCount = gameMode === 'LEVEL' ? Math.min(15, levelTotalTiers + 1) : 15;
+            for (let i = 0; i < initCount; i++) {
+                generateTier(i);
+                lowestTierIndex = i;
+            }
+
+            setGameState(STATES.PLAYING);
+        }
+
+        function triggerLevelWin() {
+            soundEngine.playWin();
+            
+            // Generate Random Reward
+            const isGems = Math.random() < 0.3; // 30% Gems, 70% Coins
+            if (isGems) {
+                const amount = Math.floor(Math.random() * 11) + 5; // 5~15 gems
+                gems += amount;
+                document.getElementById('win-reward-box').innerHTML = `<span>💎</span><span>+${amount}</span>`;
+                document.getElementById('win-reward-box').className = "flex items-center gap-3 text-3xl font-black text-cyan-400";
+            } else {
+                const amount = Math.floor(Math.random() * 101) + 50; // 50~150 coins
+                coins += amount;
+                document.getElementById('win-reward-box').innerHTML = `<span>🪙</span><span>+${amount}</span>`;
+                document.getElementById('win-reward-box').className = "flex items-center gap-3 text-3xl font-black text-amber-400";
+            }
+
+            document.getElementById('win-level-subtitle').textContent = `順利完成 第 ${currentLevel} 關！`;
+            currentLevel++;
+            saveCurrencies();
+
+            setGameState(STATES.LEVELWIN);
+        }
+
+        function triggerChestReward() {
+            soundEngine.playChest();
+
+            const isGems = Math.random() < 0.5; // 50% Gems, 50% Coins
+            if (isGems) {
+                const amount = Math.floor(Math.random() * 51) + 50; // 50~100 gems
+                gems += amount;
+                document.getElementById('chest-reward-box').innerHTML = `<span>💎</span><span>+${amount}</span>`;
+                document.getElementById('chest-reward-box').className = "flex items-center gap-3 text-3xl font-black text-cyan-400";
+            } else {
+                const amount = Math.floor(Math.random() * 501) + 500; // 500~1000 coins
+                coins += amount;
+                document.getElementById('chest-reward-box').innerHTML = `<span>🪙</span><span>+${amount}</span>`;
+                document.getElementById('chest-reward-box').className = "flex items-center gap-3 text-3xl font-black text-amber-400";
+            }
+
+            document.getElementById('chest-subtitle').textContent = `無盡模式突破 ${endlessTiersPassed} 層！`;
+            saveCurrencies();
+
+            setGameState(STATES.CHEST);
+        }
+
+        function triggerGameOver() {
+            soundEngine.playDeath();
+            triggerCameraShake(0.6);
+            setGameState(STATES.GAMEOVER);
+
+            const isNewRecord = score > highScore;
+            if (isNewRecord) {
+                highScore = score;
+                localStorage.setItem('helix_smash_highscore', highScore.toString());
+            }
+
+            document.getElementById('final-score').textContent = score;
+            document.getElementById('final-best').textContent = highScore;
+            document.getElementById('new-record-badge').classList.toggle('hidden', !isNewRecord);
+        }
+
+        function updateDynamicSpikes(dt) {
+            const time = Date.now() * 0.001;
+            dynamicSpikesList.forEach(spike => {
+                const offset = Math.sin(time * spike.speed) * spike.amplitude;
+                spike.currentAngle = spike.baseAngle + offset;
+                spike.mesh.position.x = Math.cos(spike.currentAngle) * spike.radius;
+                spike.mesh.position.z = Math.sin(spike.currentAngle) * spike.radius;
+            });
+        }
+
+        function updatePhysics(dt) {
+            // Smooth keyboard controls
+            if (keyState.Left) targetTowerAngle -= 2.2 * dt;
+            if (keyState.Right) targetTowerAngle += 2.2 * dt;
+
+            // Interpolate tower rotation
+            towerGroup.rotation.y += (targetTowerAngle - towerGroup.rotation.y) * 0.2;
+
+            // Store previous ball Y position for swept collision check
+            const prevBallY = ballMesh.position.y;
+
+            // Apply gravity to ball
+            ballVelY += GRAVITY * dt;
+            ballMesh.position.y += ballVelY * dt;
+            const currBallY = ballMesh.position.y;
+            const ballRadius = 0.42;
+
+            // Fireball visually updates
+            if (isFireball) {
+                createFireballTrailParticle(ballMesh.position);
+                ballMesh.material.color.setHex(0xef4444);
+                ballMesh.material.emissive.setHex(0xf97316);
+                ballLight.color.setHex(0xff4500);
+            } else {
+                ballMesh.material.color.setHex(0x38bdf8);
+                ballMesh.material.emissive.setHex(0x0284c7);
+                ballLight.color.setHex(0x38bdf8);
+            }
+
+            // Calculate exact ball local angle using worldToLocal conversion
+            const ballWorldPos = new THREE.Vector3(0, ballMesh.position.y, TIER_OUTER_RADIUS - 0.7);
+            const ballLocalPos = towerGroup.worldToLocal(ballWorldPos.clone());
+            let ballLocalAngle = Math.atan2(ballLocalPos.z, ballLocalPos.x);
+            if (ballLocalAngle < 0) ballLocalAngle += Math.PI * 2;
+
+            // Swept vertical height window
+            const ballMinY = Math.min(prevBallY, currBallY) - ballRadius;
+            const ballMaxY = Math.max(prevBallY, currBallY) + ballRadius;
+
+            // Check collision against tiers
+            for (let i = activeTiers.length - 1; i >= 0; i--) {
+                const tier = activeTiers[i];
+                if (tier.userData.shattered) continue;
+
+                // Handle Level Finish Platform
+                if (tier.userData.isFinishPlatform) {
+                    const tierY = tier.position.y;
+                    if (ballMinY <= tierY + 0.1 && ballMaxY >= tierY - TIER_THICKNESS) {
+                        triggerLevelWin();
+                        return;
+                    }
+                    continue;
+                }
+
+                const tierY = tier.position.y;
+                const tierTopY = tierY + 0.05;
+                const tierBottomY = tierY - TIER_THICKNESS - 0.05;
+
+                // Swept height intersection check to prevent high-speed tunneling
+                const isIntersecting = (ballMinY <= tierTopY) && (ballMaxY >= tierBottomY);
+
+                if (isIntersecting) {
+                    // Determine current sector type
+                    let currentSectorType = 'GAP';
+                    tier.userData.sectors.forEach(sec => {
+                        if (ballLocalAngle >= sec.startAngle && ballLocalAngle <= sec.endAngle) {
+                            currentSectorType = sec.type;
+                        }
+                    });
+
+                    // Check moving spikes angular proximity
+                    let hitDynamicSpike = false;
+                    dynamicSpikesList.forEach(ds => {
+                        if (ds.tierIndex === tier.userData.index) {
+                            let diff = Math.abs(ds.currentAngle - ballLocalAngle);
+                            if (diff > Math.PI) diff = Math.PI * 2 - diff;
+                            if (diff < 0.28) hitDynamicSpike = true;
+                        }
+                    });
+
+                    // Fireball Rocket Mode Smash (Invincible against everything, smashes exactly 1 tier)
+                    if (isFireball) {
+                        shatterTier(tier, true);
+                        soundEngine.playFireballSmash();
+                        triggerCameraShake(0.4);
+
+                        score += 30;
+                        document.getElementById('hud-score').textContent = score;
+
+                        if (gameMode === 'ENDLESS') {
+                            coins += 1;
+                            endlessTiersPassed += 1;
+                            saveCurrencies();
+                            if (endlessTiersPassed % 1000 === 0) {
+                                triggerChestReward();
+                            }
+                        }
+
+                        // Fireball mode is consumed instantly after smashing 1 tier
+                        fireballSmashRemaining = 0;
+                        isFireball = false;
+                        continuousFallTiers = 0; // Reset combo counter
+                        document.getElementById('fireball-badge').classList.add('hidden');
+
+                        // Pass through this smashed tier downwards
+                        ballVelY = -14.0;
+                        break;
+                    }
+
+                    // Normal Mode Collision Logic
+                    if (hitDynamicSpike || currentSectorType === 'SPIKE') {
+                        triggerGameOver();
+                        return;
+                    } else if (currentSectorType === 'SAFE') {
+                        if (ballVelY < 0) {
+                            // Bounce on tier top surface
+                            ballMesh.position.y = tierTopY + ballRadius;
+                            ballVelY = BOUNCE_VELOCITY;
+                            continuousFallTiers = 0;
+                            soundEngine.playBounce();
+                        }
+                    } else if (currentSectorType === 'GAP') {
+                        // Successfully passed through tier gap
+                        if (!tier.userData.passed) {
+                            tier.userData.passed = true;
+                            continuousFallTiers++;
+                            score += 10 * continuousFallTiers;
+                            document.getElementById('hud-score').textContent = score;
+
+                            if (gameMode === 'ENDLESS') {
+                                coins += 1;
+                                endlessTiersPassed += 1;
+                                saveCurrencies();
+                                if (endlessTiersPassed % 1000 === 0) {
+                                    triggerChestReward();
+                                    return;
+                                }
+                            }
+
+                            // Shatter tier when successfully passed
+                            shatterTier(tier, false);
+                            soundEngine.playShatter();
+
+                            // Activate Fireball Rocket Mode after passing 3 or more consecutive gaps
+                            if (continuousFallTiers >= 3 && !isFireball) {
+                                isFireball = true;
+                                fireballSmashRemaining = 1; // Exactly 1 smash charge
+                                document.getElementById('fireball-badge').classList.remove('hidden');
+                                document.getElementById('combo-text').textContent = `🔥 火箭破壞 (1 次)`;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Recycle & Procedurally extend tower downward
+            if (gameMode === 'ENDLESS' || lowestTierIndex < levelTotalTiers) {
+                const currentHighestTierIndex = Math.floor(-ballMesh.position.y / TIER_SPACING);
+                while (lowestTierIndex < currentHighestTierIndex + 12) {
+                    lowestTierIndex++;
+                    generateTier(lowestTierIndex);
+                    if (gameMode === 'LEVEL' && lowestTierIndex >= levelTotalTiers) break;
+                }
+            }
+        }
+
+        let lastTime = performance.now();
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const now = performance.now();
+            const dt = Math.min((now - lastTime) / 1000, 0.1);
+            lastTime = now;
+
+            if (currentState === STATES.PLAYING) {
+                updateDynamicSpikes(dt);
+                updatePhysics(dt);
+                updateParticles(dt);
+                updateDebris(dt);
+
+                // Smooth Camera Follow
+                const targetCamY = ballMesh.position.y + 5.2;
+                camera.position.y += (targetCamY - camera.position.y) * 0.12;
+                
+                // Camera Shake
+                if (cameraShakeTime > 0) {
+                    cameraShakeTime -= dt;
+                    camera.position.x = (Math.random() - 0.5) * cameraShakeIntensity;
+                    camera.position.z = 11 + (Math.random() - 0.5) * cameraShakeIntensity;
+                } else {
+                    camera.position.x = 0;
+                    camera.position.z = 11;
+                }
+
+                camera.lookAt(0, ballMesh.position.y - 1.8, 0);
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        window.onload = function() {
+            initThree();
+            setupControls();
+            setGameState(STATES.MENU);
+            animate();
+        };
+    </script>
+</body>
+</html>

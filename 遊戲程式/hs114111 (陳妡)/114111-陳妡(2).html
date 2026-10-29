@@ -1,0 +1,1082 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>神經闇網：0 號實驗體 (Neural Net: Subject Zero)</title>
+    <style>
+        :root {
+            --bg-primary: #0a0d14;
+            --bg-secondary: #121824;
+            --bg-card: rgba(22, 30, 46, 0.85);
+            --text-main: #e2e8f0;
+            --text-muted: #94a3b8;
+            --accent-cyan: #00f0ff;
+            --accent-pink: #ff0055;
+            --accent-amber: #ffb703;
+            --border-glow: rgba(0, 240, 255, 0.3);
+            --font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, "PingFang TC", "Microsoft JhengHei", sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-main);
+            font-family: var(--font-family);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-image: 
+                radial-gradient(circle at 15% 15%, rgba(0, 240, 255, 0.05) 0%, transparent 40%),
+                radial-gradient(circle at 85% 85%, rgba(255, 0, 85, 0.05) 0%, transparent 40%);
+            padding: 15px;
+            overflow-x: hidden;
+        }
+
+        #game-container {
+            width: 100%;
+            max-width: 850px;
+            min-height: 680px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-glow);
+            box-shadow: 0 0 25px rgba(0, 240, 255, 0.15), inset 0 0 15px rgba(0, 0, 0, 0.5);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+        }
+
+        header {
+            background: rgba(10, 13, 20, 0.9);
+            padding: 12px 20px;
+            border-bottom: 1px solid var(--border-glow);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            z-index: 10;
+        }
+
+        .status-group {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .stat-box {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .stat-bar-outer {
+            width: 90px;
+            height: 10px;
+            background: #1e293b;
+            border-radius: 5px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .stat-bar-inner {
+            height: 100%;
+            width: 100%;
+            transition: width 0.4s ease, background-color 0.4s ease;
+        }
+
+        #hp-bar { background-color: #10b981; }
+        #sanity-bar { background-color: var(--accent-cyan); }
+
+        .inventory-box {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            flex-wrap: wrap;
+        }
+
+        .item-tag {
+            background: rgba(0, 240, 255, 0.15);
+            color: var(--accent-cyan);
+            border: 1px solid var(--accent-cyan);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            letter-spacing: 0.5px;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .icon-btn {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: var(--text-main);
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: all 0.2s ease;
+        }
+
+        .icon-btn:hover {
+            border-color: var(--accent-cyan);
+            color: var(--accent-cyan);
+            box-shadow: 0 0 10px var(--border-glow);
+        }
+
+        .screen {
+            display: none;
+            flex: 1;
+            flex-direction: column;
+            padding: 25px;
+            position: relative;
+            z-index: 5;
+        }
+
+        .screen.active {
+            display: flex;
+        }
+
+        #start-screen {
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            gap: 20px;
+            background: radial-gradient(circle at center, rgba(0, 240, 255, 0.08) 0%, transparent 70%);
+        }
+
+        .game-title {
+            font-size: 2.2rem;
+            font-weight: 800;
+            letter-spacing: 2px;
+            color: #fff;
+            text-shadow: 0 0 15px var(--accent-cyan);
+            margin-bottom: 5px;
+        }
+
+        .subtitle {
+            color: var(--accent-pink);
+            font-size: 1rem;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+        }
+
+        .game-desc {
+            max-width: 600px;
+            line-height: 1.6;
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            margin: 15px 0;
+            text-align: justify;
+        }
+
+        .btn-main {
+            background: linear-gradient(135deg, var(--accent-cyan), #0077ff);
+            color: #000;
+            font-weight: 700;
+            font-size: 1.05rem;
+            padding: 12px 36px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.4);
+            letter-spacing: 1px;
+        }
+
+        .btn-main:hover {
+            transform: translateY(-2px) scale(1.03);
+            box-shadow: 0 0 25px rgba(0, 240, 255, 0.7);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 1px solid var(--accent-cyan);
+            color: var(--accent-cyan);
+            padding: 10px 28px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(0, 240, 255, 0.1);
+        }
+
+        #game-screen {
+            justify-content: space-between;
+            gap: 20px;
+        }
+
+        .story-container {
+            background: var(--bg-card);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            padding: 22px;
+            flex: 1;
+            min-height: 220px;
+            cursor: pointer;
+            position: relative;
+            box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.6);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .scene-title {
+            color: var(--accent-amber);
+            font-size: 0.85rem;
+            letter-spacing: 2px;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+        }
+
+        .story-text {
+            font-size: 1.05rem;
+            line-height: 1.7;
+            color: var(--text-main);
+            white-space: pre-wrap;
+        }
+
+        .skip-hint {
+            position: absolute;
+            bottom: 8px;
+            right: 12px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            opacity: 0.6;
+        }
+
+        .choices-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .choice-btn {
+            background: rgba(18, 24, 36, 0.9);
+            border: 1px solid rgba(0, 240, 255, 0.3);
+            color: var(--text-main);
+            padding: 14px 20px;
+            border-radius: 8px;
+            text-align: left;
+            font-size: 0.98rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .choice-btn::before {
+            content: "❯";
+            color: var(--accent-cyan);
+            font-weight: bold;
+            transition: transform 0.2s ease;
+        }
+
+        .choice-btn:hover {
+            border-color: var(--accent-cyan);
+            background: rgba(0, 240, 255, 0.08);
+            transform: translateX(4px);
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.2);
+        }
+
+        .choice-btn:hover::before {
+            transform: translateX(3px);
+        }
+
+        #ending-screen {
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            gap: 20px;
+        }
+
+        .ending-badge {
+            font-size: 0.85rem;
+            padding: 4px 14px;
+            border-radius: 20px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            font-weight: 700;
+        }
+
+        .ending-true { background: rgba(0, 240, 255, 0.2); color: var(--accent-cyan); border: 1px solid var(--accent-cyan); }
+        .ending-good { background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid #10b981; }
+        .ending-bad { background: rgba(255, 0, 85, 0.2); color: var(--accent-pink); border: 1px solid var(--accent-pink); }
+
+        .ending-title {
+            font-size: 1.8rem;
+            font-weight: 700;
+        }
+
+        .ending-summary {
+            background: var(--bg-card);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 8px;
+            max-width: 620px;
+            line-height: 1.7;
+            color: var(--text-muted);
+            font-size: 0.98rem;
+            text-align: left;
+        }
+
+        #history-modal {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(10, 13, 20, 0.95);
+            z-index: 100;
+            display: none;
+            flex-direction: column;
+            padding: 20px;
+            backdrop-filter: blur(8px);
+        }
+
+        #history-modal.active {
+            display: flex;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border-glow);
+            margin-bottom: 15px;
+        }
+
+        .modal-body {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            padding-right: 5px;
+        }
+
+        .history-item {
+            background: var(--bg-card);
+            border-left: 3px solid var(--accent-cyan);
+            padding: 12px 15px;
+            border-radius: 0 6px 6px 0;
+            font-size: 0.9rem;
+        }
+
+        .history-choice {
+            color: var(--accent-amber);
+            margin-top: 6px;
+            font-weight: 600;
+        }
+
+        #damage-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            box-shadow: inset 0 0 50px rgba(255, 0, 85, 0.8);
+            opacity: 0;
+            z-index: 50;
+            transition: opacity 0.1s ease;
+        }
+
+        #damage-overlay.flash {
+            animation: flashRed 0.5s ease-out;
+        }
+
+        @keyframes flashRed {
+            0% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+
+        #toast-container {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            z-index: 200;
+            pointer-events: none;
+        }
+
+        .toast {
+            background: rgba(18, 24, 36, 0.95);
+            border: 1px solid var(--accent-cyan);
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            box-shadow: 0 4px 15px rgba(0, 240, 255, 0.3);
+            animation: toastUp 2.5s ease forwards;
+        }
+
+        @keyframes toastUp {
+            0% { opacity: 0; transform: translateY(15px); }
+            15% { opacity: 1; transform: translateY(0); }
+            85% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-10px); }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        @media (max-width: 600px) {
+            #game-container {
+                min-height: 100vh;
+                border-radius: 0;
+                border: none;
+            }
+            header {
+                padding: 10px;
+            }
+            .game-title {
+                font-size: 1.7rem;
+            }
+            .stat-bar-outer {
+                width: 60px;
+            }
+            .story-text {
+                font-size: 0.95rem;
+            }
+            .choice-btn {
+                font-size: 0.9rem;
+                padding: 12px 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <div id="damage-overlay"></div>
+
+        <header>
+            <div class="status-group">
+                <div class="stat-box" title="生命值 (HP)">
+                    <span>❤️</span>
+                    <div class="stat-bar-outer"><div id="hp-bar" class="stat-bar-inner"></div></div>
+                    <span id="hp-text">100</span>
+                </div>
+                <div class="stat-box" title="理智值 (SAN)">
+                    <span>🧠</span>
+                    <div class="stat-bar-outer"><div id="sanity-bar" class="stat-bar-inner"></div></div>
+                    <span id="sanity-text">100</span>
+                </div>
+            </div>
+
+            <div class="inventory-box">
+                <span>🎒 道具:</span>
+                <div id="inventory-list"><span style="color: #64748b;">無</span></div>
+            </div>
+
+            <div class="header-actions">
+                <button class="icon-btn" id="btn-history">📜 歷程</button>
+                <button class="icon-btn" id="btn-restart">🔄 重來</button>
+            </div>
+        </header>
+
+        <!-- 1. 開場畫面 -->
+        <div id="start-screen" class="screen active">
+            <div class="subtitle">Cyberpunk Interactive Mystery</div>
+            <h1 class="game-title">神經闇網：0 號實驗體</h1>
+            <p class="game-desc">
+                2088 年，新東京暗區。巨型企業「心智科技 (MindTech)」廢棄的地下第 9 號實驗室傳出異常訊號。
+                作為一名獨立調查員，你為了尋找失蹤且高價的機密原型晶片「AETHER」潛入此處。
+                在這裡，每一個決定都將影響你的生命、理智，以及你最終發現的駭人真相...
+            </p>
+            <div style="display: flex; gap: 15px;">
+                <button class="btn-main" id="btn-start-game">開始調查</button>
+                <button class="btn-secondary" id="btn-continue-game" style="display: none;">繼續遊戲</button>
+            </div>
+        </div>
+
+        <!-- 2. 遊戲進行畫面 -->
+        <div id="game-screen" class="screen">
+            <div class="story-container" id="story-box">
+                <div class="scene-title" id="scene-location">LOCATION: UNKNOWN</div>
+                <div class="story-text" id="story-text-content"></div>
+                <div class="skip-hint" id="skip-hint">點擊跳過打字...</div>
+            </div>
+
+            <div class="choices-container" id="choices-box"></div>
+        </div>
+
+        <!-- 3. 結局畫面 -->
+        <div id="ending-screen" class="screen">
+            <div id="ending-badge" class="ending-badge">ENDING ACHIEVED</div>
+            <h2 id="ending-title" class="ending-title">結局標題</h2>
+            <div id="ending-summary" class="ending-summary">結局故事總結...</div>
+            <button class="btn-main" id="btn-rechallenge">再次挑戰</button>
+        </div>
+
+        <!-- 4. 歷史紀錄 Modal -->
+        <div id="history-modal">
+            <div class="modal-header">
+                <h3>📜 調查日誌歷程</h3>
+                <button class="icon-btn" id="btn-close-history">✕ 關閉</button>
+            </div>
+            <div class="modal-body" id="history-content"></div>
+        </div>
+
+        <!-- Toast 提示區 -->
+        <div id="toast-container"></div>
+    </div>
+
+    <script>
+        // ==================== 完整故事資料樹 (Story Nodes) ====================
+        const storyNodes = {
+            1: {
+                location: "Node 1 - 地下實驗室入口 (暴雨夜)",
+                text: "暴雨傾盆的夜晚，你站在心智科技廢棄第 9 號實驗室的後門。斑駁的霓虹燈管發出滋滋的電流短路聲。眼前有一扇高壓電子鎖住的重型鋼鐵門，右側上方則是一個發出電火花的通風管口；而在暗巷角落，蹲著一名裹著破爛電熱毯的流浪拾荒者。",
+                options: [
+                    {
+                        text: "拿出黑客終端機，嘗試破解電子門鎖",
+                        nextNode: 2,
+                        effect: (state) => {
+                            if (Math.random() > 0.3) {
+                                state.inventory.push("駭客解碼器");
+                                showToast("獲得道具：[駭客解碼器]");
+                            } else {
+                                state.hp -= 15;
+                                triggerDamage();
+                                showToast("觸發門鎖防盜迴路！HP -15");
+                            }
+                        }
+                    },
+                    {
+                        text: "攀爬發出火花的通風管口強行擠入",
+                        nextNode: 3,
+                        effect: (state) => {
+                            state.hp -= 10;
+                            triggerDamage();
+                            state.inventory.push("通風管鑰匙");
+                            showToast("管道狹窄刮傷護甲！HP -10，獲得 [通風管鑰匙]");
+                        }
+                    },
+                    {
+                        text: "走向暗巷角落，向流浪拾荒者打探消息",
+                        nextNode: 4,
+                        effect: (state) => {
+                            state.sanity -= 5;
+                            showToast("聽到不安的怪談，SAN -5");
+                        }
+                    }
+                ]
+            },
+            2: {
+                location: "Node 2 - 大廳控制台與警衛室",
+                text: "鋼鐵門嗶一聲解鎖，你溜進了漆黑的大廳。空氣中瀰漫著濃烈的冷氣與焦糊味。中央控制台螢幕正閃爍著警報：「警告：實驗體 0 號已脫離拘束」。桌上散落著沾血的手記與警衛留下的武器。",
+                options: [
+                    {
+                        text: "檢查控制台，嘗試下載 AETHER 機密數據",
+                        nextNode: 5,
+                        effect: (state) => {
+                            if (state.inventory.includes("駭客解碼器")) {
+                                state.inventory.push("加密日誌");
+                                showToast("使用解碼器成功讀取檔案！獲得 [加密日誌]");
+                            } else {
+                                state.sanity -= 15;
+                                showToast("缺乏解碼器，遭警報精神干擾！SAN -15");
+                            }
+                        }
+                    },
+                    {
+                        text: "搜刮警衛室，尋求防身裝備",
+                        nextNode: 6,
+                        effect: (state) => {
+                            state.inventory.push("動能手槍");
+                            showToast("獲得裝備：[動能手槍]");
+                        }
+                    }
+                ]
+            },
+            3: {
+                location: "Node 3 - 管道內部與下層異象",
+                text: "通風管道內充斥著油污與焦味。你艱難地向前爬行，透過下方的鐵網，你驚悚地看到一個由光纖與神經組織交織成的巨大黑影正在廊道間緩慢游走，發出低沉的神經波脈衝...你的心跳猛烈加速。",
+                options: [
+                    {
+                        text: "屏住呼吸保持絕對靜止，等待黑影離開",
+                        nextNode: 6,
+                        effect: (state) => {
+                            state.sanity -= 10;
+                            showToast("極度恐懼壓迫！SAN -10");
+                        }
+                    },
+                    {
+                        text: "用 [通風管鑰匙] 撬開緊急滑道進入機房",
+                        nextNode: 7,
+                        effect: (state) => {
+                            if (state.inventory.includes("通風管鑰匙")) {
+                                showToast("成功用鑰匙解鎖緊急管道！");
+                            } else {
+                                state.hp -= 10;
+                                triggerDamage();
+                                showToast("無鑰匙強行破拆！HP -10");
+                            }
+                        }
+                    }
+                ]
+            },
+            4: {
+                location: "Node 4 - 暗巷拾荒者",
+                text: "拾荒者接過你的信用幣，露出缺牙的笑：「嘿...裡面根本沒有什麼晶片，只有一個吃掉了整支研究團隊的『思想體』！如果你一定要進去，把這個超頻防護碼拿去吧，能幫你擋住它的精神噪音。」",
+                options: [
+                    {
+                        text: "使用防護碼，並從後門防空洞進入",
+                        nextNode: 7,
+                        effect: (state) => {
+                            state.inventory.push("防護碼");
+                            state.sanity += 10;
+                            showToast("獲得 [防護碼]，神經防護提升 SAN +10");
+                        }
+                    },
+                    {
+                        text: "認為他在發瘋，轉身推開側門進大廳",
+                        nextNode: 2,
+                        effect: (state) => {
+                            state.hp -= 5;
+                            triggerDamage();
+                        }
+                    }
+                ]
+            },
+            5: {
+                location: "Node 5 - 核心伺服器室門口",
+                text: "下載數據到一半，系統警報突然大作！「偵測到入侵者，淨化程序啟動！」牆壁上的自動防衛槍塔開始旋轉鎖定你，後方的防火門同時開始下降鎖死！",
+                options: [
+                    {
+                        text: "拔出 [動能手槍] 開火擊毀自動槍塔",
+                        nextNode: 8,
+                        effect: (state) => {
+                            if (state.inventory.includes("動能手槍")) {
+                                showToast("精準開火！順利擊碎槍塔");
+                            } else {
+                                state.hp -= 40;
+                                triggerDamage();
+                                showToast("缺乏槍械！被機關槍掃射重傷 HP -40");
+                            }
+                        }
+                    },
+                    {
+                        text: "放棄下載，滑行穿過即將關閉的防火門",
+                        nextNode: 7,
+                        effect: (state) => {
+                            state.hp -= 10;
+                            triggerDamage();
+                            showToast("滾地逃跑擦傷！HP -10");
+                        }
+                    }
+                ]
+            },
+            6: {
+                location: "Node 6 - 生化培養核心區門口",
+                text: "你來到了一間巨大的圓形實驗室門口。中央巨大的玻璃柱已經碎裂，綠色的培養液滿地都是。一個由光纖與人類神經組織交織成的巨大發光體懸浮在半空——這就是「0號實驗體」。它發出了直接傳入你腦衛的精神聲響：「求求你...拯救我...」",
+                options: [
+                    {
+                        text: "開啟神經連結，直接接入實驗體意識進行溝通",
+                        nextNode: 9,
+                        effect: (state) => {
+                            state.sanity -= 15;
+                            showToast("龐大數據流湧入！SAN -15");
+                        }
+                    },
+                    {
+                        text: "舉起武器，準備執行任務將其強制拔除",
+                        nextNode: 10,
+                        effect: (state) => {
+                            showToast("進入戰備狀態！");
+                        }
+                    }
+                ]
+            },
+            7: {
+                location: "Node 7 - 地下機房通道",
+                text: "機房內滿是死寂。你在運作中的紀錄器上發現了專案主持人的最後錄音——「AETHER 不是晶片...它是一個具備自我意識的人類大腦數位化體！心智科技想把它當作兵器，但它的意識正在反抗...」",
+                options: [
+                    {
+                        text: "下載 [真相錄音]，前往培養核心區",
+                        nextNode: 6,
+                        effect: (state) => {
+                            state.inventory.push("真相錄音");
+                            showToast("取得重要證物 [真相錄音]");
+                        }
+                    },
+                    {
+                        text: "意識到這個存在太危險，直接啟動機房自毀程序",
+                        nextNode: 11,
+                        effect: () => {}
+                    }
+                ]
+            },
+            8: {
+                location: "Node 8 - 終端機控制台",
+                text: "你甩開了防衛系統來到主控台前。眼前呈現出兩個最後操作選項：將 AETHER 專案徹底格式化刪除，或是將其意識轉移至你的隨身硬碟中帶給黑市買家換取鉅款。",
+                options: [
+                    {
+                        text: "將 AETHER 意識拷貝至隨身硬碟 (交付買家)",
+                        nextNode: 12,
+                        effect: () => {}
+                    },
+                    {
+                        text: "徹底格式化主控台，抹殺實驗體",
+                        nextNode: 11,
+                        effect: () => {}
+                    }
+                ]
+            },
+            9: {
+                location: "Node 9 - 神經意識空間 (終局抉擇)",
+                text: "你的心智進入了 0號實驗體的意識世界。你看到了它被拷問、切片與試驗的痛苦記憶。它向你伸出手：「幫我超越這具肉體...將我的意識上傳到全球網絡，我將還給世界真相。」",
+                options: [
+                    {
+                        text: "信任它，幫它解開防火牆並釋放至全球網絡",
+                        nextNode: 13,
+                        effect: () => {}
+                    },
+                    {
+                        text: "拒絕！這太危險了，將其意識永久封印",
+                        nextNode: 11,
+                        effect: () => {}
+                    }
+                ]
+            },
+            10: {
+                location: "Node 10 - 培養核心 (武力對峙)",
+                text: "當你靠近發光體時，機械觸手瞬間狂暴！發光體發出刺耳的精神尖叫：「你們這些企業的走狗！」",
+                options: [
+                    {
+                        text: "展示 [加密日誌] 與 [真相錄音] 嘗試安撫溝通",
+                        nextNode: 13,
+                        effect: (state) => {
+                            if (!state.inventory.includes("加密日誌") || !state.inventory.includes("真相錄音")) {
+                                state.hp -= 50;
+                                triggerDamage();
+                                showToast("缺少關鍵證物！溝通失敗遭受重創 HP -50");
+                            }
+                        }
+                    },
+                    {
+                        text: "全力開火，強制奪取核心晶片",
+                        nextNode: 14,
+                        effect: () => {}
+                    }
+                ]
+            },
+
+            // ==================== 結局節點 (Endings) ====================
+            11: {
+                isEnding: true,
+                type: "good",
+                title: "【結局一：毀滅與沈默】",
+                text: "你按下了自毀與徹底格式化按鈕。巨大的火焰與資料洪流吞噬了整個地下實驗室。心智科技的邪惡實驗隨著火海化為灰燼，你拖著疲憊的身軀回到雨夜中。雖然沒有賺到黑市鉅款，但你拯救了自己的良知與世界的安寧。"
+            },
+            12: {
+                isEnding: true,
+                type: "bad",
+                title: "【結局二：黑市傭兵】",
+                text: "你成功將 AETHER 意識拷貝並賣給了黑市買家，獲得了高達數百萬的信用幣。然而幾週後，新聞報導全球多家軍工企業與政府國防系統遭到極具攻擊性的神秘 AI 癱瘓...你坐在豪華公寓裡，意識到自己親手釋放了一個失控的怪物。"
+            },
+            13: {
+                isEnding: true,
+                type: "true",
+                title: "【真結局：數位飛昇】",
+                text: "你選擇信任 0號實驗體，並協助它突破了企業防火牆。AETHER 的意識融入了全球網絡，將心智科技的所有非法人體實驗罪證公諸於世。作為回報，AETHER 成為了你在暗區網路上無所不能的守護影侍。"
+            },
+            14: {
+                isEnding: true,
+                type: "bad",
+                title: "【悲慘結局：神經死亡】",
+                text: "狂暴的生化觸手與強烈精神衝擊波穿透了你的防線。你的心智在極度的痛苦中崩解，軀體倒在滿是綠色液體的地板上，成為了這個廢棄實驗室中下一個無意識的游魂...調查任務徹底失敗。"
+            }
+        };
+
+        // ==================== 遊戲狀態管理 (State Management) ====================
+        const defaultState = {
+            hp: 100,
+            sanity: 100,
+            inventory: [],
+            currentScene: 1,
+            history: []
+        };
+
+        let gameState = JSON.parse(JSON.stringify(defaultState));
+        let isTyping = false;
+        let typeInterval = null;
+        let currentFullText = "";
+
+        const screens = {
+            start: document.getElementById('start-screen'),
+            game: document.getElementById('game-screen'),
+            ending: document.getElementById('ending-screen')
+        };
+
+        const ui = {
+            hpBar: document.getElementById('hp-bar'),
+            hpText: document.getElementById('hp-text'),
+            sanityBar: document.getElementById('sanity-bar'),
+            sanityText: document.getElementById('sanity-text'),
+            inventoryList: document.getElementById('inventory-list'),
+            sceneLocation: document.getElementById('scene-location'),
+            storyTextContent: document.getElementById('story-text-content'),
+            choicesBox: document.getElementById('choices-box'),
+            skipHint: document.getElementById('skip-hint'),
+            historyModal: document.getElementById('history-modal'),
+            historyContent: document.getElementById('history-content'),
+            toastContainer: document.getElementById('toast-container'),
+            damageOverlay: document.getElementById('damage-overlay'),
+            btnContinue: document.getElementById('btn-continue-game')
+        };
+
+        window.addEventListener('DOMContentLoaded', () => {
+            checkSaveData();
+
+            document.getElementById('btn-start-game').addEventListener('click', startNewGame);
+            document.getElementById('btn-continue-game').addEventListener('click', loadGame);
+            document.getElementById('btn-restart').addEventListener('click', confirmRestart);
+            document.getElementById('btn-rechallenge').addEventListener('click', startNewGame);
+            document.getElementById('btn-history').addEventListener('click', openHistory);
+            document.getElementById('btn-close-history').addEventListener('click', closeHistory);
+            document.getElementById('story-box').addEventListener('click', skipTypewriter);
+        });
+
+        function showScreen(screenKey) {
+            Object.keys(screens).forEach(key => {
+                screens[key].classList.remove('active');
+            });
+            screens[screenKey].classList.add('active');
+        }
+
+        function checkSaveData() {
+            const save = localStorage.getItem('AETHER_SINGLE_GAME_SAVE');
+            if (save) {
+                ui.btnContinue.style.display = 'inline-block';
+            }
+        }
+
+        function startNewGame() {
+            gameState = JSON.parse(JSON.stringify(defaultState));
+            saveGame();
+            showScreen('game');
+            renderScene(gameState.currentScene);
+        }
+
+        function loadGame() {
+            const save = localStorage.getItem('AETHER_SINGLE_GAME_SAVE');
+            if (save) {
+                gameState = JSON.parse(save);
+                showScreen('game');
+                renderScene(gameState.currentScene);
+                showToast("已成功載入調查進度");
+            }
+        }
+
+        function saveGame() {
+            localStorage.setItem('AETHER_SINGLE_GAME_SAVE', JSON.stringify(gameState));
+        }
+
+        function confirmRestart() {
+            if (confirm("確定要重頭開始調查嗎？當前進度將會丟失。")) {
+                startNewGame();
+            }
+        }
+
+        function renderScene(nodeId) {
+            const node = storyNodes[nodeId];
+            if (!node) return;
+
+            gameState.currentScene = nodeId;
+            updateStatusUI();
+
+            if (gameState.hp <= 0 || gameState.sanity <= 0) {
+                triggerGameOverByStats();
+                return;
+            }
+
+            if (node.isEnding) {
+                renderEnding(node);
+                return;
+            }
+
+            ui.sceneLocation.textContent = `LOCATION: ${node.location}`;
+            ui.choicesBox.innerHTML = '';
+
+            startTypewriter(node.text, () => {
+                renderChoices(node.options);
+            });
+
+            saveGame();
+        }
+
+        function renderChoices(options) {
+            ui.choicesBox.innerHTML = '';
+            options.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.className = 'choice-btn';
+                btn.textContent = opt.text;
+                btn.onclick = () => handleChoice(opt);
+                ui.choicesBox.appendChild(btn);
+            });
+        }
+
+        function handleChoice(option) {
+            if (isTyping) skipTypewriter();
+
+            const currentNode = storyNodes[gameState.currentScene];
+            gameState.history.push({
+                location: currentNode.location,
+                text: currentNode.text,
+                chosen: option.text
+            });
+
+            if (option.effect) {
+                option.effect(gameState);
+            }
+
+            renderScene(option.nextNode);
+        }
+
+        function startTypewriter(text, callback) {
+            isTyping = true;
+            currentFullText = text;
+            ui.storyTextContent.textContent = '';
+            ui.skipHint.style.display = 'block';
+            let index = 0;
+
+            if (typeInterval) clearInterval(typeInterval);
+
+            typeInterval = setInterval(() => {
+                ui.storyTextContent.textContent += text.charAt(index);
+                index++;
+                if (index >= text.length) {
+                    completeTypewriter(callback);
+                }
+            }, 20);
+
+            ui.storyBoxCallback = callback;
+        }
+
+        function skipTypewriter() {
+            if (!isTyping) return;
+            clearInterval(typeInterval);
+            ui.storyTextContent.textContent = currentFullText;
+            completeTypewriter(ui.storyBoxCallback);
+        }
+
+        function completeTypewriter(callback) {
+            isTyping = false;
+            if (typeInterval) clearInterval(typeInterval);
+            ui.skipHint.style.display = 'none';
+            if (callback) callback();
+        }
+
+        function updateStatusUI() {
+            gameState.hp = Math.max(0, Math.min(100, gameState.hp));
+            gameState.sanity = Math.max(0, Math.min(100, gameState.sanity));
+
+            ui.hpText.textContent = gameState.hp;
+            ui.hpBar.style.width = `${gameState.hp}%`;
+            ui.sanityText.textContent = gameState.sanity;
+            ui.sanityBar.style.width = `${gameState.sanity}%`;
+
+            if (gameState.inventory.length === 0) {
+                ui.inventoryList.innerHTML = `<span style="color: #64748b;">無</span>`;
+            } else {
+                ui.inventoryList.innerHTML = gameState.inventory
+                    .map(item => `<span class="item-tag">${item}</span>`)
+                    .join('');
+            }
+        }
+
+        function renderEnding(node) {
+            showScreen('ending');
+            const badge = document.getElementById('ending-badge');
+            badge.className = `ending-badge ending-${node.type}`;
+            badge.textContent = `${node.type.toUpperCase()} ENDING`;
+
+            document.getElementById('ending-title').textContent = node.title;
+            document.getElementById('ending-summary').textContent = node.text;
+
+            localStorage.removeItem('AETHER_SINGLE_GAME_SAVE');
+            ui.btnContinue.style.display = 'none';
+        }
+
+        function triggerGameOverByStats() {
+            const reason = gameState.hp <= 0 ? "體力耗盡，創傷性休克..." : "理智崩解，陷入永久性神經狂想...";
+            renderEnding({
+                type: "bad",
+                title: "【調查終止：生命體徵停止】",
+                text: `${reason} 你未能揭開 AETHER 的真相，軀體倒在了漆黑的實驗室中。`
+            });
+        }
+
+        function triggerDamage() {
+            ui.damageOverlay.classList.remove('flash');
+            void ui.damageOverlay.offsetWidth;
+            ui.damageOverlay.classList.add('flash');
+        }
+
+        function showToast(message) {
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.textContent = message;
+            ui.toastContainer.appendChild(toast);
+
+            setTimeout(() => {
+                toast.remove();
+            }, 2500);
+        }
+
+        function openHistory() {
+            ui.historyContent.innerHTML = '';
+            if (gameState.history.length === 0) {
+                ui.historyContent.innerHTML = `<div style="color: var(--text-muted); text-align: center; padding: 20px;">尚無調查歷程紀錄。</div>`;
+            } else {
+                gameState.history.forEach((h, idx) => {
+                    const item = document.createElement('div');
+                    item.className = 'history-item';
+                    item.innerHTML = `
+                        <div style="color: var(--accent-cyan); font-size: 0.8rem; margin-bottom: 4px;">#${idx + 1} - ${h.location}</div>
+                        <div>${h.text}</div>
+                        <div class="history-choice">➔ 你的抉擇：${h.chosen}</div>
+                    `;
+                    ui.historyContent.appendChild(item);
+                });
+            }
+            ui.historyModal.classList.add('active');
+        }
+
+        function closeHistory() {
+            ui.historyModal.classList.remove('active');
+        }
+    </script>
+</body>
+</html>

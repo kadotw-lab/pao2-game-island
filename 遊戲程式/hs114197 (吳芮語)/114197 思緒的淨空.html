@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>霓虹打磚塊 (Neon Brick Breaker)</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+
+        body {
+            background-color: #0b0c10;
+            color: #66fcf1;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+            padding: 10px;
+        }
+
+        .game-container {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            max-width: 800px;
+            width: 100%;
+        }
+
+        /* HUD Header Styling */
+        .hud-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            padding: 12px 20px;
+            background: rgba(31, 40, 51, 0.85);
+            border: 2px solid #45a29e;
+            border-radius: 12px 12px 0 0;
+            box-shadow: 0 0 15px rgba(102, 252, 241, 0.3);
+            backdrop-filter: blur(5px);
+        }
+
+        .hud-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .hud-label {
+            font-size: 12px;
+            color: #c5c6c7;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .hud-value {
+            font-size: 20px;
+            font-weight: bold;
+            color: #66fcf1;
+            text-shadow: 0 0 8px rgba(102, 252, 241, 0.8);
+        }
+
+        /* Canvas Wrapper & Canvas Styling */
+        .canvas-wrapper {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 4 / 3;
+            max-height: 70vh;
+            background-color: #000000;
+            border-left: 2px solid #45a29e;
+            border-right: 2px solid #45a29e;
+            border-bottom: 2px solid #45a29e;
+            border-radius: 0 0 12px 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8), 0 0 20px rgba(102, 252, 241, 0.2);
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Modal / Overlay UI Screens */
+        .overlay-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(11, 12, 16, 0.88);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(8px);
+            z-index: 10;
+            transition: opacity 0.3s ease;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .title {
+            font-size: 38px;
+            font-weight: 900;
+            color: #66fcf1;
+            text-shadow: 0 0 15px #66fcf1, 0 0 30px #45a29e;
+            margin-bottom: 15px;
+            text-align: center;
+            letter-spacing: 2px;
+        }
+
+        .subtitle {
+            font-size: 16px;
+            color: #c5c6c7;
+            margin-bottom: 25px;
+            text-align: center;
+            max-width: 80%;
+            line-height: 1.5;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #45a29e, #66fcf1);
+            color: #0b0c10;
+            border: none;
+            padding: 12px 32px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 0 15px rgba(102, 252, 241, 0.5);
+            transition: all 0.2s ease;
+            outline: none;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin: 8px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px) scale(1.05);
+            box-shadow: 0 0 25px rgba(102, 252, 241, 0.8);
+        }
+
+        .btn:active {
+            transform: translateY(1px) scale(0.98);
+        }
+
+        .controls-hint {
+            margin-top: 20px;
+            font-size: 13px;
+            color: #45a29e;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .key-badge {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 2px 8px;
+            border-radius: 4px;
+            border: 1px solid #45a29e;
+            color: #fff;
+        }
+
+        /* Mobile Controls Bar */
+        .mobile-controls {
+            display: none;
+            width: 100%;
+            margin-top: 15px;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        @media (max-width: 768px) {
+            .title { font-size: 28px; }
+            .subtitle { font-size: 14px; }
+            .hud-value { font-size: 16px; }
+            .hud-label { font-size: 10px; }
+            .mobile-controls { display: flex; }
+        }
+
+        .mobile-btn {
+            flex: 1;
+            padding: 15px;
+            background: rgba(31, 40, 51, 0.8);
+            border: 1px solid #45a29e;
+            color: #66fcf1;
+            font-size: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="game-container">
+        <!-- HUD Overlay -->
+        <div class="hud-container">
+            <div class="hud-item">
+                <span class="hud-label">得分 Score</span>
+                <span id="score" class="hud-value">0</span>
+            </div>
+            <div class="hud-item">
+                <span class="hud-label">最高分 High</span>
+                <span id="high-score" class="hud-value">0</span>
+            </div>
+            <div class="hud-item">
+                <span class="hud-label">關卡 Level</span>
+                <span id="level" class="hud-value">1</span>
+            </div>
+            <div class="hud-item">
+                <span class="hud-label">生命 Lives</span>
+                <span id="lives" class="hud-value">3</span>
+            </div>
+        </div>
+
+        <!-- Canvas Container -->
+        <div class="canvas-wrapper" id="canvas-wrapper">
+            <canvas id="gameCanvas"></canvas>
+
+            <!-- Start / Main Menu Overlay -->
+            <div id="start-screen" class="overlay-screen">
+                <div class="title">NEON BREAKOUT</div>
+                <div class="subtitle">打碎所有發光磚塊！體驗流暢物理與打擊震撼效果。</div>
+                <button id="start-btn" class="btn">開始遊戲</button>
+                <div class="controls-hint">
+                    <span><span class="key-badge">←</span> <span class="key-badge">→</span> 或 滑鼠/觸控 移動擋板</span>
+                    <span><span class="key-badge">Space</span> 暫停</span>
+                </div>
+            </div>
+
+            <!-- Pause Screen -->
+            <div id="pause-screen" class="overlay-screen hidden">
+                <div class="title">遊戲暫停</div>
+                <button id="resume-btn" class="btn">繼續遊戲</button>
+                <button id="restart-pause-btn" class="btn" style="background: transparent; border: 2px solid #45a29e; color: #66fcf1;">重新開始</button>
+            </div>
+
+            <!-- Level Complete Screen -->
+            <div id="victory-screen" class="overlay-screen hidden">
+                <div class="title" style="color: #ffe81f; text-shadow: 0 0 15px #ffe81f;">關卡完成！</div>
+                <div id="victory-desc" class="subtitle">完美清除所有磚塊！準備迎戰下一關。</div>
+                <button id="next-level-btn" class="btn">進入下一關</button>
+            </div>
+
+            <!-- Game Over Screen -->
+            <div id="gameover-screen" class="overlay-screen hidden">
+                <div class="title" style="color: #ff007f; text-shadow: 0 0 15px #ff007f;">GAME OVER</div>
+                <div id="gameover-desc" class="subtitle">球掉落了！挑戰最高分紀錄。</div>
+                <button id="retry-btn" class="btn">再次挑戰</button>
+            </div>
+        </div>
+
+        <!-- Mobile Touch Helper Buttons -->
+        <div class="mobile-controls">
+            <div class="mobile-btn" id="left-touch-btn">◄ 左移</div>
+            <div class="mobile-btn" id="pause-touch-btn">❚❚ 暫停</div>
+            <div class="mobile-btn" id="right-touch-btn">右移 ►</div>
+        </div>
+    </div>
+
+    <script>
+        // Native Web Audio Synthesizer for Retro Sound FX
+        class SoundEffects {
+            constructor() {
+                this.ctx = null;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    if (AudioContext) {
+                        this.ctx = new AudioContext();
+                    }
+                }
+                if (this.ctx && this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            playHitPaddle() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(300, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(150, this.ctx.currentTime + 0.08);
+                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.08);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.08);
+            }
+
+            playHitBrick(durability = 1) {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                const baseFreq = durability > 1 ? 400 : 600;
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(baseFreq, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(baseFreq + 300, this.ctx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.1);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.1);
+            }
+
+            playLoseLife() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(220, this.ctx.currentTime);
+                osc.frequency.linearRampToValueAtTime(80, this.ctx.currentTime + 0.3);
+                gain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.3);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.3);
+            }
+
+            playVictory() {
+                if (!this.ctx) return;
+                const notes = [261.63, 329.63, 392.00, 523.25];
+                notes.forEach((freq, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime + idx * 0.1);
+                    gain.gain.setValueAtTime(0.3, this.ctx.currentTime + idx * 0.1);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + idx * 0.1 + 0.2);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(this.ctx.currentTime + idx * 0.1);
+                    osc.stop(this.ctx.currentTime + idx * 0.1 + 0.2);
+                });
+            }
+
+            playGameOver() {
+                if (!this.ctx) return;
+                const notes = [300, 260, 220, 150];
+                notes.forEach((freq, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime + idx * 0.15);
+                    gain.gain.setValueAtTime(0.3, this.ctx.currentTime + idx * 0.15);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + idx * 0.15 + 0.25);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(this.ctx.currentTime + idx * 0.15);
+                    osc.stop(this.ctx.currentTime + idx * 0.15 + 0.25);
+                });
+            }
+        }
+
+        const sound = new SoundEffects();
+
+        // Particle FX Engine
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.radius = Math.random() * 3 + 1.5;
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 4 + 1;
+                this.vx = Math.cos(angle) * speed;
+                this.vy = Math.sin(angle) * speed;
+                this.alpha = 1;
+                this.decay = Math.random() * 0.03 + 0.015;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.alpha -= this.decay;
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, this.alpha);
+                ctx.fillStyle = this.color;
+                ctx.shadowBlur = 6;
+                ctx.shadowColor = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const canvasWrapper = document.getElementById('canvas-wrapper');
+
+        // Internal Logical Resolution
+        const GAME_WIDTH = 800;
+        const GAME_HEIGHT = 600;
+        canvas.width = GAME_WIDTH;
+        canvas.height = GAME_HEIGHT;
+
+        // Color Palettes & Brick Types
+        const BRICK_TYPES = {
+            1: { color: '#ff007f', hp: 1, score: 10, shadow: '#ff007f' },  // Magenta - 1 hit
+            2: { color: '#00f0ff', hp: 2, score: 25, shadow: '#00f0ff' },  // Cyan - 2 hits
+            3: { color: '#ffe81f', hp: 3, score: 50, shadow: '#ffe81f' },  // Yellow - 3 hits
+            4: { color: '#7000ff', hp: 999, score: 0, shadow: '#7000ff' }  // Purple Solid (Indestructible)
+        };
+
+        // Level Configurations
+        const LEVELS = [
+            // Level 1: Classic Grid
+            {
+                rows: 5,
+                cols: 8,
+                speedMultiplier: 1.0,
+                layout: [
+                    [1, 1, 1, 1, 1, 1, 1, 1],
+                    [1, 2, 2, 1, 1, 2, 2, 1],
+                    [2, 2, 2, 2, 2, 2, 2, 2],
+                    [1, 1, 1, 1, 1, 1, 1, 1],
+                    [1, 1, 1, 1, 1, 1, 1, 1]
+                ]
+            },
+            // Level 2: Pyramid with Durable Bricks
+            {
+                rows: 6,
+                cols: 9,
+                speedMultiplier: 1.15,
+                layout: [
+                    [0, 0, 0, 3, 3, 3, 0, 0, 0],
+                    [0, 0, 2, 2, 3, 2, 2, 0, 0],
+                    [0, 2, 1, 1, 2, 1, 1, 2, 0],
+                    [2, 1, 1, 1, 1, 1, 1, 1, 2],
+                    [3, 2, 2, 2, 2, 2, 2, 2, 3],
+                    [1, 1, 1, 1, 1, 1, 1, 1, 1]
+                ]
+            },
+            // Level 3: Cyber Fortress (Harder Bricks + High Speed)
+            {
+                rows: 7,
+                cols: 10,
+                speedMultiplier: 1.3,
+                layout: [
+                    [3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
+                    [3, 2, 2, 2, 2, 2, 2, 2, 2, 3],
+                    [2, 2, 1, 1, 3, 3, 1, 1, 2, 2],
+                    [2, 1, 3, 1, 2, 2, 1, 3, 1, 2],
+                    [3, 2, 1, 1, 3, 3, 1, 1, 2, 3],
+                    [3, 2, 2, 2, 2, 2, 2, 2, 2, 3],
+                    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+                ]
+            }
+        ];
+
+        let gameState = 'START'; // 'START', 'PLAYING', 'PAUSED', 'VICTORY', 'GAMEOVER'
+        let currentLevelIndex = 0;
+        let score = 0;
+        let highScore = parseInt(localStorage.getItem('neon_breakout_high_score') || '0', 10);
+        let lives = 3;
+        let animationFrameId = null;
+
+        // Touch / Key state tracking
+        const keys = {
+            left: false,
+            right: false
+        };
+
+        // Paddle Definition
+        const paddle = {
+            width: 120,
+            height: 16,
+            x: GAME_WIDTH / 2 - 60,
+            y: GAME_HEIGHT - 35,
+            speed: 9,
+            dx: 0,
+            color: '#66fcf1'
+        };
+
+        // Ball Definition
+        const ball = {
+            x: GAME_WIDTH / 2,
+            y: GAME_HEIGHT - 55,
+            radius: 8,
+            speed: 6.5,
+            dx: 4,
+            dy: -6.5,
+            isStuck: true, // Attached to paddle initially
+            color: '#ffffff'
+        };
+
+        // Dynamic Bricks Array & Particles
+        let bricks = [];
+        let particles = [];
+
+        // DOM Elements
+        const scoreEl = document.getElementById('score');
+        const highScoreEl = document.getElementById('high-score');
+        const levelEl = document.getElementById('level');
+        const livesEl = document.getElementById('lives');
+
+        const startScreen = document.getElementById('start-screen');
+        const pauseScreen = document.getElementById('pause-screen');
+        const victoryScreen = document.getElementById('victory-screen');
+        const gameoverScreen = document.getElementById('gameover-screen');
+
+        highScoreEl.textContent = highScore;
+
+        function initLevel(levelIdx) {
+            const levelConfig = LEVELS[levelIdx];
+            bricks = [];
+            
+            const padding = 8;
+            const marginTop = 60;
+            const marginLeft = 35;
+            const availableWidth = GAME_WIDTH - (marginLeft * 2);
+            const brickWidth = (availableWidth - (padding * (levelConfig.cols - 1))) / levelConfig.cols;
+            const brickHeight = 22;
+
+            for (let r = 0; r < levelConfig.rows; r++) {
+                for (let c = 0; c < levelConfig.cols; c++) {
+                    const typeId = levelConfig.layout[r][c];
+                    if (typeId > 0) {
+                        const brickX = marginLeft + c * (brickWidth + padding);
+                        const brickY = marginTop + r * (brickHeight + padding);
+                        const typeInfo = BRICK_TYPES[typeId];
+
+                        bricks.push({
+                            x: brickX,
+                            y: brickY,
+                            w: brickWidth,
+                            h: brickHeight,
+                            hp: typeInfo.hp,
+                            maxHp: typeInfo.hp,
+                            type: typeId,
+                            color: typeInfo.color,
+                            score: typeInfo.score,
+                            shadow: typeInfo.shadow
+                        });
+                    }
+                }
+            }
+
+            // Reset Paddle & Ball
+            resetBallAndPaddle();
+            ball.speed = 6.5 * levelConfig.speedMultiplier;
+        }
+
+        function resetBallAndPaddle() {
+            paddle.width = Math.max(90, 120 - currentLevelIndex * 10);
+            paddle.x = GAME_WIDTH / 2 - paddle.width / 2;
+            paddle.y = GAME_HEIGHT - 35;
+
+            ball.x = paddle.x + paddle.width / 2;
+            ball.y = paddle.y - ball.radius - 2;
+            ball.isStuck = true;
+            
+            // Random launch angle trajectory upwards
+            const launchAngle = (Math.random() * 0.6 - 0.3) - Math.PI / 2;
+            ball.dx = Math.cos(launchAngle) * ball.speed;
+            ball.dy = Math.sin(launchAngle) * ball.speed;
+        }
+
+        function spawnParticles(x, y, color, count = 16) {
+            for (let i = 0; i < count; i++) {
+                particles.push(new Particle(x, y, color));
+            }
+        }
+
+        function updatePhysics() {
+            if (gameState !== 'PLAYING') return;
+
+            // Handle Paddle Movement
+            if (keys.left) {
+                paddle.x -= paddle.speed;
+            }
+            if (keys.right) {
+                paddle.x += paddle.speed;
+            }
+
+            // Clamp Paddle inside Canvas
+            if (paddle.x < 0) paddle.x = 0;
+            if (paddle.x + paddle.width > GAME_WIDTH) paddle.x = GAME_WIDTH - paddle.width;
+
+            // If Ball is stuck on paddle, sync movement
+            if (ball.isStuck) {
+                ball.x = paddle.x + paddle.width / 2;
+                ball.y = paddle.y - ball.radius - 2;
+                return;
+            }
+
+            // Move Ball
+            ball.x += ball.dx;
+            ball.y += ball.dy;
+
+            // Ball Boundary Collisions (Walls)
+            if (ball.x - ball.radius <= 0) {
+                ball.x = ball.radius;
+                ball.dx = -ball.dx;
+                sound.playHitPaddle();
+            } else if (ball.x + ball.radius >= GAME_WIDTH) {
+                ball.x = GAME_WIDTH - ball.radius;
+                ball.dx = -ball.dx;
+                sound.playHitPaddle();
+            }
+
+            if (ball.y - ball.radius <= 0) {
+                ball.y = ball.radius;
+                ball.dy = -ball.dy;
+                sound.playHitPaddle();
+            }
+
+            // Ball Falling Below Bottom Boundary (Lose Life)
+            if (ball.y - ball.radius > GAME_HEIGHT) {
+                lives--;
+                livesEl.textContent = lives;
+                sound.playLoseLife();
+
+                if (lives <= 0) {
+                    triggerGameOver();
+                } else {
+                    resetBallAndPaddle();
+                }
+                return;
+            }
+
+            // Ball vs Paddle Collision (Angle Modifier)
+            if (
+                ball.y + ball.radius >= paddle.y &&
+                ball.y - ball.radius <= paddle.y + paddle.height &&
+                ball.x + ball.radius >= paddle.x &&
+                ball.x - ball.radius <= paddle.x + paddle.width &&
+                ball.dy > 0
+            ) {
+                sound.playHitPaddle();
+                
+                // Calculate impact position relative to center (-1 to +1)
+                const hitPoint = (ball.x - (paddle.x + paddle.width / 2)) / (paddle.width / 2);
+                
+                // Max reflection angle = 60 degrees (PI / 3)
+                const maxAngle = Math.PI / 3;
+                const bounceAngle = hitPoint * maxAngle;
+                
+                const currentSpeed = Math.hypot(ball.dx, ball.dy);
+                ball.dx = currentSpeed * Math.sin(bounceAngle);
+                ball.dy = -currentSpeed * Math.cos(bounceAngle);
+                
+                // Reposition ball above paddle to prevent stuck physics
+                ball.y = paddle.y - ball.radius - 1;
+            }
+
+            // Ball vs Bricks Collisions (AABB Detection)
+            let remainingBreakableBricks = 0;
+
+            for (let i = 0; i < bricks.length; i++) {
+                const b = bricks[i];
+                if (b.hp <= 0) continue;
+
+                if (b.hp < 999) remainingBreakableBricks++;
+
+                // AABB Check
+                const closestX = Math.max(b.x, Math.min(ball.x, b.x + b.w));
+                const closestY = Math.max(b.y, Math.min(ball.y, b.y + b.h));
+
+                const distanceX = ball.x - closestX;
+                const distanceY = ball.y - closestY;
+                const distanceSq = (distanceX * distanceX) + (distanceY * distanceY);
+
+                if (distanceSq < (ball.radius * ball.radius)) {
+                    // Collision Detected!
+                    sound.playHitBrick(b.hp);
+
+                    if (b.hp < 999) { // Destructible
+                        b.hp--;
+                        if (b.hp <= 0) {
+                            score += b.score;
+                            scoreEl.textContent = score;
+                            if (score > highScore) {
+                                highScore = score;
+                                highScoreEl.textContent = highScore;
+                                localStorage.setItem('neon_breakout_high_score', highScore.toString());
+                            }
+                            spawnParticles(b.x + b.w / 2, b.y + b.h / 2, b.color, 18);
+                            remainingBreakableBricks--;
+                        } else {
+                            spawnParticles(closestX, closestY, b.color, 6);
+                        }
+                    } else {
+                        spawnParticles(closestX, closestY, '#ffffff', 4);
+                    }
+
+                    // Physics Bounce Logic (Determine hit side)
+                    const prevX = ball.x - ball.dx;
+                    const prevY = ball.y - ball.dy;
+
+                    if (prevX + ball.radius <= b.x || prevX - ball.radius >= b.x + b.w) {
+                        ball.dx = -ball.dx;
+                    } else {
+                        ball.dy = -ball.dy;
+                    }
+                    break; // Process one collision per frame
+                }
+            }
+
+            // Level Cleared Victory Condition
+            if (remainingBreakableBricks === 0) {
+                triggerVictory();
+            }
+
+            // Update Particle Animation Frame
+            for (let i = particles.length - 1; i >= 0; i--) {
+                particles[i].update();
+                if (particles[i].alpha <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+        }
+
+        function render() {
+            // Clear Canvas with Subtle Motion Blur Trail
+            ctx.fillStyle = 'rgba(11, 12, 16, 0.35)';
+            ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+            // Render Bricks
+            bricks.forEach(b => {
+                if (b.hp <= 0) return;
+
+                ctx.save();
+                ctx.beginPath();
+                ctx.roundRect(b.x, b.y, b.w, b.h, 4);
+
+                // Opacity based on remaining HP ratio
+                const alpha = b.hp >= 999 ? 1 : (b.hp / b.maxHp);
+                ctx.fillStyle = b.color;
+                ctx.globalAlpha = 0.3 + (alpha * 0.7);
+
+                // Neon Glow
+                ctx.shadowColor = b.shadow;
+                ctx.shadowBlur = 10;
+                ctx.fill();
+
+                // Inner Border Accent
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 1.5;
+                ctx.globalAlpha = 0.6;
+                ctx.stroke();
+
+                ctx.restore();
+            });
+
+            // Render Paddle
+            ctx.save();
+            ctx.beginPath();
+            ctx.roundRect(paddle.x, paddle.y, paddle.width, paddle.height, 8);
+            ctx.fillStyle = paddle.color;
+            ctx.shadowColor = paddle.color;
+            ctx.shadowBlur = 15;
+            ctx.fill();
+            ctx.restore();
+
+            // Render Ball
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+            ctx.fillStyle = ball.color;
+            ctx.shadowColor = '#66fcf1';
+            ctx.shadowBlur = 12;
+            ctx.fill();
+            ctx.restore();
+
+            // Render Particles
+            particles.forEach(p => p.draw(ctx));
+        }
+
+        // Main Animation Loop
+        function gameLoop() {
+            updatePhysics();
+            render();
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+
+        function startGame() {
+            sound.init();
+            score = 0;
+            lives = 3;
+            currentLevelIndex = 0;
+
+            scoreEl.textContent = score;
+            livesEl.textContent = lives;
+            levelEl.textContent = currentLevelIndex + 1;
+
+            hideAllOverlays();
+            initLevel(currentLevelIndex);
+            gameState = 'PLAYING';
+        }
+
+        function triggerVictory() {
+            gameState = 'VICTORY';
+            sound.playVictory();
+            
+            if (currentLevelIndex + 1 < LEVELS.length) {
+                document.getElementById('victory-desc').textContent = `成功過關！準備挑戰第 ${currentLevelIndex + 2} 關。`;
+                document.getElementById('next-level-btn').textContent = '進入下一關';
+            } else {
+                document.getElementById('victory-desc').textContent = `太強了！你已經成功通關所有關卡！總得分：${score}`;
+                document.getElementById('next-level-btn').textContent = '重新挑戰';
+            }
+            
+            victoryScreen.classList.remove('hidden');
+        }
+
+        function nextLevel() {
+            hideAllOverlays();
+            if (currentLevelIndex + 1 < LEVELS.length) {
+                currentLevelIndex++;
+            } else {
+                currentLevelIndex = 0;
+                score = 0;
+                lives = 3;
+                scoreEl.textContent = score;
+                livesEl.textContent = lives;
+            }
+            levelEl.textContent = currentLevelIndex + 1;
+            initLevel(currentLevelIndex);
+            gameState = 'PLAYING';
+        }
+
+        function triggerGameOver() {
+            gameState = 'GAMEOVER';
+            sound.playGameOver();
+            document.getElementById('gameover-desc').textContent = `最終得分：${score} 分。別灰心，再次嘗試突破紀錄！`;
+            gameoverScreen.classList.remove('hidden');
+        }
+
+        function togglePause() {
+            if (gameState === 'PLAYING') {
+                gameState = 'PAUSED';
+                pauseScreen.classList.remove('hidden');
+            } else if (gameState === 'PAUSED') {
+                gameState = 'PLAYING';
+                pauseScreen.classList.add('hidden');
+            }
+        }
+
+        function hideAllOverlays() {
+            startScreen.classList.add('hidden');
+            pauseScreen.classList.add('hidden');
+            victoryScreen.classList.add('hidden');
+            gameoverScreen.classList.add('hidden');
+        }
+
+        function launchBall() {
+            if (gameState === 'PLAYING' && ball.isStuck) {
+                ball.isStuck = false;
+            }
+        }
+
+        // Keyboard Handlers
+        window.addEventListener('keydown', (e) => {
+            sound.init();
+            if (e.code === 'ArrowLeft' || e.code === 'KeyA') {
+                keys.left = true;
+            } else if (e.code === 'ArrowRight' || e.code === 'KeyD') {
+                keys.right = true;
+            } else if (e.code === 'Space') {
+                e.preventDefault();
+                if (gameState === 'PLAYING' && ball.isStuck) {
+                    launchBall();
+                } else {
+                    togglePause();
+                }
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.code === 'ArrowLeft' || e.code === 'KeyA') {
+                keys.left = false;
+            } else if (e.code === 'ArrowRight' || e.code === 'KeyD') {
+                keys.right = false;
+            }
+        });
+
+        // Mouse & Touch Control Mapping
+        function handlePointerMove(clientX) {
+            if (gameState !== 'PLAYING') return;
+            const rect = canvasWrapper.getBoundingClientRect();
+            const scaleX = GAME_WIDTH / rect.width;
+            const mouseX = (clientX - rect.left) * scaleX;
+            paddle.x = mouseX - paddle.width / 2;
+        }
+
+        canvasWrapper.addEventListener('mousemove', (e) => {
+            handlePointerMove(e.clientX);
+        });
+
+        canvasWrapper.addEventListener('click', () => {
+            sound.init();
+            launchBall();
+        });
+
+        // Touch Control Listeners
+        canvasWrapper.addEventListener('touchmove', (e) => {
+            if (e.touches.length > 0) {
+                handlePointerMove(e.touches[0].clientX);
+            }
+        }, { passive: true });
+
+        canvasWrapper.addEventListener('touchstart', (e) => {
+            sound.init();
+            launchBall();
+        }, { passive: true });
+
+        // Mobile Buttons Events
+        const leftTouchBtn = document.getElementById('left-touch-btn');
+        const rightTouchBtn = document.getElementById('right-touch-btn');
+        const pauseTouchBtn = document.getElementById('pause-touch-btn');
+
+        leftTouchBtn.addEventListener('touchstart', (e) => { e.preventDefault(); keys.left = true; });
+        leftTouchBtn.addEventListener('touchend', (e) => { e.preventDefault(); keys.left = false; });
+        rightTouchBtn.addEventListener('touchstart', (e) => { e.preventDefault(); keys.right = true; });
+        rightTouchBtn.addEventListener('touchend', (e) => { e.preventDefault(); keys.right = false; });
+        pauseTouchBtn.addEventListener('click', () => togglePause());
+
+        // UI Button Event Binding
+        document.getElementById('start-btn').addEventListener('click', startGame);
+        document.getElementById('resume-btn').addEventListener('click', togglePause);
+        document.getElementById('restart-pause-btn').addEventListener('click', startGame);
+        document.getElementById('next-level-btn').addEventListener('click', nextLevel);
+        document.getElementById('retry-btn').addEventListener('click', startGame);
+
+        window.onload = function () {
+            initLevel(0);
+            render();
+            animationFrameId = requestAnimationFrame(gameLoop);
+        };
+    </script>
+</body>
+</html>

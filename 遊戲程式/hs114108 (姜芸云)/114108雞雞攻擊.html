@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>黃雞薯條大打豬排 - 討厭蔬菜大作戰！</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+
+        body {
+            background-color: #0f172a;
+            color: #ffffff;
+            font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+            overflow: hidden;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            max-width: 900px;
+            max-height: 650px;
+            background: linear-gradient(180deg, #311042 0%, #0f172a 100%);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+            border-radius: 20px;
+            overflow: hidden;
+        }
+
+        .hud-glass {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        .attack-btn {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+            border: 4px solid #fef08a;
+            box-shadow: 0 10px 25px rgba(239, 68, 68, 0.6), inset 0 3px 6px rgba(255,255,255,0.5);
+            transition: transform 0.05s ease, box-shadow 0.05s ease;
+        }
+
+        .attack-btn:active, .attack-btn.active {
+            transform: scale(0.90);
+            box-shadow: 0 2px 10px rgba(239, 68, 68, 0.9), inset 0 1px 3px rgba(0,0,0,0.5);
+            background: linear-gradient(135deg, #d97706 0%, #dc2626 100%);
+        }
+
+        /* Pulse animation for start button */
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 15px rgba(250, 204, 21, 0.6); }
+            50% { box-shadow: 0 0 30px rgba(250, 204, 21, 0.9); }
+        }
+
+        .glow-btn {
+            animation: pulse-glow 2s infinite;
+        }
+    </style>
+</head>
+<body class="flex justify-center items-center min-h-screen">
+
+<div id="game-container" class="relative flex flex-col justify-between p-4">
+    <!-- Canvas background -->
+    <canvas id="gameCanvas" class="absolute inset-0 w-full h-full z-0"></canvas>
+
+    <!-- YouTube Hidden Player for BGM (田小娟 야채싫어송) -->
+    <div id="yt-player-container" class="hidden">
+        <iframe id="yt-player" width="1" height="1" 
+                src="https://www.youtube-nocookie.com/embed/J9o7PcTaLjU?enablejsapi=1&loop=1&playlist=J9o7PcTaLjU" 
+                allow="autoplay">
+        </iframe>
+    </div>
+
+    <!-- Top HUD -->
+    <div class="relative z-10 hud-glass rounded-2xl px-5 py-3 flex justify-between items-center shadow-lg">
+        <div class="text-center">
+            <div class="text-xs text-slate-400 font-bold uppercase tracking-wider">得分 Score</div>
+            <div class="text-2xl font-black text-amber-400 drop-shadow" id="scoreVal">0</div>
+        </div>
+        <div class="text-center">
+            <div class="text-xs text-slate-400 font-bold uppercase tracking-wider">連擊 Combo</div>
+            <div class="text-2xl font-black text-orange-400 drop-shadow" id="comboVal">0</div>
+        </div>
+        <div class="text-center">
+            <div class="text-xs text-slate-400 font-bold uppercase tracking-wider">剩餘時間 Time</div>
+            <div class="text-2xl font-black text-emerald-400 drop-shadow" id="timeVal">30s</div>
+        </div>
+        <div class="text-center">
+            <div class="text-xs text-slate-400 font-bold uppercase tracking-wider">最高 High</div>
+            <div class="text-2xl font-black text-yellow-300 drop-shadow" id="highScoreVal">0</div>
+        </div>
+        <button id="bgmToggleBtn" class="px-3 py-1.5 rounded-full bg-slate-800/80 border border-slate-600 text-xs font-semibold text-slate-200 hover:bg-slate-700 transition">
+            🎵 BGM: 開
+        </button>
+    </div>
+
+    <!-- Keyboard Hint -->
+    <div class="relative z-10 text-xs text-slate-400/80 pointer-events-none font-medium ml-2 mb-2">
+        💡 提示：支援螢幕按鈕點擊，或鍵盤按 <span class="bg-slate-700 px-1.5 py-0.5 rounded text-amber-300">[Space]</span> / <span class="bg-slate-700 px-1.5 py-0.5 rounded text-amber-300">[Z]</span> 攻擊！
+    </div>
+
+    <!-- Bottom Controls -->
+    <div class="relative z-10 flex justify-end items-end p-2">
+        <button id="attackBtn" class="attack-btn flex flex-col justify-center items-center text-white font-black text-xl cursor-pointer select-none active:outline-none">
+            攻擊！
+            <span class="text-xs text-yellow-200 font-bold mt-0.5 tracking-wider">雞雞攻擊</span>
+        </button>
+    </div>
+
+    <!-- Start Screen Overlay -->
+    <div id="startScreen" class="absolute inset-0 z-20 hud-glass flex flex-col justify-center items-center p-6 text-center">
+        <div class="text-4xl sm:text-5xl font-black text-amber-400 mb-2 drop-shadow-lg tracking-wide">
+            🐥 黃雞薯條大打豬排 🥩
+        </div>
+        <div class="text-sm sm:text-base text-slate-300 max-w-md mb-6 leading-relaxed">
+            🎵 BGM：田小娟〈야채싫어송〉(Hate Vegetables Song)<br>
+            手握金黃大薯條，發動極速揮砍打飛厚切大豬排！
+        </div>
+        <button id="startBtn" class="glow-btn px-10 py-4 bg-amber-400 text-slate-900 font-black text-2xl rounded-full hover:bg-yellow-300 transition transform hover:-translate-y-1 active:translate-y-0">
+            開始遊戲
+        </button>
+    </div>
+
+    <!-- Game Over Screen Overlay -->
+    <div id="gameOverScreen" class="absolute inset-0 z-20 hud-glass hidden flex flex-col justify-center items-center p-6 text-center">
+        <div class="text-4xl font-black text-red-400 mb-2 drop-shadow">⚡ 挑戰結束 ⚡</div>
+        <div class="bg-slate-800/90 border border-slate-700 rounded-2xl p-6 my-4 w-64 shadow-xl">
+            <div class="text-xs text-slate-400 font-bold uppercase mb-1">最終得分 Final Score</div>
+            <div id="finalScore" class="text-5xl font-black text-emerald-400 mb-2">0</div>
+            <div id="newRecordBadge" class="hidden text-amber-300 font-bold text-sm bg-amber-500/20 py-1 px-3 rounded-full border border-amber-400/40 animate-bounce">
+                🎉 刷新歷史最高紀錄！
+            </div>
+        </div>
+        <button id="restartBtn" class="px-8 py-3.5 bg-emerald-400 text-slate-900 font-black text-xl rounded-full hover:bg-emerald-300 transition shadow-lg">
+            再試一次
+        </button>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const container = document.getElementById('game-container');
+    const attackBtn = document.getElementById('attackBtn');
+    const bgmToggleBtn = document.getElementById('bgmToggleBtn');
+
+    function resizeCanvas() {
+        canvas.width = container.clientWidth;
+        canvas.height = container.clientHeight;
+    }
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    // Audio & Speech Context
+    let audioCtx = null;
+    let bgmPlaying = true;
+    let voiceSynth = window.speechSynthesis;
+
+    function initAudio() {
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+    }
+
+    let ytIframe = document.getElementById('yt-player');
+
+    function playBGM() {
+        if (ytIframe && bgmPlaying) {
+            ytIframe.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', '*');
+        }
+    }
+
+    function stopBGM() {
+        if (ytIframe) {
+            ytIframe.contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*');
+        }
+    }
+
+    bgmToggleBtn.addEventListener('click', () => {
+        bgmPlaying = !bgmPlaying;
+        if (bgmPlaying) {
+            playBGM();
+            bgmToggleBtn.textContent = '🎵 BGM: 開';
+        } else {
+            stopBGM();
+            bgmToggleBtn.textContent = '🔇 BGM: 關';
+        }
+    });
+
+    function playHitSound() {
+        if (!audioCtx) return;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(180, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(35, audioCtx.currentTime + 0.12);
+        
+        gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.12);
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.12);
+    }
+
+    function playLoliVoice() {
+        if (!voiceSynth) return;
+        voiceSynth.cancel(); // Cancel previous speech for instant response
+        
+        const utterance = new SpeechSynthesisUtterance("雞雞攻擊");
+        utterance.lang = 'zh-TW';
+        utterance.pitch = 1.8; // High pitch for loli sound
+        utterance.rate = 1.5;  // Fast cute rate
+        utterance.volume = 1.0;
+
+        const voices = voiceSynth.getVoices();
+        const preferredVoice = voices.find(v => v.lang.includes('zh') && (v.name.includes('Female') || v.name.includes('Xiaoxiao') || v.name.includes('Mei-Jia') || v.name.includes('Google')));
+        if (preferredVoice) utterance.voice = preferredVoice;
+
+        voiceSynth.speak(utterance);
+    }
+
+    let gameState = 'START';
+    let score = 0;
+    let combo = 0;
+    let timeLeft = 30;
+    let timerInterval = null;
+    let highScore = localStorage.getItem('chicken_fry_bgm_highscore') || 0;
+
+    document.getElementById('highScoreVal').textContent = highScore;
+
+    const chicken = {
+        x: 0,
+        y: 0,
+        isAttacking: false,
+        attackTimer: 0,
+        attackDuration: 10
+    };
+
+    const pork = {
+        x: 0,
+        y: 0,
+        hp: 100,
+        maxHp: 100,
+        shake: 0,
+        hitTimer: 0
+    };
+
+    let particles = [];
+    let floatingTexts = [];
+
+    function update() {
+        if (gameState !== 'PLAYING') return;
+
+        if (chicken.isAttacking) {
+            chicken.attackTimer--;
+            if (chicken.attackTimer <= 0) {
+                chicken.isAttacking = false;
+            }
+        }
+
+        if (pork.hitTimer > 0) pork.hitTimer--;
+        if (pork.shake > 0) pork.shake *= 0.82;
+
+        // Particle System
+        for (let i = particles.length - 1; i >= 0; i--) {
+            let p = particles[i];
+            p.x += p.vx;
+            p.y += p.vy;
+            p.vy += 0.3;
+            p.alpha -= 0.025;
+            if (p.alpha <= 0) particles.splice(i, 1);
+        }
+
+        // Floating Scores
+        for (let i = floatingTexts.length - 1; i >= 0; i--) {
+            let ft = floatingTexts[i];
+            ft.y -= 1.8;
+            ft.alpha -= 0.025;
+            if (ft.alpha <= 0) floatingTexts.splice(i, 1);
+        }
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+
+        chicken.x = centerX - 130;
+        chicken.y = centerY + 30;
+        pork.x = centerX + 110;
+        pork.y = centerY + 10;
+
+        // Ground Shadow
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.6)';
+        ctx.beginPath();
+        ctx.ellipse(centerX, centerY + 110, canvas.width * 0.42, 35, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // --- DRAW PORK CUTLET (豬排) ---
+        ctx.save();
+        let porkShakeX = (Math.random() - 0.5) * pork.shake;
+        let porkShakeY = (Math.random() - 0.5) * pork.shake;
+        ctx.translate(pork.x + porkShakeX, pork.y + porkShakeY);
+
+        // Crispy Pork Body
+        ctx.fillStyle = pork.hitTimer > 0 ? '#ef4444' : '#b45309';
+        ctx.beginPath();
+        ctx.roundRect(-55, -65, 110, 120, 24);
+        ctx.fill();
+        ctx.lineWidth = 5;
+        ctx.strokeStyle = '#f59e0b';
+        ctx.stroke();
+
+        // Bone Handle
+        ctx.fillStyle = '#f8fafc';
+        ctx.beginPath();
+        ctx.roundRect(-15, 55, 30, 32, 8);
+        ctx.fill();
+
+        // Face Expressions
+        ctx.fillStyle = '#000';
+        if (pork.hitTimer > 0) {
+            ctx.font = '900 24px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('> <', 0, -10);
+        } else {
+            ctx.beginPath();
+            ctx.arc(-18, -20, 6, 0, Math.PI * 2);
+            ctx.arc(18, -20, 6, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(0, -8, 10, 0, Math.PI);
+            ctx.stroke();
+        }
+
+        // HP Bar
+        ctx.fillStyle = '#334155';
+        ctx.roundRect(-50, -85, 100, 10, 5);
+        ctx.fill();
+        ctx.fillStyle = '#22c55e';
+        ctx.roundRect(-50, -85, (pork.hp / pork.maxHp) * 100, 10, 5);
+        ctx.fill();
+
+        ctx.restore();
+
+        // --- DRAW YELLOW CHICKEN (黃色公雞) ---
+        ctx.save();
+        ctx.translate(chicken.x, chicken.y);
+
+        // Chicken Body
+        ctx.fillStyle = '#facc15';
+        ctx.beginPath();
+        ctx.arc(0, 0, 48, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Red Comb
+        ctx.fillStyle = '#ef4444';
+        ctx.beginPath();
+        ctx.arc(-10, -48, 11, 0, Math.PI * 2);
+        ctx.arc(6, -52, 13, 0, Math.PI * 2);
+        ctx.arc(22, -46, 10, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Beak
+        ctx.fillStyle = '#f97316';
+        ctx.beginPath();
+        ctx.moveTo(28, -5);
+        ctx.lineTo(48, 5);
+        ctx.lineTo(28, 15);
+        ctx.closePath();
+        ctx.fill();
+
+        // Eye
+        ctx.fillStyle = '#000';
+        ctx.beginPath();
+        ctx.arc(16, -12, 7, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(18, -14, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // --- FRENCH FRY WEAPON (黃金薯條) ---
+        ctx.save();
+        ctx.translate(12, 12);
+        let fryAngle = chicken.isAttacking ? Math.PI / 3 : -Math.PI / 5;
+        ctx.rotate(fryAngle);
+
+        ctx.fillStyle = '#fbbf24';
+        ctx.beginPath();
+        ctx.roundRect(0, -12, 95, 24, 6);
+        ctx.fill();
+        ctx.strokeStyle = '#d97706';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        ctx.restore();
+        ctx.restore();
+
+        // Swing Arc Light Effect
+        if (chicken.isAttacking) {
+            ctx.save();
+            ctx.strokeStyle = 'rgba(254, 240, 138, 0.85)';
+            ctx.lineWidth = 12;
+            ctx.beginPath();
+            ctx.arc(chicken.x + 25, chicken.y, 120, -Math.PI / 4, Math.PI / 3);
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        particles.forEach(p => {
+            ctx.save();
+            ctx.globalAlpha = p.alpha;
+            ctx.fillStyle = p.color;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        });
+
+        floatingTexts.forEach(ft => {
+            ctx.save();
+            ctx.globalAlpha = ft.alpha;
+            ctx.font = '900 28px sans-serif';
+            ctx.fillStyle = ft.color;
+            ctx.fillText(ft.text, ft.x, ft.y);
+            ctx.restore();
+        });
+
+        requestAnimationFrame(() => {
+            update();
+            draw();
+        });
+    }
+
+    function doAttack() {
+        if (gameState !== 'PLAYING') return;
+
+        initAudio();
+        playBGM();
+
+        chicken.isAttacking = true;
+        chicken.attackTimer = chicken.attackDuration;
+
+        pork.shake = 30;
+        pork.hitTimer = 9;
+
+        combo++;
+        let gainScore = 100 + (combo * 15);
+        score += gainScore;
+        pork.hp -= 10;
+        if (pork.hp <= 0) pork.hp = pork.maxHp;
+
+        document.getElementById('scoreVal').textContent = score;
+        document.getElementById('comboVal').textContent = combo;
+
+        playHitSound();
+        playLoliVoice();
+
+        // Create particles
+        for (let i = 0; i < 10; i++) {
+            particles.push({
+                x: pork.x,
+                y: pork.y,
+                vx: (Math.random() - 0.25) * 14,
+                vy: (Math.random() - 0.5) * 12,
+                size: Math.random() * 7 + 4,
+                color: i % 2 === 0 ? '#f59e0b' : '#ef4444',
+                alpha: 1
+            });
+        }
+
+        // Floating score
+        floatingTexts.push({
+            x: pork.x + (Math.random() - 0.5) * 50,
+            y: pork.y - 45,
+            text: `+${gainScore}`,
+            color: '#facc15',
+            alpha: 1
+        });
+
+        attackBtn.classList.add('active');
+        setTimeout(() => attackBtn.classList.remove('active'), 100);
+    }
+
+    // Event Listeners
+    attackBtn.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        doAttack();
+    });
+
+    window.addEventListener('keydown', (e) => {
+        if (e.code === 'Space' || e.code === 'KeyZ') {
+            e.preventDefault();
+            doAttack();
+        }
+    });
+
+    document.getElementById('startBtn').addEventListener('click', () => {
+        initAudio();
+        playBGM();
+        document.getElementById('startScreen').classList.add('hidden');
+        startGame();
+    });
+
+    document.getElementById('restartBtn').addEventListener('click', () => {
+        initAudio();
+        playBGM();
+        document.getElementById('gameOverScreen').classList.add('hidden');
+        startGame();
+    });
+
+    function startGame() {
+        score = 0;
+        combo = 0;
+        timeLeft = 30;
+        pork.hp = pork.maxHp;
+        document.getElementById('scoreVal').textContent = '0';
+        document.getElementById('comboVal').textContent = '0';
+        document.getElementById('timeVal').textContent = '30s';
+        gameState = 'PLAYING';
+
+        if (timerInterval) clearInterval(timerInterval);
+        timerInterval = setInterval(() => {
+            timeLeft--;
+            document.getElementById('timeVal').textContent = `${timeLeft}s`;
+            if (timeLeft <= 0) {
+                endGame();
+            }
+        }, 1000);
+    }
+
+    function endGame() {
+        gameState = 'GAMEOVER';
+        clearInterval(timerInterval);
+
+        document.getElementById('finalScore').textContent = score;
+
+        let isNewRecord = false;
+        if (score > highScore) {
+            highScore = score;
+            localStorage.setItem('chicken_fry_bgm_highscore', highScore);
+            document.getElementById('highScoreVal').textContent = highScore;
+            isNewRecord = true;
+        }
+
+        const badge = document.getElementById('newRecordBadge');
+        if (isNewRecord) {
+            badge.classList.remove('hidden');
+        } else {
+            badge.classList.add('hidden');
+        }
+
+        document.getElementById('gameOverScreen').classList.remove('hidden');
+    }
+
+    draw();
+</script>
+</body>
+</html>

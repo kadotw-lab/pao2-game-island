@@ -1,0 +1,1227 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>極限神射手 - Archery Master</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #1a202c;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            max-width: 1280px;
+            max-height: 720px;
+            aspect-ratio: 16 / 9;
+            background: #87CEEB;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* UI Overlays */
+        .ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+        }
+
+        .hud {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            z-index: 10;
+        }
+
+        .hud-card {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #ffffff;
+            padding: 12px 20px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        .hud-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .hud-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #94a3b8;
+            margin-bottom: 2px;
+        }
+
+        .hud-value {
+            font-size: 22px;
+            font-weight: 800;
+            color: #f8fafc;
+        }
+
+        .wind-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .wind-arrow {
+            font-size: 24px;
+            display: inline-block;
+            transition: transform 0.3s ease;
+        }
+
+        .btn-icon {
+            pointer-events: auto;
+            background: rgba(15, 23, 42, 0.75);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            width: 46px;
+            height: 46px;
+            border-radius: 12px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            font-size: 20px;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+
+        .btn-icon:hover {
+            background: rgba(30, 41, 59, 0.9);
+            transform: translateY(-2px);
+        }
+
+        /* Modal Screens */
+        .modal-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(10px);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 50;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal-screen.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-title {
+            font-size: 48px;
+            font-weight: 900;
+            color: #ffffff;
+            margin-bottom: 10px;
+            text-shadow: 0 4px 20px rgba(59, 130, 246, 0.5);
+            letter-spacing: 2px;
+            background: linear-gradient(135deg, #60a5fa, #f43f5e);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .modal-subtitle {
+            font-size: 16px;
+            color: #94a3b8;
+            margin-bottom: 30px;
+            text-align: center;
+            max-width: 480px;
+            line-height: 1.6;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            width: 100%;
+            max-width: 360px;
+            margin-bottom: 30px;
+        }
+
+        .stat-box {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .stat-box .number {
+            font-size: 26px;
+            font-weight: 800;
+            color: #fbbf24;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            color: white;
+            border: none;
+            padding: 14px 40px;
+            font-size: 18px;
+            font-weight: 700;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 10px 25px rgba(37, 99, 235, 0.4);
+            transition: all 0.2s ease;
+            letter-spacing: 1px;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-3px) scale(1.03);
+            box-shadow: 0 15px 30px rgba(37, 99, 235, 0.6);
+            background: linear-gradient(135deg, #60a5fa, #3b82f6);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 12px 30px;
+            font-size: 16px;
+            font-weight: 600;
+            border-radius: 50px;
+            cursor: pointer;
+            margin-top: 12px;
+            transition: all 0.2s ease;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .instructions {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 25px;
+            max-width: 420px;
+            text-align: left;
+            color: #cbd5e1;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .instructions li {
+            margin-bottom: 8px;
+            list-style-type: none;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Target Legend Pill */
+        .target-legend {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+            justify-content: center;
+        }
+        .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+
+        <!-- HUD Layer -->
+        <div class="ui-layer">
+            <div class="hud">
+                <div class="hud-card">
+                    <div class="hud-item">
+                        <span class="hud-label">得分 Score</span>
+                        <span id="hud-score" class="hud-value">0</span>
+                    </div>
+                    <div style="width:1px; height:30px; background:rgba(255,255,255,0.15)"></div>
+                    <div class="hud-item">
+                        <span class="hud-label">剩餘箭矢 Arrows</span>
+                        <span id="hud-arrows" class="hud-value">10</span>
+                    </div>
+                </div>
+
+                <div class="hud-card">
+                    <div class="hud-item">
+                        <span class="hud-label">動態風向 Wind</span>
+                        <div class="wind-indicator">
+                            <span id="wind-arrow" class="wind-arrow">➔</span>
+                            <span id="wind-speed" class="hud-value">0.0 m/s</span>
+                        </div>
+                    </div>
+                </div>
+
+                <button id="btn-pause" class="btn-icon">⏸</button>
+            </div>
+        </div>
+
+        <!-- Start Screen Modal -->
+        <div id="screen-start" class="modal-screen active">
+            <h1 class="modal-title">極限神射手</h1>
+            <p class="modal-subtitle">精準計算拋物線與風向，成為萬無一失的射箭大師！</p>
+
+            <div class="instructions">
+                <ul>
+                    <li>🎯 <strong>拉弓瞄準</strong>：在左側按住並向後拖曳（拉弓），調整角度與力道。</li>
+                    <li>🏹 <strong>彈道預測</strong>：善用虛線軌跡線，將風向與重力影響納入計算。</li>
+                    <li>💨 <strong>風力影響</strong>：每一箭風向風速皆會隨機改變，需即時調整修正。</li>
+                    <li>🥇 <strong>靶心獎勵</strong>：黃心 100 分、紅 80 分、藍 60 分、黑 40 分、白 20 分。</li>
+                </ul>
+            </div>
+
+            <div class="stats-grid" style="grid-template-columns: 1fr; max-width: 200px;">
+                <div class="stat-box">
+                    <div style="font-size:12px; color:#94a3b8;">歷史最高分</div>
+                    <div id="start-highscore" class="number">0</div>
+                </div>
+            </div>
+
+            <button id="btn-start" class="btn-primary">開始遊戲 START</button>
+        </div>
+
+        <!-- Pause Screen Modal -->
+        <div id="screen-pause" class="modal-screen">
+            <h1 class="modal-title">遊戲暫停</h1>
+            <p class="modal-subtitle">休息一下，調整呼吸再出發</p>
+            <button id="btn-resume" class="btn-primary">繼續遊戲</button>
+            <button id="btn-restart-pause" class="btn-secondary">重新開始</button>
+        </div>
+
+        <!-- Game Over Screen Modal -->
+        <div id="screen-gameover" class="modal-screen">
+            <h1 class="modal-title">挑戰結束</h1>
+            <p id="gameover-newbest" class="modal-subtitle" style="color: #4ade80; font-weight: bold; display: none;">🎉 恭喜突破個人最高紀錄！ 🎉</p>
+
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <div style="font-size:12px; color:#94a3b8;">本次總得分</div>
+                    <div id="end-score" class="number">0</div>
+                </div>
+                <div class="stat-box">
+                    <div style="font-size:12px; color:#94a3b8;">命中靶心次數</div>
+                    <div id="end-bullseyes" class="number">0</div>
+                </div>
+                <div class="stat-box">
+                    <div style="font-size:12px; color:#94a3b8;">平均命中得分</div>
+                    <div id="end-avg" class="number">0</div>
+                </div>
+                <div class="stat-box">
+                    <div style="font-size:12px; color:#94a3b8;">歷史最高分</div>
+                    <div id="end-highscore" class="number">0</div>
+                </div>
+            </div>
+
+            <button id="btn-restart" class="btn-primary">再玩一次 PLAY AGAIN</button>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * Web Audio API 音效合成器 (Web Audio API Synthesizer)
+         */
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            // 拉弓音效 (Bow draw sound effect)
+            playPullSound(tension) {
+                if (!this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(80 + tension * 120, this.ctx.currentTime);
+
+                    gain.gain.setValueAtTime(0.02 * tension, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.05);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.05);
+                } catch (e) {}
+            }
+
+            // 發射音效 (Arrow release sound effect)
+            playShootSound() {
+                if (!this.ctx) return;
+                try {
+                    const now = this.ctx.currentTime;
+                    // String twang
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(350, now);
+                    osc.frequency.exponentialRampToValueAtTime(60, now + 0.15);
+
+                    gain.gain.setValueAtTime(0.3, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.15);
+
+                    // Air swoosh noise
+                    const bufferSize = this.ctx.sampleRate * 0.1;
+                    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                    const data = buffer.getChannelData(0);
+                    for (let i = 0; i < bufferSize; i++) {
+                        data[i] = Math.random() * 2 - 1;
+                    }
+
+                    const noise = this.ctx.createBufferSource();
+                    noise.buffer = buffer;
+
+                    const filter = this.ctx.createBiquadFilter();
+                    filter.type = 'bandpass';
+                    filter.frequency.setValueAtTime(1200, now);
+                    filter.frequency.exponentialRampToValueAtTime(300, now + 0.1);
+
+                    const noiseGain = this.ctx.createGain();
+                    noiseGain.gain.setValueAtTime(0.2, now);
+                    noiseGain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+
+                    noise.connect(filter);
+                    filter.connect(noiseGain);
+                    noiseGain.connect(this.ctx.destination);
+
+                    noise.start(now);
+                } catch (e) {}
+            }
+
+            // 中靶音效 (Target Hit sound effect)
+            playHitSound() {
+                if (!this.ctx) return;
+                try {
+                    const now = this.ctx.currentTime;
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(180, now);
+                    osc.frequency.exponentialRampToValueAtTime(40, now + 0.12);
+
+                    gain.gain.setValueAtTime(0.6, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+
+                    osc.start(now);
+                    osc.stop(now + 0.12);
+                } catch (e) {}
+            }
+
+            // 靶心獎勵音效 (Bullseye Award Fanfare chord)
+            playBullseyeSound() {
+                if (!this.ctx) return;
+                try {
+                    const now = this.ctx.currentTime;
+                    const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+                    notes.forEach((freq, idx) => {
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(freq, now + idx * 0.07);
+
+                        gain.gain.setValueAtTime(0.25, now + idx * 0.07);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.07 + 0.3);
+
+                        osc.connect(gain);
+                        gain.connect(this.ctx.destination);
+
+                        osc.start(now + idx * 0.07);
+                        osc.stop(now + idx * 0.07 + 0.3);
+                    });
+                } catch (e) {}
+            }
+        }
+
+        const audio = new SoundEngine();
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Reference canvas size
+        const GAME_WIDTH = 1280;
+        const GAME_HEIGHT = 720;
+
+        // Game Constants & Physics
+        const GRAVITY = 450; // pixels / sec^2
+        const MAX_PULL_DIST = 130;
+        const FORCE_MULTIPLIER = 9.5;
+
+        // Target Rings Configuration
+        const TARGET_RINGS = [
+            { radius: 10, color: '#FACC15', score: 100, label: 'BULLSEYE!' }, // Yellow
+            { radius: 22, color: '#EF4444', score: 80, label: 'GREAT!' },     // Red
+            { radius: 35, color: '#3B82F6', score: 60, label: 'GOOD' },       // Blue
+            { radius: 48, color: '#1E293B', score: 40, label: 'OK' },         // Black
+            { radius: 62, color: '#F8FAFC', score: 20, label: 'OUTER' }       // White
+        ];
+
+        // Game State Engine
+        let gameState = 'START'; // START, PLAYING, PAUSED, GAMEOVER
+        let score = 0;
+        let arrowsLeft = 10;
+        let bullseyeCount = 0;
+        let totalHits = 0;
+        let highScore = parseInt(localStorage.getItem('archery_highscore') || '0', 10);
+
+        // Wind System
+        let windSpeed = 0; // Negative = left, Positive = right
+
+        // Interactive Pull Mechanism
+        let isDragging = false;
+        let dragStart = { x: 0, y: 0 };
+        let dragCurrent = { x: 0, y: 0 };
+
+        // Archer / Bow Station Position
+        const bowPos = { x: 180, y: 480 };
+
+        // Target Object
+        const target = {
+            x: 1080,
+            y: 420,
+            baseY: 420,
+            width: 20,
+            height: 130,
+            speed: 0,
+            amplitude: 0,
+            time: 0
+        };
+
+        // Arrow Object Structure
+        let currentArrow = null; // Arrow being drawn or in flight
+        let stuckArrows = [];   // Arrows stuck in target or ground
+        let particles = [];     // Visual particles
+        let floatingTexts = []; // Floating score texts
+
+        function getCanvasCoordinates(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = GAME_WIDTH / rect.width;
+            const scaleY = GAME_HEIGHT / rect.height;
+
+            let clientX = e.clientX;
+            let clientY = e.clientY;
+
+            if (e.touches && e.touches.length > 0) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            }
+
+            return {
+                x: (clientX - rect.left) * scaleX,
+                y: (clientY - rect.top) * scaleY
+            };
+        }
+
+        function handlePointerDown(e) {
+            if (gameState !== 'PLAYING') return;
+            // 只有在箭矢準備好的狀態下才能拖曳 (Only allow drag if arrow is ready)
+            if (!currentArrow || currentArrow.state !== 'READY') return;
+
+            audio.init();
+            const pos = getCanvasCoordinates(e);
+
+            // Check if pointer is in left active dragging region
+            if (pos.x < GAME_WIDTH * 0.45) {
+                isDragging = true;
+                dragStart = { x: pos.x, y: pos.y };
+                dragCurrent = { x: pos.x, y: pos.y };
+            }
+        }
+
+        function handlePointerMove(e) {
+            if (!isDragging || gameState !== 'PLAYING') return;
+
+            const pos = getCanvasCoordinates(e);
+            dragCurrent = { x: pos.x, y: pos.y };
+
+            // Sound feedback during draw
+            const dx = dragStart.x - dragCurrent.x;
+            const dy = dragStart.y - dragCurrent.y;
+            const dist = Math.min(Math.hypot(dx, dy), MAX_PULL_DIST);
+            if (Math.random() < 0.2) {
+                audio.playPullSound(dist / MAX_PULL_DIST);
+            }
+        }
+
+        function handlePointerUp(e) {
+            if (!isDragging || gameState !== 'PLAYING') return;
+            isDragging = false;
+
+            const dx = dragStart.x - dragCurrent.x;
+            const dy = dragStart.y - dragCurrent.y;
+            const dist = Math.hypot(dx, dy);
+
+            // Minimum force threshold to shoot
+            if (dist > 15) {
+                shootArrow(dx, dy, Math.min(dist, MAX_PULL_DIST));
+            }
+        }
+
+        window.addEventListener('mousedown', handlePointerDown);
+        window.addEventListener('mousemove', handlePointerMove);
+        window.addEventListener('mouseup', handlePointerUp);
+
+        window.addEventListener('touchstart', (e) => { handlePointerDown(e); }, { passive: false });
+        window.addEventListener('touchmove', (e) => { handlePointerMove(e); e.preventDefault(); }, { passive: false });
+        window.addEventListener('touchend', (e) => { handlePointerUp(e); });
+
+        document.getElementById('start-highscore').innerText = highScore;
+
+        document.getElementById('btn-start').addEventListener('click', () => {
+            audio.init();
+            document.getElementById('screen-start').classList.remove('active');
+            resetGame();
+        });
+
+        document.getElementById('btn-pause').addEventListener('click', () => {
+            if (gameState === 'PLAYING') {
+                gameState = 'PAUSED';
+                document.getElementById('screen-pause').classList.add('active');
+            }
+        });
+
+        document.getElementById('btn-resume').addEventListener('click', () => {
+            gameState = 'PLAYING';
+            document.getElementById('screen-pause').classList.remove('active');
+        });
+
+        document.getElementById('btn-restart-pause').addEventListener('click', () => {
+            document.getElementById('screen-pause').classList.remove('active');
+            resetGame();
+        });
+
+        document.getElementById('btn-restart').addEventListener('click', () => {
+            document.getElementById('screen-gameover').classList.remove('active');
+            resetGame();
+        });
+
+        function generateNewWind() {
+            // Wind speed between -5.0 m/s and +5.0 m/s
+            const rawWind = (Math.random() * 10 - 5);
+            windSpeed = Math.round(rawWind * 10) / 10;
+
+            const arrowEl = document.getElementById('wind-arrow');
+            const speedEl = document.getElementById('wind-speed');
+
+            speedEl.innerText = `${Math.abs(windSpeed).toFixed(1)} m/s`;
+            if (windSpeed < 0) {
+                arrowEl.style.transform = 'rotate(180deg)';
+                arrowEl.style.color = '#ef4444';
+            } else if (windSpeed > 0) {
+                arrowEl.style.transform = 'rotate(0deg)';
+                arrowEl.style.color = '#3b82f6';
+            } else {
+                arrowEl.style.transform = 'rotate(-90deg)';
+                arrowEl.style.color = '#94a3b8';
+            }
+        }
+
+        function resetGame() {
+            score = 0;
+            arrowsLeft = 10;
+            bullseyeCount = 0;
+            totalHits = 0;
+            stuckArrows = [];
+            particles = [];
+            floatingTexts = [];
+            currentArrow = null;
+
+            updateHUD();
+            generateNewWind();
+            setupNextShot();
+            gameState = 'PLAYING';
+        }
+
+        function setupNextShot() {
+            if (arrowsLeft <= 0) {
+                endGame();
+                return;
+            }
+
+            // Adjust target movement according to remaining arrows / progressive difficulty
+            const shotsTaken = 10 - arrowsLeft;
+            if (shotsTaken >= 3) {
+                target.amplitude = Math.min(120, (shotsTaken - 2) * 25);
+                target.speed = 1.5 + (shotsTaken * 0.2);
+            } else {
+                target.amplitude = 0;
+                target.speed = 0;
+            }
+
+            generateNewWind();
+            currentArrow = {
+                x: bowPos.x,
+                y: bowPos.y,
+                vx: 0,
+                vy: 0,
+                angle: 0,
+                state: 'READY', // READY, FLIGHT, STUCK
+                length: 60
+            };
+        }
+
+        function shootArrow(dx, dy, pullDist) {
+            // 安全防護：若箭矢不存在則不進行射擊操作 (Safety guard for null currentArrow)
+            if (!currentArrow) return;
+
+            audio.playShootSound();
+
+            const angle = Math.atan2(dy, dx);
+            const speed = pullDist * FORCE_MULTIPLIER;
+
+            currentArrow.vx = Math.cos(angle) * speed;
+            currentArrow.vy = Math.sin(angle) * speed;
+            currentArrow.angle = angle;
+            currentArrow.state = 'FLIGHT';
+            currentArrow.trail = [];
+
+            arrowsLeft--;
+            updateHUD();
+        }
+
+        function updateHUD() {
+            document.getElementById('hud-score').innerText = score;
+            document.getElementById('hud-arrows').innerText = arrowsLeft;
+        }
+
+        function endGame() {
+            gameState = 'GAMEOVER';
+
+            const isNewBest = score > highScore;
+            if (isNewBest) {
+                highScore = score;
+                localStorage.setItem('archery_highscore', highScore.toString());
+            }
+
+            document.getElementById('end-score').innerText = score;
+            document.getElementById('end-bullseyes').innerText = bullseyeCount;
+            document.getElementById('end-avg').innerText = totalHits > 0 ? (score / totalHits).toFixed(1) : 0;
+            document.getElementById('end-highscore').innerText = highScore;
+
+            const newBestEl = document.getElementById('gameover-newbest');
+            if (isNewBest && score > 0) {
+                newBestEl.style.display = 'block';
+            } else {
+                newBestEl.style.display = 'none';
+            }
+
+            document.getElementById('screen-gameover').classList.add('active');
+        }
+
+        function createHitParticles(x, y, color, isBullseye) {
+            const count = isBullseye ? 45 : 18;
+            for (let i = 0; i < count; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * (isBullseye ? 250 : 120) + 30;
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    color: isBullseye ? (Math.random() > 0.5 ? '#FACC15' : '#EF4444') : color,
+                    size: Math.random() * 4 + 2,
+                    alpha: 1,
+                    life: Math.random() * 0.6 + 0.4
+                });
+            }
+        }
+
+        function addFloatingText(x, y, text, color) {
+            floatingTexts.push({
+                x: x,
+                y: y,
+                text: text,
+                color: color,
+                alpha: 1,
+                vy: -50
+            });
+        }
+
+        function update(dt) {
+            if (gameState !== 'PLAYING') return;
+
+            // Target Oscillation Movement
+            target.time += dt * target.speed;
+            if (target.amplitude > 0) {
+                target.y = target.baseY + Math.sin(target.time) * target.amplitude;
+            } else {
+                target.y = target.baseY;
+            }
+
+            // Update Flight Arrow Physics
+            if (currentArrow && currentArrow.state === 'FLIGHT') {
+                // Apply Wind Force and Gravity
+                currentArrow.vx += windSpeed * 25 * dt;
+                currentArrow.vy += GRAVITY * dt;
+
+                currentArrow.x += currentArrow.vx * dt;
+                currentArrow.y += currentArrow.vy * dt;
+
+                // Dynamically align arrow rotation with velocity vector
+                currentArrow.angle = Math.atan2(currentArrow.vy, currentArrow.vx);
+
+                // Add trail particle
+                currentArrow.trail.push({ x: currentArrow.x, y: currentArrow.y, alpha: 0.6 });
+                if (currentArrow.trail.length > 12) currentArrow.trail.shift();
+
+                // Arrow Tip Position
+                const tipX = currentArrow.x + Math.cos(currentArrow.angle) * (currentArrow.length / 2);
+                const tipY = currentArrow.y + Math.sin(currentArrow.angle) * (currentArrow.length / 2);
+
+                // Collision Detection: Target Face Plane
+                const targetFrontX = target.x - 10;
+                if (tipX >= targetFrontX && tipX <= target.x + 20) {
+                    const distFromCenter = Math.abs(tipY - target.y);
+
+                    // Check if hit target vertically
+                    if (distFromCenter <= TARGET_RINGS[TARGET_RINGS.length - 1].radius) {
+                        // Arrow hit target!
+                        currentArrow.state = 'STUCK';
+
+                        // Calculate Score Ring Hit
+                        let earnedScore = 0;
+                        let hitRing = null;
+
+                        for (let ring of TARGET_RINGS) {
+                            if (distFromCenter <= ring.radius) {
+                                earnedScore = ring.score;
+                                hitRing = ring;
+                                break;
+                            }
+                        }
+
+                        score += earnedScore;
+                        totalHits++;
+                        updateHUD();
+
+                        const isBullseye = earnedScore === 100;
+                        if (isBullseye) {
+                            bullseyeCount++;
+                            audio.playBullseyeSound();
+                        } else {
+                            audio.playHitSound();
+                        }
+
+                        // Attach arrow relative to moving target center
+                        stuckArrows.push({
+                            relX: currentArrow.x - target.x,
+                            relY: currentArrow.y - target.y,
+                            angle: currentArrow.angle,
+                            length: currentArrow.length
+                        });
+
+                        createHitParticles(tipX, tipY, hitRing.color, isBullseye);
+                        addFloatingText(tipX - 20, tipY - 20, `+${earnedScore} ${hitRing.label}`, hitRing.color);
+
+                        currentArrow = null;
+                        setTimeout(setupNextShot, 1000);
+                        return;
+                    }
+                }
+
+                // Collision Detection: Ground or Offscreen Miss
+                const groundY = 620;
+                if (tipY >= groundY || tipX > GAME_WIDTH + 100 || tipX < -100) {
+                    currentArrow.state = 'STUCK';
+
+                    if (tipY >= groundY) {
+                        audio.playHitSound();
+                        stuckArrows.push({
+                            relX: currentArrow.x - target.x, // static relative position if hit ground
+                            isGround: true,
+                            x: currentArrow.x,
+                            y: Math.min(tipY, groundY),
+                            angle: currentArrow.angle,
+                            length: currentArrow.length
+                        });
+                        addFloatingText(currentArrow.x, groundY - 20, 'MISS', '#94a3b8');
+                    } else {
+                        addFloatingText(GAME_WIDTH - 150, 300, 'OUT OF BOUNDS', '#ef4444');
+                    }
+
+                    currentArrow = null;
+                    setTimeout(setupNextShot, 1000);
+                    return;
+                }
+            }
+
+            // Update Particle FX
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                p.x += p.vx * dt;
+                p.y += p.vy * dt;
+                p.alpha -= dt / p.life;
+                if (p.alpha <= 0) particles.splice(i, 1);
+            }
+
+            // Update Floating Text FX
+            for (let i = floatingTexts.length - 1; i >= 0; i--) {
+                let ft = floatingTexts[i];
+                ft.y += ft.vy * dt;
+                ft.alpha -= dt * 0.8;
+                if (ft.alpha <= 0) floatingTexts.splice(i, 1);
+            }
+        }
+
+        function drawBackground() {
+            // Dynamic Sky Gradient
+            const skyGrad = ctx.createLinearGradient(0, 0, 0, GAME_HEIGHT);
+            skyGrad.addColorStop(0, '#38bdf8');
+            skyGrad.addColorStop(0.6, '#bae6fd');
+            skyGrad.addColorStop(1, '#f0fdf4');
+            ctx.fillStyle = skyGrad;
+            ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+            // Sun
+            ctx.fillStyle = 'rgba(254, 240, 138, 0.8)';
+            ctx.beginPath();
+            ctx.arc(200, 120, 60, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Background Mountains
+            ctx.fillStyle = '#94a3b8';
+            ctx.beginPath();
+            ctx.moveTo(0, 620);
+            ctx.lineTo(250, 380);
+            ctx.lineTo(500, 620);
+            ctx.lineTo(800, 420);
+            ctx.lineTo(1100, 620);
+            ctx.lineTo(GAME_WIDTH, 500);
+            ctx.lineTo(GAME_WIDTH, 620);
+            ctx.fill();
+
+            // ForeMountains
+            ctx.fillStyle = '#64748b';
+            ctx.beginPath();
+            ctx.moveTo(150, 620);
+            ctx.lineTo(400, 450);
+            ctx.lineTo(650, 620);
+            ctx.lineTo(950, 480);
+            ctx.lineTo(GAME_WIDTH, 620);
+            ctx.fill();
+
+            // Lush Grass Floor
+            const grassGrad = ctx.createLinearGradient(0, 580, 0, GAME_HEIGHT);
+            grassGrad.addColorStop(0, '#4ade80');
+            grassGrad.addColorStop(0.2, '#22c55e');
+            grassGrad.addColorStop(1, '#15803d');
+            ctx.fillStyle = grassGrad;
+            ctx.fillRect(0, 580, GAME_WIDTH, GAME_HEIGHT - 580);
+
+            // Ground Line Accent
+            ctx.strokeStyle = '#166534';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(0, 582);
+            ctx.lineTo(GAME_WIDTH, 582);
+            ctx.stroke();
+        }
+
+        function drawTarget() {
+            ctx.save();
+            ctx.translate(target.x, target.y);
+
+            // Stand / Legs
+            ctx.strokeStyle = '#78350f';
+            ctx.lineWidth = 8;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(-30, 580 - target.y);
+            ctx.moveTo(0, 0);
+            ctx.lineTo(30, 580 - target.y);
+            ctx.stroke();
+
+            // Target Back Wooden Board
+            ctx.fillStyle = '#b45309';
+            ctx.fillRect(-12, -TARGET_RINGS[TARGET_RINGS.length - 1].radius - 8, 20, TARGET_RINGS[TARGET_RINGS.length - 1].radius * 2 + 16);
+
+            // Target Concentric Rings Side Elevation Profile
+            for (let i = TARGET_RINGS.length - 1; i >= 0; i--) {
+                const ring = TARGET_RINGS[i];
+                ctx.fillStyle = ring.color;
+                ctx.beginPath();
+                ctx.ellipse(0, 0, 8, ring.radius, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+
+            ctx.restore();
+        }
+
+        function drawTrajectoryPreview() {
+            if (!isDragging || !currentArrow) return;
+
+            const dx = dragStart.x - dragCurrent.x;
+            const dy = dragStart.y - dragCurrent.y;
+            const dist = Math.min(Math.hypot(dx, dy), MAX_PULL_DIST);
+
+            if (dist < 15) return;
+
+            const angle = Math.atan2(dy, dx);
+            const speed = dist * FORCE_MULTIPLIER;
+
+            let simX = bowPos.x;
+            let simY = bowPos.y;
+            let simVx = Math.cos(angle) * speed;
+            let simVy = Math.sin(angle) * speed;
+
+            const subSteps = 30;
+            const dtSim = 0.04;
+
+            ctx.save();
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+
+            for (let i = 0; i < subSteps; i++) {
+                simVx += windSpeed * 25 * dtSim;
+                simVy += GRAVITY * dtSim;
+                simX += simVx * dtSim;
+                simY += simVy * dtSim;
+
+                if (simY > 600 || simX > GAME_WIDTH) break;
+
+                ctx.beginPath();
+                ctx.arc(simX, simY, Math.max(1, 4 - i * 0.1), 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.restore();
+        }
+
+        function drawBowAndArcher() {
+            ctx.save();
+            ctx.translate(bowPos.x, bowPos.y);
+
+            let pullAngle = 0;
+            let pullDist = 0;
+
+            if (isDragging) {
+                const dx = dragStart.x - dragCurrent.x;
+                const dy = dragStart.y - dragCurrent.y;
+                pullDist = Math.min(Math.hypot(dx, dy), MAX_PULL_DIST);
+                pullAngle = Math.atan2(dy, dx);
+            }
+
+            ctx.rotate(pullAngle);
+
+            // Bow Wood Arc
+            ctx.strokeStyle = '#854d0e';
+            ctx.lineWidth = 7;
+            ctx.beginPath();
+            ctx.arc(0, 0, 55, -Math.PI / 2.2, Math.PI / 2.2);
+            ctx.stroke();
+
+            // Bow Handle Grip
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 9;
+            ctx.beginPath();
+            ctx.arc(0, 0, 55, -Math.PI / 16, Math.PI / 16);
+            ctx.stroke();
+
+            // Bow String
+            const topP = { x: Math.cos(-Math.PI / 2.2) * 55, y: Math.sin(-Math.PI / 2.2) * 55 };
+            const botP = { x: Math.cos(Math.PI / 2.2) * 55, y: Math.sin(Math.PI / 2.2) * 55 };
+            const pullP = { x: -pullDist, y: 0 };
+
+            ctx.strokeStyle = '#f8fafc';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(topP.x, topP.y);
+            ctx.lineTo(pullP.x, pullP.y);
+            ctx.lineTo(botP.x, botP.y);
+            ctx.stroke();
+
+            // Draw Nocked Arrow when Aiming
+            if (currentArrow && currentArrow.state === 'READY') {
+                drawSingleArrow(-pullDist + 30, 0, 0, currentArrow.length);
+            }
+
+            ctx.restore();
+        }
+
+        function drawSingleArrow(x, y, angle, length) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(angle);
+
+            // Shaft
+            ctx.strokeStyle = '#d97706';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(-length / 2, 0);
+            ctx.lineTo(length / 2, 0);
+            ctx.stroke();
+
+            // Arrow Head (Metal Tip)
+            ctx.fillStyle = '#94a3b8';
+            ctx.beginPath();
+            ctx.moveTo(length / 2, 0);
+            ctx.lineTo(length / 2 - 12, -5);
+            ctx.lineTo(length / 2 - 12, 5);
+            ctx.closePath();
+            ctx.fill();
+
+            // Arrow Feathers (Fletching)
+            ctx.fillStyle = '#ef4444';
+            ctx.beginPath();
+            ctx.moveTo(-length / 2, 0);
+            ctx.lineTo(-length / 2 - 10, -8);
+            ctx.lineTo(-length / 2 + 2, 0);
+            ctx.lineTo(-length / 2 - 10, 8);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        function render() {
+            ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+            // 1. Scene Background
+            drawBackground();
+
+            // 2. Target
+            drawTarget();
+
+            // 3. Trajectory Dots Preview
+            drawTrajectoryPreview();
+
+            // 4. Bow & Station
+            drawBowAndArcher();
+
+            // 5. Flying Arrow & Trail
+            if (currentArrow && currentArrow.state === 'FLIGHT') {
+                // Draw Trail
+                ctx.save();
+                for (let i = 0; i < currentArrow.trail.length; i++) {
+                    const pt = currentArrow.trail[i];
+                    ctx.fillStyle = `rgba(255, 255, 255, ${pt.alpha * (i / currentArrow.trail.length)})`;
+                    ctx.beginPath();
+                    ctx.arc(pt.x, pt.y, 2.5, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.restore();
+
+                drawSingleArrow(currentArrow.x, currentArrow.y, currentArrow.angle, currentArrow.length);
+            }
+
+            // 6. Stuck Arrows (On Target or Ground)
+            for (let sa of stuckArrows) {
+                if (sa.isGround) {
+                    drawSingleArrow(sa.x, sa.y, sa.angle, sa.length);
+                } else {
+                    // Moves along with dynamic target!
+                    drawSingleArrow(target.x + sa.relX, target.y + sa.relY, sa.angle, sa.length);
+                }
+            }
+
+            // 7. Visual Particles
+            for (let p of particles) {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, p.alpha);
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+
+            // 8. Floating Scores
+            for (let ft of floatingTexts) {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, ft.alpha);
+                ctx.fillStyle = ft.color;
+                ctx.font = '900 22px Segoe UI, sans-serif';
+                ctx.shadowColor = 'rgba(0,0,0,0.5)';
+                ctx.shadowBlur = 6;
+                ctx.fillText(ft.text, ft.x, ft.y);
+                ctx.restore();
+            }
+        }
+
+        let lastTime = performance.now();
+        function gameLoop(currentTime) {
+            const dt = Math.min((currentTime - lastTime) / 1000, 0.1); // Cap delta time
+            lastTime = currentTime;
+
+            update(dt);
+            render();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Initialize Canvas resolution and start game loop
+        canvas.width = GAME_WIDTH;
+        canvas.height = GAME_HEIGHT;
+        requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>

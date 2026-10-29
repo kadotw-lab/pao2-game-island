@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>二弘生存遊戲</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-10px); }
+            40%, 80% { transform: translateX(10px); }
+        }
+        .animate-shake {
+            animation: shake 0.4s ease-in-out;
+        }
+
+        @keyframes floatUp {
+            0% { opacity: 1; transform: translateY(0) scale(1); }
+            100% { opacity: 0; transform: translateY(-50px) scale(1.3); }
+        }
+        .float-text {
+            position: absolute;
+            font-weight: 800;
+            font-size: 2.25rem;
+            pointer-events: none;
+            animation: floatUp 1s ease-out forwards;
+            z-index: 50;
+        }
+
+        .bg-gradient-custom {
+            background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%);
+        }
+
+        .timer-progress {
+            transition: width 1s linear, background-color 0.3s;
+        }
+
+        @keyframes pulse-red {
+            0%, 100% { background-color: #ef4444; }
+            50% { background-color: #991b1b; }
+        }
+        .timer-warning {
+            animation: pulse-red 0.5s infinite;
+        }
+    </style>
+</head>
+<body class="bg-gradient-custom min-h-screen text-slate-100 flex items-center justify-center p-4 font-sans">
+
+    <!-- 主遊戲容器卡片 -->
+    <div id="app" class="w-full max-w-2xl bg-slate-900/90 backdrop-blur-md rounded-2xl shadow-2xl border border-indigo-500/30 overflow-hidden relative">
+
+        <!-- 1. 開始介面 -->
+        <div id="start-screen" class="p-6 md:p-8 space-y-6">
+            <div class="text-center space-y-2">
+                <h1 class="text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-rose-400 to-indigo-400 tracking-wider">
+                    二弘生存遊戲
+                </h1>
+                <p class="text-indigo-300 text-sm md:text-base font-medium">校園學科生死戰．考驗手速與智慧</p>
+            </div>
+
+            <div class="bg-slate-800/80 rounded-xl p-5 border border-slate-700 space-y-3 text-sm text-slate-300">
+                <h3 class="font-bold text-base text-amber-400 flex items-center gap-2">
+                    <i class="fa-solid fa-scroll"></i> 遊戲規則說明
+                </h3>
+                <ul class="list-disc list-inside space-y-1 leading-relaxed">
+                    <li>迎戰 5 位科任老師：<span class="text-amber-300 font-semibold">數學正輝</span>、<span class="text-indigo-300 font-semibold">英文坦克</span>、<span class="text-emerald-300 font-semibold">自然冠賦</span>、<span class="text-rose-300 font-semibold">國文超群</span>、<span class="text-sky-300 font-semibold">社會吉慶</span>。</li>
+                    <li>隨機抽取 <span class="text-amber-400 font-bold">10 題</span>，每題擁有 <span class="text-rose-400 font-bold">20 秒</span> 答題時間。</li>
+                    <li><span class="text-emerald-400 font-bold">答對</span>：獲得目前「剩餘秒數」分（例如剩 15 秒得 +15 分）。</li>
+                    <li><span class="text-rose-400 font-bold">答錯</span>：倒扣目前「剩餘秒數」分（例如剩 18 秒扣 -18 分）。</li>
+                    <li><span class="text-slate-400 font-bold">超時未答</span>：倒數結束扣 0 分並自動進入下一題。</li>
+                </ul>
+            </div>
+
+            <form id="start-form" onsubmit="handleStart(event)" class="space-y-4">
+                <div>
+                    <label for="player-name" class="block text-sm font-semibold text-slate-300 mb-2">請輸入挑戰者姓名：</label>
+                    <input type="text" id="player-name" required placeholder="例如：張小明"
+                        class="w-full px-4 py-3 bg-slate-800 border border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-white placeholder-slate-500 font-medium">
+                </div>
+                <button type="submit"
+                    class="w-full py-4 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:from-indigo-600 hover:via-purple-600 hover:to-pink-600 text-white font-black text-lg rounded-xl shadow-lg transform transition active:scale-95 flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-gamepad"></i> 開始挑戰
+                </button>
+            </form>
+        </div>
+
+        <!-- 2. 遊戲問答介面 -->
+        <div id="game-screen" class="p-6 md:p-8 space-y-6 hidden">
+            <!-- 頂部資訊列 -->
+            <div class="flex items-center justify-between border-b border-slate-700/80 pb-4">
+                <div class="space-y-1">
+                    <span class="text-xs text-slate-400 font-bold tracking-wider">進度</span>
+                    <div class="text-xl font-black text-indigo-400" id="progress-text">1 / 10</div>
+                </div>
+                <div class="text-center space-y-1">
+                    <span class="text-xs text-slate-400 font-bold tracking-wider">剩餘秒數</span>
+                    <div class="text-2xl font-black text-amber-400" id="timer-text">20s</div>
+                </div>
+                <div class="text-right space-y-1">
+                    <span class="text-xs text-slate-400 font-bold tracking-wider">目前得分</span>
+                    <div class="text-xl font-black text-emerald-400" id="score-text">0</div>
+                </div>
+            </div>
+
+            <!-- 計時器動態進度條 -->
+            <div class="w-full bg-slate-800 h-3 rounded-full overflow-hidden p-0.5">
+                <div id="timer-bar" class="bg-indigo-500 h-full rounded-full timer-progress" style="width: 100%;"></div>
+            </div>
+
+            <!-- 老師卡牌 -->
+            <div id="teacher-card" class="bg-slate-800/90 rounded-xl p-4 border border-slate-700 flex items-center gap-4 transition-all">
+                <div id="teacher-avatar" class="w-16 h-16 rounded-full bg-indigo-600/30 border-2 border-indigo-400 flex items-center justify-center text-3xl shrink-0">
+                    📐
+                </div>
+                <div>
+                    <div id="teacher-subject" class="text-xs font-bold uppercase tracking-wider text-indigo-400">數學科</div>
+                    <div id="teacher-name" class="text-xl font-black text-white">數學正輝</div>
+                </div>
+            </div>
+
+            <!-- 題目區域 -->
+            <div class="bg-slate-800/40 rounded-xl p-5 border border-slate-700/60 min-h-[100px] flex items-center">
+                <p id="question-text" class="text-base md:text-lg font-medium text-slate-100 leading-relaxed">
+                    題目載入中...
+                </p>
+            </div>
+
+            <!-- 選項按鈕區 (A, B, C, D) -->
+            <div id="options-grid" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <!-- 選項動態渲染 -->
+            </div>
+        </div>
+
+        <!-- 3. 結算與風雲榜介面 -->
+        <div id="result-screen" class="p-6 md:p-8 space-y-6 hidden">
+            <div class="text-center space-y-2">
+                <h2 id="result-title-header" class="text-xl md:text-2xl font-bold text-amber-400">
+                    二弘聖上判定結算等級: (0分)
+                </h2>
+                <div id="result-player-name" class="text-slate-300 font-medium text-lg">玩家：-</div>
+            </div>
+
+            <!-- 得分與稱號展示卡片 -->
+            <div class="bg-slate-800/90 rounded-2xl p-6 border border-slate-700 text-center space-y-3 shadow-inner">
+                <div class="text-sm font-semibold text-slate-400">最終獲得分數</div>
+                <div id="final-score" class="text-5xl font-black text-emerald-400">0</div>
+                <div id="earned-title" class="text-lg md:text-xl font-black text-amber-300 pt-2 border-t border-slate-700">
+                    恭喜你獲得稱號[退學之人]
+                </div>
+            </div>
+
+            <!-- 二弘風雲榜 -->
+            <div class="space-y-3">
+                <h3 class="text-lg font-bold text-indigo-300 flex items-center gap-2">
+                    <i class="fa-solid fa-trophy text-amber-400"></i> 二弘風雲榜 (Top 10)
+                </h3>
+                <div class="bg-slate-800/60 rounded-xl border border-slate-700 overflow-hidden">
+                    <div class="max-h-52 overflow-y-auto">
+                        <table class="w-full text-left text-sm text-slate-300">
+                            <thead class="bg-slate-800 text-xs text-slate-400 uppercase sticky top-0">
+                                <tr>
+                                    <th class="py-2.5 px-3">排名</th>
+                                    <th class="py-2.5 px-3">玩家</th>
+                                    <th class="py-2.5 px-3">分數</th>
+                                    <th class="py-2.5 px-3">獲得稱號</th>
+                                    <th class="py-2.5 px-3 text-right">日期</th>
+                                </tr>
+                            </thead>
+                            <tbody id="leaderboard-body" class="divide-y divide-slate-700/50">
+                                <!-- 動態插入排行榜 -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 按鈕區 -->
+            <div class="flex flex-col md:flex-row gap-3 pt-2">
+                <button onclick="resetGame()"
+                    class="flex-1 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-rotate-right"></i> 再挑戰一次
+                </button>
+                <button onclick="clearLeaderboard()"
+                    class="py-3 px-5 bg-rose-600/80 hover:bg-rose-600 text-white font-bold rounded-xl transition flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-trash"></i> 清除排行榜
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- JavaScript 核心遊戲邏輯 -->
+    <script>
+        // -------------------------------------------------------------
+        // 1. 科任老師設定與 1000 題庫演算法生成器
+        // -------------------------------------------------------------
+        const TEACHERS = {
+            '數學': { name: '數學正輝', subject: '數學科', avatar: '📐', color: 'border-amber-500/50 text-amber-400' },
+            '英文': { name: '英文坦克', subject: '英文科', avatar: '🛡️', color: 'border-indigo-500/50 text-indigo-400' },
+            '自然': { name: '自然冠賦', subject: '自然科', avatar: '🧪', color: 'border-emerald-500/50 text-emerald-400' },
+            '國文': { name: '國文超群', subject: '國文科', avatar: '📜', color: 'border-rose-500/50 text-rose-400' },
+            '社會': { name: '社會吉慶', subject: '社會科', avatar: '🏛️', color: 'border-sky-500/50 text-sky-400' }
+        };
+
+        // 產生 1000 題國中程度題目陣列
+        function build1000QuestionBank() {
+            const bank = [];
+
+            // 數學題庫生成 (200題)
+            for (let i = 1; i <= 200; i++) {
+                const a = Math.floor(Math.random() * 15) + 2;
+                const b = Math.floor(Math.random() * 20) + 1;
+                const ans = a * b;
+                const wrong1 = ans + Math.floor(Math.random() * 5) + 1;
+                const wrong2 = ans - Math.floor(Math.random() * 5) - 1;
+                const wrong3 = ans + 10;
+                
+                const options = [ans, wrong1, wrong2, wrong3].map(String);
+                // 隨機打亂選項
+                const sortedOptions = [...options].sort(() => Math.random() - 0.5);
+                const correctIdx = sortedOptions.indexOf(String(ans));
+
+                bank.push({
+                    subject: '數學',
+                    question: `【一元一次算式】若計算算式 $x = ${a} \\times ${b}$，則 $x$ 的值為何？`,
+                    options: sortedOptions,
+                    answer: correctIdx
+                });
+            }
+
+            // 英文題庫生成 (200題)
+            const envVocab = [
+                { word: 'apple', ans: '蘋果', wrong: ['香蕉', '蓮霧', '芭樂'] },
+                { word: 'beautiful', ans: '美麗的', wrong: ['醜陋的', '快速的', '沉重的'] },
+                { word: 'challenge', ans: '挑戰', wrong: ['機會', '安全', '和平'] },
+                { word: 'diligence', ans: '勤奮', wrong: ['懶惰', '傲慢', '貪心'] },
+                { word: 'enthusiasm', ans: '熱情', wrong: ['冷漠', '恐懼', '悲傷'] },
+                { word: 'frequency', ans: '頻率', wrong: ['距離', '重量', '速度'] },
+                { word: 'gratitude', ans: '感謝', wrong: ['憤怒', '嫉妒', '失望'] },
+                { word: 'history', ans: '歷史', wrong: ['地理', '數學', '生物'] },
+                { word: 'important', ans: '重要的', wrong: ['微小的', '無關的', '危險的'] },
+                { word: 'journey', ans: '旅程', wrong: ['終點', '起點', '旅館'] }
+            ];
+
+            for (let i = 0; i < 200; i++) {
+                const item = envVocab[i % envVocab.length];
+                const rawOptions = [item.ans, ...item.wrong];
+                const sorted = [...rawOptions].sort(() => Math.random() - 0.5);
+                bank.push({
+                    subject: '英文',
+                    question: `【字彙測驗】英文單字 "${item.word}" 最適合的中文意思為何？ (#${i+1})`,
+                    options: sorted,
+                    answer: sorted.indexOf(item.ans)
+                });
+            }
+
+            // 自然題庫生成 (200題)
+            const scienceTopics = [
+                { q: '光合作用的主要產物之一是什麼？', ans: '葡萄糖', wrong: ['二氧化碳', '氮氣', '二氧化硫'] },
+                { q: '水的化學式為何？', ans: 'H2O', wrong: ['CO2', 'NaCl', 'H2SO4'] },
+                { q: '牛頓第二運動定律的公式為何？', ans: 'F = ma', wrong: ['E = mc²', 'V = IR', 'P = IV'] },
+                { q: '人體血液中負責攜帶氧氣的是？', ans: '紅血球', wrong: ['白血球', '血小板', '血漿'] },
+                { q: '下列何者為化學變化？', ans: '鐵釘生鏽', wrong: ['水結成冰', '冰淇淋融化', '紙張剪碎'] }
+            ];
+            for (let i = 0; i < 200; i++) {
+                const item = scienceTopics[i % scienceTopics.length];
+                const rawOptions = [item.ans, ...item.wrong];
+                const sorted = [...rawOptions].sort(() => Math.random() - 0.5);
+                bank.push({
+                    subject: '自然',
+                    question: `【理化/生物】${item.q} (#${i+1})`,
+                    options: sorted,
+                    answer: sorted.indexOf(item.ans)
+                });
+            }
+
+            // 國文題庫生成 (200題)
+            const chineseTopics = [
+                { q: '「三人行，必有我師焉」出自哪一部經典？', ans: '《論語》', wrong: ['《孟子》', '《莊子》', '《道德經》'] },
+                { q: '成語「守株待兔」常用來比喻什麼？', ans: '拘泥守舊，不知變通', wrong: ['勤奮努力', '愛護動物', '眼疾手快'] },
+                { q: '下列何者不屬於唐宋八大家？', ans: '李白', wrong: ['蘇軾', '韓愈', '歐陽修'] },
+                { q: '「床前明月光」的下一句是什麼？', ans: '疑是地上霜', wrong: ['舉頭望明月', '低頭思故鄉', '明月幾時有'] },
+                { q: '成語「臥薪嘗膽」與哪一位歷史人物有關？', ans: '勾踐', wrong: ['項羽', '劉邦', '曹操'] }
+            ];
+            for (let i = 0; i < 200; i++) {
+                const item = chineseTopics[i % chineseTopics.length];
+                const rawOptions = [item.ans, ...item.wrong];
+                const sorted = [...rawOptions].sort(() => Math.random() - 0.5);
+                bank.push({
+                    subject: '國文',
+                    question: `【國語文國學】${item.q} (#${i+1})`,
+                    options: sorted,
+                    answer: sorted.indexOf(item.ans)
+                });
+            }
+
+            // 社會題庫生成 (200題)
+            const socialTopics = [
+                { q: '台灣最高峰是哪一座山？', ans: '玉山', wrong: ['雪山', '陽明山', '阿里山'] },
+                { q: '我國憲法規定，代表人民行使立法權的是哪個機構？', ans: '立法院', wrong: ['行政院', '司法院', '監察院'] },
+                { q: '歷史上「工業革命」最早起源於哪一個國家？', ans: '英國', wrong: ['美國', '法國', '德國'] },
+                { q: '台灣位於哪兩個板塊的交界處？', ans: '歐亞板塊與菲律賓海板塊', wrong: ['太平洋板塊與北美板塊', '印澳板塊與非洲板塊', '美洲板塊與歐亞板塊'] },
+                { q: '幾歲在我國民法中定義為完全行為能力人（成年）？', ans: '18歲', wrong: ['16歲', '20歲', '22歲'] }
+            ];
+            for (let i = 0; i < 200; i++) {
+                const item = socialTopics[i % socialTopics.length];
+                const rawOptions = [item.ans, ...item.wrong];
+                const sorted = [...rawOptions].sort(() => Math.random() - 0.5);
+                bank.push({
+                    subject: '社會',
+                    question: `【歷史/地理/公民】${item.q} (#${i+1})`,
+                    options: sorted,
+                    answer: sorted.indexOf(item.ans)
+                });
+            }
+
+            return bank;
+        }
+
+        const QUESTION_BANK = build1000QuestionBank();
+
+        // -------------------------------------------------------------
+        // 2. 音效系統 (Web Audio API)
+        // -------------------------------------------------------------
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playSound(type) {
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            if (type === 'correct') {
+                // 叮咚高音雙音
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); // C5
+                osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.1); // E5
+                gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.35);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.35);
+            } else if (type === 'wrong') {
+                // 低音沉重嗡嗡聲
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+                osc.frequency.linearRampToValueAtTime(70, audioCtx.currentTime + 0.3);
+                gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.3);
+            }
+        }
+
+        // -------------------------------------------------------------
+        // 3. 遊戲狀態管理
+        // -------------------------------------------------------------
+        let playerName = "";
+        let currentScore = 0;
+        let selectedQuestions = [];
+        let currentIndex = 0;
+        let timer = 20;
+        let timerInterval = null;
+        let canAnswer = false;
+
+        // 頁面元素 DOM 引用
+        const startScreen = document.getElementById('start-screen');
+        const gameScreen = document.getElementById('game-screen');
+        const resultScreen = document.getElementById('result-screen');
+
+        const timerText = document.getElementById('timer-text');
+        const timerBar = document.getElementById('timer-bar');
+        const scoreText = document.getElementById('score-text');
+        const progressText = document.getElementById('progress-text');
+
+        const teacherAvatar = document.getElementById('teacher-avatar');
+        const teacherSubject = document.getElementById('teacher-subject');
+        const teacherName = document.getElementById('teacher-name');
+        const questionText = document.getElementById('question-text');
+        const optionsGrid = document.getElementById('options-grid');
+
+        // -------------------------------------------------------------
+        // 4. 開始遊戲與彩蛋判斷
+        // -------------------------------------------------------------
+        function handleStart(e) {
+            e.preventDefault();
+            const input = document.getElementById('player-name').value.trim();
+            if (!input) return;
+            playerName = input;
+
+            // 彩蛋判定
+            if (playerName === "鄭百妙") {
+                endGame(0);
+                return;
+            } else if (playerName === "祝吳宇宸中頭獎") {
+                endGame(200);
+                return;
+            }
+
+            // 正常開啟遊戲
+            startScreen.classList.add('hidden');
+            resultScreen.classList.add('hidden');
+            gameScreen.classList.remove('hidden');
+
+            // 隨機抽取 10 題
+            selectedQuestions = [...QUESTION_BANK].sort(() => Math.random() - 0.5).slice(0, 10);
+            currentIndex = 0;
+            currentScore = 0;
+            scoreText.textContent = currentScore;
+
+            loadQuestion();
+        }
+
+        // -------------------------------------------------------------
+        // 5. 載入題目與計時器控制
+        // -------------------------------------------------------------
+        function loadQuestion() {
+            if (currentIndex >= selectedQuestions.length) {
+                endGame(currentScore);
+                return;
+            }
+
+            const q = selectedQuestions[currentIndex];
+            const teacher = TEACHERS[q.subject];
+
+            // 渲染老師卡牌
+            teacherAvatar.textContent = teacher.avatar;
+            teacherSubject.textContent = teacher.subject;
+            teacherName.textContent = teacher.name;
+
+            // 渲染題目與進度
+            progressText.textContent = `${currentIndex + 1} / 10`;
+            questionText.textContent = q.question;
+
+            // 渲染 4 個選項按鈕
+            optionsGrid.innerHTML = '';
+            const labels = ['A', 'B', 'C', 'D'];
+            q.options.forEach((opt, idx) => {
+                const btn = document.createElement('button');
+                btn.className = 'w-full text-left p-4 bg-slate-800 hover:bg-slate-700/80 border border-slate-700 rounded-xl transition duration-150 flex items-center gap-3 font-medium text-slate-200 focus:outline-none';
+                btn.innerHTML = `
+                    <span class="w-8 h-8 rounded-lg bg-indigo-600/30 text-indigo-300 border border-indigo-500/40 flex items-center justify-center font-bold text-sm shrink-0">
+                        ${labels[idx]}
+                    </span>
+                    <span class="flex-1">${opt}</span>
+                `;
+                btn.onclick = () => checkAnswer(idx, btn);
+                optionsGrid.appendChild(btn);
+            });
+
+            // 重設並啟動 20 秒倒數計時
+            timer = 20;
+            canAnswer = true;
+            updateTimerUI();
+
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                timer--;
+                updateTimerUI();
+
+                if (timer <= 0) {
+                    clearInterval(timerInterval);
+                    handleTimeout();
+                }
+            }, 1000);
+        }
+
+        function updateTimerUI() {
+            timerText.textContent = `${timer}s`;
+            const percent = (timer / 20) * 100;
+            timerBar.style.width = `${percent}%`;
+
+            if (timer <= 5) {
+                timerBar.classList.add('timer-warning');
+            } else {
+                timerBar.classList.remove('timer-warning');
+            }
+        }
+
+        // -------------------------------------------------------------
+        // 6. 答題與得分計算邏輯
+        // -------------------------------------------------------------
+        function checkAnswer(selectedIdx, btnElement) {
+            if (!canAnswer) return;
+            canAnswer = false;
+            clearInterval(timerInterval);
+
+            const q = selectedQuestions[currentIndex];
+            const isCorrect = selectedIdx === q.answer;
+            const buttons = optionsGrid.querySelectorAll('button');
+
+            // 鎖定所有選項按鈕
+            buttons.forEach(b => b.disabled = true);
+
+            if (isCorrect) {
+                // 答對：得分等於剩餘秒數
+                const pts = timer;
+                currentScore += pts;
+                playSound('correct');
+                btnElement.classList.remove('bg-slate-800');
+                btnElement.classList.add('bg-emerald-600/80', 'border-emerald-400');
+                showFloatingText(`+${pts}`, 'text-emerald-400', btnElement);
+            } else {
+                // 答錯：扣分等於剩餘秒數
+                const pts = timer;
+                currentScore -= pts;
+                playSound('wrong');
+                btnElement.classList.remove('bg-slate-800');
+                btnElement.classList.add('bg-rose-600/80', 'border-rose-400');
+                
+                // 亮出正確選項
+                buttons[q.answer].classList.remove('bg-slate-800');
+                buttons[q.answer].classList.add('bg-emerald-600/50', 'border-emerald-400');
+
+                // 畫面震動效果
+                const app = document.getElementById('app');
+                app.classList.add('animate-shake');
+                setTimeout(() => app.classList.remove('animate-shake'), 400);
+
+                showFloatingText(`-${pts}`, 'text-rose-500', btnElement);
+            }
+
+            scoreText.textContent = currentScore;
+
+            // 延遲 1 秒切換至下一題
+            setTimeout(() => {
+                currentIndex++;
+                loadQuestion();
+            }, 1000);
+        }
+
+        function handleTimeout() {
+            if (!canAnswer) return;
+            canAnswer = false;
+            playSound('wrong');
+
+            // 超時扣 0 分，顯示正確答案
+            const q = selectedQuestions[currentIndex];
+            const buttons = optionsGrid.querySelectorAll('button');
+            buttons.forEach(b => b.disabled = true);
+            buttons[q.answer].classList.remove('bg-slate-800');
+            buttons[q.answer].classList.add('bg-amber-600/60', 'border-amber-400');
+
+            showFloatingText(`-0`, 'text-slate-400', questionText);
+
+            setTimeout(() => {
+                currentIndex++;
+                loadQuestion();
+            }, 1000);
+        }
+
+        // 動態浮現 +X / -X 提示文字動畫
+        function showFloatingText(text, colorClass, targetElem) {
+            const rect = targetElem.getBoundingClientRect();
+            const el = document.createElement('div');
+            el.className = `float-text ${colorClass}`;
+            el.textContent = text;
+            el.style.left = `${rect.left + rect.width / 2 - 20}px`;
+            el.style.top = `${rect.top - 10}px`;
+            document.body.appendChild(el);
+
+            setTimeout(() => el.remove(), 1000);
+        }
+
+        // -------------------------------------------------------------
+        // 7. 稱號嚴格判定與結算機制
+        // -------------------------------------------------------------
+        function calculateTitle(score) {
+            if (score === -200) {
+                return "恭喜你獲得稱號[手速之神]";
+            } else if (score >= -199 && score <= -1) {
+                return "恭喜你獲得稱號[亂寫之神]恭喜你獲得稱號[退學之人]";
+            } else if (score === 0) {
+                return "恭喜你獲得稱號[退學之人]";
+            } else if (score >= 1 && score <= 59) {
+                return "恭喜你獲得稱號[會客室VIP]";
+            } else if (score >= 60 && score <= 79) {
+                return "恭喜你獲得稱號[罰寫VIP]";
+            } else if (score >= 80 && score <= 89) {
+                return "恭喜你獲得稱號[普通]";
+            } else if (score >= 90 && score <= 94) {
+                return "恭喜你獲得稱號[菁英]";
+            } else if (score >= 95 && score <= 99) {
+                return "恭喜你獲得稱號[天才學霸]";
+            } else if (score === 100) {
+                return "恭喜你獲得稱號[完美學神]";
+            } else if (score >= 101 && score <= 199) {
+                return "恭喜你獲得稱號[超級捲王]";
+            } else if (score === 200) {
+                return "恭喜你獲得稱號[終極捲神+運氣之神+手速之神]";
+            }
+            return "恭喜你獲得稱號[退學之人]";
+        }
+
+        function endGame(finalScore) {
+            clearInterval(timerInterval);
+
+            gameScreen.classList.add('hidden');
+            startScreen.classList.add('hidden');
+            resultScreen.classList.remove('hidden');
+
+            const title = calculateTitle(finalScore);
+
+            // 更新結算畫面內容
+            document.getElementById('result-title-header').textContent = `二弘聖上判定結算等級:(${finalScore}分)`;
+            document.getElementById('result-player-name').textContent = `挑戰玩家：${playerName}`;
+            document.getElementById('final-score').textContent = finalScore;
+            document.getElementById('earned-title').textContent = title;
+
+            // 寫入 localStorage 排行榜
+            saveToLeaderboard(playerName, finalScore, title);
+            renderLeaderboard();
+        }
+
+        // -------------------------------------------------------------
+        // 8. 二弘風雲榜 (LocalStorage 持久化)
+        // -------------------------------------------------------------
+        const LEADERBOARD_KEY = 'erhong_survival_leaderboard_v1';
+
+        function saveToLeaderboard(name, score, title) {
+            let leaderboard = JSON.parse(localStorage.getItem(LEADERBOARD_KEY) || '[]');
+            const dateStr = new Date().toLocaleDateString('zh-TW', { month: '2-digit', day: '2-digit' });
+
+            leaderboard.push({ name, score, title, date: dateStr });
+            // 按分數降序排列
+            leaderboard.sort((a, b) => b.score - a.score);
+            // 只保留 Top 10
+            leaderboard = leaderboard.slice(0, 10);
+
+            localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(leaderboard));
+        }
+
+        function renderLeaderboard() {
+            const tbody = document.getElementById('leaderboard-body');
+            const leaderboard = JSON.parse(localStorage.getItem(LEADERBOARD_KEY) || '[]');
+
+            if (leaderboard.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="py-4 text-center text-slate-500">暫無排行榜紀錄</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = leaderboard.map((item, index) => {
+                let rankBadge = `<span class="font-bold text-slate-400">#${index + 1}</span>`;
+                if (index === 0) rankBadge = `<span class="font-bold text-amber-400">🥇 1</span>`;
+                if (index === 1) rankBadge = `<span class="font-bold text-slate-300">🥈 2</span>`;
+                if (index === 2) rankBadge = `<span class="font-bold text-amber-600">🥉 3</span>`;
+
+                return `
+                    <tr class="hover:bg-slate-700/30 transition">
+                        <td class="py-2.5 px-3">${rankBadge}</td>
+                        <td class="py-2.5 px-3 font-semibold text-slate-100">${escapeHtml(item.name)}</td>
+                        <td class="py-2.5 px-3 font-bold text-emerald-400">${item.score}</td>
+                        <td class="py-2.5 px-3 text-xs text-amber-300">${escapeHtml(item.title.replace('恭喜你獲得稱號', ''))}</td>
+                        <td class="py-2.5 px-3 text-right text-xs text-slate-500">${item.date}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function clearLeaderboard() {
+            if (confirm("確定要清空二弘風雲榜所有紀錄嗎？")) {
+                localStorage.removeItem(LEADERBOARD_KEY);
+                renderLeaderboard();
+            }
+        }
+
+        function resetGame() {
+            resultScreen.classList.add('hidden');
+            gameScreen.classList.add('hidden');
+            startScreen.classList.remove('hidden');
+        }
+
+        function escapeHtml(str) {
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+        }
+    </script>
+</body>
+</html>

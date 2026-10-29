@@ -1,0 +1,1028 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>1A2B AI 數字對決 - 人機大戰</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=Noto+Sans+TC:wght@400;500;700&display=swap');
+
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #0b0f19;
+            color: #e2e8f0;
+        }
+
+        .font-tech {
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        /* Neon Glow Effects */
+        .neon-border-blue {
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.4), inset 0 0 15px rgba(59, 130, 246, 0.2);
+            border: 1px solid rgba(59, 130, 246, 0.6);
+        }
+
+        .neon-border-purple {
+            box-shadow: 0 0 15px rgba(168, 85, 247, 0.4), inset 0 0 15px rgba(168, 85, 247, 0.2);
+            border: 1px solid rgba(168, 85, 247, 0.6);
+        }
+
+        .neon-text-cyan {
+            text-shadow: 0 0 10px rgba(6, 182, 212, 0.7);
+        }
+
+        .neon-text-green {
+            text-shadow: 0 0 10px rgba(16, 185, 129, 0.7);
+        }
+
+        /* Fade-in Animation */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .animate-fade-in {
+            animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        /* Pulse Glow Animation */
+        @keyframes pulseGlow {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 0.9; }
+        }
+
+        .animate-pulse-glow {
+            animation: pulseGlow 1.8s infinite ease-in-out;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #111827;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #374151;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #4b5563;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between overflow-x-hidden selection:bg-cyan-500 selection:text-black">
+
+    <!-- Navigation Header -->
+    <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-30 px-4 py-3">
+        <div class="max-w-7xl mx-auto flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/30">
+                    <i class="fa-solid fa-robot text-white text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl md:text-2xl font-black font-tech tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-500">
+                        1A2B <span class="text-xs font-normal text-slate-400 font-sans px-2 py-0.5 rounded bg-slate-800 border border-slate-700">AI Showdown</span>
+                    </h1>
+                    <p class="text-xs text-slate-400 hidden sm:block">極限邏輯對決：玩家 vs AI 智慧推理演算法</p>
+                </div>
+            </div>
+
+            <!-- Action Controls -->
+            <div class="flex items-center space-x-2 sm:space-x-3">
+                <button id="btnSoundToggle" onclick="game.toggleSound()" class="p-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition border border-slate-700" title="切換音效">
+                    <i id="soundIcon" class="fa-solid fa-volume-high text-cyan-400"></i>
+                </button>
+                <button onclick="game.showRulesModal()" class="p-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition border border-slate-700 flex items-center space-x-1.5" title="遊戲規則">
+                    <i class="fa-solid fa-circle-info text-blue-400"></i>
+                    <span class="text-xs hidden md:inline font-medium">規則說明</span>
+                </button>
+                <button onclick="game.confirmResetStats()" class="p-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition border border-slate-700 text-xs text-red-400 hover:text-red-300" title="重置戰績">
+                    <i class="fa-solid fa-rotate-left"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Body Container -->
+    <main class="max-w-7xl mx-auto w-full px-4 py-6 flex-1 flex flex-col space-y-6">
+
+        <!-- Stats Scoreboard Bar -->
+        <section class="grid grid-cols-2 sm:grid-cols-5 gap-3 bg-slate-900/60 p-3 rounded-2xl border border-slate-800/80 backdrop-blur">
+            <div class="bg-slate-950/50 p-3 rounded-xl border border-slate-800/50 text-center">
+                <span class="text-xs text-slate-400 block mb-1">總對局數</span>
+                <span id="statTotal" class="font-tech text-lg sm:text-xl font-bold text-slate-200">0</span>
+            </div>
+            <div class="bg-slate-950/50 p-3 rounded-xl border border-slate-800/50 text-center">
+                <span class="text-xs text-emerald-400/80 block mb-1">玩家勝利</span>
+                <span id="statWins" class="font-tech text-lg sm:text-xl font-bold text-emerald-400">0</span>
+            </div>
+            <div class="bg-slate-950/50 p-3 rounded-xl border border-slate-800/50 text-center">
+                <span class="text-xs text-rose-400/80 block mb-1">AI 勝利</span>
+                <span id="statLosses" class="font-tech text-lg sm:text-xl font-bold text-rose-400">0</span>
+            </div>
+            <div class="bg-slate-950/50 p-3 rounded-xl border border-slate-800/50 text-center">
+                <span class="text-xs text-amber-400/80 block mb-1">平局數量</span>
+                <span id="statDraws" class="font-tech text-lg sm:text-xl font-bold text-amber-400">0</span>
+            </div>
+            <div class="col-span-2 sm:col-span-1 bg-slate-950/50 p-3 rounded-xl border border-slate-800/50 text-center">
+                <span class="text-xs text-cyan-400/80 block mb-1">最快獲勝 (回合)</span>
+                <span id="statBestTurn" class="font-tech text-lg sm:text-xl font-bold text-cyan-400">--</span>
+            </div>
+        </section>
+
+        <!-- Mobile Responsive Tab Selector (Shown only on small screens) -->
+        <div class="flex md:hidden rounded-xl bg-slate-900 p-1 border border-slate-800">
+            <button id="tabBtnPlayer" onclick="game.switchTab('player')" class="flex-1 py-2 rounded-lg text-xs font-bold transition bg-cyan-600 text-white shadow-md">
+                <i class="fa-solid fa-user mr-1.5"></i>玩家區域
+            </button>
+            <button id="tabBtnAi" onclick="game.switchTab('ai')" class="flex-1 py-2 rounded-lg text-xs font-bold transition text-slate-400 hover:text-slate-200">
+                <i class="fa-solid fa-robot mr-1.5"></i>AI 機器人區域
+            </button>
+        </div>
+
+        <!-- Gameplay Split View -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 flex-1">
+
+            <!-- PLAYER SECTION (LEFT COLUMN) -->
+            <section id="playerSection" class="flex flex-col bg-slate-900/80 rounded-2xl p-5 border border-slate-800 neon-border-blue relative overflow-hidden">
+                <!-- Top Header Info -->
+                <div class="flex items-center justify-between pb-4 border-b border-slate-800 mb-4">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-9 h-9 rounded-lg bg-blue-500/20 border border-blue-500/40 flex items-center justify-center text-blue-400">
+                            <i class="fa-solid fa-user text-lg"></i>
+                        </div>
+                        <div>
+                            <h2 class="font-bold text-slate-200">玩家對戰區</h2>
+                            <p class="text-xs text-slate-400">目標：破解 AI 的 4 位秘密暗號</p>
+                        </div>
+                    </div>
+                    <!-- Player's Secret Status -->
+                    <div class="text-right">
+                        <span class="text-[10px] uppercase tracking-wider text-slate-400 block">我的設定暗號</span>
+                        <div class="flex items-center space-x-2">
+                            <span id="playerSecretDisplay" class="font-tech text-lg font-bold text-cyan-400 tracking-widest">****</span>
+                            <button id="btnToggleSecret" onclick="game.toggleSecretVisibility()" class="text-slate-500 hover:text-slate-300 text-xs" title="顯示/隱藏暗號">
+                                <i class="fa-solid fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Input Panel -->
+                <div class="bg-slate-950/60 p-4 rounded-xl border border-slate-800 mb-4">
+                    <label class="block text-xs font-medium text-slate-300 mb-2">請輸入 4 位不重複數字：</label>
+                    <form id="guessForm" onsubmit="game.handlePlayerSubmit(event)" class="space-y-3">
+                        <div class="flex justify-between gap-2 sm:gap-3">
+                            <input type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" class="guess-input w-full h-14 text-center text-2xl font-tech font-bold bg-slate-900 border-2 border-slate-700 rounded-xl focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/30 text-white outline-none transition" />
+                            <input type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" class="guess-input w-full h-14 text-center text-2xl font-tech font-bold bg-slate-900 border-2 border-slate-700 rounded-xl focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/30 text-white outline-none transition" />
+                            <input type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" class="guess-input w-full h-14 text-center text-2xl font-tech font-bold bg-slate-900 border-2 border-slate-700 rounded-xl focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/30 text-white outline-none transition" />
+                            <input type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" class="guess-input w-full h-14 text-center text-2xl font-tech font-bold bg-slate-900 border-2 border-slate-700 rounded-xl focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/30 text-white outline-none transition" />
+                        </div>
+                        <div id="inputError" class="text-rose-400 text-xs min-h-[16px] text-center font-medium"></div>
+
+                        <button id="btnSubmitGuess" type="submit" class="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold tracking-wider shadow-lg shadow-cyan-500/25 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2">
+                            <span>送出猜測</span>
+                            <i class="fa-solid fa-paper-plane text-xs"></i>
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Player Guess History List -->
+                <div class="flex-1 flex flex-col min-h-[220px]">
+                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center justify-between">
+                        <span>玩家猜測記錄歷史</span>
+                        <span id="playerTurnCount" class="text-cyan-400 font-tech">0 次</span>
+                    </h3>
+                    <div id="playerHistoryList" class="flex-1 overflow-y-auto space-y-2 max-h-[300px] pr-1">
+                        <!-- History Items populated dynamically -->
+                        <div class="text-center py-8 text-slate-500 text-sm">尚無對戰記錄，請輸入數字送出</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- AI SECTION (RIGHT COLUMN) -->
+            <section id="aiSection" class="hidden md:flex flex-col bg-slate-900/80 rounded-2xl p-5 border border-slate-800 neon-border-purple relative overflow-hidden">
+                <!-- Top Header Info -->
+                <div class="flex items-center justify-between pb-4 border-b border-slate-800 mb-4">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-9 h-9 rounded-lg bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-purple-400">
+                            <i class="fa-solid fa-microchip text-lg"></i>
+                        </div>
+                        <div>
+                            <h2 class="font-bold text-slate-200">AI 機器人對戰區</h2>
+                            <p class="text-xs text-slate-400">演算法：可能性集合篩選推理</p>
+                        </div>
+                    </div>
+                    <!-- AI Brain Candidates Indicator & Difficulty Level -->
+                    <div class="text-right">
+                        <div class="flex items-center space-x-1.5 justify-end mb-1">
+                            <span id="aiDiffBadge" class="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">中等難度</span>
+                        </div>
+                        <span class="text-[10px] uppercase tracking-wider text-slate-400 block">剩餘解可能性數</span>
+                        <span id="aiCandidatesCount" class="font-tech text-lg font-bold text-purple-400">5040</span>
+                    </div>
+                </div>
+
+                <!-- AI Status / Thinking Indicator Panel -->
+                <div class="bg-slate-950/60 p-4 rounded-xl border border-slate-800 mb-4 flex items-center justify-between min-h-[82px]">
+                    <div class="flex items-center space-x-3">
+                        <div id="aiAvatar" class="w-12 h-12 rounded-xl bg-purple-950 border border-purple-800 flex items-center justify-center text-purple-400 text-xl transition-all">
+                            <i class="fa-solid fa-robot"></i>
+                        </div>
+                        <div>
+                            <div id="aiStatusText" class="text-sm font-bold text-slate-300">等待玩家行動...</div>
+                            <div id="aiSubStatusText" class="text-xs text-slate-500">AI 會在您回合結束後進行精確推演</div>
+                        </div>
+                    </div>
+
+                    <!-- Animated Dots loader for AI -->
+                    <div id="aiLoader" class="hidden flex space-x-1.5">
+                        <div class="w-2.5 h-2.5 rounded-full bg-purple-500 animate-bounce"></div>
+                        <div class="w-2.5 h-2.5 rounded-full bg-purple-400 animate-bounce [animation-delay:0.2s]"></div>
+                        <div class="w-2.5 h-2.5 rounded-full bg-purple-300 animate-bounce [animation-delay:0.4s]"></div>
+                    </div>
+                </div>
+
+                <!-- AI Guess History List -->
+                <div class="flex-1 flex flex-col min-h-[220px]">
+                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center justify-between">
+                        <span>AI 推理紀錄歷史</span>
+                        <span id="aiTurnCount" class="text-purple-400 font-tech">0 次</span>
+                    </h3>
+                    <div id="aiHistoryList" class="flex-1 overflow-y-auto space-y-2 max-h-[300px] pr-1">
+                        <!-- AI History Items populated dynamically -->
+                        <div class="text-center py-8 text-slate-500 text-sm">尚無 AI 推理記錄</div>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <!-- MODAL 1: Secret Setup Modal -->
+    <div id="modalSetup" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-6 shadow-2xl neon-border-blue">
+            <div class="text-center mb-5">
+                <div class="w-14 h-14 bg-cyan-500/20 rounded-2xl border border-cyan-500/40 text-cyan-400 text-2xl flex items-center justify-center mx-auto mb-3 shadow-lg shadow-cyan-500/20">
+                    <i class="fa-solid fa-gamepad"></i>
+                </div>
+                <h3 class="text-xl font-bold text-white mb-1">對戰設定與秘密暗號</h3>
+                <p class="text-xs text-slate-400">請選擇 AI 難度並設定一組 4 位不重複數字暗號</p>
+            </div>
+
+            <form onsubmit="game.handleSecretSubmit(event)" class="space-y-4">
+                <!-- AI Difficulty Selector -->
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 mb-2 text-left">選擇 AI 機器人強度：</label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button type="button" id="btnDiffEASY" onclick="game.selectDifficulty('EASY')" class="py-2 px-1 rounded-xl border text-xs font-bold transition flex flex-col items-center justify-center space-y-1 bg-slate-800 border-slate-700 text-slate-400 hover:border-emerald-500">
+                            <span class="text-emerald-400"><i class="fa-solid fa-leaf mr-1"></i>簡單</span>
+                            <span class="text-[10px] text-slate-500 font-normal">新手 / 隨機為主</span>
+                        </button>
+                        <button type="button" id="btnDiffMEDIUM" onclick="game.selectDifficulty('MEDIUM')" class="py-2 px-1 rounded-xl border text-xs font-bold transition flex flex-col items-center justify-center space-y-1 bg-amber-500/20 border-amber-500 text-amber-300 shadow-md">
+                            <span class="text-amber-400"><i class="fa-solid fa-user-ninja mr-1"></i>中等</span>
+                            <span class="text-[10px] text-slate-300 font-normal">擬真 / 偶有盲區</span>
+                        </button>
+                        <button type="button" id="btnDiffHARD" onclick="game.selectDifficulty('HARD')" class="py-2 px-1 rounded-xl border text-xs font-bold transition flex flex-col items-center justify-center space-y-1 bg-slate-800 border-slate-700 text-slate-400 hover:border-rose-500">
+                            <span class="text-rose-400"><i class="fa-solid fa-brain mr-1"></i>困難</span>
+                            <span class="text-[10px] text-slate-500 font-normal">極限 / 100% 精準</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Input Secret Digits -->
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 mb-2 text-left">設定您的秘密暗號：</label>
+                    <div class="flex justify-center gap-2">
+                        <input type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" class="secret-input w-14 h-14 text-center text-2xl font-tech font-bold bg-slate-950 border-2 border-slate-700 rounded-xl focus:border-cyan-500 text-white outline-none transition" />
+                        <input type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" class="secret-input w-14 h-14 text-center text-2xl font-tech font-bold bg-slate-950 border-2 border-slate-700 rounded-xl focus:border-cyan-500 text-white outline-none transition" />
+                        <input type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" class="secret-input w-14 h-14 text-center text-2xl font-tech font-bold bg-slate-950 border-2 border-slate-700 rounded-xl focus:border-cyan-500 text-white outline-none transition" />
+                        <input type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" class="secret-input w-14 h-14 text-center text-2xl font-tech font-bold bg-slate-950 border-2 border-slate-700 rounded-xl focus:border-cyan-500 text-white outline-none transition" />
+                    </div>
+                </div>
+                <div id="setupError" class="text-rose-400 text-xs min-h-[16px] text-center font-medium"></div>
+
+                <div class="flex gap-2 pt-2">
+                    <button type="button" onclick="game.generateRandomSecret()" class="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl border border-slate-700 text-xs transition">
+                        <i class="fa-solid fa-dice mr-1"></i>隨機暗號
+                    </button>
+                    <button type="submit" class="flex-2 py-3 px-6 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold rounded-xl text-xs tracking-wider shadow-lg shadow-cyan-500/25 transition">
+                        開始對戰 <i class="fa-solid fa-play ml-1"></i>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 2: Rules Modal -->
+    <div id="modalRules" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-6 shadow-2xl">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
+                <h3 class="text-lg font-bold text-white flex items-center space-x-2">
+                    <i class="fa-solid fa-circle-question text-cyan-400"></i>
+                    <span>1A2B 遊戲規則說明</span>
+                </h3>
+                <button onclick="game.closeRulesModal()" class="text-slate-400 hover:text-white text-lg">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="space-y-3 text-sm text-slate-300 leading-relaxed max-h-[60vh] overflow-y-auto pr-1">
+                <p><strong class="text-cyan-400">【核心目標】</strong> 率先猜中對方設定的 4 位不重複數字（0~9，可包含 0 開頭）。</p>
+                <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-2 text-xs">
+                    <div class="flex items-start space-x-2">
+                        <span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold font-tech">A</span>
+                        <span><strong>數字正確 且 位置正確</strong>（例如：答案 1234，猜 1567 得 1A）</span>
+                    </div>
+                    <div class="flex items-start space-x-2">
+                        <span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 font-bold font-tech">B</span>
+                        <span><strong>數字正確 但 位置不對</strong>（例如：答案 1234，猜 2567 得 1B）</span>
+                    </div>
+                </div>
+                <p><strong class="text-cyan-400">【對戰流程】</strong></p>
+                <ol class="list-decimal list-inside space-y-1 text-xs text-slate-400">
+                    <li>雙方各自設定 4 位秘密暗號。</li>
+                    <li>回合制交替猜測，每次送出後獲得 ?A?B 提示。</li>
+                    <li>先達到 <strong class="text-emerald-400">4A0B</strong> 者獲勝。若同回合皆達成，則判定為平手。</li>
+                </ol>
+                <p><strong class="text-purple-400">【AI 推理演算法】</strong></p>
+                <p class="text-xs text-slate-400">本遊戲 AI 採用強大的「可能解集合過濾演算法」（最初 5040 種組合），每輪根據反饋即時篩除不合邏輯的組合，極度精準，考驗您的破譯速度！</p>
+            </div>
+            <div class="mt-5 text-right">
+                <button onclick="game.closeRulesModal()" class="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-xs transition">
+                    我明白了
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 3: Game Over Settlement Modal -->
+    <div id="modalGameOver" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-6 shadow-2xl text-center relative overflow-hidden">
+            <!-- Background Glow Effect -->
+            <div id="gameOverGlow" class="absolute -top-24 -left-24 w-48 h-48 rounded-full blur-3xl opacity-30"></div>
+
+            <div id="gameOverIcon" class="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-3 border shadow-lg"></div>
+
+            <h3 id="gameOverTitle" class="text-2xl font-black mb-1 font-tech"></h3>
+            <p id="gameOverSubTitle" class="text-xs text-slate-400 mb-6"></p>
+
+            <!-- Reveal Secrets Box -->
+            <div class="grid grid-cols-2 gap-3 bg-slate-950 p-4 rounded-xl border border-slate-800 mb-6">
+                <div>
+                    <span class="text-[10px] text-slate-400 block mb-1">玩家暗號</span>
+                    <span id="revealPlayerSecret" class="font-tech text-xl font-bold text-cyan-400 tracking-wider">----</span>
+                </div>
+                <div>
+                    <span class="text-[10px] text-slate-400 block mb-1">AI 暗號</span>
+                    <span id="revealAiSecret" class="font-tech text-xl font-bold text-purple-400 tracking-wider">----</span>
+                </div>
+            </div>
+
+            <button onclick="game.startNewGame()" class="w-full py-3.5 bg-gradient-to-r from-cyan-500 via-blue-600 to-purple-600 hover:opacity-90 text-white font-bold rounded-xl tracking-wider shadow-lg shadow-cyan-500/20 transition flex items-center justify-center space-x-2">
+                <i class="fa-solid fa-rotate-right"></i>
+                <span>再玩一局</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-800/80 py-3 text-center text-xs text-slate-500">
+        1A2B AI Showdown &copy; Pure HTML5 / ES6 Vanilla JS Web App
+    </footer>
+
+    <script>
+        /**
+         * Web Audio API Sound Engine
+         * Generates sound effects natively without external files.
+         */
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+                this.enabled = true;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    if (AudioContext) {
+                        this.ctx = new AudioContext();
+                    }
+                }
+                if (this.ctx && this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            playBeep(freq = 600, duration = 0.08, type = 'sine') {
+                if (!this.enabled) return;
+                this.init();
+                if (!this.ctx) return;
+
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+
+                gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                osc.start();
+                osc.stop(this.ctx.currentTime + duration);
+            }
+
+            playSubmitSound() {
+                if (!this.enabled) return;
+                this.playBeep(523.25, 0.06); // C5
+                setTimeout(() => this.playBeep(659.25, 0.08), 60); // E5
+            }
+
+            playWinSound() {
+                if (!this.enabled) return;
+                this.init();
+                const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+                notes.forEach((freq, idx) => {
+                    setTimeout(() => this.playBeep(freq, 0.15, 'triangle'), idx * 100);
+                });
+            }
+
+            playLoseSound() {
+                if (!this.enabled) return;
+                this.init();
+                const notes = [400, 320, 240];
+                notes.forEach((freq, idx) => {
+                    setTimeout(() => this.playBeep(freq, 0.2, 'sawtooth'), idx * 120);
+                });
+            }
+        }
+
+        /**
+         * AI Engine (Multi-Difficulty Reasoning Engine)
+         * - HARD: 100% candidate elimination (Original behavior)
+         * - MEDIUM: 65% chance filtering focus / 35% random guess among unvisited
+         * - EASY: 30% chance filtering focus / 70% random guess among unvisited
+         */
+        class AIEngine {
+            constructor() {
+                this.allPermutations = [];
+                this.candidates = [];
+                this.visitedGuesses = new Set();
+                this.difficulty = 'MEDIUM'; // 'EASY', 'MEDIUM', 'HARD'
+                this.initAllPermutations();
+            }
+
+            initAllPermutations() {
+                this.allPermutations = [];
+                for (let i = 0; i <= 9999; i++) {
+                    const str = i.toString().padStart(4, '0');
+                    if (new Set(str).size === 4) {
+                        this.allPermutations.push(str);
+                    }
+                }
+            }
+
+            reset(difficulty = 'MEDIUM') {
+                this.difficulty = difficulty;
+                this.candidates = [...this.allPermutations];
+                this.visitedGuesses.clear();
+            }
+
+            makeGuess() {
+                const unvisitedCandidates = this.candidates.filter(c => !this.visitedGuesses.has(c));
+                const unvisitedAll = this.allPermutations.filter(c => !this.visitedGuesses.has(c));
+
+                if (unvisitedAll.length === 0) return '0123';
+
+                let chosenGuess = null;
+                const roll = Math.random();
+
+                if (this.difficulty === 'HARD') {
+                    // 100% strict candidate elimination
+                    if (unvisitedCandidates.length > 0) {
+                        chosenGuess = unvisitedCandidates[Math.floor(Math.random() * unvisitedCandidates.length)];
+                    } else {
+                        chosenGuess = unvisitedAll[Math.floor(Math.random() * unvisitedAll.length)];
+                    }
+                } else if (this.difficulty === 'MEDIUM') {
+                    // 65% candidate focus, 35% chance to make a human-like blind guess
+                    if (roll < 0.65 && unvisitedCandidates.length > 0) {
+                        chosenGuess = unvisitedCandidates[Math.floor(Math.random() * unvisitedCandidates.length)];
+                    } else {
+                        chosenGuess = unvisitedAll[Math.floor(Math.random() * unvisitedAll.length)];
+                    }
+                } else { // EASY
+                    // 30% candidate focus, 70% random guess among remaining unvisited digits
+                    if (roll < 0.30 && unvisitedCandidates.length > 0) {
+                        chosenGuess = unvisitedCandidates[Math.floor(Math.random() * unvisitedCandidates.length)];
+                    } else {
+                        chosenGuess = unvisitedAll[Math.floor(Math.random() * unvisitedAll.length)];
+                    }
+                }
+
+                this.visitedGuesses.add(chosenGuess);
+                return chosenGuess;
+            }
+
+            filterCandidates(guess, resultA, resultB, evaluateFn) {
+                // Eliminate non-matching options strictly from internal candidate set
+                this.candidates = this.candidates.filter(candidate => {
+                    const res = evaluateFn(candidate, guess);
+                    return res.a === resultA && res.b === resultB;
+                });
+            }
+        }
+
+        /**
+         * Main Game Controller Class
+         */
+        class GameController {
+            constructor() {
+                this.sound = new SoundEngine();
+                this.ai = new AIEngine();
+
+                // Game State
+                this.state = 'SETUP'; // 'SETUP', 'PLAYING', 'GAMEOVER'
+                this.difficulty = 'MEDIUM'; // Default AI difficulty
+                this.playerSecret = '';
+                this.aiSecret = '';
+                this.playerHistory = [];
+                this.aiHistory = [];
+                this.turn = 1;
+                this.isAiThinking = false;
+                this.isSecretVisible = false;
+
+                // Statistics
+                this.stats = {
+                    total: 0,
+                    wins: 0,
+                    losses: 0,
+                    draws: 0,
+                    bestTurn: null
+                };
+
+                this.initLocalStorage();
+                this.bindInputEvents();
+                this.selectDifficulty('MEDIUM');
+            }
+
+            selectDifficulty(level) {
+                this.difficulty = level;
+                const levels = ['EASY', 'MEDIUM', 'HARD'];
+
+                levels.forEach(lvl => {
+                    const btn = document.getElementById(`btnDiff${lvl}`);
+                    if (!btn) return;
+                    if (lvl === level) {
+                        if (lvl === 'EASY') {
+                            btn.className = 'py-2 px-1 rounded-xl border text-xs font-bold transition flex flex-col items-center justify-center space-y-1 bg-emerald-500/20 border-emerald-500 text-emerald-300 shadow-md';
+                        } else if (lvl === 'MEDIUM') {
+                            btn.className = 'py-2 px-1 rounded-xl border text-xs font-bold transition flex flex-col items-center justify-center space-y-1 bg-amber-500/20 border-amber-500 text-amber-300 shadow-md';
+                        } else {
+                            btn.className = 'py-2 px-1 rounded-xl border text-xs font-bold transition flex flex-col items-center justify-center space-y-1 bg-rose-500/20 border-rose-500 text-rose-300 shadow-md';
+                        }
+                    } else {
+                        btn.className = 'py-2 px-1 rounded-xl border text-xs font-bold transition flex flex-col items-center justify-center space-y-1 bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-500';
+                    }
+                });
+
+                this.sound.playBeep(650, 0.05);
+            }
+
+            updateAiDifficultyBadge() {
+                const badge = document.getElementById('aiDiffBadge');
+                if (!badge) return;
+
+                if (this.difficulty === 'EASY') {
+                    badge.textContent = '簡單難度';
+                    badge.className = 'text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40';
+                } else if (this.difficulty === 'MEDIUM') {
+                    badge.textContent = '中等難度';
+                    badge.className = 'text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40';
+                } else {
+                    badge.textContent = '困難難度';
+                    badge.className = 'text-[10px] font-bold px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40';
+                }
+            }
+
+            initLocalStorage() {
+                try {
+                    const saved = localStorage.getItem('1a2b_showdown_stats');
+                    if (saved) {
+                        this.stats = JSON.parse(saved);
+                        this.updateStatsUI();
+                    }
+                } catch (e) {
+                    console.error('Failed to load stats', e);
+                }
+            }
+
+            saveStats() {
+                try {
+                    localStorage.setItem('1a2b_showdown_stats', JSON.stringify(this.stats));
+                } catch (e) {
+                    console.error('Failed to save stats', e);
+                }
+                this.updateStatsUI();
+            }
+
+            updateStatsUI() {
+                document.getElementById('statTotal').textContent = this.stats.total;
+                document.getElementById('statWins').textContent = this.stats.wins;
+                document.getElementById('statLosses').textContent = this.stats.losses;
+                document.getElementById('statDraws').textContent = this.stats.draws;
+                document.getElementById('statBestTurn').textContent = this.stats.bestTurn ? this.stats.bestTurn : '--';
+            }
+
+            confirmResetStats() {
+                if (confirm('確定要清空所有的對戰歷史戰績嗎？')) {
+                    this.stats = { total: 0, wins: 0, losses: 0, draws: 0, bestTurn: null };
+                    this.saveStats();
+                }
+            }
+
+            bindInputEvents() {
+                // Setup Input auto-advance & validation
+                const setupInputs = document.querySelectorAll('.secret-input');
+                setupInputs.forEach((input, idx) => {
+                    input.addEventListener('input', (e) => {
+                        this.sound.playBeep(700, 0.04);
+                        const val = e.target.value.replace(/[^0-9]/g, '');
+                        e.target.value = val;
+                        if (val && idx < setupInputs.length - 1) {
+                            setupInputs[idx + 1].focus();
+                        }
+                    });
+                    input.addEventListener('keydown', (e) => {
+                        if (e.key === 'Backspace' && !e.target.value && idx > 0) {
+                            setupInputs[idx - 1].focus();
+                        }
+                    });
+                });
+
+                // Guess Inputs auto-advance & validation
+                const guessInputs = document.querySelectorAll('.guess-input');
+                guessInputs.forEach((input, idx) => {
+                    input.addEventListener('input', (e) => {
+                        this.sound.playBeep(800, 0.04);
+                        const val = e.target.value.replace(/[^0-9]/g, '');
+                        e.target.value = val;
+                        if (val && idx < guessInputs.length - 1) {
+                            guessInputs[idx + 1].focus();
+                        }
+                    });
+                    input.addEventListener('keydown', (e) => {
+                        if (e.key === 'Backspace' && !e.target.value && idx > 0) {
+                            guessInputs[idx - 1].focus();
+                        }
+                    });
+                });
+            }
+
+            toggleSound() {
+                this.sound.enabled = !this.sound.enabled;
+                const icon = document.getElementById('soundIcon');
+                if (this.sound.enabled) {
+                    icon.className = 'fa-solid fa-volume-high text-cyan-400';
+                } else {
+                    icon.className = 'fa-solid fa-volume-xmark text-slate-500';
+                }
+            }
+
+            toggleSecretVisibility() {
+                this.isSecretVisible = !this.isSecretVisible;
+                const display = document.getElementById('playerSecretDisplay');
+                const btnIcon = document.querySelector('#btnToggleSecret i');
+
+                if (this.isSecretVisible) {
+                    display.textContent = this.playerSecret || '****';
+                    btnIcon.className = 'fa-solid fa-eye-slash';
+                } else {
+                    display.textContent = '****';
+                    btnIcon.className = 'fa-solid fa-eye';
+                }
+            }
+
+            switchTab(tab) {
+                const playerSec = document.getElementById('playerSection');
+                const aiSec = document.getElementById('aiSection');
+                const tabBtnPlayer = document.getElementById('tabBtnPlayer');
+                const tabBtnAi = document.getElementById('tabBtnAi');
+
+                if (tab === 'player') {
+                    playerSec.classList.remove('hidden');
+                    playerSec.classList.add('flex');
+                    aiSec.classList.add('hidden');
+                    aiSec.classList.remove('flex');
+
+                    tabBtnPlayer.className = 'flex-1 py-2 rounded-lg text-xs font-bold transition bg-cyan-600 text-white shadow-md';
+                    tabBtnAi.className = 'flex-1 py-2 rounded-lg text-xs font-bold transition text-slate-400 hover:text-slate-200';
+                } else {
+                    aiSec.classList.remove('hidden');
+                    aiSec.classList.add('flex');
+                    playerSec.classList.add('hidden');
+                    playerSec.classList.remove('flex');
+
+                    tabBtnAi.className = 'flex-1 py-2 rounded-lg text-xs font-bold transition bg-purple-600 text-white shadow-md';
+                    tabBtnPlayer.className = 'flex-1 py-2 rounded-lg text-xs font-bold transition text-slate-400 hover:text-slate-200';
+                }
+            }
+
+            // Helper: Calculates ?A?B
+            evaluate1A2B(secret, guess) {
+                let a = 0;
+                let b = 0;
+                for (let i = 0; i < 4; i++) {
+                    if (guess[i] === secret[i]) {
+                        a++;
+                    } else if (secret.includes(guess[i])) {
+                        b++;
+                    }
+                }
+                return { a, b };
+            }
+
+            // Generates 4 unique random digits for AI secret or random button
+            generateRandomUnique4Digits() {
+                const digits = ['0','1','2','3','4','5','6','7','8','9'];
+                for (let i = digits.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [digits[i], digits[j]] = [digits[j], digits[i]];
+                }
+                return digits.slice(0, 4).join('');
+            }
+
+            generateRandomSecret() {
+                const secret = this.generateRandomUnique4Digits();
+                const setupInputs = document.querySelectorAll('.secret-input');
+                for (let i = 0; i < 4; i++) {
+                    setupInputs[i].value = secret[i];
+                }
+                document.getElementById('setupError').textContent = '';
+                this.sound.playBeep(900, 0.08);
+            }
+
+            handleSecretSubmit(e) {
+                e.preventDefault();
+                const inputs = document.querySelectorAll('.secret-input');
+                let code = '';
+                inputs.forEach(inp => code += inp.value);
+
+                const errEl = document.getElementById('setupError');
+                if (code.length !== 4) {
+                    errEl.textContent = '請完整輸入 4 位數字';
+                    return;
+                }
+                if (new Set(code).size !== 4) {
+                    errEl.textContent = '數字不可重複！';
+                    return;
+                }
+
+                errEl.textContent = '';
+                this.playerSecret = code;
+                this.aiSecret = this.generateRandomUnique4Digits();
+
+                // Reset AI with chosen difficulty and clear game lists
+                this.ai.reset(this.difficulty);
+                this.updateAiDifficultyBadge();
+
+                this.playerHistory = [];
+                this.aiHistory = [];
+                this.turn = 1;
+                this.state = 'PLAYING';
+
+                // Update UI Displays
+                document.getElementById('playerSecretDisplay').textContent = this.isSecretVisible ? this.playerSecret : '****';
+                document.getElementById('aiCandidatesCount').textContent = this.ai.candidates.length;
+                document.getElementById('playerTurnCount').textContent = '0 次';
+                document.getElementById('aiTurnCount').textContent = '0 次';
+
+                document.getElementById('playerHistoryList').innerHTML = '<div class="text-center py-8 text-slate-500 text-sm">尚無對戰記錄，請輸入數字送出</div>';
+                document.getElementById('aiHistoryList').innerHTML = '<div class="text-center py-8 text-slate-500 text-sm">尚無 AI 推理記錄</div>';
+
+                // Close Setup Modal
+                document.getElementById('modalSetup').classList.add('hidden');
+                this.sound.playSubmitSound();
+            }
+
+            handlePlayerSubmit(e) {
+                e.preventDefault();
+                if (this.state !== 'PLAYING' || this.isAiThinking) return;
+
+                const inputs = document.querySelectorAll('.guess-input');
+                let guess = '';
+                inputs.forEach(inp => guess += inp.value);
+
+                const errEl = document.getElementById('inputError');
+                if (guess.length !== 4) {
+                    errEl.textContent = '請填滿 4 位數字！';
+                    return;
+                }
+                if (new Set(guess).size !== 4) {
+                    errEl.textContent = '4 個數字不可重複！';
+                    return;
+                }
+
+                errEl.textContent = '';
+                this.sound.playSubmitSound();
+
+                // Evaluate player guess
+                const result = this.evaluate1A2B(this.aiSecret, guess);
+                this.playerHistory.unshift({ turn: this.turn, guess, result });
+
+                this.renderPlayerHistory();
+
+                // Clear input fields
+                inputs.forEach(inp => inp.value = '');
+                inputs[0].focus();
+
+                // Check if Player Wins instantly
+                if (result.a === 4) {
+                    // Player reached 4A0B!
+                    this.executeAiTurn(true); // AI gets one final turn in same round
+                } else {
+                    // Trigger AI turn after brief delay
+                    this.executeAiTurn(false);
+                }
+            }
+
+            executeAiTurn(playerWon) {
+                this.isAiThinking = true;
+                this.updateAiStatus(true);
+
+                // Disable submit button
+                document.getElementById('btnSubmitGuess').disabled = true;
+
+                setTimeout(() => {
+                    const aiGuess = this.ai.makeGuess();
+                    const aiResult = this.evaluate1A2B(this.playerSecret, aiGuess);
+
+                    // Filter AI candidates for next round
+                    this.ai.filterCandidates(aiGuess, aiResult.a, aiResult.b, this.evaluate1A2B.bind(this));
+
+                    this.aiHistory.unshift({ turn: this.turn, guess: aiGuess, result: aiResult });
+                    this.renderAiHistory();
+
+                    document.getElementById('aiCandidatesCount').textContent = this.ai.candidates.length;
+
+                    this.isAiThinking = false;
+                    this.updateAiStatus(false);
+                    document.getElementById('btnSubmitGuess').disabled = false;
+
+                    const aiWon = aiResult.a === 4;
+
+                    // Evaluate Round Winners
+                    if (playerWon || aiWon) {
+                        this.handleGameOver(playerWon, aiWon);
+                    } else {
+                        this.turn++;
+                    }
+                }, 1000); // 1 sec simulated AI thinking time
+            }
+
+            updateAiStatus(isThinking) {
+                const statusText = document.getElementById('aiStatusText');
+                const subStatusText = document.getElementById('aiSubStatusText');
+                const loader = document.getElementById('aiLoader');
+                const avatar = document.getElementById('aiAvatar');
+
+                if (isThinking) {
+                    statusText.textContent = 'AI 邏輯推演中...';
+                    statusText.className = 'text-sm font-bold text-purple-400 animate-pulse';
+                    subStatusText.textContent = `正在檢索 ${this.ai.candidates.length} 種可能性...`;
+                    loader.classList.remove('hidden');
+                    avatar.className = 'w-12 h-12 rounded-xl bg-purple-900 border border-purple-500 flex items-center justify-center text-purple-300 text-xl animate-pulse-glow';
+                } else {
+                    statusText.textContent = '等待玩家行動...';
+                    statusText.className = 'text-sm font-bold text-slate-300';
+                    subStatusText.textContent = 'AI 會在您回合結束後進行精確推演';
+                    loader.classList.add('hidden');
+                    avatar.className = 'w-12 h-12 rounded-xl bg-purple-950 border border-purple-800 flex items-center justify-center text-purple-400 text-xl';
+                }
+            }
+
+            renderPlayerHistory() {
+                const list = document.getElementById('playerHistoryList');
+                document.getElementById('playerTurnCount').textContent = `${this.playerHistory.length} 次`;
+
+                list.innerHTML = this.playerHistory.map(item => `
+                    <div class="flex items-center justify-between bg-slate-950/80 p-3 rounded-xl border border-slate-800 animate-fade-in">
+                        <div class="flex items-center space-x-3">
+                            <span class="text-xs font-tech font-bold text-slate-500">#${item.turn}</span>
+                            <span class="font-tech text-lg font-bold text-cyan-300 tracking-wider">${item.guess}</span>
+                        </div>
+                        <div class="flex space-x-1.5 font-tech text-sm font-bold">
+                            <span class="px-2.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">${item.result.a}A</span>
+                            <span class="px-2.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30">${item.result.b}B</span>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            renderAiHistory() {
+                const list = document.getElementById('aiHistoryList');
+                document.getElementById('aiTurnCount').textContent = `${this.aiHistory.length} 次`;
+
+                list.innerHTML = this.aiHistory.map(item => `
+                    <div class="flex items-center justify-between bg-slate-950/80 p-3 rounded-xl border border-slate-800 animate-fade-in">
+                        <div class="flex items-center space-x-3">
+                            <span class="text-xs font-tech font-bold text-slate-500">#${item.turn}</span>
+                            <span class="font-tech text-lg font-bold text-purple-300 tracking-wider">${item.guess}</span>
+                        </div>
+                        <div class="flex space-x-1.5 font-tech text-sm font-bold">
+                            <span class="px-2.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">${item.result.a}A</span>
+                            <span class="px-2.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30">${item.result.b}B</span>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            handleGameOver(playerWon, aiWon) {
+                this.state = 'GAMEOVER';
+                this.stats.total++;
+
+                const modal = document.getElementById('modalGameOver');
+                const title = document.getElementById('gameOverTitle');
+                const subTitle = document.getElementById('gameOverSubTitle');
+                const icon = document.getElementById('gameOverIcon');
+                const glow = document.getElementById('gameOverGlow');
+
+                document.getElementById('revealPlayerSecret').textContent = this.playerSecret;
+                document.getElementById('revealAiSecret').textContent = this.aiSecret;
+
+                if (playerWon && aiWon) {
+                    // Draw
+                    this.stats.draws++;
+                    title.textContent = '雙方同時破解！平局';
+                    title.className = 'text-2xl font-black mb-1 font-tech text-amber-400';
+                    subTitle.textContent = `在第 ${this.turn} 回合，您與 AI 同時猜中對方的暗號！`;
+                    icon.innerHTML = '<i class="fa-solid fa-handshake"></i>';
+                    icon.className = 'w-16 h-16 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-3 bg-amber-500/20 text-amber-400 border-amber-500/40 shadow-amber-500/20';
+                    glow.className = 'absolute -top-24 -left-24 w-48 h-48 rounded-full blur-3xl opacity-30 bg-amber-500';
+                    this.sound.playSubmitSound();
+                } else if (playerWon) {
+                    // Player Wins
+                    this.stats.wins++;
+                    if (!this.stats.bestTurn || this.turn < this.stats.bestTurn) {
+                        this.stats.bestTurn = this.turn;
+                    }
+                    title.textContent = '恭喜！您擊敗了 AI';
+                    title.className = 'text-2xl font-black mb-1 font-tech text-emerald-400';
+                    subTitle.textContent = `太強了！您僅用了 ${this.turn} 個回合成功破譯 AI 暗號！`;
+                    icon.innerHTML = '<i class="fa-solid fa-trophy"></i>';
+                    icon.className = 'w-16 h-16 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-3 bg-emerald-500/20 text-emerald-400 border-emerald-500/40 shadow-emerald-500/20';
+                    glow.className = 'absolute -top-24 -left-24 w-48 h-48 rounded-full blur-3xl opacity-30 bg-emerald-500';
+                    this.sound.playWinSound();
+                } else {
+                    // AI Wins
+                    this.stats.losses++;
+                    title.textContent = 'AI 機器人率先破譯！';
+                    title.className = 'text-2xl font-black mb-1 font-tech text-rose-400';
+                    subTitle.textContent = `AI 機器人在第 ${this.turn} 回合率先猜中了您的暗號。`;
+                    icon.innerHTML = '<i class="fa-solid fa-skull-crossbones"></i>';
+                    icon.className = 'w-16 h-16 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-3 bg-rose-500/20 text-rose-400 border-rose-500/40 shadow-rose-500/20';
+                    glow.className = 'absolute -top-24 -left-24 w-48 h-48 rounded-full blur-3xl opacity-30 bg-rose-500';
+                    this.sound.playLoseSound();
+                }
+
+                this.saveStats();
+                modal.classList.remove('hidden');
+            }
+
+            startNewGame() {
+                document.getElementById('modalGameOver').classList.add('hidden');
+                document.getElementById('modalSetup').classList.remove('hidden');
+
+                // Clear setup input fields
+                const inputs = document.querySelectorAll('.secret-input');
+                inputs.forEach(inp => inp.value = '');
+                inputs[0].focus();
+
+                this.state = 'SETUP';
+            }
+
+            showRulesModal() {
+                document.getElementById('modalRules').classList.remove('hidden');
+            }
+
+            closeRulesModal() {
+                document.getElementById('modalRules').classList.add('hidden');
+            }
+        }
+
+        // Initialize Game Instance on Page Load
+        let game;
+        window.addEventListener('DOMContentLoaded', () => {
+            game = new GameController();
+        });
+    </script>
+</body>
+</html>

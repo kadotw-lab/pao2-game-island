@@ -1,0 +1,1885 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>地牢傳奇：深淵遠征 (Dungeon Legend)</title>
+    <style>
+        /* Modern Dark Fantasy Typography & Color Palette */
+        :root {
+            --bg-main: #0b0d12;
+            --panel-bg: rgba(18, 22, 32, 0.92);
+            --panel-border: rgba(212, 175, 55, 0.3);
+            --accent-gold: #ffd700;
+            --accent-crimson: #ff3355;
+            --accent-cyan: #00f0ff;
+            --accent-green: #2ecc71;
+            --text-light: #f0f4f8;
+            --text-dim: #94a3b8;
+            --font-main: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: var(--bg-main);
+            font-family: var(--font-main);
+            color: var(--text-light);
+        }
+
+        /* App Root Wrapper */
+        #app-root {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Canvas Screen */
+        #game-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: block;
+            z-index: 1;
+            background: #05070a;
+        }
+
+        /* Common UI Overlay Screens */
+        .overlay-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(5, 7, 12, 0.85);
+            backdrop-filter: blur(8px);
+            transition: opacity 0.3s ease;
+        }
+
+        .hidden {
+            display: none !important;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* Character Selection Screen */
+        .menu-title {
+            font-size: clamp(2rem, 5vw, 3.5rem);
+            font-weight: 900;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            background: linear-gradient(180deg, #fff 20%, var(--accent-gold) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 20px rgba(255, 215, 0, 0.4);
+            margin-bottom: 25px;
+            text-align: center;
+        }
+
+        .cards-container {
+            display: flex;
+            gap: 20px;
+            max-width: 1100px;
+            width: 90%;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+
+        /* Gameplay Instructions Guide Panel */
+        .guide-box {
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 14px;
+            padding: 16px 20px;
+            max-width: 1100px;
+            width: 90%;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .guide-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+            gap: 12px;
+        }
+
+        .guide-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            padding: 12px 14px;
+        }
+
+        .guide-card-title {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--accent-gold);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .guide-list {
+            font-size: 0.82rem;
+            color: var(--text-dim);
+            line-height: 1.5;
+            list-style: none;
+        }
+
+        .guide-list li {
+            margin-bottom: 4px;
+            position: relative;
+            padding-left: 12px;
+        }
+
+        .guide-list li::before {
+            content: "•";
+            color: var(--accent-gold);
+            position: absolute;
+            left: 0;
+        }
+
+        .guide-key {
+            background: rgba(255, 255, 255, 0.12);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            border-radius: 4px;
+            padding: 1px 5px;
+            font-family: monospace;
+            font-size: 0.78rem;
+            color: var(--accent-cyan);
+            font-weight: 600;
+        }
+
+        .char-card {
+            background: var(--panel-bg);
+            border: 2px solid var(--panel-border);
+            border-radius: 16px;
+            padding: 20px;
+            width: 310px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .char-card:hover {
+            transform: translateY(-8px);
+            border-color: var(--accent-gold);
+            box-shadow: 0 15px 35px rgba(255, 215, 0, 0.25);
+        }
+
+        .char-card.selected {
+            border-color: var(--accent-gold);
+            background: linear-gradient(180deg, rgba(30, 38, 56, 0.95), rgba(18, 22, 32, 0.95));
+            box-shadow: 0 0 25px rgba(255, 215, 0, 0.4);
+        }
+
+        .char-avatar-box {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        .char-name {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #ffffff;
+            margin-bottom: 6px;
+        }
+
+        .char-title {
+            font-size: 0.85rem;
+            color: var(--accent-gold);
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
+
+        .char-desc {
+            font-size: 0.82rem;
+            color: var(--text-dim);
+            text-align: center;
+            line-height: 1.4;
+            margin-bottom: 15px;
+            height: 42px;
+        }
+
+        /* Radar Chart Canvas */
+        .radar-box {
+            width: 180px;
+            height: 180px;
+            margin-bottom: 15px;
+        }
+
+        .skill-badge {
+            background: rgba(0, 240, 255, 0.1);
+            border: 1px solid var(--accent-cyan);
+            border-radius: 8px;
+            padding: 8px 12px;
+            width: 100%;
+            text-align: center;
+            font-size: 0.8rem;
+            color: var(--accent-cyan);
+        }
+
+        .start-btn {
+            background: linear-gradient(135deg, #e67e22, #f1c40f);
+            color: #000;
+            font-size: 1.25rem;
+            font-weight: 800;
+            padding: 14px 48px;
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            letter-spacing: 2px;
+            box-shadow: 0 6px 20px rgba(241, 196, 15, 0.4);
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+        }
+
+        .start-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 8px 25px rgba(241, 196, 15, 0.6);
+            background: linear-gradient(135deg, #f39c12, #f39c12);
+        }
+
+        /* Game In-Game HUD Elements */
+        #hud-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 5;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .hud-top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            width: 100%;
+        }
+
+        /* Minimap Box */
+        .minimap-wrapper {
+            position: relative;
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            border: 3px solid var(--panel-border);
+            background: rgba(10, 14, 23, 0.85);
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.7);
+            overflow: hidden;
+            pointer-events: auto;
+        }
+
+        #minimap-canvas {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+        }
+
+        /* Player Stats Panel */
+        .player-status-panel {
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            padding: 14px 20px;
+            border-radius: 12px;
+            width: 280px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            margin-left: 15px;
+        }
+
+        .bar-container {
+            margin-bottom: 8px;
+        }
+
+        .bar-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+            color: var(--text-dim);
+        }
+
+        .bar-bg {
+            width: 100%;
+            height: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .hp-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #e74c3c, #ff6b6b);
+            width: 100%;
+            transition: width 0.2s ease;
+        }
+
+        .cd-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #2980b9, #3498db);
+            width: 0%;
+            transition: width 0.1s linear;
+        }
+
+        /* Stat Counters */
+        .stats-counters {
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            padding: 12px 18px;
+            border-radius: 12px;
+            display: flex;
+            gap: 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 700;
+            font-size: 0.95rem;
+        }
+
+        .stat-icon {
+            font-size: 1.1rem;
+        }
+
+        /* Modals (Pause, Victory, Defeat) */
+        .modal-card {
+            background: var(--panel-bg);
+            border: 2px solid var(--panel-border);
+            border-radius: 20px;
+            padding: 35px;
+            max-width: 500px;
+            width: 90%;
+            text-align: center;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
+            animation: modalPop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes modalPop {
+            0% { transform: scale(0.8); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .modal-title {
+            font-size: 2.2rem;
+            font-weight: 900;
+            margin-bottom: 10px;
+        }
+
+        .victory-title {
+            color: var(--accent-gold);
+            text-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+        }
+
+        .defeat-title {
+            color: var(--accent-crimson);
+            text-shadow: 0 0 15px rgba(255, 51, 85, 0.5);
+        }
+
+        .title-badge {
+            background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(230, 126, 34, 0.2));
+            border: 2px solid var(--accent-gold);
+            border-radius: 12px;
+            padding: 12px 20px;
+            margin: 20px 0;
+            display: inline-block;
+        }
+
+        .title-name {
+            font-size: 1.3rem;
+            font-weight: 900;
+            color: var(--accent-gold);
+            letter-spacing: 1px;
+        }
+
+        .settlement-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin: 20px 0;
+            text-align: left;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            border-radius: 10px;
+        }
+
+        .settlement-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+            color: var(--text-dim);
+        }
+
+        .settlement-val {
+            color: #fff;
+            font-weight: 700;
+        }
+
+        .modal-btn {
+            background: linear-gradient(135deg, #27ae60, #2ecc71);
+            color: white;
+            font-size: 1.1rem;
+            font-weight: 700;
+            padding: 12px 36px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            margin-top: 15px;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 15px rgba(46, 204, 113, 0.4);
+        }
+
+        .modal-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 20px rgba(46, 204, 113, 0.6);
+        }
+
+        /* Mobile Controls Touch HUD */
+        #mobile-controls {
+            position: absolute;
+            bottom: 25px;
+            left: 0;
+            width: 100%;
+            padding: 0 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            pointer-events: none;
+            z-index: 6;
+        }
+
+        .touch-btn {
+            width: 65px;
+            height: 65px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.15);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            backdrop-filter: blur(5px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: white;
+            pointer-events: auto;
+            touch-action: manipulation;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+            transition: transform 0.1s;
+        }
+
+        .touch-btn:active {
+            transform: scale(0.9);
+            background: rgba(255, 255, 255, 0.35);
+        }
+
+        .action-buttons-group {
+            display: flex;
+            gap: 15px;
+        }
+
+        /* Responsive Breakpoints */
+        @media (max-width: 768px) {
+            .cards-container {
+                flex-direction: column;
+                align-items: center;
+                max-height: 60vh;
+                overflow-y: auto;
+            }
+            .char-card {
+                width: 100%;
+                max-width: 320px;
+            }
+            .hud-top-bar {
+                flex-direction: column;
+                gap: 10px;
+            }
+            .player-status-panel {
+                margin-left: 0;
+                width: 220px;
+            }
+            .minimap-wrapper {
+                width: 110px;
+                height: 110px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="app-root">
+        <!-- Game Render Canvas -->
+        <canvas id="game-canvas"></canvas>
+
+        <!-- Menu Screen (STATE_MENU) -->
+        <div id="menu-screen" class="overlay-screen" style="overflow-y: auto; justify-content: flex-start; padding: 30px 0;">
+            <h1 class="menu-title">地牢傳奇：深淵遠征</h1>
+            
+            <div class="cards-container" id="character-cards-wrapper">
+                <!-- Dynamic character cards injected via JS -->
+            </div>
+
+            <!-- Gameplay Instructions Guide Panel -->
+            <div class="guide-box">
+                <div class="guide-grid">
+                    <div class="guide-card">
+                        <div class="guide-card-title">🕹️ 玩家控制</div>
+                        <ul class="guide-list">
+                            <li><span class="guide-key">WASD</span> 或 <span class="guide-key">↑↓←→</span> 方向鍵進行移動</li>
+                            <li><span class="guide-key">Space</span> 或 <span class="guide-key">J</span> 進行普通攻擊</li>
+                            <li><span class="guide-key">K</span> 釋放角色獨特技能</li>
+                        </ul>
+                    </div>
+
+                    <div class="guide-card">
+                        <div class="guide-card-title">⚔️ 戰鬥機制</div>
+                        <ul class="guide-list">
+                            <li>普攻或技能命中怪物會造成傷害</li>
+                            <li>怪物死亡會在原地生成金幣（自動拾取）</li>
+                            <li>被擊中會扣血，玩家 HP 歸零則遊戲失敗</li>
+                        </ul>
+                    </div>
+
+                    <div class="guide-card">
+                        <div class="guide-card-title">👁️ 怪物 AI (解封機制)</div>
+                        <ul class="guide-list">
+                            <li>地圖怪物初始呈「封印/靜止」狀態</li>
+                            <li>靠近怪物範圍（約 200px）時解除封印</li>
+                            <li>解封後轉為「自動追蹤」持續追擊至死亡</li>
+                        </ul>
+                    </div>
+
+                    <div class="guide-card">
+                        <div class="guide-card-title">🏆 勝敗條件</div>
+                        <ul class="guide-list">
+                            <li><strong style="color:var(--accent-green);">通關</strong>：殺死地牢深處守關 BOSS</li>
+                            <li><strong style="color:var(--accent-crimson);">失敗</strong>：玩家血量見底 (HP &le; 0)</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <button class="start-btn" id="start-game-btn">踏入深淵 (START)</button>
+        </div>
+
+        <!-- In-Game HUD (STATE_PLAYING) -->
+        <div id="hud-container" class="hidden">
+            <div class="hud-top-bar">
+                <div style="display: flex; gap: 15px;">
+                    <!-- Minimap Radar -->
+                    <div class="minimap-wrapper">
+                        <canvas id="minimap-canvas" width="150" height="150"></canvas>
+                    </div>
+
+                    <!-- Player HP & Skill Status -->
+                    <div class="player-status-panel">
+                        <div class="bar-container">
+                            <div class="bar-label">
+                                <span>生命值 (HP)</span>
+                                <span id="hp-text">100 / 100</span>
+                            </div>
+                            <div class="bar-bg">
+                                <div class="hp-fill" id="hp-bar-fill"></div>
+                            </div>
+                        </div>
+                        <div class="bar-container" style="margin-bottom: 0;">
+                            <div class="bar-label">
+                                <span>技能冷卻 (SKILL - K)</span>
+                                <span id="cd-text">READY</span>
+                            </div>
+                            <div class="bar-bg">
+                                <div class="cd-fill" id="cd-bar-fill"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stats Trackers -->
+                <div class="stats-counters">
+                    <div class="stat-item" style="color: #f1c40f;">
+                        <span class="stat-icon">🪙</span>
+                        <span id="coin-count">0</span>
+                    </div>
+                    <div class="stat-item" style="color: #9b59b6;">
+                        <span class="stat-icon">💎</span>
+                        <span id="gem-count">0</span>
+                    </div>
+                    <div class="stat-item" style="color: #e74c3c;">
+                        <span class="stat-icon">☠️</span>
+                        <span id="kill-count">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mobile Controller Overlay -->
+            <div id="mobile-controls">
+                <div class="touch-btn" id="btn-dpad" style="width:100px; height:100px; border-radius:50%; font-size:0.8rem; text-align:center;">
+                    方向搖桿
+                </div>
+                <div class="action-buttons-group">
+                    <div class="touch-btn" id="btn-attack" style="background: rgba(231, 76, 60, 0.4); border-color: #e74c3c;">⚔️</div>
+                    <div class="touch-btn" id="btn-skill" style="background: rgba(52, 152, 219, 0.4); border-color: #3498db;">✨</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pause Screen (STATE_PAUSED) -->
+        <div id="pause-screen" class="overlay-screen hidden">
+            <div class="modal-card">
+                <h2 class="modal-title" style="color: var(--accent-gold);">遊戲暫停 (PAUSED)</h2>
+                <p style="color: var(--text-dim); margin-top: 15px;">按下 P 或 ESC 鍵繼續戰鬥</p>
+                <button class="modal-btn" id="resume-btn" style="margin-top: 25px;">繼續遊戲</button>
+            </div>
+        </div>
+
+        <!-- Game Over Screen (STATE_GAMEOVER) -->
+        <div id="defeat-screen" class="overlay-screen hidden">
+            <div class="modal-card">
+                <h2 class="modal-title defeat-title">勇者隕落 (DEFEATED)</h2>
+                <p style="color: var(--text-dim);">你被深淵怪物吞噬了...</p>
+                <button class="modal-btn" id="restart-defeat-btn">再次挑戰</button>
+            </div>
+        </div>
+
+        <!-- Victory Settlement Screen (STATE_VICTORY) -->
+        <div id="victory-screen" class="overlay-screen hidden">
+            <div class="modal-card">
+                <h2 class="modal-title victory-title">深淵征服者 (VICTORY)</h2>
+                <p style="color: var(--text-dim);">你成功的擊敗了守關深淵巨魔！</p>
+                
+                <div class="title-badge">
+                    <div style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 4px;">獲得專屬稱號</div>
+                    <div class="title-name" id="final-title">「全能地牢開拓者」</div>
+                </div>
+
+                <div class="settlement-grid">
+                    <div class="settlement-row"><span>擊殺怪物數:</span> <span class="settlement-val" id="res-kills">0</span></div>
+                    <div class="settlement-row"><span>獲得金幣:</span> <span class="settlement-val" id="res-coins">0</span></div>
+                    <div class="settlement-row"><span>收集寶石:</span> <span class="settlement-val" id="res-gems">0</span></div>
+                    <div class="settlement-row"><span>花費時間:</span> <span class="settlement-val" id="res-time">0s</span></div>
+                </div>
+
+                <button class="modal-btn" id="restart-victory-btn">重新開始探索</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* ==========================================================================
+           1. Web Audio API Sound Synthesizer Engine (Zero External File Dependencies)
+           ========================================================================== */
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioCtx();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            // Universal tone synthesizer helper
+            playTone(freq, type, duration, startVol = 0.3, endVol = 0) {
+                if (!this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = type;
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                    gain.gain.setValueAtTime(startVol, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(Math.max(endVol, 0.0001), this.ctx.currentTime + duration);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + duration);
+                } catch (e) { console.error(e); }
+            }
+
+            playAttack() {
+                this.init();
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(350, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(80, this.ctx.currentTime + 0.12);
+                gain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.12);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.12);
+            }
+
+            playSkill(charType) {
+                this.init();
+                if (!this.ctx) return;
+                if (charType === 'ignis') {
+                    // Flame blast explosion sound
+                    this.playTone(120, 'sawtooth', 0.4, 0.5, 0.01);
+                    this.playTone(80, 'square', 0.5, 0.6, 0.01);
+                } else if (charType === 'aegis') {
+                    // Holy resonance chime
+                    this.playTone(523.25, 'sine', 0.6, 0.4, 0.01); // C5
+                    this.playTone(659.25, 'sine', 0.6, 0.4, 0.01); // E5
+                    this.playTone(783.99, 'sine', 0.6, 0.4, 0.01); // G5
+                } else if (charType === 'zephyr') {
+                    // Wind dash whistle
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(400, this.ctx.currentTime);
+                    osc.frequency.linearRampToValueAtTime(1200, this.ctx.currentTime + 0.15);
+                    gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.2);
+                }
+            }
+
+            playHit() {
+                this.init();
+                this.playTone(110, 'square', 0.1, 0.4, 0.01);
+            }
+
+            playPickupGem() {
+                this.init();
+                this.playTone(880, 'sine', 0.1, 0.3, 0.01);
+                setTimeout(() => this.playTone(1320, 'sine', 0.15, 0.3, 0.01), 60);
+            }
+
+            playPickupHeart() {
+                this.init();
+                this.playTone(523.25, 'sine', 0.12, 0.3, 0.01);
+                setTimeout(() => this.playTone(659.25, 'sine', 0.2, 0.3, 0.01), 80);
+            }
+
+            playKill() {
+                this.init();
+                this.playTone(150, 'sawtooth', 0.25, 0.5, 0.01);
+            }
+
+            playBossAlert() {
+                this.init();
+                this.playTone(65, 'sawtooth', 0.8, 0.7, 0.01);
+            }
+
+            playVictory() {
+                this.init();
+                const notes = [523.25, 659.25, 783.99, 1046.50];
+                notes.forEach((freq, idx) => {
+                    setTimeout(() => this.playTone(freq, 'triangle', 0.4, 0.4, 0.01), idx * 150);
+                });
+            }
+
+            playGameOver() {
+                this.init();
+                const notes = [440, 415.3, 392, 369.99];
+                notes.forEach((freq, idx) => {
+                    setTimeout(() => this.playTone(freq, 'sawtooth', 0.4, 0.3, 0.01), idx * 180);
+                });
+            }
+        }
+
+        const sounds = new SoundEngine();
+
+        /* ==========================================================================
+           2. Character Data & Game Configuration
+           ========================================================================== */
+        const CHARACTERS = {
+            ignis: {
+                id: 'ignis',
+                name: '焰火狂戰士',
+                title: 'Ignis - 烈焰近戰',
+                color: '#e74c3c',
+                desc: '揮舞重型火焰雙手劍的猛將，攻擊力極高，技能可觸發範圍火焰爆裂。',
+                hp: 120,
+                atk: 28,
+                def: 8,
+                speed: 4.2,
+                skillName: '烈焰斬 (AOE)',
+                skillDesc: '對周圍敵人群體造成 250% 火焰傷害。',
+                skillCd: 5.0,
+                // Stats for 6-axis Radar Chart (0 ~ 10)
+                stats: { hp: 7.5, atk: 9.5, def: 5.0, speed: 6.5, range: 6.0, survival: 6.5 }
+            },
+            aegis: {
+                id: 'aegis',
+                name: '聖盾騎士',
+                title: 'Aegis - 聖光防禦',
+                color: '#f1c40f',
+                desc: '堅不可摧的重裝騎士，擁有極高的生命與防禦力，能開啟聖光護盾抵擋傷害。',
+                hp: 180,
+                atk: 18,
+                def: 18,
+                speed: 3.5,
+                skillName: '絕對防禦 (INVUL)',
+                skillDesc: '獲得 3 秒完全無敵護盾，並對觸碰敵人群體反彈傷害。',
+                skillCd: 8.0,
+                stats: { hp: 10.0, atk: 5.0, def: 10.0, speed: 4.5, range: 4.0, survival: 10.0 }
+            },
+            zephyr: {
+                id: 'zephyr',
+                name: '疾風影刃',
+                title: 'Zephyr - 迅捷刺客',
+                color: '#2ecc71',
+                desc: '身手敏捷的風之刺客，移動速度極快，能化作影步瞬間衝刺穿透敵陣。',
+                hp: 90,
+                atk: 24,
+                def: 6,
+                speed: 5.5,
+                skillName: '影步突襲 (DASH)',
+                skillDesc: '向移動方向急速衝刺，並切開沿途的所有敵人。',
+                skillCd: 4.0,
+                stats: { hp: 5.5, atk: 8.0, def: 4.0, speed: 10.0, range: 7.5, survival: 5.5 }
+            }
+        };
+
+        const MAP_SIZE = 2400; // 2400x2400 large top-down map
+
+        /* ==========================================================================
+           3. UI & Radar Chart Canvas Generator
+           ========================================================================== */
+        function drawRadarChart(canvas, stats, color) {
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width;
+            const h = canvas.height;
+            const cX = w / 2;
+            const cY = h / 2;
+            const radius = Math.min(w, h) / 2 - 22;
+
+            ctx.clearRect(0, 0, w, h);
+
+            const labels = ['血量', '攻擊', '防禦', '速度', '範圍', '生存'];
+            const keys = ['hp', 'atk', 'def', 'speed', 'range', 'survival'];
+            const numAxes = 6;
+
+            // Draw Radar Grid Rings
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+            ctx.lineWidth = 1;
+            for (let level = 1; level <= 4; level++) {
+                ctx.beginPath();
+                const r = (radius / 4) * level;
+                for (let i = 0; i < numAxes; i++) {
+                    const angle = (Math.PI * 2 / numAxes) * i - Math.PI / 2;
+                    const x = cX + r * Math.cos(angle);
+                    const y = cY + r * Math.sin(angle);
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.closePath();
+                ctx.stroke();
+            }
+
+            // Draw Axis Lines & Text Labels
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '10px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            for (let i = 0; i < numAxes; i++) {
+                const angle = (Math.PI * 2 / numAxes) * i - Math.PI / 2;
+                const x = cX + radius * Math.cos(angle);
+                const y = cY + radius * Math.sin(angle);
+
+                ctx.beginPath();
+                ctx.moveTo(cX, cY);
+                ctx.lineTo(x, y);
+                ctx.stroke();
+
+                const labelX = cX + (radius + 14) * Math.cos(angle);
+                const labelY = cY + (radius + 14) * Math.sin(angle);
+                ctx.fillText(labels[i], labelX, labelY);
+            }
+
+            // Draw Character Stat Poly shape
+            ctx.beginPath();
+            for (let i = 0; i < numAxes; i++) {
+                const val = stats[keys[i]] / 10.0;
+                const r = radius * val;
+                const angle = (Math.PI * 2 / numAxes) * i - Math.PI / 2;
+                const x = cX + r * Math.cos(angle);
+                const y = cY + r * Math.sin(angle);
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.closePath();
+            ctx.fillStyle = color + '44'; // Translucent fill
+            ctx.fill();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+
+        /* ==========================================================================
+           4. Visual Entity Renderers (Humanoid & Creature Graphics - No Simple Dots)
+           ========================================================================== */
+        
+        // Draw Humanoid Hero Character
+        function drawHumanoidPlayer(ctx, p) {
+            ctx.save();
+            ctx.translate(p.x, p.y);
+
+            // Shadow
+            ctx.beginPath();
+            ctx.ellipse(0, 18, 16, 8, 0, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+            ctx.fill();
+
+            // Invulnerable Holy Shield effect for Aegis
+            if (p.isInvulnerable) {
+                ctx.beginPath();
+                ctx.arc(0, 0, 32, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(241, 196, 15, 0.25)';
+                ctx.fill();
+                ctx.strokeStyle = '#f1c40f';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+            }
+
+            ctx.rotate(p.angle);
+
+            // Animated walking legs swing
+            const legSwing = Math.sin(p.walkCycle) * 8;
+            ctx.fillStyle = '#1e293b';
+            ctx.fillRect(-10, legSwing - 4, 6, 12);
+            ctx.fillRect(4, -legSwing - 4, 6, 12);
+
+            // Torso / Armor Body
+            ctx.beginPath();
+            ctx.arc(0, 0, 14, 0, Math.PI * 2);
+            ctx.fillStyle = p.color;
+            ctx.fill();
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            // Shoulders / Cloak
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(-12, -8, 5, 16);
+            ctx.fillRect(7, -8, 5, 16);
+
+            // Head / Helmet
+            ctx.beginPath();
+            ctx.arc(0, 0, 8, 0, Math.PI * 2);
+            ctx.fillStyle = '#f8fafc';
+            ctx.fill();
+
+            // Facing Eyes / Visor
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(3, -3, 5, 6);
+
+            // Weapon Rendering & Swing Animation
+            ctx.save();
+            ctx.translate(8, 0);
+            if (p.isAttacking) {
+                ctx.rotate(p.attackAngle);
+            }
+
+            if (p.charType === 'ignis') {
+                // Flaming Greatsword
+                ctx.fillStyle = '#e67e22';
+                ctx.fillRect(4, -3, 26, 6);
+                ctx.fillStyle = '#f1c40f';
+                ctx.fillRect(8, -1, 20, 2);
+            } else if (p.charType === 'aegis') {
+                // Tower Shield & Sword
+                ctx.fillStyle = '#cbd5e1';
+                ctx.fillRect(4, -2, 16, 4);
+                // Heavy Shield
+                ctx.fillStyle = '#f1c40f';
+                ctx.fillRect(8, -12, 6, 24);
+            } else if (p.charType === 'zephyr') {
+                // Dual Wind Daggers
+                ctx.fillStyle = '#2ecc71';
+                ctx.fillRect(4, -2, 14, 4);
+                ctx.fillRect(4, -10, 12, 3);
+            }
+            ctx.restore();
+
+            ctx.restore();
+        }
+
+        // Draw Creatures / Monsters (Animals & Strange Beasts)
+        function drawMonsterCreature(ctx, m) {
+            ctx.save();
+            ctx.translate(m.x, m.y);
+
+            // Shadow
+            ctx.beginPath();
+            ctx.ellipse(0, m.radius * 0.8, m.radius, m.radius * 0.4, 0, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+            ctx.fill();
+
+            // Sealed Barrier Rune Ring if unawakened
+            if (m.state === 'sealed') {
+                ctx.beginPath();
+                ctx.arc(0, 0, m.radius + 12, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(155, 89, 182, 0.6)';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([6, 6]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+
+            ctx.rotate(m.angle);
+
+            if (m.kind === 'slime') {
+                // Squishy Jelly Slime Creature
+                const wobble = Math.sin(Date.now() * 0.008 + m.x) * 2;
+                ctx.beginPath();
+                ctx.ellipse(0, 0, m.radius + wobble, m.radius - wobble, 0, 0, Math.PI * 2);
+                ctx.fillStyle = m.state === 'sealed' ? '#8e44ad' : '#27ae60';
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                // Eyes
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(4, -5, 4, 0, Math.PI * 2);
+                ctx.arc(4, 5, 4, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#000000';
+                ctx.beginPath();
+                ctx.arc(5, -5, 2, 0, Math.PI * 2);
+                ctx.arc(5, 5, 2, 0, Math.PI * 2);
+                ctx.fill();
+
+            } else if (m.kind === 'goblin') {
+                // Green Goblin Fiend
+                ctx.fillStyle = '#27ae60';
+                // Body
+                ctx.beginPath();
+                ctx.arc(0, 0, m.radius, 0, Math.PI * 2);
+                ctx.fill();
+                // Pointy Ears
+                ctx.beginPath();
+                ctx.moveTo(-2, -m.radius);
+                ctx.lineTo(-6, -m.radius - 8);
+                ctx.lineTo(4, -m.radius + 2);
+                ctx.moveTo(-2, m.radius);
+                ctx.lineTo(-6, m.radius + 8);
+                ctx.lineTo(4, m.radius - 2);
+                ctx.fill();
+                // Glowing Red Eyes
+                ctx.fillStyle = '#e74c3c';
+                ctx.fillRect(3, -6, 4, 3);
+                ctx.fillRect(3, 3, 4, 3);
+
+            } else if (m.kind === 'wolf') {
+                // Shadow Beast / Wolf
+                ctx.fillStyle = '#2c3e50';
+                // Snout / Body
+                ctx.beginPath();
+                ctx.ellipse(0, 0, m.radius + 4, m.radius - 2, 0, 0, Math.PI * 2);
+                ctx.fill();
+                // Sharp Snout
+                ctx.beginPath();
+                ctx.moveTo(m.radius - 2, -6);
+                ctx.lineTo(m.radius + 10, 0);
+                ctx.lineTo(m.radius - 2, 6);
+                ctx.fill();
+                // Glowing Eyes
+                ctx.fillStyle = '#f1c40f';
+                ctx.arc(4, -4, 2.5, 0, Math.PI * 2);
+                ctx.arc(4, 4, 2.5, 0, Math.PI * 2);
+                ctx.fill();
+
+            } else if (m.kind === 'boss') {
+                // Infernal Dragon Lord (Boss Creature)
+                const wingFlap = Math.sin(Date.now() * 0.01) * 12;
+                
+                // Giant Bat Wings
+                ctx.fillStyle = '#78281f';
+                ctx.beginPath();
+                ctx.moveTo(-10, -10);
+                ctx.quadraticCurveTo(-30, -50 + wingFlap, -60, -20);
+                ctx.lineTo(-20, 0);
+                ctx.moveTo(-10, 10);
+                ctx.quadraticCurveTo(-30, 50 - wingFlap, -60, 20);
+                ctx.lineTo(-20, 0);
+                ctx.fill();
+
+                // Main Dragon Body
+                ctx.beginPath();
+                ctx.arc(0, 0, m.radius, 0, Math.PI * 2);
+                ctx.fillStyle = '#b03a2e';
+                ctx.fill();
+                ctx.strokeStyle = '#f1c40f';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+
+                // Fiery Horns
+                ctx.fillStyle = '#f39c12';
+                ctx.beginPath();
+                ctx.moveTo(0, -m.radius + 4);
+                ctx.lineTo(15, -m.radius - 18);
+                ctx.lineTo(8, -m.radius + 8);
+                ctx.moveTo(0, m.radius - 4);
+                ctx.lineTo(15, m.radius + 18);
+                ctx.lineTo(8, m.radius - 8);
+                ctx.fill();
+
+                // Glowing Fiery Eyes
+                ctx.fillStyle = '#f1c40f';
+                ctx.beginPath();
+                ctx.arc(12, -10, 5, 0, Math.PI * 2);
+                ctx.arc(12, 10, 5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            ctx.restore();
+
+            // HP Bar above monster head
+            if (m.hp < m.maxHp) {
+                const barW = m.radius * 2;
+                const barH = 5;
+                const barX = m.x - barW / 2;
+                const barY = m.y - m.radius - 12;
+
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+                ctx.fillRect(barX, barY, barW, barH);
+                ctx.fillStyle = m.kind === 'boss' ? '#9b59b6' : '#e74c3c';
+                ctx.fillRect(barX, barY, barW * (m.hp / m.maxHp), barH);
+            }
+        }
+
+        /* ==========================================================================
+           5. Main Game Engine & Finite State Machine (FSM)
+           ========================================================================== */
+        class DungeonGame {
+            constructor() {
+                this.canvas = document.getElementById('game-canvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.minimapCanvas = document.getElementById('minimap-canvas');
+                this.minimapCtx = this.minimapCanvas.getContext('2d');
+
+                this.state = 'STATE_MENU'; // STATES: STATE_MENU, STATE_PLAYING, STATE_PAUSED, STATE_GAMEOVER, STATE_VICTORY
+                this.selectedCharId = 'ignis';
+
+                this.camera = { x: 0, y: 0 };
+                this.keys = {};
+                this.touchVector = { x: 0, y: 0 };
+
+                this.player = null;
+                this.monsters = [];
+                this.pickups = [];
+                this.particles = [];
+                this.damageTexts = [];
+
+                this.stats = {
+                    kills: 0,
+                    coins: 0,
+                    gems: 0,
+                    damageTaken: 0,
+                    startTime: 0,
+                    endTime: 0
+                };
+
+                this.initUI();
+                this.resizeCanvas();
+                window.addEventListener('resize', () => this.resizeCanvas());
+                this.bindInputs();
+
+                // Start Main Animation Loop
+                requestAnimationFrame((timestamp) => this.gameLoop(timestamp));
+            }
+
+            resizeCanvas() {
+                this.canvas.width = window.innerWidth;
+                this.canvas.height = window.innerHeight;
+            }
+
+            /* Initialize Character Cards & UI Buttons */
+            initUI() {
+                const container = document.getElementById('character-cards-wrapper');
+                container.innerHTML = '';
+
+                Object.values(CHARACTERS).forEach(char => {
+                    const card = document.createElement('div');
+                    card.className = `char-card ${char.id === this.selectedCharId ? 'selected' : ''}`;
+                    card.id = `card-${char.id}`;
+                    card.onclick = () => this.selectCharacter(char.id);
+
+                    card.innerHTML = `
+                        <div class="char-name">${char.name}</div>
+                        <div class="char-title">${char.title}</div>
+                        <div class="char-desc">${char.desc}</div>
+                        <canvas class="radar-box" id="radar-${char.id}" width="180" height="180"></canvas>
+                        <div class="skill-badge">${char.skillName}</div>
+                    `;
+                    container.appendChild(card);
+
+                    // Render Hexagon Radar Chart for each character
+                    setTimeout(() => {
+                        const radarCanvas = document.getElementById(`radar-${char.id}`);
+                        if (radarCanvas) drawRadarChart(radarCanvas, char.stats, char.color);
+                    }, 50);
+                });
+
+                document.getElementById('start-game-btn').onclick = () => this.startGame();
+                document.getElementById('resume-btn').onclick = () => this.togglePause();
+                document.getElementById('restart-defeat-btn').onclick = () => this.returnToMenu();
+                document.getElementById('restart-victory-btn').onclick = () => this.returnToMenu();
+            }
+
+            selectCharacter(id) {
+                this.selectedCharId = id;
+                document.querySelectorAll('.char-card').forEach(c => c.classList.remove('selected'));
+                const selectedCard = document.getElementById(`card-${id}`);
+                if (selectedCard) selectedCard.classList.add('selected');
+            }
+
+            /* Start Game World Initialization */
+            startGame() {
+                sounds.init();
+                const config = CHARACTERS[this.selectedCharId];
+
+                this.player = {
+                    x: MAP_SIZE / 2,
+                    y: 300,
+                    radius: 16,
+                    charType: config.id,
+                    color: config.color,
+                    hp: config.hp,
+                    maxHp: config.hp,
+                    atk: config.atk,
+                    def: config.def,
+                    speed: config.speed,
+                    angle: 0,
+                    walkCycle: 0,
+                    isAttacking: false,
+                    attackAngle: 0,
+                    attackTimer: 0,
+                    skillCdTimer: 0,
+                    maxSkillCd: config.skillCd,
+                    isInvulnerable: false,
+                    invulnerableTimer: 0
+                };
+
+                this.stats = { kills: 0, coins: 0, gems: 0, damageTaken: 0, startTime: Date.now(), endTime: 0 };
+                this.monsters = [];
+                this.pickups = [];
+                this.particles = [];
+                this.damageTexts = [];
+
+                this.spawnWorldObjects();
+
+                this.state = 'STATE_PLAYING';
+                document.getElementById('menu-screen').classList.add('hidden');
+                document.getElementById('hud-container').classList.remove('hidden');
+                document.getElementById('victory-screen').classList.add('hidden');
+                document.getElementById('defeat-screen').classList.add('hidden');
+                document.getElementById('pause-screen').classList.add('hidden');
+            }
+
+            returnToMenu() {
+                this.state = 'STATE_MENU';
+                document.getElementById('menu-screen').classList.remove('hidden');
+                document.getElementById('hud-container').classList.add('hidden');
+                document.getElementById('victory-screen').classList.add('hidden');
+                document.getElementById('defeat-screen').classList.add('hidden');
+                document.getElementById('pause-screen').classList.add('hidden');
+            }
+
+            spawnWorldObjects() {
+                // Spawn Normal Monsters (Slime, Goblin, Wolf) across map zones
+                const kinds = ['slime', 'goblin', 'wolf'];
+                for (let i = 0; i < 35; i++) {
+                    const kind = kinds[Math.floor(Math.random() * kinds.length)];
+                    let hp = 40, atk = 10, radius = 16, speed = 2.0;
+                    if (kind === 'goblin') { hp = 65; atk = 15; radius = 18; speed = 2.4; }
+                    if (kind === 'wolf') { hp = 50; atk = 18; radius = 17; speed = 3.2; }
+
+                    this.monsters.push({
+                        id: Math.random(),
+                        x: 200 + Math.random() * (MAP_SIZE - 400),
+                        y: 500 + Math.random() * (MAP_SIZE - 800),
+                        radius: radius,
+                        kind: kind,
+                        hp: hp,
+                        maxHp: hp,
+                        atk: atk,
+                        speed: speed,
+                        angle: 0,
+                        state: 'sealed', // 'sealed', 'chasing'
+                        triggerDist: 220
+                    });
+                }
+
+                // Spawn Guarding BOSS at map deep arena center
+                this.monsters.push({
+                    id: 'BOSS_DRAKE',
+                    x: MAP_SIZE / 2,
+                    y: MAP_SIZE - 350,
+                    radius: 45,
+                    kind: 'boss',
+                    hp: 800,
+                    maxHp: 800,
+                    atk: 32,
+                    speed: 2.2,
+                    angle: 0,
+                    state: 'sealed',
+                    triggerDist: 320
+                });
+
+                // Spawn Gems & Health Hearts
+                for (let i = 0; i < 30; i++) {
+                    this.pickups.push({
+                        x: 100 + Math.random() * (MAP_SIZE - 200),
+                        y: 100 + Math.random() * (MAP_SIZE - 200),
+                        type: Math.random() > 0.3 ? 'gem' : 'heart'
+                    });
+                }
+            }
+
+            bindInputs() {
+                window.addEventListener('keydown', (e) => {
+                    this.keys[e.key.toLowerCase()] = true;
+                    if (e.key.toLowerCase() === 'p' || e.key === 'Escape') {
+                        if (this.state === 'STATE_PLAYING' || this.state === 'STATE_PAUSED') {
+                            this.togglePause();
+                        }
+                    }
+                    if (this.state === 'STATE_PLAYING') {
+                        if (e.key === ' ' || e.key.toLowerCase() === 'j') this.playerAttack();
+                        if (e.key.toLowerCase() === 'k') this.playerUseSkill();
+                    }
+                });
+
+                window.addEventListener('keyup', (e) => {
+                    this.keys[e.key.toLowerCase()] = false;
+                });
+
+                // Mobile Touch Controls Binding
+                const attackBtn = document.getElementById('btn-attack');
+                const skillBtn = document.getElementById('btn-skill');
+
+                attackBtn.ontouchstart = (e) => { e.preventDefault(); this.playerAttack(); };
+                skillBtn.ontouchstart = (e) => { e.preventDefault(); this.playerUseSkill(); };
+
+                // Touch Joystick simulation
+                const dpad = document.getElementById('btn-dpad');
+                let touchId = null;
+                dpad.ontouchstart = (e) => {
+                    touchId = e.changedTouches[0].identifier;
+                };
+                dpad.ontouchmove = (e) => {
+                    e.preventDefault();
+                    for (let touch of e.changedTouches) {
+                        if (touch.identifier === touchId) {
+                            const rect = dpad.getBoundingClientRect();
+                            const cX = rect.left + rect.width / 2;
+                            const cY = rect.top + rect.height / 2;
+                            const dx = touch.clientX - cX;
+                            const dy = touch.clientY - cY;
+                            const dist = Math.hypot(dx, dy);
+                            if (dist > 0) {
+                                this.touchVector.x = dx / dist;
+                                this.touchVector.y = dy / dist;
+                            }
+                        }
+                    }
+                };
+                dpad.ontouchend = () => {
+                    this.touchVector = { x: 0, y: 0 };
+                };
+            }
+
+            togglePause() {
+                if (this.state === 'STATE_PLAYING') {
+                    this.state = 'STATE_PAUSED';
+                    document.getElementById('pause-screen').classList.remove('hidden');
+                } else if (this.state === 'STATE_PAUSED') {
+                    this.state = 'STATE_PLAYING';
+                    document.getElementById('pause-screen').classList.add('hidden');
+                }
+            }
+
+            playerAttack() {
+                if (this.player.isAttacking) return;
+                this.player.isAttacking = true;
+                this.player.attackAngle = -Math.PI / 3;
+                this.player.attackTimer = 0.2; // 0.2s swing duration
+                sounds.playAttack();
+
+                // Hit Detection in Front Sweep Arc
+                const reach = 60;
+                this.monsters.forEach(m => {
+                    const dx = m.x - this.player.x;
+                    const dy = m.y - this.player.y;
+                    const dist = Math.hypot(dx, dy);
+
+                    if (dist < reach + m.radius) {
+                        const angleToMon = Math.atan2(dy, dx);
+                        let diff = angleToMon - this.player.angle;
+                        while (diff < -Math.PI) diff += Math.PI * 2;
+                        while (diff > Math.PI) diff -= Math.PI * 2;
+
+                        if (Math.abs(diff) < Math.PI / 2.2) {
+                            this.damageMonster(m, this.player.atk);
+                        }
+                    }
+                });
+            }
+
+            playerUseSkill() {
+                if (this.player.skillCdTimer > 0) return;
+                this.player.skillCdTimer = this.player.maxSkillCd;
+                sounds.playSkill(this.player.charType);
+
+                if (this.player.charType === 'ignis') {
+                    // Flame Slash AOE Burst
+                    const aoeRadius = 160;
+                    this.monsters.forEach(m => {
+                        const dist = Math.hypot(m.x - this.player.x, m.y - this.player.y);
+                        if (dist < aoeRadius + m.radius) {
+                            this.damageMonster(m, Math.round(this.player.atk * 2.5));
+                        }
+                    });
+                    // Spawn Ring Fire Particles
+                    for (let i = 0; i < 36; i++) {
+                        const ang = (Math.PI * 2 / 36) * i;
+                        this.particles.push({
+                            x: this.player.x, y: this.player.y,
+                            vx: Math.cos(ang) * 8, vy: Math.sin(ang) * 8,
+                            life: 0.4, color: '#f39c12', size: 6
+                        });
+                    }
+
+                } else if (this.player.charType === 'aegis') {
+                    // Absolute Defense Invulnerability
+                    this.player.isInvulnerable = true;
+                    this.player.invulnerableTimer = 3.0; // 3 seconds shield
+
+                } else if (this.player.charType === 'zephyr') {
+                    // Shadow Dash Forward Burst
+                    const dashDist = 280;
+                    const targetX = Math.max(50, Math.min(MAP_SIZE - 50, this.player.x + Math.cos(this.player.angle) * dashDist));
+                    const targetY = Math.max(50, Math.min(MAP_SIZE - 50, this.player.y + Math.sin(this.player.angle) * dashDist));
+
+                    // Damage monsters along dash path line
+                    this.monsters.forEach(m => {
+                        const distToLine = this.distToSegment({ x: m.x, y: m.y }, { x: this.player.x, y: this.player.y }, { x: targetX, y: targetY });
+                        if (distToLine < m.radius + 20) {
+                            this.damageMonster(m, Math.round(this.player.atk * 2.2));
+                        }
+                    });
+
+                    this.player.x = targetX;
+                    this.player.y = targetY;
+                }
+            }
+
+            distToSegment(p, v, w) {
+                const l2 = (v.x - w.x) ** 2 + (v.y - w.y) ** 2;
+                if (l2 === 0) return Math.hypot(p.x - v.x, p.y - v.y);
+                let t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2;
+                t = Math.max(0, Math.min(1, t));
+                return Math.hypot(p.x - (v.x + t * (w.x - v.x)), p.y - (v.y + t * (w.y - v.y)));
+            }
+
+            damageMonster(m, dmg) {
+                m.hp -= dmg;
+                sounds.playHit();
+
+                // Awakening sealed monster on hit
+                if (m.state === 'sealed') {
+                    m.state = 'chasing';
+                    if (m.kind === 'boss') sounds.playBossAlert();
+                }
+
+                // Floating Damage Text
+                this.damageTexts.push({
+                    x: m.x + (Math.random() * 20 - 10),
+                    y: m.y - 15,
+                    text: `-${dmg}`,
+                    color: '#ffdd59',
+                    life: 0.6,
+                    vy: -1.5
+                });
+
+                // Blood / Spark Particles
+                for (let i = 0; i < 6; i++) {
+                    this.particles.push({
+                        x: m.x, y: m.y,
+                        vx: (Math.random() - 0.5) * 6, vy: (Math.random() - 0.5) * 6,
+                        life: 0.3, color: '#e74c3c', size: 4
+                    });
+                }
+
+                // Monster Death Check
+                if (m.hp <= 0) {
+                    sounds.playKill();
+                    this.stats.kills++;
+
+                    // Drop Gold Coins
+                    const coinGain = m.kind === 'boss' ? 500 : (m.kind === 'goblin' ? 30 : 15);
+                    this.stats.coins += coinGain;
+
+                    // Victory Check on Boss Kill
+                    if (m.kind === 'boss') {
+                        this.triggerVictory();
+                    }
+                }
+            }
+
+            update(dt) {
+                if (this.state !== 'STATE_PLAYING') return;
+
+                const p = this.player;
+
+                // Handle Player Movement Input
+                let moveX = 0, moveY = 0;
+                if (this.keys['w'] || this.keys['arrowup']) moveY -= 1;
+                if (this.keys['s'] || this.keys['arrowdown']) moveY += 1;
+                if (this.keys['a'] || this.keys['arrowleft']) moveX -= 1;
+                if (this.keys['d'] || this.keys['arrowright']) moveX += 1;
+
+                if (this.touchVector.x !== 0 || this.touchVector.y !== 0) {
+                    moveX = this.touchVector.x;
+                    moveY = this.touchVector.y;
+                }
+
+                if (moveX !== 0 || moveY !== 0) {
+                    const len = Math.hypot(moveX, moveY);
+                    const nx = moveX / len;
+                    const ny = moveY / len;
+
+                    p.x += nx * p.speed;
+                    p.y += ny * p.speed;
+                    p.angle = Math.atan2(ny, nx);
+                    p.walkCycle += 0.2;
+
+                    // Clamp to Map Bounds
+                    p.x = Math.max(p.radius, Math.min(MAP_SIZE - p.radius, p.x));
+                    p.y = Math.max(p.radius, Math.min(MAP_SIZE - p.radius, p.y));
+                }
+
+                // Update Player Skill Timers
+                if (p.skillCdTimer > 0) {
+                    p.skillCdTimer = Math.max(0, p.skillCdTimer - dt);
+                }
+                if (p.invulnerableTimer > 0) {
+                    p.invulnerableTimer -= dt;
+                    if (p.invulnerableTimer <= 0) p.isInvulnerable = false;
+                }
+
+                // Attack Animation Timer
+                if (p.isAttacking) {
+                    p.attackTimer -= dt;
+                    p.attackAngle += dt * 15;
+                    if (p.attackTimer <= 0) p.isAttacking = false;
+                }
+
+                // Update Monsters AI
+                this.monsters = this.monsters.filter(m => m.hp > 0);
+                this.monsters.forEach(m => {
+                    const distToPlayer = Math.hypot(p.x - m.x, p.y - m.y);
+
+                    // Unseal check
+                    if (m.state === 'sealed' && distToPlayer < m.triggerDist) {
+                        m.state = 'chasing';
+                        if (m.kind === 'boss') sounds.playBossAlert();
+                    }
+
+                    // Chasing AI State
+                    if (m.state === 'chasing') {
+                        m.angle = Math.atan2(p.y - m.y, p.x - m.x);
+                        m.x += Math.cos(m.angle) * m.speed;
+                        m.y += Math.sin(m.angle) * m.speed;
+
+                        // Monster Attack Player Collision
+                        if (distToPlayer < m.radius + p.radius) {
+                            if (!p.isInvulnerable) {
+                                const actualDmg = Math.max(2, m.atk - p.def);
+                                p.hp -= actualDmg;
+                                this.stats.damageTaken += actualDmg;
+                                sounds.playHit();
+
+                                // Damage pushback
+                                p.x += Math.cos(m.angle) * 15;
+                                p.y += Math.sin(m.angle) * 15;
+
+                                this.damageTexts.push({
+                                    x: p.x, y: p.y - 15,
+                                    text: `-${actualDmg}`, color: '#ff3355', life: 0.6, vy: -1.5
+                                });
+
+                                if (p.hp <= 0) {
+                                    this.triggerDefeat();
+                                }
+                            } else {
+                                // Reflect damage if Aegis in invulnerable holy shield
+                                this.damageMonster(m, p.atk);
+                            }
+                        }
+                    }
+                });
+
+                // Pickups Collision (Gems & Hearts)
+                this.pickups = this.pickups.filter(item => {
+                    const dist = Math.hypot(p.x - item.x, p.y - item.y);
+                    if (dist < p.radius + 15) {
+                        if (item.type === 'gem') {
+                            this.stats.gems++;
+                            this.stats.coins += 20;
+                            sounds.playPickupGem();
+                        } else if (item.type === 'heart') {
+                            p.hp = p.maxHp; // 拾取紅心直接補滿血量
+                            sounds.playPickupHeart();
+                        }
+                        return false;
+                    }
+                    return true;
+                });
+
+                // Update Particles
+                this.particles.forEach(pt => {
+                    pt.x += pt.vx; pt.y += pt.vy;
+                    pt.life -= dt;
+                });
+                this.particles = this.particles.filter(pt => pt.life > 0);
+
+                // Update Damage Texts
+                this.damageTexts.forEach(dtx => {
+                    dtx.y += dtx.vy;
+                    dtx.life -= dt;
+                });
+                this.damageTexts = this.damageTexts.filter(dtx => dtx.life > 0);
+
+                // Camera Tracking Centered on Player
+                this.camera.x = p.x - this.canvas.width / 2;
+                this.camera.y = p.y - this.canvas.height / 2;
+
+                this.updateHUD();
+            }
+
+            updateHUD() {
+                const p = this.player;
+                document.getElementById('hp-text').innerText = `${Math.max(0, Math.round(p.hp))} / ${p.maxHp}`;
+                document.getElementById('hp-bar-fill').style.width = `${(Math.max(0, p.hp) / p.maxHp) * 100}%`;
+
+                const cdPct = p.skillCdTimer > 0 ? (1 - p.skillCdTimer / p.maxSkillCd) * 100 : 100;
+                document.getElementById('cd-bar-fill').style.width = `${cdPct}%`;
+                document.getElementById('cd-text').innerText = p.skillCdTimer > 0 ? `${p.skillCdTimer.toFixed(1)}s` : 'READY';
+
+                document.getElementById('coin-count').innerText = this.stats.coins;
+                document.getElementById('gem-count').innerText = this.stats.gems;
+                document.getElementById('kill-count').innerText = this.stats.kills;
+            }
+
+            triggerDefeat() {
+                this.state = 'STATE_GAMEOVER';
+                sounds.playGameOver();
+                document.getElementById('defeat-screen').classList.remove('hidden');
+            }
+
+            triggerVictory() {
+                this.state = 'STATE_VICTORY';
+                this.stats.endTime = Date.now();
+                sounds.playVictory();
+
+                const durationSec = Math.round((this.stats.endTime - this.stats.startTime) / 1000);
+
+                // Dynamic Title Allocation Algorithm
+                let title = "全能地牢開拓者";
+                if (this.stats.gems >= 12 && this.stats.coins >= 400) {
+                    title = "富甲天下的寶藏獵人";
+                } else if (this.stats.kills >= 25) {
+                    title = "地牢血色屠戮者";
+                } else if (this.stats.damageTaken < 40 || durationSec <= 45) {
+                    title = "神速傳奇勇者";
+                }
+
+                document.getElementById('final-title').innerText = `「${title}」`;
+                document.getElementById('res-kills').innerText = this.stats.kills;
+                document.getElementById('res-coins').innerText = this.stats.coins;
+                document.getElementById('res-gems').innerText = this.stats.gems;
+                document.getElementById('res-time').innerText = `${durationSec}s`;
+
+                document.getElementById('victory-screen').classList.remove('hidden');
+            }
+
+            render() {
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+                if (this.state === 'STATE_MENU') return;
+
+                this.ctx.save();
+                this.ctx.translate(-this.camera.x, -this.camera.y);
+
+                // Render Grid Tile Background & Dungeon Floor
+                const tileSize = 80;
+                const startX = Math.floor(this.camera.x / tileSize) * tileSize;
+                const startY = Math.floor(this.camera.y / tileSize) * tileSize;
+
+                for (let x = startX; x < startX + this.canvas.width + tileSize; x += tileSize) {
+                    for (let y = startY; y < startY + this.canvas.height + tileSize; y += tileSize) {
+                        if (x >= 0 && x <= MAP_SIZE && y >= 0 && y <= MAP_SIZE) {
+                            this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+                            this.ctx.strokeRect(x, y, tileSize, tileSize);
+                        }
+                    }
+                }
+
+                // Render Map Outer Boundary Borders
+                this.ctx.strokeStyle = '#e74c3c';
+                this.ctx.lineWidth = 6;
+                this.ctx.strokeRect(0, 0, MAP_SIZE, MAP_SIZE);
+
+                // Render Boss Arena Rune Circle Decor
+                this.ctx.beginPath();
+                this.ctx.arc(MAP_SIZE / 2, MAP_SIZE - 350, 200, 0, Math.PI * 2);
+                this.ctx.strokeStyle = 'rgba(155, 89, 182, 0.3)';
+                this.ctx.lineWidth = 4;
+                this.ctx.stroke();
+
+                // Render Pickups (Gems & Hearts)
+                this.pickups.forEach(item => {
+                    this.ctx.save();
+                    this.ctx.translate(item.x, item.y);
+                    if (item.type === 'gem') {
+                        this.ctx.fillStyle = '#00f0ff';
+                        this.ctx.beginPath();
+                        this.ctx.moveTo(0, -8);
+                        this.ctx.lineTo(6, 0);
+                        this.ctx.lineTo(0, 8);
+                        this.ctx.lineTo(-6, 0);
+                        this.ctx.fill();
+                    } else {
+                        this.ctx.fillStyle = '#e74c3c';
+                        this.ctx.beginPath();
+                        this.ctx.arc(-3, -2, 4, 0, Math.PI * 2);
+                        this.ctx.arc(3, -2, 4, 0, Math.PI * 2);
+                        this.ctx.lineTo(0, 6);
+                        this.ctx.fill();
+                    }
+                    this.ctx.restore();
+                });
+
+                // Render Monsters
+                this.monsters.forEach(m => drawMonsterCreature(this.ctx, m));
+
+                // Render Player
+                if (this.player) drawHumanoidPlayer(this.ctx, this.player);
+
+                // Render Particles
+                this.particles.forEach(pt => {
+                    this.ctx.fillStyle = pt.color;
+                    this.ctx.beginPath();
+                    this.ctx.arc(pt.x, pt.y, pt.size, 0, Math.PI * 2);
+                    this.ctx.fill();
+                });
+
+                // Render Floating Damage Text
+                this.damageTexts.forEach(dtx => {
+                    this.ctx.fillStyle = dtx.color;
+                    this.ctx.font = 'bold 16px sans-serif';
+                    this.ctx.fillText(dtx.text, dtx.x, dtx.y);
+                });
+
+                this.ctx.restore();
+
+                // Render Minimap Radar
+                this.renderMinimap();
+            }
+
+            renderMinimap() {
+                const mCtx = this.minimapCtx;
+                const mW = this.minimapCanvas.width;
+                const mH = this.minimapCanvas.height;
+
+                mCtx.clearRect(0, 0, mW, mH);
+                mCtx.fillStyle = 'rgba(10, 14, 23, 0.85)';
+                mCtx.fillRect(0, 0, mW, mH);
+
+                const scale = mW / MAP_SIZE;
+
+                // Render Pickups on Minimap
+                this.pickups.forEach(p => {
+                    mCtx.fillStyle = p.type === 'gem' ? '#00f0ff' : '#e74c3c';
+                    mCtx.fillRect(p.x * scale, p.y * scale, 2, 2);
+                });
+
+                // Render Monsters on Minimap
+                this.monsters.forEach(m => {
+                    mCtx.fillStyle = m.kind === 'boss' ? '#9b59b6' : (m.state === 'chasing' ? '#e74c3c' : '#f39c12');
+                    const size = m.kind === 'boss' ? 6 : 3;
+                    mCtx.fillRect(m.x * scale - size / 2, m.y * scale - size / 2, size, size);
+                });
+
+                // Render Player Icon on Minimap
+                if (this.player) {
+                    mCtx.fillStyle = '#2ecc71';
+                    mCtx.beginPath();
+                    mCtx.arc(this.player.x * scale, this.player.y * scale, 3.5, 0, Math.PI * 2);
+                    mCtx.fill();
+                }
+            }
+
+            gameLoop(timestamp) {
+                const dt = 0.016; // fixed ~60fps step
+                this.update(dt);
+                this.render();
+                requestAnimationFrame((ts) => this.gameLoop(ts));
+            }
+        }
+
+        // Initialize Game Instance on Page Load
+        window.onload = () => {
+            window.game = new DungeonGame();
+        };
+    </script>
+</body>
+</html>

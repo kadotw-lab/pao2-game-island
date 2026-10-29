@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>LAMBORGHINI REVUELTO V12 - 3D Hypercar Real Experience</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js 3D Engine -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@500;700&display=display" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #050508;
+            font-family: 'Rajdhani', 'Orbitron', sans-serif;
+            color: #fff;
+        }
+
+        #canvas-container {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        .orbitron { font-family: 'Orbitron', sans-serif; }
+
+        /* Lamborghini Verde Mantis Green & Arancio Argos Accents */
+        .lambo-green { color: #39ff14; text-shadow: 0 0 10px rgba(57, 255, 20, 0.6); }
+        .lambo-orange { color: #ff5500; text-shadow: 0 0 10px rgba(255, 85, 0, 0.6); }
+        .lambo-cyan { color: #00f0ff; text-shadow: 0 0 10px rgba(0, 240, 255, 0.6); }
+
+        .glass-panel {
+            background: rgba(10, 15, 25, 0.65);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+        }
+
+        /* Speedometer RPM Bar */
+        .rpm-bar {
+            transition: width 0.05s linear;
+        }
+
+        /* Active Aerodynamics Wing Status */
+        .ala-glow {
+            box-shadow: 0 0 15px #39ff14, inset 0 0 10px #39ff14;
+        }
+
+        .touch-btn {
+            background: rgba(20, 25, 40, 0.7);
+            border: 1.5px solid rgba(57, 255, 20, 0.4);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #39ff14;
+            font-family: 'Orbitron';
+            font-weight: 700;
+        }
+        .touch-btn:active {
+            background: rgba(57, 255, 20, 0.3);
+            border-color: #39ff14;
+            transform: scale(0.95);
+        }
+
+        .car-card-active {
+            border-color: #39ff14 !important;
+            background: rgba(57, 255, 20, 0.15) !important;
+            box-shadow: 0 0 20px rgba(57, 255, 20, 0.3);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="canvas-container"></div>
+
+    <!-- 抬頭顯示器 (HUD System) -->
+    <div id="hud-overlay" class="absolute inset-0 pointer-events-none z-10 flex flex-col justify-between p-4 md:p-6 opacity-0 transition-opacity duration-500">
+        <!-- 頂部資訊列 -->
+        <div class="flex justify-between items-start">
+            <!-- 儀表板左側：模式與單圈時間 -->
+            <div class="glass-panel p-3 md:p-4 rounded-xl flex flex-col gap-1 min-w-[140px]">
+                <div class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-green-400 animate-pulse"></span>
+                    <span id="driveModeDisplay" class="text-xs md:text-sm font-bold tracking-widest text-emerald-400">CORSA MODE</span>
+                </div>
+                <div class="text-[10px] text-slate-400 font-semibold tracking-wider">TIME / SCORE</div>
+                <div id="scoreDisplay" class="text-xl md:text-2xl font-black orbitron lambo-green">00:00.00</div>
+            </div>
+
+            <!-- 頂部中央：ALA 主動空氣力學狀態 -->
+            <div class="glass-panel px-4 py-2 rounded-full flex items-center gap-3 border-emerald-500/30">
+                <span class="text-xs text-slate-300 font-bold tracking-wider">AERODYNAMICA (ALA)</span>
+                <span id="alaBadge" class="text-xs font-black px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-500/40">OFF</span>
+            </div>
+
+            <!-- 儀表板右側：視角與齒輪比 -->
+            <div class="glass-panel p-3 md:p-4 rounded-xl flex flex-col items-end gap-1 min-w-[130px]">
+                <div class="text-[10px] text-slate-400 font-semibold tracking-wider">GEAR POSITION</div>
+                <div class="flex items-baseline gap-1">
+                    <span id="gearDisplay" class="text-2xl md:text-3xl font-black orbitron text-yellow-400">1</span>
+                    <span class="text-xs font-bold text-slate-400">/ 7 DCT</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 畫面中央：速度與 RPM 超跑儀表板 -->
+        <div class="self-center mb-2 md:mb-6 flex flex-col items-center w-full max-w-md">
+            <!-- RPM 線條 -->
+            <div class="w-full h-2.5 bg-slate-900/80 rounded-full overflow-hidden border border-slate-700/60 p-0.5 mb-2">
+                <div id="rpmBar" class="rpm-bar h-full bg-gradient-to-r from-emerald-500 via-yellow-400 to-red-600 rounded-full w-0"></div>
+            </div>
+            
+            <!-- 大數字時速錶 -->
+            <div class="flex items-baseline gap-2">
+                <span id="speedometer" class="text-6xl md:text-8xl font-black orbitron tracking-tighter text-white drop-shadow-[0_0_20px_rgba(255,255,255,0.4)]">0</span>
+                <span class="text-sm md:text-base font-bold text-emerald-400 orbitron">KM/H</span>
+            </div>
+
+            <!-- E-BOOST 混和動力能量蓄積條 -->
+            <div class="w-3/4 flex items-center gap-2 mt-1">
+                <span class="text-[10px] font-extrabold text-cyan-400 tracking-wider">E-BOOST</span>
+                <div class="flex-1 h-1.5 bg-slate-900/80 rounded-full overflow-hidden border border-cyan-500/30">
+                    <div id="boostBar" class="h-full bg-gradient-to-r from-cyan-500 to-blue-500 w-full"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 手機專用虛擬按鈕 -->
+        <div id="mobileControls" class="flex justify-between items-end w-full pointer-events-auto md:hidden pb-2">
+            <div class="flex gap-2">
+                <button id="btnLeft" class="touch-btn w-16 h-16 text-2xl">◀</button>
+                <button id="btnRight" class="touch-btn w-16 h-16 text-2xl">▶</button>
+            </div>
+            <div class="flex gap-2">
+                <button id="btnBrake" class="touch-btn w-14 h-14 !border-red-500/50 text-red-400 text-xs">BRAKE</button>
+                <button id="btnBoost" class="touch-btn w-16 h-16 !border-cyan-400/50 text-cyan-300 text-xs font-black">BOOST</button>
+                <button id="btnGas" class="touch-btn w-16 h-16 !border-emerald-400/50 text-emerald-400 text-sm font-black">GAS</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 開啟選單與展示車房 -->
+    <div id="startScreen" class="absolute inset-0 z-20 glass-panel flex flex-col justify-between p-6 md:p-12 text-center overflow-y-auto">
+        <div class="mt-2 md:mt-4">
+            <div class="inline-block px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold tracking-widest mb-2">AUTOMOBILI LAMBORGHINI GARAGE</div>
+            <h1 id="selectedCarName" class="text-3xl md:text-6xl font-black italic orbitron tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-white to-orange-500 drop-shadow-lg">REVUELTO V12</h1>
+            <p id="selectedCarDesc" class="text-xs md:text-sm text-slate-300 font-semibold tracking-widest mt-1">6.5L V12 NATURALLY ASPIRATED + 3 ELECTRIC MOTORS (1015 HP)</p>
+        </div>
+
+        <!-- 車款選擇面板 -->
+        <div class="my-3 max-w-xl mx-auto w-full">
+            <div class="grid grid-cols-2 gap-2.5 mb-4">
+                <!-- Revuelto 卡片 -->
+                <button id="selectRevuelto" class="glass-panel p-2.5 rounded-xl border border-slate-700 transition-all text-left flex flex-col gap-1 cursor-pointer hover:border-emerald-500 car-card-active">
+                    <div class="flex justify-between items-center">
+                        <span class="font-black orbitron text-white text-xs md:text-sm">REVUELTO</span>
+                        <span class="text-[9px] px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-400 font-bold border border-emerald-500/30">V12</span>
+                    </div>
+                    <div class="text-[10px] text-slate-400">1015 HP | 350 KM/H</div>
+                </button>
+
+                <!-- Temerario 卡片 -->
+                <button id="selectTemerario" class="glass-panel p-2.5 rounded-xl border border-slate-700 transition-all text-left flex flex-col gap-1 cursor-pointer hover:border-cyan-400">
+                    <div class="flex justify-between items-center">
+                        <span class="font-black orbitron text-white text-xs md:text-sm">TEMERARIO</span>
+                        <span class="text-[9px] px-1.5 py-0.5 rounded bg-cyan-950 text-cyan-300 font-bold border border-cyan-400/30">V8 TURBO</span>
+                    </div>
+                    <div class="text-[10px] text-slate-400">920 HP | 10,000 RPM</div>
+                </button>
+
+                <!-- 新增：Revuelto SV 卡片 (來自圖片 1) -->
+                <button id="selectRevueltoSV" class="glass-panel p-2.5 rounded-xl border border-slate-700 transition-all text-left flex flex-col gap-1 cursor-pointer hover:border-red-500">
+                    <div class="flex justify-between items-center">
+                        <span class="font-black orbitron text-white text-xs md:text-sm text-red-400">REVUELTO SV</span>
+                        <span class="text-[9px] px-1.5 py-0.5 rounded bg-red-950 text-red-400 font-bold border border-red-500/30">SV V12</span>
+                    </div>
+                    <div class="text-[10px] text-slate-400">1100 HP | 360 KM/H</div>
+                </button>
+
+                <!-- 新增：Sián FKP 37 卡片 (來自圖片 2) -->
+                <button id="selectSian" class="glass-panel p-2.5 rounded-xl border border-slate-700 transition-all text-left flex flex-col gap-1 cursor-pointer hover:border-emerald-400">
+                    <div class="flex justify-between items-center">
+                        <span class="font-black orbitron text-white text-xs md:text-sm text-emerald-300">SIÁN FKP 37</span>
+                        <span class="text-[9px] px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 font-bold border border-emerald-400/30">HYBRID</span>
+                    </div>
+                    <div class="text-[10px] text-slate-400">1050 HP | 355 KM/H</div>
+                </button>
+            </div>
+
+            <!-- 車款詳細資訊與模式設定 -->
+            <div class="grid grid-cols-3 gap-3 md:gap-4 mb-4 text-left">
+                <div class="glass-panel p-3 rounded-xl border-slate-800">
+                    <div class="text-[10px] text-slate-400 font-bold">TOP SPEED</div>
+                    <div id="statTopSpeed" class="text-base md:text-lg font-black orbitron text-white">350+ <span class="text-xs text-emerald-400">KM/H</span></div>
+                </div>
+                <div class="glass-panel p-3 rounded-xl border-slate-800">
+                    <div class="text-[10px] text-slate-400 font-bold">0-100 KM/H</div>
+                    <div id="statAccel" class="text-base md:text-lg font-black orbitron text-yellow-400">2.5 <span class="text-xs">SEC</span></div>
+                </div>
+                <div class="glass-panel p-3 rounded-xl border-slate-800">
+                    <div class="text-[10px] text-slate-400 font-bold">MAX ENGINE RPM</div>
+                    <div id="statRPM" class="text-base md:text-lg font-black orbitron text-cyan-400">9,500 <span class="text-xs">RPM</span></div>
+                </div>
+            </div>
+
+            <!-- 控制說明 -->
+            <div class="glass-panel p-3 md:p-4 rounded-xl text-xs md:text-sm text-slate-300 space-y-1.5 border-emerald-500/20">
+                <div class="font-bold text-emerald-400 tracking-wider mb-1">🎮 操作指令 CONTROL GUIDE</div>
+                <div>💻 鍵盤操控：<span class="text-white font-bold">W / ↑ 加速</span>, <span class="text-white font-bold">S / ↓ 煞車</span>, <span class="text-white font-bold">A/D 或 ←/→ 轉向</span></div>
+                <div>⚡ 噴射推進：按下 <span class="text-cyan-400 font-bold">SPACE (空白鍵)</span> 啟動 E-Boost 混合動力超頻！</div>
+                <div>🎥 鏡頭切換：按下 <span class="text-yellow-400 font-bold">C 鍵</span> 切換追逐視角與駕駛座艙視角</div>
+            </div>
+        </div>
+
+        <div class="max-w-md mx-auto w-full mb-2">
+            <button id="startBtn" class="w-full py-3.5 md:py-4 bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-lg md:text-xl orbitron tracking-widest rounded-xl shadow-[0_0_30px_rgba(57,255,20,0.4)] transition-all transform hover:scale-105 active:scale-95">
+                START DRIVE
+            </button>
+            <div class="mt-2 text-xs text-slate-400 font-bold tracking-wider">RECORD DISTANCE: <span id="highScoreStart" class="text-emerald-400">0</span> KM</div>
+        </div>
+    </div>
+
+    <!-- 遊戲結束視窗 -->
+    <div id="gameOverScreen" class="absolute inset-0 z-30 glass-panel flex flex-col justify-center items-center p-6 text-center hidden">
+        <h2 class="text-4xl md:text-5xl font-black text-red-500 orbitron tracking-wider mb-2" style="text-shadow: 0 0 20px rgba(255,0,0,0.8);">CRASHED!</h2>
+        <p class="text-sm text-slate-300 mb-6 font-semibold">車輛高速失控碰撞 賽程結束</p>
+
+        <div class="w-full max-w-xs glass-panel p-6 rounded-2xl border-slate-700 space-y-4 mb-6 text-left">
+            <div class="flex justify-between items-center text-sm">
+                <span class="text-slate-400 font-bold">MAX SPEED REACHED</span>
+                <span id="finalMaxSpeed" class="font-black orbitron text-xl text-yellow-400">0 KM/H</span>
+            </div>
+            <div class="flex justify-between items-center text-sm">
+                <span class="text-slate-400 font-bold">TOTAL DISTANCE</span>
+                <span id="finalDistance" class="font-black orbitron text-xl text-emerald-400">0 KM</span>
+            </div>
+            <div class="h-px bg-slate-800 my-1"></div>
+            <div class="flex justify-between items-center text-sm">
+                <span class="text-slate-400 font-bold">BEST RECORD</span>
+                <span id="highScoreGameOver" class="font-black orbitron text-white">0 KM</span>
+            </div>
+        </div>
+
+        <button id="restartBtn" class="w-full max-w-xs py-4 bg-gradient-to-r from-emerald-500 to-cyan-500 text-slate-950 font-black text-lg orbitron tracking-widest rounded-xl shadow-lg shadow-emerald-500/30 active:scale-95">
+            RETRY DRIVE
+        </button>
+    </div>
+
+    <script>
+        class EngineSound {
+            constructor() {
+                this.ctx = null;
+                this.osc1 = null;
+                this.osc2 = null;
+                this.gain = null;
+                this.filter = null;
+                this.isInitialized = false;
+                this.carType = 'revuelto';
+            }
+
+            init() {
+                if (this.isInitialized) return;
+                try {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioCtx();
+                    
+                    this.osc1 = this.ctx.createOscillator();
+                    this.osc2 = this.ctx.createOscillator();
+                    this.gain = this.ctx.createGain();
+                    this.filter = this.ctx.createBiquadFilter();
+
+                    this.osc1.type = 'sawtooth';
+                    this.osc2.type = 'triangle';
+
+                    this.filter.type = 'lowpass';
+                    this.filter.frequency.setValueAtTime(300, this.ctx.currentTime);
+
+                    this.gain.gain.setValueAtTime(0.01, this.ctx.currentTime);
+
+                    this.osc1.connect(this.filter);
+                    this.osc2.connect(this.filter);
+                    this.filter.connect(this.gain);
+                    this.gain.connect(this.ctx.destination);
+
+                    this.osc1.start();
+                    this.osc2.start();
+                    this.isInitialized = true;
+                } catch(e) { console.error("Audio init failed", e); }
+            }
+
+            setCarType(type) {
+                this.carType = type;
+            }
+
+            update(speed, rpmRatio, isAccelerating) {
+                if (!this.isInitialized || !this.ctx) return;
+
+                let baseFreq = 45 + rpmRatio * 220;
+                let multiplier = 1.5;
+
+                if (this.carType === 'temerario') {
+                    baseFreq = 55 + rpmRatio * 280;
+                    multiplier = 1.75;
+                } else if (this.carType === 'revuelto_sv') {
+                    baseFreq = 50 + rpmRatio * 310;
+                    multiplier = 1.85;
+                } else if (this.carType === 'sian_fkp') {
+                    baseFreq = 48 + rpmRatio * 260;
+                    multiplier = 1.6;
+                }
+
+                this.osc1.frequency.setTargetAtTime(baseFreq, this.ctx.currentTime, 0.05);
+                this.osc2.frequency.setTargetAtTime(baseFreq * multiplier, this.ctx.currentTime, 0.05);
+
+                const filterFreq = 250 + rpmRatio * 3200 + (isAccelerating ? 900 : 0);
+                this.filter.frequency.setTargetAtTime(filterFreq, this.ctx.currentTime, 0.08);
+
+                const targetGain = isAccelerating ? 0.13 : 0.04;
+                this.gain.gain.setTargetAtTime(targetGain, this.ctx.currentTime, 0.1);
+            }
+
+            playShiftPop() {
+                if (!this.isInitialized) return;
+                const popOsc = this.ctx.createOscillator();
+                const popGain = this.ctx.createGain();
+                popOsc.type = 'square';
+                popOsc.frequency.setValueAtTime(140, this.ctx.currentTime);
+                popOsc.frequency.exponentialRampToValueAtTime(30, this.ctx.currentTime + 0.08);
+
+                popGain.gain.setValueAtTime(0.25, this.ctx.currentTime);
+                popGain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.08);
+
+                popOsc.connect(popGain);
+                popGain.connect(this.ctx.destination);
+                popOsc.start();
+                popOsc.stop(this.ctx.currentTime + 0.08);
+            }
+
+            playCrash() {
+                if (!this.isInitialized) return;
+                const bufferSize = this.ctx.sampleRate * 0.5;
+                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+
+                const noise = this.ctx.createBufferSource();
+                noise.buffer = buffer;
+
+                const gain = this.ctx.createGain();
+                gain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.5);
+
+                noise.connect(gain);
+                gain.connect(this.ctx.destination);
+                noise.start();
+            }
+        }
+
+        const soundEngine = new EngineSound();
+
+        const CAR_SPECS = {
+            revuelto: {
+                name: "REVUELTO V12",
+                desc: "6.5L V12 NATURALLY ASPIRATED + 3 ELECTRIC MOTORS (1015 HP)",
+                topSpeed: 350,
+                maxRPM: 9500,
+                accelSec: "2.5",
+                accelRate: 1.85,
+                colorHex: 0x39ff14,
+                accentColor: "emerald"
+            },
+            temerario: {
+                name: "TEMERARIO V8",
+                desc: "4.0L V8 TWIN-TURBO (10,000 RPM REDLINE) + 3 ELECTRIC MOTORS (920 HP)",
+                topSpeed: 343,
+                maxRPM: 10000,
+                accelSec: "2.7",
+                accelRate: 1.75,
+                colorHex: 0x0088ff,
+                accentColor: "cyan"
+            },
+            revuelto_sv: {
+                name: "REVUELTO SV",
+                desc: "6.5L V12 TRACK SPEC + CARBON HOOD & GOLD TRIM (1100 HP)",
+                topSpeed: 360,
+                maxRPM: 9800,
+                accelSec: "2.3",
+                accelRate: 2.1,
+                colorHex: 0xd61c1c,
+                accentColor: "red"
+            },
+            sian_fkp: {
+                name: "SIÁN FKP 37",
+                desc: "6.5L V12 + SUPERCAPACITOR HYPER HYBRID (1050 HP)",
+                topSpeed: 355,
+                maxRPM: 9600,
+                accelSec: "2.4",
+                accelRate: 1.98,
+                colorHex: 0x10b981,
+                accentColor: "emerald"
+            }
+        };
+
+        let currentSelectedCarKey = 'revuelto';
+        let scene, camera, renderer;
+        let lamboCarGroup, environmentGroup, rearWingMesh;
+        let trafficCars = [];
+
+        let gameState = 'MENU';
+        let cameraMode = 'CHASE';
+
+        let speed = 0;
+        let maxSpeed = 350;
+        let distance = 0;
+        let maxSpeedReached = 0;
+        let boostAmount = 100;
+        let isBoosting = false;
+
+        let currentGear = 1;
+        let currentRPM = 1000;
+        let maxRPM = 9500;
+        let highScore = parseFloat(localStorage.getItem('lambo_high_score')) || 0;
+
+        let carPhysics = {
+            x: 0,
+            targetX: 0,
+            accel: 1.85,
+            brake: 3.5,
+            drag: 0.4
+        };
+
+        let keys = {
+            up: false,
+            down: false,
+            left: false,
+            right: false,
+            boost: false
+        };
+
+        function init3D() {
+            const container = document.getElementById('canvas-container');
+
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x050508, 0.003);
+
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 3, -8);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            container.appendChild(renderer.domElement);
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+            dirLight.position.set(20, 40, -20);
+            dirLight.castShadow = true;
+            dirLight.shadow.mapSize.width = 2048;
+            dirLight.shadow.mapSize.height = 2048;
+            scene.add(dirLight);
+
+            const hemiLight = new THREE.HemisphereLight(0x00f0ff, 0x050508, 0.6);
+            scene.add(hemiLight);
+
+            setupGarageUI();
+            updateGarageDisplay();
+            createEnvironment();
+
+            window.addEventListener('resize', onWindowResize, false);
+
+            const highScoreEl = document.getElementById('highScoreStart');
+            if (highScoreEl) highScoreEl.innerText = highScore;
+        }
+
+        function setupGarageUI() {
+            const revBtn = document.getElementById('selectRevuelto');
+            const temBtn = document.getElementById('selectTemerario');
+            const svBtn = document.getElementById('selectRevueltoSV');
+            const sianBtn = document.getElementById('selectSian');
+
+            const allBtns = [
+                { id: 'revuelto', el: revBtn },
+                { id: 'temerario', el: temBtn },
+                { id: 'revuelto_sv', el: svBtn },
+                { id: 'sian_fkp', el: sianBtn }
+            ];
+
+            allBtns.forEach(item => {
+                if (item.el) {
+                    item.el.addEventListener('click', () => {
+                        currentSelectedCarKey = item.id;
+                        allBtns.forEach(b => b.el && b.el.classList.remove('car-card-active'));
+                        item.el.classList.add('car-card-active');
+                        updateGarageDisplay();
+                    });
+                }
+            });
+        }
+
+        function updateGarageDisplay() {
+            const specs = CAR_SPECS[currentSelectedCarKey];
+            document.getElementById('selectedCarName').innerText = specs.name;
+            document.getElementById('selectedCarDesc').innerText = specs.desc;
+            document.getElementById('statTopSpeed').innerHTML = `${specs.topSpeed}+ <span class="text-xs text-emerald-400">KM/H</span>`;
+            document.getElementById('statAccel').innerHTML = `${specs.accelSec} <span class="text-xs">SEC</span>`;
+            document.getElementById('statRPM').innerHTML = `${specs.maxRPM.toLocaleString()} <span class="text-xs">RPM</span>`;
+            
+            soundEngine.setCarType(currentSelectedCarKey);
+            buildSelectedCar(currentSelectedCarKey);
+        }
+
+        function buildSelectedCar(carType) {
+            if (lamboCarGroup) scene.remove(lamboCarGroup);
+
+            lamboCarGroup = new THREE.Group();
+
+            const isTemerario = carType === 'temerario';
+            const isSV = carType === 'revuelto_sv';
+            const isSian = carType === 'sian_fkp';
+            const spec = CAR_SPECS[carType];
+
+            const bodyMat = new THREE.MeshStandardMaterial({
+                color: spec.colorHex,
+                metalness: isSV ? 0.9 : 0.85,
+                roughness: isSV ? 0.1 : 0.15,
+                envMapIntensity: 1.2
+            });
+
+            const bodyGeo = new THREE.BoxGeometry(2.05, isTemerario ? 0.52 : 0.55, 4.55);
+            const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
+            bodyMesh.position.y = 0.44;
+            bodyMesh.castShadow = true;
+            lamboCarGroup.add(bodyMesh);
+
+            if (isSV) {
+                const carbonMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.3, metalness: 0.8 });
+                const hoodGeo = new THREE.BoxGeometry(1.6, 0.08, 1.8);
+                const hoodMesh = new THREE.Mesh(hoodGeo, carbonMat);
+                hoodMesh.position.set(0, 0.72, 1.1);
+                lamboCarGroup.add(hoodMesh);
+
+                const goldMat = new THREE.MeshBasicMaterial({ color: 0xeb8d00 });
+                const goldTrimL = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.09, 1.85), goldMat);
+                goldTrimL.position.set(-0.81, 0.72, 1.1);
+                lamboCarGroup.add(goldTrimL);
+
+                const goldTrimR = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.09, 1.85), goldMat);
+                goldTrimR.position.set(0.81, 0.72, 1.1);
+                lamboCarGroup.add(goldTrimR);
+            }
+
+            const glassMat = new THREE.MeshStandardMaterial({
+                color: 0x050810,
+                metalness: 0.95,
+                roughness: 0.05,
+                transparent: true,
+                opacity: 0.88
+            });
+            const cabinGeo = new THREE.BoxGeometry(1.55, 0.44, 2.15);
+            const cabinMesh = new THREE.Mesh(cabinGeo, glassMat);
+            cabinMesh.position.set(0, 0.83, -0.2);
+            lamboCarGroup.add(cabinMesh);
+
+            const lightColor = isSV ? 0xffffff : (isSian ? 0x00ffff : 0x00f0ff);
+            const yLightMat = new THREE.MeshBasicMaterial({ color: lightColor });
+
+            if (!isTemerario) {
+                const leftY = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.08, 0.6), yLightMat);
+                leftY.position.set(-0.75, 0.48, 2.1);
+                leftY.rotation.y = 0.2;
+                lamboCarGroup.add(leftY);
+
+                const rightY = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.08, 0.6), yLightMat);
+                rightY.position.set(0.75, 0.48, 2.1);
+                rightY.rotation.y = -0.2;
+                lamboCarGroup.add(rightY);
+            } else {
+                const hexLightMat = new THREE.MeshBasicMaterial({ color: 0x39ff14 });
+                const leftHex = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.08, 6), hexLightMat);
+                leftHex.rotation.x = Math.PI / 2;
+                leftHex.position.set(-0.78, 0.38, 2.2);
+                lamboCarGroup.add(leftHex);
+
+                const rightHex = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.08, 6), hexLightMat);
+                rightHex.rotation.x = Math.PI / 2;
+                rightHex.position.set(0.78, 0.38, 2.2);
+                lamboCarGroup.add(rightHex);
+            }
+
+            const headlightSpot = new THREE.SpotLight(0xffffff, 2.5, 85, Math.PI / 6, 0.5);
+            headlightSpot.position.set(0, 0.5, 2.2);
+            headlightSpot.target.position.set(0, 0, 30);
+            lamboCarGroup.add(headlightSpot);
+            lamboCarGroup.add(headlightSpot.target);
+
+            const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.5 });
+            const rimColorHex = isSV ? 0xd4af37 : (isSian ? 0xddaa44 : 0xcccccc);
+            const rimMat = new THREE.MeshStandardMaterial({ color: rimColorHex, metalness: 0.95, roughness: 0.2 });
+            
+            const wheelGeo = new THREE.CylinderGeometry(0.38, 0.38, 0.35, 24);
+            wheelGeo.rotateZ(Math.PI / 2);
+
+            const wheelPositions = [
+                [-1.04, 0.38, 1.4],
+                [1.04, 0.38, 1.4],
+                [-1.07, 0.4, -1.4],
+                [1.07, 0.4, -1.4]
+            ];
+
+            wheelPositions.forEach(pos => {
+                const wMesh = new THREE.Mesh(wheelGeo, wheelMat);
+                wMesh.position.set(...pos);
+                wMesh.castShadow = true;
+
+                const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.26, 0.36, isSV ? 14 : 10), rimMat);
+                rim.rotateZ(Math.PI / 2);
+                wMesh.add(rim);
+
+                lamboCarGroup.add(wMesh);
+            });
+
+            const wingMat = new THREE.MeshStandardMaterial({ color: isSV ? 0x0a0a0a : 0x151515, metalness: 0.85 });
+            const wingWidth = isSV ? 2.3 : (isTemerario ? 2.0 : 1.95);
+            rearWingMesh = new THREE.Mesh(new THREE.BoxGeometry(wingWidth, 0.07, isSV ? 0.55 : 0.45), wingMat);
+            rearWingMesh.position.set(0, isSV ? 0.92 : (isTemerario ? 0.78 : 0.72), -2.1);
+            
+            if (isSV) {
+                const pillarGeo = new THREE.BoxGeometry(0.08, 0.3, 0.3);
+                const p1 = new THREE.Mesh(pillarGeo, wingMat);
+                p1.position.set(-0.6, -0.15, 0);
+                const p2 = new THREE.Mesh(pillarGeo, wingMat);
+                p2.position.set(0.6, -0.15, 0);
+                rearWingMesh.add(p1);
+                rearWingMesh.add(p2);
+            }
+
+            lamboCarGroup.add(rearWingMesh);
+
+            const tailLightMat = new THREE.MeshBasicMaterial({ color: 0xff0044 });
+            const tailMesh = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.08, 0.1), tailLightMat);
+            tailMesh.position.set(0, 0.6, -2.28);
+            lamboCarGroup.add(tailMesh);
+
+            lamboCarGroup.position.set(0, 0, 0);
+            scene.add(lamboCarGroup);
+        }
+
+        function createEnvironment() {
+            environmentGroup = new THREE.Group();
+
+            const roadGeo = new THREE.PlaneGeometry(16, 1000);
+            const roadMat = new THREE.MeshStandardMaterial({ color: 0x11131a, roughness: 0.8 });
+            const roadMesh = new THREE.Mesh(roadGeo, roadMat);
+            roadMesh.rotation.x = -Math.PI / 2;
+            roadMesh.position.z = 400;
+            roadMesh.receiveShadow = true;
+            environmentGroup.add(roadMesh);
+
+            const railGeo = new THREE.BoxGeometry(0.4, 0.8, 1000);
+            const railMatLeft = new THREE.MeshBasicMaterial({ color: 0x39ff14 });
+            const railMatRight = new THREE.MeshBasicMaterial({ color: 0xff5500 });
+
+            const leftRail = new THREE.Mesh(railGeo, railMatLeft);
+            leftRail.position.set(-8.2, 0.4, 400);
+            environmentGroup.add(leftRail);
+
+            const rightRail = new THREE.Mesh(railGeo, railMatRight);
+            rightRail.position.set(8.2, 0.4, 400);
+            environmentGroup.add(rightRail);
+
+            const laneGeo = new THREE.PlaneGeometry(0.25, 4);
+            const laneMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+            
+            for (let z = -50; z < 900; z += 12) {
+                const lane1 = new THREE.Mesh(laneGeo, laneMat);
+                lane1.rotation.x = -Math.PI / 2;
+                lane1.position.set(-2.7, 0.02, z);
+                environmentGroup.add(lane1);
+
+                const lane2 = new THREE.Mesh(laneGeo, laneMat);
+                lane2.rotation.x = -Math.PI / 2;
+                lane2.position.set(2.7, 0.02, z);
+                environmentGroup.add(lane2);
+            }
+
+            scene.add(environmentGroup);
+        }
+
+        function spawnTraffic() {
+            if (Math.random() < 0.035) {
+                const lanes = [-5.4, -2.7, 0, 2.7, 5.4];
+                const spawnX = lanes[Math.floor(Math.random() * lanes.length)];
+                
+                const trafficGroup = new THREE.Group();
+                const colors = [0xff2244, 0x2288ff, 0xffaa00, 0x888888];
+                const carColor = colors[Math.floor(Math.random() * colors.length)];
+
+                const body = new THREE.Mesh(
+                    new THREE.BoxGeometry(1.9, 0.7, 4.0),
+                    new THREE.MeshStandardMaterial({ color: carColor, roughness: 0.3 })
+                );
+                body.position.y = 0.5;
+                body.castShadow = true;
+                trafficGroup.add(body);
+
+                trafficGroup.position.set(spawnX, 0, lamboCarGroup.position.z + 180 + Math.random() * 50);
+                trafficGroup.userData = { speed: Math.random() * 40 + 60 };
+
+                scene.add(trafficGroup);
+                trafficCars.push(trafficGroup);
+            }
+        }
+
+        window.addEventListener('keydown', (e) => {
+            soundEngine.init();
+            if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') keys.up = true;
+            if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') keys.down = true;
+            if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') keys.left = true;
+            if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') keys.right = true;
+            if (e.key === ' ') keys.boost = true;
+            if (e.key === 'c' || e.key === 'C') toggleCameraMode();
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') keys.up = false;
+            if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') keys.down = false;
+            if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') keys.left = false;
+            if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') keys.right = false;
+            if (e.key === ' ') keys.boost = false;
+        });
+
+        const bindTouch = (id, keyName) => {
+            const btn = document.getElementById(id);
+            if (!btn) return;
+            btn.addEventListener('touchstart', (e) => { e.preventDefault(); soundEngine.init(); keys[keyName] = true; });
+            btn.addEventListener('touchend', (e) => { e.preventDefault(); keys[keyName] = false; });
+        };
+        bindTouch('btnGas', 'up');
+        bindTouch('btnBrake', 'down');
+        bindTouch('btnLeft', 'left');
+        bindTouch('btnRight', 'right');
+        bindTouch('btnBoost', 'boost');
+
+        function toggleCameraMode() {
+            cameraMode = cameraMode === 'CHASE' ? 'COCKPIT' : 'CHASE';
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function updatePhysics() {
+            if (gameState !== 'DRIVING') return;
+
+            const spec = CAR_SPECS[currentSelectedCarKey];
+
+            let currentMaxSpeed = spec.topSpeed;
+            if (keys.boost && boostAmount > 5) {
+                isBoosting = true;
+                currentMaxSpeed = spec.topSpeed + 55;
+                speed += carPhysics.accel * 1.8;
+                boostAmount -= 0.65;
+            } else {
+                isBoosting = false;
+                if (boostAmount < 100) boostAmount += 0.15;
+            }
+
+            if (keys.up) {
+                speed += carPhysics.accel;
+            } else if (keys.down) {
+                speed -= carPhysics.brake;
+            } else {
+                speed -= carPhysics.drag;
+            }
+
+            speed = Math.max(0, Math.min(speed, currentMaxSpeed));
+
+            if (keys.left) {
+                carPhysics.targetX += 0.28 * (speed / 100);
+                lamboCarGroup.rotation.y = 0;
+            } else if (keys.right) {
+                carPhysics.targetX -= 0.28 * (speed / 100);
+                lamboCarGroup.rotation.y = 0;
+            } else {
+                lamboCarGroup.rotation.y = 0;
+            }
+
+            carPhysics.targetX = Math.max(-7.2, Math.min(7.2, carPhysics.targetX));
+            lamboCarGroup.position.x += (carPhysics.targetX - lamboCarGroup.position.x) * 0.2;
+
+            const moveDelta = (speed / 3.6) * 0.016;
+            lamboCarGroup.position.z += moveDelta;
+            distance += moveDelta / 1000;
+            if (speed > maxSpeedReached) maxSpeedReached = speed;
+
+            if (speed > 160) {
+                rearWingMesh.rotation.x = -0.35;
+                document.getElementById('alaBadge').innerText = 'ACTIVE';
+                document.getElementById('alaBadge').className = 'text-xs font-black px-2 py-0.5 rounded bg-emerald-500 text-slate-950 ala-glow';
+            } else {
+                rearWingMesh.rotation.x = 0;
+                document.getElementById('alaBadge').innerText = 'OFF';
+                document.getElementById('alaBadge').className = 'text-xs font-black px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-500/40';
+            }
+
+            maxRPM = spec.maxRPM;
+            currentGear = Math.min(7, Math.floor(speed / (maxSpeed / 7)) + 1);
+            const speedInGear = speed % (maxSpeed / 7);
+            currentRPM = Math.min(maxRPM, 2000 + (speedInGear / (maxSpeed / 7)) * (maxRPM - 2000));
+
+            soundEngine.update(speed, currentRPM / maxRPM, keys.up || isBoosting);
+
+            spawnTraffic();
+            for (let i = trafficCars.length - 1; i >= 0; i--) {
+                const tCar = trafficCars[i];
+                tCar.position.z += (tCar.userData.speed / 3.6) * 0.016;
+
+                const dx = Math.abs(lamboCarGroup.position.x - tCar.position.x);
+                const dz = Math.abs(lamboCarGroup.position.z - tCar.position.z);
+
+                if (dx < 1.8 && dz < 3.8) {
+                    triggerGameOver();
+                    return;
+                }
+
+                if (tCar.position.z < lamboCarGroup.position.z - 30) {
+                    scene.remove(tCar);
+                    trafficCars.splice(i, 1);
+                }
+            }
+
+            if (cameraMode === 'CHASE') {
+                camera.position.x = lamboCarGroup.position.x * 0.7;
+                camera.position.y = lamboCarGroup.position.y + 3.2;
+                camera.position.z = lamboCarGroup.position.z - 7.5;
+                camera.lookAt(lamboCarGroup.position.x * 0.3, lamboCarGroup.position.y + 1.0, lamboCarGroup.position.z + 20);
+            } else {
+                camera.position.x = lamboCarGroup.position.x;
+                camera.position.y = lamboCarGroup.position.y + 0.9;
+                camera.position.z = lamboCarGroup.position.z - 0.2;
+                camera.lookAt(lamboCarGroup.position.x, lamboCarGroup.position.y + 0.9, lamboCarGroup.position.z + 30);
+            }
+
+            document.getElementById('speedometer').innerText = Math.floor(speed);
+            document.getElementById('gearDisplay').innerText = currentGear;
+            document.getElementById('scoreDisplay').innerText = distance.toFixed(2) + ' KM';
+            document.getElementById('rpmBar').style.width = (currentRPM / maxRPM * 100) + '%';
+            document.getElementById('boostBar').style.width = boostAmount + '%';
+        }
+
+        function triggerGameOver() {
+            gameState = 'GAMEOVER';
+            soundEngine.playCrash();
+
+            if (distance > highScore) {
+                highScore = distance.toFixed(2);
+                localStorage.setItem('lambo_high_score', highScore);
+            }
+
+            document.getElementById('finalMaxSpeed').innerText = Math.floor(maxSpeedReached) + ' KM/H';
+            document.getElementById('finalDistance').innerText = distance.toFixed(2) + ' KM';
+            document.getElementById('highScoreGameOver').innerText = highScore + ' KM';
+
+            setTimeout(() => {
+                document.getElementById('gameOverScreen').classList.remove('hidden');
+                document.getElementById('hud-overlay').classList.add('opacity-0');
+            }, 500);
+        }
+
+        function resetGame() {
+            const spec = CAR_SPECS[currentSelectedCarKey];
+            maxSpeed = spec.topSpeed;
+            carPhysics.accel = spec.accelRate;
+
+            speed = 0;
+            distance = 0;
+            maxSpeedReached = 0;
+            boostAmount = 100;
+            carPhysics.x = 0;
+            carPhysics.targetX = 0;
+            lamboCarGroup.position.set(0, 0, 0);
+
+            document.getElementById('driveModeDisplay').innerText = `${spec.name} CORSA`;
+
+            trafficCars.forEach(tc => scene.remove(tc));
+            trafficCars = [];
+
+            gameState = 'DRIVING';
+            document.getElementById('startScreen').classList.add('hidden');
+            document.getElementById('gameOverScreen').classList.add('hidden');
+            document.getElementById('hud-overlay').classList.remove('opacity-0');
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            updatePhysics();
+
+            if (gameState === 'MENU') {
+                const time = Date.now() * 0.0008;
+                camera.position.x = Math.sin(time) * 9;
+                camera.position.z = Math.cos(time) * 9 + lamboCarGroup.position.z;
+                camera.position.y = 2.5;
+                camera.lookAt(lamboCarGroup.position);
+
+                if (lamboCarGroup) {
+                    lamboCarGroup.rotation.y = Math.sin(time * 0.5) * 0.15;
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        window.onload = () => {
+            init3D();
+            animate();
+
+            document.getElementById('startBtn').addEventListener('click', () => {
+                soundEngine.init();
+                resetGame();
+            });
+
+            document.getElementById('restartBtn').addEventListener('click', () => {
+                soundEngine.init();
+                resetGame();
+            });
+        };
+    </script>
+</body>
+</html>

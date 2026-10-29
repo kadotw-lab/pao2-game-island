@@ -1,0 +1,1790 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>CREAMY BUTTER RHYTHM - 奶油黃節奏派對</title>
+    <!-- Tailwind CSS for layout and styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Cute Rounded Fonts: Fredoka & Nunito -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Nunito:wght@700;900&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --cream-primary: #f59e0b;
+            --cream-soft: #fbbf24;
+            --cream-light: #fef3c7;
+            --butter-yellow: #fde047;
+            --milk-white: #fffdf5;
+            --mocha-dark: #78350f;
+            --caramel-brown: #92400e;
+        }
+
+        /* Complete gesture lockdown on mobile web */
+        html, body {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            width: 100%; height: 100%;
+            margin: 0; padding: 0;
+            overflow: hidden;
+            touch-action: none !important;
+            -webkit-touch-callout: none !important;
+            -webkit-user-select: none !important;
+            user-select: none !important;
+            -webkit-tap-highlight-color: transparent !important;
+            background-color: #fef3c7;
+            font-family: 'Fredoka', 'Nunito', sans-serif, system-ui;
+            color: #78350f;
+        }
+
+        /* Cute Creamy Butter Glow & Card Styles */
+        .glow-text-cream {
+            text-shadow: 0 0 10px rgba(245, 158, 11, 0.5), 0 0 20px rgba(253, 224, 71, 0.4);
+        }
+        .bubble-card {
+            background: rgba(255, 253, 245, 0.94);
+            backdrop-filter: blur(12px);
+            border: 3px solid #fde047;
+            box-shadow: 0 10px 30px rgba(217, 119, 6, 0.2);
+            border-radius: 24px;
+        }
+
+        /* Enhanced 3D Tactile Butter Buttons */
+        .butter-btn {
+            position: relative;
+            border-radius: 20px;
+            font-weight: 900;
+            cursor: pointer;
+            user-select: none;
+            transition: all 0.12s cubic-bezier(0.34, 1.56, 0.64, 1);
+            background: linear-gradient(180deg, #ffffff 0%, #fffbeb 100%);
+            color: #78350f;
+            border: 2px solid #fcd34d;
+            box-shadow: 0 5px 0 #d97706, 0 8px 15px rgba(217, 119, 6, 0.2), inset 0 2px 2px rgba(255, 255, 255, 0.9);
+        }
+        .butter-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 7px 0 #d97706, 0 10px 20px rgba(217, 119, 6, 0.25), inset 0 2px 2px rgba(255, 255, 255, 0.9);
+        }
+        .butter-btn:active {
+            transform: translateY(4px) !important;
+            box-shadow: 0 1px 0 #d97706, 0 3px 6px rgba(217, 119, 6, 0.2), inset 0 1px 1px rgba(0, 0, 0, 0.05) !important;
+        }
+
+        /* Selected State for Level & Speed Buttons */
+        .butter-btn-selected {
+            background: linear-gradient(180deg, #fde047 0%, #f59e0b 100%) !important;
+            color: #451a03 !important;
+            border: 2.5px solid #ffffff !important;
+            box-shadow: 0 5px 0 #b45309, 0 8px 18px rgba(245, 158, 11, 0.4), inset 0 2px 4px rgba(255, 255, 255, 0.8) !important;
+        }
+        .butter-btn-selected:hover {
+            box-shadow: 0 7px 0 #b45309, 0 12px 22px rgba(245, 158, 11, 0.5), inset 0 2px 4px rgba(255, 255, 255, 0.9) !important;
+        }
+
+        /* Large Hero Play Button */
+        .btn-hero-start {
+            background: linear-gradient(180deg, #fef08a 0%, #facc15 45%, #f59e0b 100%);
+            color: #451a03;
+            border: 3px solid #ffffff;
+            box-shadow: 0 8px 0 #b45309, 0 12px 25px rgba(217, 119, 6, 0.4), inset 0 3px 5px rgba(255, 255, 255, 0.9);
+            border-radius: 9999px;
+            text-shadow: 0 1px 1px rgba(255, 255, 255, 0.6);
+        }
+        .btn-hero-start:hover {
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 11px 0 #b45309, 0 16px 30px rgba(217, 119, 6, 0.45), inset 0 3px 5px rgba(255, 255, 255, 1);
+        }
+        .btn-hero-start:active {
+            transform: translateY(6px) scale(0.98) !important;
+            box-shadow: 0 2px 0 #b45309, 0 4px 10px rgba(217, 119, 6, 0.3), inset 0 2px 3px rgba(0, 0, 0, 0.1) !important;
+        }
+
+        /* Polka Dot Background overlay */
+        .polka-dots {
+            background-image: radial-gradient(#fcd34d 2px, transparent 2px);
+            background-size: 24px 24px;
+            pointer-events: none;
+        }
+
+        /* Cute Decorative Animations */
+        @keyframes float-gentle {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-10px) rotate(6deg); }
+        }
+        @keyframes float-reverse {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(10px) rotate(-6deg); }
+        }
+        @keyframes pulse-glow {
+            0%, 100% { filter: drop-shadow(0 0 8px rgba(245, 158, 11, 0.6)); transform: scale(1); }
+            50% { filter: drop-shadow(0 0 18px rgba(251, 191, 36, 0.9)); transform: scale(1.03); }
+        }
+        .anim-float { animation: float-gentle 3.5s ease-in-out infinite; }
+        .anim-float-rev { animation: float-reverse 4s ease-in-out infinite; }
+        .anim-pulse-glow { animation: pulse-glow 2.2s ease-in-out infinite; }
+
+        .dashed-card {
+            border: 2px dashed #fcd34d;
+            background: rgba(255, 253, 245, 0.95);
+        }
+
+        /* Responsive Main Container */
+        #game-container {
+            position: relative;
+            width: 100%;
+            max-width: 500px;
+            height: 100%;
+            margin: 0 auto;
+            background: linear-gradient(180deg, #fffdf5 0%, #fef3c7 100%);
+            box-shadow: 0 0 50px rgba(217, 119, 6, 0.2);
+            overflow: hidden;
+            touch-action: none;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center select-none">
+
+    <!-- Main Game Container -->
+    <div id="game-container" class="flex flex-col justify-between overflow-hidden relative border-x-4 border-amber-300 select-none">
+        
+        <!-- Cute Cream Polka Dot Effect -->
+        <div class="polka-dots absolute inset-0 z-10 pointer-events-none opacity-50"></div>
+
+        <!-- Top HUD Panel -->
+        <div id="hud" class="relative z-20 p-3 sm:p-4 flex justify-between items-center bg-amber-50/80 backdrop-blur-md border-b-2 border-amber-300/70 select-none pointer-events-none rounded-b-2xl shadow-sm">
+            <div>
+                <div class="text-[10px] sm:text-[11px] text-amber-700 tracking-wider font-bold">🍯 SCORE</div>
+                <div id="score-display" class="text-xl sm:text-2xl font-black text-amber-600 glow-text-cream">000000</div>
+            </div>
+            <div class="text-center">
+                <div class="text-[10px] sm:text-[11px] text-yellow-700 tracking-wider font-bold">🧈 COMBO</div>
+                <div id="combo-display" class="text-xl sm:text-2xl font-black text-amber-500">0</div>
+            </div>
+            <div class="text-right">
+                <div class="text-[10px] sm:text-[11px] text-orange-600 tracking-wider font-bold">👑 BEST</div>
+                <div id="highscore-display" class="text-sm sm:text-lg font-bold text-orange-600">896467</div>
+            </div>
+        </div>
+
+        <!-- Health Bar Indicator -->
+        <div id="health-container" class="relative z-20 w-full px-4 pt-2 pointer-events-none">
+            <div class="w-full bg-amber-100 h-3 sm:h-3.5 rounded-full overflow-hidden border-2 border-amber-300 shadow-inner">
+                <div id="health-bar" class="bg-gradient-to-r from-amber-400 via-yellow-400 to-orange-400 h-full w-full transition-all duration-200"></div>
+            </div>
+        </div>
+
+        <!-- Full-screen Rhythm Game Canvas Area -->
+        <div class="relative flex-1 w-full h-full overflow-hidden">
+            <canvas id="gameCanvas"></canvas>
+            
+            <!-- Pause Button -->
+            <button id="pause-btn" class="butter-btn pointer-events-auto absolute top-2 right-2 z-20 px-3.5 py-1.5 text-xs font-black hidden">
+                PAUSE ⏸️
+            </button>
+        </div>
+
+        <!-- START MENU OVERLAY -->
+        <div id="start-screen" class="absolute inset-0 z-30 flex flex-col items-center justify-center p-4 sm:p-5 bg-amber-50/95 backdrop-blur-md overflow-y-auto">
+            
+            <!-- Floating Decorative Background Stickers -->
+            <div class="absolute top-4 left-4 text-2xl anim-float pointer-events-none opacity-80 flex items-center space-x-1 bg-white/80 px-2.5 py-1 rounded-full shadow-sm border border-amber-200">
+                <span>🧈</span><span class="text-xs font-black text-amber-600">🐾</span>
+            </div>
+            <div class="absolute top-4 right-4 text-2xl anim-float-rev pointer-events-none opacity-80 flex items-center space-x-1 bg-white/80 px-2.5 py-1 rounded-full shadow-sm border border-amber-200">
+                <span>🥞</span><span class="text-xs font-black text-yellow-600">✨</span>
+            </div>
+
+            <!-- Cute Mascot Banner Tag -->
+            <div class="inline-flex items-center space-x-1.5 bg-gradient-to-r from-amber-400 via-yellow-400 to-orange-400 text-amber-950 px-3.5 py-1 rounded-full text-[10px] font-black tracking-widest uppercase shadow-md mb-2 border border-white/80">
+                <span>✨</span>
+                <span>ERGONOMIC RHYTHM ENGINE</span>
+                <span>✨</span>
+            </div>
+
+            <div class="text-4xl sm:text-5xl mb-1 animate-bounce anim-pulse-glow">🥞</div>
+            
+            <h1 class="text-2xl sm:text-4xl font-black tracking-wide text-amber-700 glow-text-cream mb-0.5 text-center">
+                CREAMY BUTTER
+            </h1>
+            <p class="text-[11px] sm:text-xs text-amber-600 font-extrabold tracking-widest mb-2 uppercase flex items-center gap-1">
+                <span>🧈</span> Creamy Yellow Rhythm <span>🍯</span>
+            </p>
+
+            <!-- Rules Card with Cute Dashed Frame -->
+            <div class="w-full max-w-xs space-y-1.5 mb-2.5 text-xs text-amber-900 dashed-card rounded-2xl p-2.5 sm:p-3 shadow-sm relative">
+                <div class="absolute -top-2.5 right-3 bg-amber-400 text-amber-950 text-[9px] font-bold px-2 py-0.5 rounded-full shadow-sm">
+                    INFO 🧈
+                </div>
+                <div class="text-center font-black text-amber-700 border-b border-amber-200 pb-1 mb-1 tracking-wide flex justify-center items-center gap-1">
+                    <span>🍯</span> 人性化固定譜面 & 離手判定
+                </div>
+                <div class="text-[10px] space-y-1 font-semibold">
+                    <div class="flex justify-between items-center">
+                        <span class="text-amber-600 font-bold">PERFECT 🧈:</span>
+                        <span class="text-amber-800">&le; &plusmn;45ms (+13140 pts, +1% HP)</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-yellow-600 font-bold">GREAT ✨:</span>
+                        <span class="text-amber-800">&le; &plusmn;110ms (+6767 pts)</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-orange-500 font-bold">GOOD 🥞:</span>
+                        <span class="text-amber-800">&le; &plusmn;180ms (+3000 pts)</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-rose-500 font-bold">MISS 💧:</span>
+                        <span class="text-rose-700">&gt; &plusmn;180ms (-5% HP, Combo Reset)</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Level / Difficulty Selector -->
+            <div class="w-full max-w-xs mb-2.5">
+                <div class="text-xs font-bold text-amber-700 mb-1 flex justify-between items-center">
+                    <span class="flex items-center gap-1">SELECT DIFFICULTY 🎵</span>
+                    <span id="level-name-display" class="text-amber-600 font-black">PURE (300 BPM - 純單擊)</span>
+                </div>
+                <div class="grid grid-cols-4 gap-1.5">
+                    <button id="diff-80" class="butter-btn py-1.5 text-[11px] font-black flex flex-col items-center justify-center">
+                        <span>🥛 SOFT</span>
+                        <span class="text-[8px] opacity-80 font-semibold">80 BPM</span>
+                    </button>
+                    <button id="diff-100" class="butter-btn py-1.5 text-[11px] font-black flex flex-col items-center justify-center">
+                        <span>🥛 MILK</span>
+                        <span class="text-[8px] opacity-80 font-semibold">100 BPM</span>
+                    </button>
+                    <button id="diff-140" class="butter-btn py-1.5 text-[11px] font-black flex flex-col items-center justify-center">
+                        <span>🍯 HONEY</span>
+                        <span class="text-[8px] opacity-80 font-semibold">140 BPM</span>
+                    </button>
+                    <button id="diff-170" class="butter-btn py-1.5 text-[11px] font-black flex flex-col items-center justify-center">
+                        <span>✨ SWEET</span>
+                        <span class="text-[8px] opacity-80 font-semibold">170 BPM</span>
+                    </button>
+                    <button id="diff-200" class="butter-btn py-1.5 text-[11px] font-black flex flex-col items-center justify-center">
+                        <span>🌶️ SPICY</span>
+                        <span class="text-[8px] opacity-80 font-semibold">200 BPM</span>
+                    </button>
+                    <button id="diff-250" class="butter-btn py-1.5 text-[11px] font-black flex flex-col items-center justify-center">
+                        <span>🎉 PARTY</span>
+                        <span class="text-[8px] opacity-80 font-semibold">250 BPM</span>
+                    </button>
+                    <button id="diff-300" class="butter-btn butter-btn-selected py-1.5 text-[11px] font-black flex flex-col items-center justify-center col-span-2">
+                        <span>🥛 PURE</span>
+                        <span class="text-[8px] opacity-80 font-semibold">300 BPM</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Note Speed Selector -->
+            <div class="w-full max-w-xs mb-3 dashed-card rounded-2xl p-2 shadow-sm relative">
+                <div class="flex justify-between items-center text-xs text-amber-700 font-bold mb-1">
+                    <span class="flex items-center gap-1">BUTTER SPEED 🧈</span>
+                    <span id="speed-val-display" class="text-amber-600 text-xs font-black">1.5x</span>
+                </div>
+                <div class="flex space-x-1">
+                    <button data-speed="1.0" class="speed-btn butter-btn flex-1 py-1 text-[10px] font-black">1.0x</button>
+                    <button data-speed="1.5" class="speed-btn butter-btn butter-btn-selected flex-1 py-1 text-[10px] font-black">1.5x</button>
+                    <button data-speed="2.0" class="speed-btn butter-btn flex-1 py-1 text-[10px] font-black">2.0x</button>
+                    <button data-speed="2.5" class="speed-btn butter-btn flex-1 py-1 text-[10px] font-black">2.5x</button>
+                    <button data-speed="3.0" class="speed-btn butter-btn flex-1 py-1 text-[10px] font-black">3.0x</button>
+                </div>
+            </div>
+
+            <button id="start-btn" class="btn-hero-start butter-btn w-full max-w-xs py-3 text-base sm:text-lg font-black tracking-wider transition-all">
+                LET'S PLAY! 🥞
+            </button>
+        </div>
+
+        <!-- PAUSE MENU OVERLAY -->
+        <div id="pause-screen" class="absolute inset-0 z-30 flex flex-col items-center justify-center p-6 bg-amber-100/90 backdrop-blur-md hidden">
+            <h2 class="text-3xl font-black text-amber-700 glow-text-cream mb-6">GAME PAUSED 🐾</h2>
+            <div class="space-y-3.5 w-full max-w-xs">
+                <button id="resume-btn" class="butter-btn butter-btn-selected w-full py-3.5 text-base font-black">▶️ RESUME</button>
+                <button id="restart-pause-btn" class="butter-btn w-full py-3.5 text-base font-black">🔄 RESTART</button>
+                <button id="home-pause-btn" class="butter-btn w-full py-3.5 text-base font-black">🏠 MAIN MENU</button>
+            </div>
+        </div>
+
+        <!-- GAME OVER / VICTORY RESULTS OVERLAY -->
+        <div id="game-over-screen" class="absolute inset-0 z-30 flex flex-col items-center justify-center p-6 bg-amber-50/95 backdrop-blur-md hidden">
+            <h2 id="result-title" class="text-3xl font-black text-amber-700 glow-text-cream mb-1">STAGE CLEAR! 🎉</h2>
+            <p id="result-subtitle" class="text-xs text-amber-600 font-bold mb-4">CREAMY PARTY COMPLETED 🥞</p>
+
+            <div class="w-full max-w-xs bubble-card p-4 space-y-2 mb-4">
+                <div class="flex justify-between items-center text-sm">
+                    <span class="text-amber-800 font-bold">Final Score</span>
+                    <span id="res-score" class="text-xl font-black text-amber-600">0</span>
+                </div>
+                <div class="flex justify-between items-center text-sm">
+                    <span class="text-amber-800 font-bold">Max Combo</span>
+                    <span id="res-maxcombo" class="text-lg font-black text-yellow-600">0</span>
+                </div>
+                <hr class="border-amber-200">
+                <div class="grid grid-cols-4 gap-1.5 text-center text-xs pt-1">
+                    <div class="bg-amber-100/80 p-1.5 rounded-xl border border-amber-200">
+                        <div class="text-amber-700 font-bold text-[9px]">PERFECT</div>
+                        <div id="res-perfect" class="text-sm font-black text-amber-800">0</div>
+                    </div>
+                    <div class="bg-yellow-100/80 p-1.5 rounded-xl border border-yellow-200">
+                        <div class="text-yellow-700 font-bold text-[9px]">GREAT</div>
+                        <div id="res-great" class="text-sm font-black text-yellow-800">0</div>
+                    </div>
+                    <div class="bg-orange-100/80 p-1.5 rounded-xl border border-orange-200">
+                        <div class="text-orange-700 font-bold text-[9px]">GOOD</div>
+                        <div id="res-good" class="text-sm font-black text-orange-800">0</div>
+                    </div>
+                    <div class="bg-rose-100/80 p-1.5 rounded-xl border border-rose-200">
+                        <div class="text-rose-500 font-bold text-[9px]">MISS</div>
+                        <div id="res-miss" class="text-sm font-black text-rose-600">0</div>
+                    </div>
+                </div>
+                <div class="flex justify-between text-[11px] pt-1 text-amber-800 border-t border-amber-200 font-semibold">
+                    <div>Early Hits (-): <span id="res-early" class="text-amber-600 font-bold">0</span></div>
+                    <div>Late Hits (+): <span id="res-late" class="text-orange-600 font-bold">0</span></div>
+                </div>
+            </div>
+
+            <div class="flex space-x-3 w-full max-w-xs">
+                <button id="retry-btn" class="butter-btn butter-btn-selected flex-1 py-3 text-sm font-black">
+                    🔄 PLAY AGAIN
+                </button>
+                <button id="home-res-btn" class="butter-btn flex-1 py-3 text-sm font-black">
+                    🏠 MAIN MENU
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- MAIN GAME SCRIPT LOGIC -->
+    <script>
+        /*
+         * Seeded Pseudo-Random Number Generator (Mulberry32)
+         */
+        function createSeededRandom(seed) {
+            let s = seed >>> 0;
+            return function() {
+                s = (s + 0x6D2B79F5) | 0;
+                let t = Math.imul(s ^ (s >>> 15), 1 | s);
+                t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+                return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+            };
+        }
+
+        /*
+         * Creamy Yellow Butter Audio Synth Engine
+         */
+        class AudioEngine {
+            constructor() {
+                this.ctx = null;
+                this.isPlaying = false;
+                this.bpm = 100;
+                this.startTime = 0;
+                this.pauseTime = 0;
+                this.totalPausedDuration = 0;
+                this.timerId = null;
+                this.nextNoteTime = 0;
+                this.currentBeat = 0;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioCtx();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            start(bpm) {
+                this.init();
+                this.bpm = bpm;
+                this.isPlaying = true;
+                this.startTime = this.ctx.currentTime;
+                this.totalPausedDuration = 0;
+                this.nextNoteTime = this.ctx.currentTime;
+                this.currentBeat = 0;
+                this.scheduler();
+            }
+
+            pause() {
+                this.isPlaying = false;
+                this.pauseTime = this.ctx.currentTime;
+                if (this.timerId) clearTimeout(this.timerId);
+            }
+
+            resume() {
+                if (!this.ctx) return;
+                this.ctx.resume();
+                this.isPlaying = true;
+                this.totalPausedDuration += (this.ctx.currentTime - this.pauseTime);
+                this.scheduler();
+            }
+
+            stop() {
+                this.isPlaying = false;
+                if (this.timerId) clearTimeout(this.timerId);
+            }
+
+            getCurrentTime() {
+                if (!this.ctx) return 0;
+                if (!this.isPlaying) return this.pauseTime - this.startTime - this.totalPausedDuration;
+                return this.ctx.currentTime - this.startTime - this.totalPausedDuration;
+            }
+
+            scheduler() {
+                if (!this.isPlaying) return;
+
+                const secondsPerBeat = 60.0 / this.bpm;
+                const lookahead = 0.1;
+                const scheduleAheadTime = 0.2;
+
+                while (this.nextNoteTime < this.ctx.currentTime + scheduleAheadTime) {
+                    this.playBeat(this.currentBeat, this.nextNoteTime);
+                    this.nextNoteTime += secondsPerBeat / 4;
+                    this.currentBeat++;
+                }
+
+                this.timerId = setTimeout(() => this.scheduler(), lookahead * 1000);
+            }
+
+            playBeat(beat, time) {
+                const step = beat % 16;
+                const measure = Math.floor(beat / 16) % 4;
+
+                if (step === 0 || step === 8) {
+                    this.playCreamyKick(time);
+                }
+
+                if (step === 4 || step === 12) {
+                    this.playWhipSnare(time);
+                }
+
+                const chordProgression = [
+                    { bass: 130.81, chord: [261.63, 329.63, 392.00, 493.88] },
+                    { bass: 110.00, chord: [220.00, 261.63, 329.63, 392.00] },
+                    { bass: 146.83, chord: [293.66, 349.23, 440.00, 523.25] },
+                    { bass: 98.00,  chord: [196.00, 246.94, 293.66, 349.23] }
+                ];
+
+                const currentChord = chordProgression[measure];
+
+                if (step % 2 === 0) {
+                    this.playWarmBass(currentChord.bass, time, 0.12);
+                }
+
+                if (step % 4 === 0 || step % 4 === 2) {
+                    const noteIdx = (step / 2) % currentChord.chord.length;
+                    this.playButterRhodes(currentChord.chord[noteIdx], time, 0.25);
+                }
+
+                if (beat >= 16) {
+                    const sweetMelody = [523.25, 587.33, 659.25, 783.99, 880.00, 1046.50, 1174.66, 1318.51];
+                    if (step % 2 === 0) {
+                        const melodyIdx = (beat * 3 + step) % sweetMelody.length;
+                        this.playMusicBoxChime(sweetMelody[melodyIdx], time, 0.18);
+                    }
+                }
+            }
+
+            playCreamyKick(time) {
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                const filter = this.ctx.createBiquadFilter();
+                
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(120, time);
+                osc.frequency.exponentialRampToValueAtTime(35, time + 0.14);
+                
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(250, time);
+
+                gain.gain.setValueAtTime(0.7, time);
+                gain.gain.exponentialRampToValueAtTime(0.001, time + 0.14);
+
+                osc.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(time);
+                osc.stop(time + 0.14);
+            }
+
+            playWhipSnare(time) {
+                const bufferSize = this.ctx.sampleRate * 0.08;
+                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = (Math.random() * 2 - 1) * 0.5;
+                }
+                const noise = this.ctx.createBufferSource();
+                noise.buffer = buffer;
+
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'bandpass';
+                filter.frequency.setValueAtTime(1800, time);
+                filter.Q.value = 1.2;
+
+                const gain = this.ctx.createGain();
+                gain.gain.setValueAtTime(0.3, time);
+                gain.gain.exponentialRampToValueAtTime(0.001, time + 0.08);
+
+                noise.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.ctx.destination);
+                noise.start(time);
+                noise.stop(time + 0.08);
+            }
+
+            playWarmBass(freq, time, duration) {
+                const osc = this.ctx.createOscillator();
+                const filter = this.ctx.createBiquadFilter();
+                const gain = this.ctx.createGain();
+
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(freq, time);
+
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(320, time);
+
+                gain.gain.setValueAtTime(0.35, time);
+                gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
+
+                osc.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(time);
+                osc.stop(time + duration);
+            }
+
+            playButterRhodes(freq, time, duration) {
+                const osc1 = this.ctx.createOscillator();
+                const osc2 = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                const filter = this.ctx.createBiquadFilter();
+
+                osc1.type = 'sine';
+                osc2.type = 'triangle';
+                osc1.frequency.setValueAtTime(freq, time);
+                osc2.frequency.setValueAtTime(freq * 1.002, time);
+
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(1200, time);
+
+                gain.gain.setValueAtTime(0.18, time);
+                gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
+
+                osc1.connect(filter);
+                osc2.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                osc1.start(time);
+                osc2.start(time);
+                osc1.stop(time + duration);
+                osc2.stop(time + duration);
+            }
+
+            playMusicBoxChime(freq, time, duration) {
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(freq, time);
+
+                gain.gain.setValueAtTime(0.12, time);
+                gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(time);
+                osc.stop(time + duration);
+            }
+
+            playHitSFX(quality) {
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+
+                if (quality === 'PERFECT') {
+                    const osc1 = this.ctx.createOscillator();
+                    const osc2 = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+
+                    osc1.type = 'sine';
+                    osc1.frequency.setValueAtTime(1046.50, now);
+                    osc1.frequency.exponentialRampToValueAtTime(1567.98, now + 0.12);
+
+                    osc2.type = 'triangle';
+                    osc2.frequency.setValueAtTime(1318.51, now);
+                    osc2.frequency.exponentialRampToValueAtTime(2093.00, now + 0.12);
+
+                    gain.gain.setValueAtTime(0.35, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+
+                    osc1.connect(gain);
+                    osc2.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc1.start(now);
+                    osc2.start(now);
+                    osc1.stop(now + 0.12);
+                } else if (quality === 'GREAT') {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(783.99, now);
+                    osc.frequency.exponentialRampToValueAtTime(1046.50, now + 0.09);
+                    gain.gain.setValueAtTime(0.28, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.09);
+                } else if (quality === 'GOOD') {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(523.25, now);
+                    gain.gain.setValueAtTime(0.22, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.08);
+                } else if (quality === 'RELEASE') {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(880.00, now);
+                    osc.frequency.exponentialRampToValueAtTime(1318.51, now + 0.10);
+                    gain.gain.setValueAtTime(0.3, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.10);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.10);
+                } else if (quality === 'TAP') {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(587.33, now);
+                    gain.gain.setValueAtTime(0.06, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.04);
+                } else { // MISS
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(320, now);
+                    osc.frequency.exponentialRampToValueAtTime(120, now + 0.12);
+                    gain.gain.setValueAtTime(0.25, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.12);
+                }
+            }
+
+            playHoldTickSFX() {
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(987.77, now);
+                osc.frequency.exponentialRampToValueAtTime(1318.51, now + 0.035);
+                gain.gain.setValueAtTime(0.05, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.035);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.035);
+            }
+        }
+
+        const audio = new AudioEngine();
+        
+        let gameState = 'START';
+        let bpm = 300;
+        let score = 0;
+        let combo = 0;
+        let maxCombo = 0;
+        let health = 100;
+        let highScore = parseInt(localStorage.getItem('creamy_rhythm_highscore_v1') || '896467');
+
+        let perfectCount = 0;
+        let greatCount = 0;
+        let goodCount = 0;
+        let missCount = 0;
+        let earlyHitCount = 0;
+        let lateHitCount = 0;
+
+        const LANES_COUNT = 4;
+        const KEY_MAP = { 'KeyR': 0, 'KeyT': 1, 'KeyY': 2, 'KeyU': 3 };
+        const LANE_KEYS = ['R', 'T', 'Y', 'U'];
+        const LANE_COLORS = ['#f59e0b', '#facc15', '#fb923c', '#d97706'];
+        
+        let notes = [];
+        let particles = [];
+        let feedbackTexts = [];
+        let touchRipples = [];
+        let laneLights = [0, 0, 0, 0];
+        let laneActiveStates = [false, false, false, false];
+
+        let BASE_NOTE_SPEED = 400;
+        let noteSpeedMultiplier = parseFloat(localStorage.getItem('creamy_rhythm_speed_mult') || '1.5');
+        let noteSpeed = BASE_NOTE_SPEED * noteSpeedMultiplier;
+        let songDuration = 30;
+        let lastHoldTickTime = 0;
+
+        const canvas = document.getElementById('gameCanvas');
+        const container = document.getElementById('game-container');
+        const ctx = canvas.getContext('2d');
+        const scoreEl = document.getElementById('score-display');
+        const comboEl = document.getElementById('combo-display');
+        const highscoreEl = document.getElementById('highscore-display');
+        const healthBarEl = document.getElementById('health-bar');
+
+        const startScreen = document.getElementById('start-screen');
+        const pauseScreen = document.getElementById('pause-screen');
+        const gameOverScreen = document.getElementById('game-over-screen');
+        const pauseBtn = document.getElementById('pause-btn');
+
+        let cachedContainerRect = { left: 0, width: 1, top: 0 };
+
+        function updateCachedRect() {
+            if (container) {
+                cachedContainerRect = container.getBoundingClientRect();
+            }
+        }
+
+        function resizeCanvas() {
+            const hud = document.getElementById('hud');
+            const healthContainer = document.getElementById('health-container');
+            
+            const usedHeight = (hud ? hud.clientHeight : 0) + (healthContainer ? healthContainer.clientHeight : 0);
+            if (canvas && container) {
+                canvas.width = container.clientWidth || window.innerWidth;
+                canvas.height = Math.max(300, (container.clientHeight || window.innerHeight) - usedHeight);
+            }
+            updateCachedRect();
+        }
+        window.addEventListener('resize', resizeCanvas);
+        window.addEventListener('scroll', updateCachedRect);
+        resizeCanvas();
+
+        if (highscoreEl) highscoreEl.innerText = highScore;
+
+        /*
+         * Deterministic & Seeded Ergonomic Chart Generator
+         */
+        function generateChart() {
+            notes = [];
+            const seededRandom = createSeededRandom(bpm * 98765 + 4321);
+
+            const secondsPerBeat = 60.0 / bpm;
+            const totalBeats = Math.floor(songDuration / secondsPerBeat);
+            
+            let laneOccupiedUntil = [0, 0, 0, 0];
+            const MIN_LANE_GAP = 0.16;
+
+            const countActiveLanesAt = (checkTime) => {
+                let count = 0;
+                for (let l = 0; l < LANES_COUNT; l++) {
+                    if (laneOccupiedUntil[l] > checkTime - 0.02) count++;
+                }
+                return count;
+            };
+
+            const pickErgonomicLane = (isLeftHand, excludeLane = -1) => {
+                const candidateLanes = isLeftHand ? [0, 1] : [2, 3];
+                const filtered = candidateLanes.filter(l => l !== excludeLane);
+                return filtered[Math.floor(seededRandom() * filtered.length)];
+            };
+
+            const tryAddNote = (lane, noteTime, forceType = null) => {
+                if (countActiveLanesAt(noteTime) >= 2) return false;
+                if (laneOccupiedUntil[lane] > noteTime - MIN_LANE_GAP) return false;
+
+                const isHold = forceType === 'hold' || (forceType === null && seededRandom() < 0.32);
+                if (isHold && forceType !== 'tap') {
+                    const minHoldBeats = 1.2;
+                    const maxHoldBeats = 2.5;
+                    const holdDuration = secondsPerBeat * (minHoldBeats + seededRandom() * (maxHoldBeats - minHoldBeats));
+
+                    notes.push({
+                        type: 'hold',
+                        lane: lane,
+                        time: noteTime,
+                        duration: holdDuration,
+                        headHit: false,
+                        holding: false,
+                        endHit: false,
+                        missed: false
+                    });
+                    laneOccupiedUntil[lane] = noteTime + holdDuration + MIN_LANE_GAP;
+                } else {
+                    notes.push({
+                        type: 'tap',
+                        lane: lane,
+                        time: noteTime,
+                        hit: false,
+                        missed: false
+                    });
+                    laneOccupiedUntil[lane] = noteTime + MIN_LANE_GAP;
+                }
+                return true;
+            };
+
+            let handToggle = false;
+
+            for (let beat = 4; beat < totalBeats - 2; beat++) {
+                const time = beat * secondsPerBeat;
+                handToggle = !handToggle;
+
+                if (bpm === 80) {
+                    if (beat % 2 === 0) {
+                        const lane = pickErgonomicLane(handToggle);
+                        tryAddNote(lane, time);
+                    }
+                } else if (bpm === 100) {
+                    if (beat % 2 === 0) {
+                        const lane = pickErgonomicLane(handToggle);
+                        tryAddNote(lane, time, beat % 4 === 0 ? 'hold' : null);
+                    }
+                } else if (bpm === 140) {
+                    if (beat % 2 === 0) {
+                        const mainLane = pickErgonomicLane(handToggle);
+                        const isHoldPattern = beat % 4 === 0;
+                        tryAddNote(mainLane, time, isHoldPattern ? 'hold' : 'tap');
+
+                        if (isHoldPattern) {
+                            const subTime = time + secondsPerBeat;
+                            const altLane = pickErgonomicLane(!handToggle);
+                            tryAddNote(altLane, subTime, 'tap');
+                        }
+                    }
+                } else if (bpm === 170) {
+                    const leftLane = pickErgonomicLane(true);
+                    const isLeftHold = beat % 6 === 0;
+                    tryAddNote(leftLane, time, isLeftHold ? 'hold' : 'tap');
+
+                    if (beat % 2 === 0) {
+                        const rightLane = pickErgonomicLane(false);
+                        tryAddNote(rightLane, time + secondsPerBeat * 0.5, 'tap');
+                    }
+                } else if (bpm === 200) {
+                    const primaryLane = pickErgonomicLane(handToggle);
+                    const isHold = beat % 8 === 0;
+                    tryAddNote(primaryLane, time, isHold ? 'hold' : 'tap');
+
+                    if (beat % 2 === 1) {
+                        const subTime = time + (secondsPerBeat / 2);
+                        const secondaryLane = pickErgonomicLane(!handToggle);
+                        tryAddNote(secondaryLane, subTime, 'tap');
+                    }
+                } else if (bpm === 250) {
+                    const lane1 = pickErgonomicLane(handToggle);
+                    tryAddNote(lane1, time, beat % 8 === 0 ? 'hold' : 'tap');
+
+                    const subTime = time + (secondsPerBeat / 2);
+                    const lane2 = pickErgonomicLane(!handToggle);
+                    tryAddNote(lane2, subTime, 'tap');
+                } else { // bpm === 300
+                    const mainLane = pickErgonomicLane(handToggle);
+                    tryAddNote(mainLane, time, 'tap');
+
+                    if (beat % 2 === 0) {
+                        const subTime = time + (secondsPerBeat / 2);
+                        const altLane = pickErgonomicLane(!handToggle);
+                        tryAddNote(altLane, subTime, 'tap');
+                    }
+                }
+            }
+
+            notes.sort((a, b) => a.time - b.time);
+        }
+
+        // --- KEYBOARD CONTROLS (R, T, Y, U) ---
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'KeyP') {
+                togglePause();
+                return;
+            }
+
+            if (gameState !== 'PLAYING') return;
+
+            if (KEY_MAP.hasOwnProperty(e.code)) {
+                const lane = KEY_MAP[e.code];
+                laneActiveStates[lane] = true;
+                if (!e.repeat) {
+                    triggerLanePress(lane);
+                }
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (KEY_MAP.hasOwnProperty(e.code)) {
+                const lane = KEY_MAP[e.code];
+                laneActiveStates[lane] = false;
+                if (gameState === 'PLAYING') {
+                    triggerLaneRelease(lane);
+                }
+            }
+        });
+
+        // --- MULTI-TOUCH & POINTER ENGINE ---
+        const activeTouchMap = new Map();
+        const activePointers = new Map();
+
+        function getLaneFromX(clientX) {
+            if (cachedContainerRect.width <= 0) updateCachedRect();
+            const touchX = clientX - cachedContainerRect.left;
+            let lane = Math.floor((touchX / cachedContainerRect.width) * LANES_COUNT);
+            return Math.max(0, Math.min(LANES_COUNT - 1, lane));
+        }
+
+        function addTouchRipple(x, y, color) {
+            touchRipples.push({
+                x: x,
+                y: y,
+                radius: 12,
+                maxRadius: 40,
+                alpha: 0.85,
+                color: color
+            });
+            if (touchRipples.length > 20) touchRipples.shift();
+        }
+
+        function handlePointerDown(e) {
+            if (gameState !== 'PLAYING') return;
+            if (e.pointerType === 'mouse' && e.button !== 0) return;
+
+            if (e.cancelable) e.preventDefault();
+            const lane = getLaneFromX(e.clientX);
+            const localY = e.clientY - cachedContainerRect.top;
+
+            activePointers.set(e.pointerId, lane);
+            updateActiveLanes();
+            triggerLanePress(lane);
+            addTouchRipple(e.clientX - cachedContainerRect.left, localY, LANE_COLORS[lane]);
+        }
+
+        function handlePointerMove(e) {
+            if (gameState !== 'PLAYING') return;
+            if (!activePointers.has(e.pointerId)) return;
+
+            if (e.cancelable) e.preventDefault();
+            const newLane = getLaneFromX(e.clientX);
+            const prevLane = activePointers.get(e.pointerId);
+
+            if (prevLane !== undefined && prevLane !== newLane) {
+                triggerLaneRelease(prevLane);
+                activePointers.set(e.pointerId, newLane);
+                updateActiveLanes();
+                triggerLanePress(newLane);
+                addTouchRipple(e.clientX - cachedContainerRect.left, e.clientY - cachedContainerRect.top, LANE_COLORS[newLane]);
+            }
+        }
+
+        function handlePointerUp(e) {
+            if (activePointers.has(e.pointerId)) {
+                const lane = activePointers.get(e.pointerId);
+                activePointers.delete(e.pointerId);
+                updateActiveLanes();
+                if (gameState === 'PLAYING') triggerLaneRelease(lane);
+            }
+        }
+
+        function handlePointerCancel(e) {
+            if (activePointers.has(e.pointerId)) {
+                const lane = activePointers.get(e.pointerId);
+                activePointers.delete(e.pointerId);
+                updateActiveLanes();
+                if (gameState === 'PLAYING') triggerLaneRelease(lane);
+            }
+        }
+
+        function updateActiveLanes() {
+            const activeStates = [false, false, false, false];
+            for (let lane of activePointers.values()) {
+                if (lane >= 0 && lane < LANES_COUNT) activeStates[lane] = true;
+            }
+            for (let lane of activeTouchMap.values()) {
+                if (lane >= 0 && lane < LANES_COUNT) activeStates[lane] = true;
+            }
+            for (let i = 0; i < LANES_COUNT; i++) {
+                laneActiveStates[i] = activeStates[i];
+            }
+        }
+
+        function handleTouchStart(e) {
+            if (gameState !== 'PLAYING') return;
+            if (e.cancelable) e.preventDefault();
+
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                const touch = e.changedTouches[i];
+                const lane = getLaneFromX(touch.clientX);
+                activeTouchMap.set(touch.identifier, lane);
+                updateActiveLanes();
+                triggerLanePress(lane);
+                addTouchRipple(touch.clientX - cachedContainerRect.left, touch.clientY - cachedContainerRect.top, LANE_COLORS[lane]);
+            }
+        }
+
+        function handleTouchMove(e) {
+            if (gameState !== 'PLAYING') return;
+            if (e.cancelable) e.preventDefault();
+
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                const touch = e.changedTouches[i];
+                const newLane = getLaneFromX(touch.clientX);
+                const prevLane = activeTouchMap.get(touch.identifier);
+
+                if (prevLane !== undefined && prevLane !== newLane) {
+                    triggerLaneRelease(prevLane);
+                    activeTouchMap.set(touch.identifier, newLane);
+                    updateActiveLanes();
+                    triggerLanePress(newLane);
+                    addTouchRipple(touch.clientX - cachedContainerRect.left, touch.clientY - cachedContainerRect.top, LANE_COLORS[newLane]);
+                }
+            }
+        }
+
+        function handleTouchEnd(e) {
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                const touch = e.changedTouches[i];
+                const lane = activeTouchMap.get(touch.identifier);
+                activeTouchMap.delete(touch.identifier);
+                if (lane !== undefined && gameState === 'PLAYING') {
+                    triggerLaneRelease(lane);
+                }
+            }
+            if (e.touches.length === 0) {
+                activeTouchMap.clear();
+            }
+            updateActiveLanes();
+        }
+
+        if (window.PointerEvent) {
+            container.addEventListener('pointerdown', handlePointerDown, { passive: false });
+            window.addEventListener('pointermove', handlePointerMove, { passive: false });
+            window.addEventListener('pointerup', handlePointerUp, { passive: false });
+            window.addEventListener('pointercancel', handlePointerCancel, { passive: false });
+        } else {
+            container.addEventListener('touchstart', handleTouchStart, { passive: false });
+            window.addEventListener('touchmove', handleTouchMove, { passive: false });
+            window.addEventListener('touchend', handleTouchEnd, { passive: false });
+            window.addEventListener('touchcancel', handleTouchEnd, { passive: false });
+        }
+
+        document.addEventListener('gesturestart', (e) => e.preventDefault(), { passive: false });
+        document.addEventListener('contextmenu', (e) => e.preventDefault());
+
+        // --- PRESS TRIGGER ---
+        function triggerLanePress(lane) {
+            laneLights[lane] = 1.0;
+            const currentTime = audio.getCurrentTime();
+
+            let closestNote = null;
+            let minDiff = Infinity;
+            let rawDiff = 0;
+
+            for (let i = 0; i < notes.length; i++) {
+                const note = notes[i];
+                if (note.lane !== lane || note.missed) continue;
+                if (note.type === 'tap' && note.hit) continue;
+                if (note.type === 'hold' && (note.headHit || note.endHit)) continue;
+
+                const diffSeconds = currentTime - note.time;
+                const absDiff = Math.abs(diffSeconds);
+
+                if (absDiff < minDiff) {
+                    minDiff = absDiff;
+                    rawDiff = diffSeconds;
+                    closestNote = note;
+                }
+            }
+
+            if (closestNote && minDiff <= 0.180) {
+                const offsetMs = Math.round(rawDiff * 1000);
+
+                if (offsetMs < 0) earlyHitCount++;
+                else if (offsetMs > 0) lateHitCount++;
+
+                let type = 'GOOD';
+                if (minDiff <= 0.045) type = 'PERFECT';
+                else if (minDiff <= 0.110) type = 'GREAT';
+
+                if (closestNote.type === 'tap') {
+                    closestNote.hit = true;
+                    registerJudgment(type, lane, offsetMs);
+                } else if (closestNote.type === 'hold') {
+                    closestNote.headHit = true;
+                    closestNote.holding = true;
+                    registerJudgment(type, lane, offsetMs, 'HOLD HEAD 🧈');
+                }
+            } else {
+                audio.playHitSFX('TAP');
+            }
+        }
+
+        // --- RELEASE TAIL JUDGMENT TRIGGER ---
+        function triggerLaneRelease(lane) {
+            const currentTime = audio.getCurrentTime();
+
+            for (let i = 0; i < notes.length; i++) {
+                const note = notes[i];
+                if (note.lane !== lane || note.type !== 'hold' || !note.holding || note.endHit || note.missed) continue;
+
+                const tailTime = note.time + note.duration;
+                const diffSeconds = currentTime - tailTime;
+                const absDiff = Math.abs(diffSeconds);
+                const offsetMs = Math.round(diffSeconds * 1000);
+
+                if (absDiff <= 0.180) {
+                    note.holding = false;
+                    note.endHit = true;
+
+                    let type = 'GOOD';
+                    if (absDiff <= 0.045) type = 'PERFECT';
+                    else if (absDiff <= 0.110) type = 'GREAT';
+
+                    if (offsetMs < 0) earlyHitCount++;
+                    else if (offsetMs > 0) lateHitCount++;
+
+                    registerJudgment(type, lane, offsetMs, 'RELEASE 🧈✨');
+                } else if (diffSeconds < -0.180) {
+                    note.holding = false;
+                    note.missed = true;
+                    registerJudgment('MISS', lane, offsetMs, 'EARLY RELEASE 💧');
+                }
+            }
+        }
+
+        function registerJudgment(type, lane, offsetMs = 0, prefixText = '') {
+            const laneWidth = canvas.width / LANES_COUNT;
+            const x = lane * laneWidth + laneWidth / 2;
+            const y = canvas.height - 70;
+
+            audio.playHitSFX(type === 'PERFECT' && prefixText.includes('RELEASE') ? 'RELEASE' : type);
+
+            let labelText = type;
+            let labelColor = '#d97706';
+
+            const formattedOffset = offsetMs >= 0 ? `+${offsetMs}ms` : `${offsetMs}ms`;
+
+            if (type === 'PERFECT') {
+                score += 13140;
+                combo += 2;
+                health = Math.min(100, health + 1);
+                perfectCount++;
+                labelText = `${prefixText || 'PERFECT 🧈'} (${formattedOffset})`;
+                labelColor = '#b45309';
+                spawnParticles(x, y, LANE_COLORS[lane], 22);
+            } else if (type === 'GREAT') {
+                score += 6767;
+                combo += 1;
+                greatCount++;
+                const timingTag = offsetMs < 0 ? 'EARLY' : 'LATE';
+                labelText = `${timingTag} ${prefixText || 'GREAT ✨'} (${formattedOffset})`;
+                labelColor = '#d97706';
+                spawnParticles(x, y, '#fde047', 14);
+            } else if (type === 'GOOD') {
+                score += 3000;
+                combo += 1;
+                goodCount++;
+                const timingTag = offsetMs < 0 ? 'EARLY' : 'LATE';
+                labelText = `${timingTag} ${prefixText || 'GOOD 🥞'} (${formattedOffset})`;
+                labelColor = '#ea580c';
+                spawnParticles(x, y, '#fb923c', 9);
+            } else { // MISS
+                combo = 0;
+                missCount++;
+                health = Math.max(0, health - 5);
+                labelText = prefixText || 'MISS 💧';
+                labelColor = '#e11d48';
+            }
+
+            if (combo > maxCombo) maxCombo = combo;
+
+            feedbackTexts.push({
+                text: labelText,
+                x: x,
+                y: y - 25,
+                alpha: 1.0,
+                color: labelColor
+            });
+
+            updateHUD();
+
+            if (health <= 0) {
+                endGame(false);
+            }
+        }
+
+        function spawnParticles(x, y, color, count) {
+            const adjustedCount = Math.min(count, 12);
+            for (let i = 0; i < adjustedCount; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 4 + 2;
+                const type = Math.random() > 0.5 ? 'butter' : 'sparkle';
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    radius: Math.random() * 3.5 + 2.5,
+                    color: color,
+                    alpha: 1.0,
+                    type: type
+                });
+            }
+            if (particles.length > 50) {
+                particles.splice(0, particles.length - 50);
+            }
+        }
+
+        function updateHUD() {
+            scoreEl.innerText = score.toString().padStart(6, '0');
+            comboEl.innerText = combo;
+            healthBarEl.style.width = `${health}%`;
+
+            if (health < 30) {
+                healthBarEl.className = "bg-rose-500 h-full w-full transition-all duration-200 animate-pulse";
+            } else {
+                healthBarEl.className = "bg-gradient-to-r from-amber-400 via-yellow-400 to-orange-400 h-full w-full transition-all duration-200";
+            }
+        }
+
+        function updateGame(dt) {
+            const currentTime = audio.getCurrentTime();
+
+            for (let i = 0; i < notes.length; i++) {
+                const note = notes[i];
+                if (note.missed || note.endHit) continue;
+
+                if (note.type === 'tap') {
+                    if (!note.hit && currentTime - note.time > 0.180) {
+                        note.missed = true;
+                        registerJudgment('MISS', note.lane);
+                    }
+                } else if (note.type === 'hold') {
+                    if (!note.headHit && !note.holding && currentTime - note.time > 0.180) {
+                        note.missed = true;
+                        registerJudgment('MISS', note.lane, 0, 'HEAD MISS 💧');
+                        continue;
+                    }
+
+                    if (note.holding) {
+                        const lane = note.lane;
+                        const laneWidth = canvas.width / LANES_COUNT;
+                        const x = lane * laneWidth + laneWidth / 2;
+                        const y = canvas.height - 70;
+
+                        score += Math.round(dt * 1500);
+
+                        if (currentTime - lastHoldTickTime > 0.08) {
+                            audio.playHoldTickSFX();
+                            lastHoldTickTime = currentTime;
+                        }
+
+                        if (Math.random() < 0.6) {
+                            spawnParticles(x, y, LANE_COLORS[lane], 2);
+                        }
+
+                        const tailTime = note.time + note.duration;
+                        if (currentTime - tailTime > 0.180) {
+                            note.holding = false;
+                            note.missed = true;
+                            registerJudgment('MISS', lane, Math.round((currentTime - tailTime) * 1000), 'LATE RELEASE 💧');
+                        }
+                    }
+                }
+            }
+
+            for (let i = touchRipples.length - 1; i >= 0; i--) {
+                let r = touchRipples[i];
+                r.radius += dt * 100;
+                r.alpha -= dt * 3.2;
+                if (r.alpha <= 0 || r.radius >= r.maxRadius) {
+                    touchRipples.splice(i, 1);
+                }
+            }
+
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.alpha -= dt * 2.8;
+                if (p.alpha <= 0) particles.splice(i, 1);
+            }
+
+            for (let i = feedbackTexts.length - 1; i >= 0; i--) {
+                let ft = feedbackTexts[i];
+                ft.y -= dt * 45;
+                ft.alpha -= dt * 2.2;
+                if (ft.alpha <= 0) feedbackTexts.splice(i, 1);
+            }
+
+            for (let i = 0; i < LANES_COUNT; i++) {
+                laneLights[i] = Math.max(0, laneLights[i] - dt * 5.0);
+            }
+
+            if (currentTime >= songDuration) {
+                endGame(true);
+            }
+        }
+
+        function drawNoteBlock(lane, y, isTail = false, isHoldHead = false) {
+            const laneWidth = canvas.width / LANES_COUNT;
+            const x = lane * laneWidth + laneWidth / 2;
+            const width = laneWidth - 22;
+            const height = isTail ? 16 : 24;
+
+            ctx.save();
+            ctx.fillStyle = LANE_COLORS[lane];
+
+            ctx.beginPath();
+            if (ctx.roundRect) {
+                ctx.roundRect(x - width / 2, y - height / 2, width, height, isTail ? 8 : 12);
+            } else {
+                ctx.rect(x - width / 2, y - height / 2, width, height);
+            }
+            ctx.fill();
+
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+            ctx.beginPath();
+            ctx.ellipse(x - width / 4, y - (isTail ? 2 : 3), width / 6, 3, Math.PI / 4, 0, Math.PI * 2);
+            ctx.fill();
+
+            if (isHoldHead) {
+                ctx.fillStyle = '#fffdf5';
+                ctx.beginPath();
+                if (ctx.roundRect) {
+                    ctx.roundRect(x - 22, y - 6, 44, 12, 6);
+                } else {
+                    ctx.rect(x - 22, y - 6, 44, 12);
+                }
+                ctx.fill();
+
+                ctx.font = '900 9px Fredoka';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = '#78350f';
+                ctx.fillText('HOLD 🧈', x, y);
+            }
+
+            ctx.restore();
+        }
+
+        function drawPJSKHoldTail(lane, y) {
+            const laneWidth = canvas.width / LANES_COUNT;
+            const x = lane * laneWidth + laneWidth / 2;
+            const width = laneWidth - 20;
+            const height = 16;
+
+            ctx.save();
+            
+            ctx.fillStyle = LANE_COLORS[lane];
+            ctx.beginPath();
+            if (ctx.roundRect) {
+                ctx.roundRect(x - width / 2, y - height / 2, width, height, 8);
+            } else {
+                ctx.rect(x - width / 2, y - height / 2, width, height);
+            }
+            ctx.fill();
+
+            ctx.fillStyle = 'rgba(120, 53, 15, 0.4)';
+            ctx.beginPath();
+            if (ctx.roundRect) {
+                ctx.roundRect(x - width / 2 + 3, y - height / 2 + 3, width - 6, height - 6, 5);
+            } else {
+                ctx.rect(x - width / 2 + 3, y - height / 2 + 3, width - 6, height - 6);
+            }
+            ctx.fill();
+
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 3.5;
+            ctx.beginPath();
+            ctx.moveTo(x - width / 2 + 7, y);
+            ctx.lineTo(x + width / 2 - 7, y);
+            ctx.stroke();
+
+            ctx.fillStyle = '#fffdf5';
+            ctx.beginPath();
+            ctx.arc(x - width / 2 + 6, y, 3, 0, Math.PI * 2);
+            ctx.arc(x + width / 2 - 6, y, 3, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.moveTo(x - 5, y - height / 2 - 2);
+            ctx.lineTo(x + 5, y - height / 2 - 2);
+            ctx.lineTo(x, y - height / 2 - 7);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        function renderGame() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const laneWidth = canvas.width / LANES_COUNT;
+            const judgmentY = canvas.height - 70;
+
+            // 1. Draw Lanes & Keycaps
+            for (let i = 0; i < LANES_COUNT; i++) {
+                const x = i * laneWidth;
+
+                if (laneLights[i] > 0 || laneActiveStates[i]) {
+                    const intensity = Math.max(laneLights[i], laneActiveStates[i] ? 0.6 : 0);
+                    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+                    gradient.addColorStop(0, 'transparent');
+                    gradient.addColorStop(1, LANE_COLORS[i] + Math.floor(intensity * 95).toString(16).padStart(2, '0'));
+                    ctx.fillStyle = gradient;
+                    ctx.fillRect(x, 0, laneWidth, canvas.height);
+                }
+
+                ctx.strokeStyle = 'rgba(252, 211, 77, 0.45)';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+
+                const keyWidth = laneWidth - 18;
+                const keyHeight = 36;
+                const keyX = x + 9;
+                const keyY = canvas.height - 48;
+                const isPressed = laneActiveStates[i];
+
+                ctx.save();
+                ctx.fillStyle = isPressed ? '#b45309' : '#d97706';
+                ctx.beginPath();
+                if (ctx.roundRect) ctx.roundRect(keyX, keyY + (isPressed ? 1 : 4), keyWidth, keyHeight, 10);
+                else ctx.rect(keyX, keyY + (isPressed ? 1 : 4), keyWidth, keyHeight);
+                ctx.fill();
+
+                ctx.fillStyle = isPressed ? '#fde047' : '#fffdf5';
+                ctx.strokeStyle = LANE_COLORS[i];
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                if (ctx.roundRect) ctx.roundRect(keyX, keyY + (isPressed ? 3 : 0), keyWidth, keyHeight, 10);
+                else ctx.rect(keyX, keyY + (isPressed ? 3 : 0), keyWidth, keyHeight);
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.font = '900 15px Fredoka';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = isPressed ? '#451a03' : '#78350f';
+                ctx.fillText(LANE_KEYS[i], keyX + keyWidth / 2, keyY + keyHeight / 2 + (isPressed ? 3 : 0));
+                ctx.restore();
+            }
+
+            // Draw Touch Ripples
+            for (let i = 0; i < touchRipples.length; i++) {
+                const r = touchRipples[i];
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, r.alpha);
+                ctx.strokeStyle = r.color;
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            // 2. Draw Judgement Line
+            ctx.strokeStyle = '#f59e0b';
+            ctx.lineWidth = 5;
+            ctx.beginPath();
+            ctx.moveTo(0, judgmentY);
+            ctx.lineTo(canvas.width, judgmentY);
+            ctx.stroke();
+
+            // 3. Draw Notes & Hold Ribbons
+            const currentTime = audio.getCurrentTime();
+            for (let i = 0; i < notes.length; i++) {
+                const note = notes[i];
+                if (note.missed || (note.type === 'tap' && note.hit) || (note.type === 'hold' && note.endHit)) continue;
+
+                const timeDiff = note.time - currentTime;
+                const drawYHead = judgmentY - (timeDiff * noteSpeed);
+
+                if (note.type === 'tap') {
+                    if (drawYHead >= -50 && drawYHead <= canvas.height + 50) {
+                        drawNoteBlock(note.lane, drawYHead, false, false);
+                    }
+                } else if (note.type === 'hold') {
+                    const tailTimeDiff = (note.time + note.duration) - currentTime;
+                    const drawYTail = judgmentY - (tailTimeDiff * noteSpeed);
+
+                    if (drawYTail <= canvas.height + 50 && drawYHead >= -100) {
+                        const laneX = note.lane * laneWidth + laneWidth / 2;
+                        const ribbonWidth = laneWidth - 30;
+                        const startY = note.holding ? judgmentY : drawYHead;
+
+                        if (startY > drawYTail) {
+                            ctx.save();
+                            const grad = ctx.createLinearGradient(0, drawYTail, 0, startY);
+                            grad.addColorStop(0, LANE_COLORS[note.lane]);
+                            grad.addColorStop(1, '#fde047');
+                            ctx.fillStyle = grad;
+                            ctx.globalAlpha = 0.75;
+                            ctx.fillRect(laneX - ribbonWidth / 2, drawYTail, ribbonWidth, startY - drawYTail);
+                            ctx.restore();
+                        }
+
+                        drawPJSKHoldTail(note.lane, drawYTail);
+
+                        if (!note.headHit) {
+                            drawNoteBlock(note.lane, drawYHead, false, true);
+                        }
+                    }
+                }
+            }
+
+            // 4. Draw Particles
+            for (let i = 0; i < particles.length; i++) {
+                const p = particles[i];
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, p.alpha);
+                ctx.fillStyle = p.color;
+
+                if (p.type === 'butter') {
+                    ctx.beginPath();
+                    if (ctx.roundRect) {
+                        ctx.roundRect(p.x - p.radius, p.y - p.radius, p.radius * 2, p.radius * 1.6, 3);
+                    } else {
+                        ctx.rect(p.x - p.radius, p.y - p.radius, p.radius * 2, p.radius * 1.6);
+                    }
+                    ctx.fill();
+                } else {
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.restore();
+            }
+
+            // 5. Draw Floating Feedback Text
+            ctx.font = '900 15px Fredoka';
+            ctx.textAlign = 'center';
+            for (let i = 0; i < feedbackTexts.length; i++) {
+                const ft = feedbackTexts[i];
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, ft.alpha);
+                ctx.fillStyle = ft.color;
+                ctx.fillText(ft.text, ft.x, ft.y);
+                ctx.restore();
+            }
+        }
+
+        let lastFrameTime = performance.now();
+
+        function gameLoop(now) {
+            const dt = Math.min((now - lastFrameTime) / 1000, 0.1);
+            lastFrameTime = now;
+
+            if (gameState === 'PLAYING') {
+                updateGame(dt);
+            }
+            renderGame();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function setLevelBPM(targetBpm) {
+            bpm = targetBpm;
+            const bpmLevels = [80, 100, 140, 170, 200, 250, 300];
+            const levelNames = {
+                80: "SOFT (80 BPM)",
+                100: "MILK (100 BPM)",
+                140: "HONEY (140 BPM)",
+                170: "SWEET (170 BPM)",
+                200: "SPICY (200 BPM)",
+                250: "PARTY (250 BPM)",
+                300: "PURE (300 BPM - 純單擊)"
+            };
+
+            bpmLevels.forEach(b => {
+                const btn = document.getElementById(`diff-${b}`);
+                if (btn) {
+                    if (b === targetBpm) {
+                        btn.className = b === 300 
+                            ? "butter-btn butter-btn-selected py-1.5 text-[11px] font-black flex flex-col items-center justify-center col-span-2"
+                            : "butter-btn butter-btn-selected py-1.5 text-[11px] font-black flex flex-col items-center justify-center";
+                    } else {
+                        btn.className = b === 300 
+                            ? "butter-btn py-1.5 text-[11px] font-black flex flex-col items-center justify-center col-span-2"
+                            : "butter-btn py-1.5 text-[11px] font-black flex flex-col items-center justify-center";
+                    }
+                }
+            });
+
+            const displayEl = document.getElementById('level-name-display');
+            if (displayEl && levelNames[targetBpm]) {
+                displayEl.innerText = levelNames[targetBpm];
+            }
+        }
+
+        function setNoteSpeed(multiplier) {
+            noteSpeedMultiplier = multiplier;
+            noteSpeed = BASE_NOTE_SPEED * noteSpeedMultiplier;
+            localStorage.setItem('creamy_rhythm_speed_mult', multiplier.toString());
+
+            const displayEl = document.getElementById('speed-val-display');
+            if (displayEl) {
+                displayEl.innerText = `${multiplier.toFixed(1)}x`;
+            }
+
+            const speedBtns = document.querySelectorAll('.speed-btn');
+            speedBtns.forEach(btn => {
+                const speedVal = parseFloat(btn.getAttribute('data-speed'));
+                if (Math.abs(speedVal - multiplier) < 0.01) {
+                    btn.className = "speed-btn butter-btn butter-btn-selected flex-1 py-1 text-[10px] font-black";
+                } else {
+                    btn.className = "speed-btn butter-btn flex-1 py-1 text-[10px] font-black";
+                }
+            });
+        }
+
+        [80, 100, 140, 170, 200, 250, 300].forEach(b => {
+            const btn = document.getElementById(`diff-${b}`);
+            if (btn) btn.addEventListener('click', () => setLevelBPM(b));
+        });
+
+        document.querySelectorAll('.speed-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const speed = parseFloat(e.currentTarget.getAttribute('data-speed'));
+                setNoteSpeed(speed);
+            });
+        });
+
+        setLevelBPM(300);
+        setNoteSpeed(noteSpeedMultiplier);
+
+        function startGame() {
+            gameState = 'PLAYING';
+
+            score = 0;
+            combo = 0;
+            maxCombo = 0;
+            health = 100;
+            perfectCount = 0;
+            greatCount = 0;
+            goodCount = 0;
+            missCount = 0;
+            earlyHitCount = 0;
+            lateHitCount = 0;
+            feedbackTexts = [];
+            touchRipples = [];
+            particles = [];
+
+            generateChart();
+            updateHUD();
+
+            startScreen.classList.add('hidden');
+            pauseScreen.classList.add('hidden');
+            gameOverScreen.classList.add('hidden');
+            pauseBtn.classList.remove('hidden');
+
+            audio.start(bpm);
+        }
+
+        function togglePause() {
+            if (gameState === 'PLAYING') {
+                gameState = 'PAUSED';
+                audio.pause();
+                pauseScreen.classList.remove('hidden');
+            } else if (gameState === 'PAUSED') {
+                gameState = 'PLAYING';
+                audio.resume();
+                pauseScreen.classList.add('hidden');
+            }
+        }
+
+        function endGame(win) {
+            gameState = 'GAMEOVER';
+            audio.stop();
+
+            pauseBtn.classList.add('hidden');
+            gameOverScreen.classList.remove('hidden');
+
+            const resTitle = document.getElementById('result-title');
+            const resSubtitle = document.getElementById('result-subtitle');
+
+            if (win) {
+                if (greatCount === 0 && goodCount === 0 && missCount === 0 && perfectCount > 0) {
+                    resTitle.innerText = "ALL PERFECT! 👑✨";
+                    resTitle.className = "text-3xl sm:text-4xl font-black text-amber-500 glow-text-cream mb-1 animate-bounce";
+                    resSubtitle.innerText = "FLAWLESS RHYTHM MASTER! 🧈🥞👑";
+                } else if (missCount === 0) {
+                    resTitle.innerText = "FULL COMBO! 🌟✨";
+                    resTitle.className = "text-3xl font-black text-amber-500 glow-text-cream mb-1 animate-bounce";
+                    resSubtitle.innerText = "PERFECT PERFORMANCE! 🧈🥞";
+                } else {
+                    resTitle.innerText = "STAGE CLEAR! 🎉";
+                    resTitle.className = "text-3xl font-black text-amber-700 glow-text-cream mb-1";
+                    resSubtitle.innerText = "CREAMY PARTY COMPLETED 🥞";
+                }
+            } else {
+                resTitle.innerText = "GAME OVER 💧";
+                resTitle.className = "text-3xl font-black text-rose-600 mb-1";
+                resSubtitle.innerText = "HEALTH DEPLETED";
+            }
+
+            document.getElementById('res-score').innerText = score.toString().padStart(6, '0');
+            document.getElementById('res-maxcombo').innerText = maxCombo;
+            document.getElementById('res-perfect').innerText = perfectCount;
+            document.getElementById('res-great').innerText = greatCount;
+            document.getElementById('res-good').innerText = goodCount;
+            document.getElementById('res-miss').innerText = missCount;
+            document.getElementById('res-early').innerText = earlyHitCount;
+            document.getElementById('res-late').innerText = lateHitCount;
+
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('creamy_rhythm_highscore_v1', highScore.toString());
+                highscoreEl.innerText = highScore;
+            }
+        }
+
+        function goToHome() {
+            gameState = 'START';
+            audio.stop();
+            pauseScreen.classList.add('hidden');
+            gameOverScreen.classList.add('hidden');
+            startScreen.classList.remove('hidden');
+            pauseBtn.classList.add('hidden');
+        }
+
+        // Button Event Bindings
+        document.getElementById('start-btn').addEventListener('click', startGame);
+        document.getElementById('retry-btn').addEventListener('click', startGame);
+        document.getElementById('pause-btn').addEventListener('click', togglePause);
+        document.getElementById('resume-btn').addEventListener('click', togglePause);
+        document.getElementById('restart-pause-btn').addEventListener('click', startGame);
+        document.getElementById('home-pause-btn').addEventListener('click', goToHome);
+        document.getElementById('home-res-btn').addEventListener('click', goToHome);
+
+        // Start Loop
+        requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>

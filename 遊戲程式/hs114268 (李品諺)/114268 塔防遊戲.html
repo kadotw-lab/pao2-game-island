@@ -1,0 +1,2110 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>皇家防線：城堡攻防戰 (Royal Guard: Deluxe Edition)</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Noto+Sans+TC:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+            font-family: 'Noto Sans TC', 'Cinzel', sans-serif;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #05040a;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #game-wrapper {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            max-width: 1280px;
+            max-height: 720px;
+            aspect-ratio: 16 / 9;
+            background-color: #000;
+            box-shadow: 0 0 60px rgba(0, 0, 0, 0.95), 0 0 30px rgba(212, 175, 55, 0.25);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .screen-shake {
+            animation: shake 0.35s cubic-bezier(.36,.07,.19,.97) both;
+        }
+
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-3px, 0, 0); }
+            20%, 80% { transform: translate3d(5px, -1px, 0); }
+            30%, 50%, 70% { transform: translate3d(-8px, -3px, 0); }
+            40%, 60% { transform: translate3d(8px, 3px, 0); }
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* 警報橫幅動畫 */
+        .boss-warning-banner {
+            position: absolute;
+            top: 35%;
+            left: 0;
+            width: 100%;
+            background: linear-gradient(90deg, rgba(255,23,68,0) 0%, rgba(183,28,28,0.92) 20%, rgba(255,23,68,0.95) 50%, rgba(183,28,28,0.92) 80%, rgba(255,23,68,0) 100%);
+            border-top: 3px solid #ff1744;
+            border-bottom: 3px solid #ff1744;
+            color: #fff;
+            padding: 16px 0;
+            text-align: center;
+            font-size: 28px;
+            font-weight: 900;
+            letter-spacing: 6px;
+            text-shadow: 0 0 15px #ff1744, 2px 2px 4px #000;
+            z-index: 50;
+            pointer-events: none;
+            opacity: 0;
+            transform: scale(0.8);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 0 30px rgba(255, 23, 68, 0.6);
+        }
+
+        .boss-warning-banner.show {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 12px 16px;
+            z-index: 10;
+        }
+
+        /* Top Header Navigation & Status Bar */
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(180deg, rgba(22, 16, 38, 0.92) 0%, rgba(12, 9, 22, 0.85) 100%);
+            border: 2px solid #c5a059;
+            border-radius: 12px;
+            padding: 8px 18px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.75), inset 0 0 12px rgba(197, 160, 89, 0.25);
+            pointer-events: auto;
+            backdrop-filter: blur(10px);
+        }
+
+        .resource-group {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .res-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 4px 12px;
+            border-radius: 20px;
+            border: 1px solid rgba(212, 175, 55, 0.5);
+            color: #ffd700;
+            font-weight: 700;
+            font-size: 15px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+        }
+
+        .gold-icon {
+            width: 22px;
+            height: 22px;
+            background: radial-gradient(circle at 35% 35%, #fff59d, #fbc02d, #f57f17);
+            border-radius: 50%;
+            border: 1.5px solid #fff;
+            box-shadow: 0 0 8px #ffd700;
+            display: inline-block;
+        }
+
+        .stage-badge {
+            font-family: 'Cinzel', 'Noto Sans TC', serif;
+            font-size: 22px;
+            font-weight: 900;
+            color: #fff;
+            text-align: center;
+            letter-spacing: 2px;
+            background: linear-gradient(180deg, #ffe082 0%, #ffb300 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 2px 6px rgba(0,0,0,0.8));
+        }
+
+        /* HP Bar Display with Delay Buffer */
+        .hp-section {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .hp-box {
+            display: flex;
+            flex-direction: column;
+            width: 150px;
+            gap: 4px;
+        }
+
+        .hp-title {
+            font-size: 11px;
+            color: #ddd;
+            font-weight: 700;
+            display: flex;
+            justify-content: space-between;
+            text-shadow: 1px 1px 2px #000;
+        }
+
+        .hp-track {
+            width: 100%;
+            height: 14px;
+            background-color: rgba(0, 0, 0, 0.7);
+            border: 1.5px solid #8c733e;
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.9);
+        }
+
+        .hp-buffer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            background-color: #ffb74d;
+            transition: width 0.6s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+
+        .hp-fill {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            transition: width 0.2s ease-out;
+        }
+
+        .player-hp-fill { background: linear-gradient(90deg, #2e7d32, #66bb6a, #a5d6a7); }
+        .enemy-hp-fill { background: linear-gradient(90deg, #c62828, #ef5350, #ef9a9a); }
+
+        /* Top Action Buttons */
+        .top-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .icon-btn {
+            background: rgba(30, 24, 48, 0.85);
+            border: 1.5px solid #a88a44;
+            color: #ffd700;
+            padding: 6px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+            transition: all 0.2s;
+            backdrop-filter: blur(4px);
+        }
+
+        .icon-btn:hover {
+            background: #a88a44;
+            color: #000;
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+        }
+
+        .icon-btn.active {
+            background: #ffd700;
+            color: #111;
+            box-shadow: 0 0 12px #ffd700;
+        }
+
+        /* Boss Health Bar */
+        .boss-bar-wrapper {
+            position: absolute;
+            top: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 50%;
+            max-width: 500px;
+            background: rgba(15, 10, 25, 0.9);
+            border: 2px solid #ff1744;
+            border-radius: 10px;
+            padding: 6px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            box-shadow: 0 0 20px rgba(255, 23, 68, 0.5);
+            pointer-events: auto;
+            backdrop-filter: blur(6px);
+            transition: opacity 0.3s;
+        }
+
+        .boss-title {
+            color: #ff5252;
+            font-weight: 900;
+            font-size: 13px;
+            letter-spacing: 1px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        /* Bottom Command & Card Control Bar */
+        .bottom-bar {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            pointer-events: auto;
+            background: linear-gradient(180deg, rgba(22, 16, 38, 0.94) 0%, rgba(10, 8, 20, 0.98) 100%);
+            border: 2px solid #c5a059;
+            border-radius: 16px;
+            padding: 8px 12px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.85), inset 0 0 15px rgba(197, 160, 89, 0.2);
+            flex-wrap: wrap;
+        }
+
+        .card-group {
+            display: flex;
+            gap: 6px;
+        }
+
+        .divider {
+            width: 2px;
+            height: 75px;
+            background: linear-gradient(180deg, rgba(197,160,89,0.1), rgba(197,160,89,0.8), rgba(197,160,89,0.1));
+            margin: 0 4px;
+        }
+
+        .btn-card {
+            position: relative;
+            width: 72px;
+            height: 82px;
+            background: linear-gradient(180deg, #2a2240 0%, #161224 100%);
+            border: 2px solid #8c733e;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            padding: 4px;
+            cursor: pointer;
+            transition: all 0.18s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+        }
+
+        .btn-card:hover:not(.disabled) {
+            transform: translateY(-6px) scale(1.05);
+            border-color: #ffd700;
+            box-shadow: 0 10px 22px rgba(255, 215, 0, 0.4);
+        }
+
+        .btn-card:active:not(.disabled) {
+            transform: translateY(-1px) scale(0.98);
+        }
+
+        .btn-card.disabled {
+            filter: grayscale(85%) brightness(0.45);
+            cursor: not-allowed;
+            border-color: #444;
+        }
+
+        /* Tooltip 提示浮窗 */
+        .tooltip {
+            position: absolute;
+            bottom: 95px;
+            background: rgba(15, 12, 25, 0.95);
+            border: 1.5px solid #c5a059;
+            border-radius: 8px;
+            padding: 8px 12px;
+            color: #fff;
+            font-size: 11px;
+            line-height: 1.4;
+            pointer-events: none;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 0.2s ease;
+            white-space: nowrap;
+            box-shadow: 0 6px 16px rgba(0,0,0,0.8);
+            z-index: 60;
+        }
+
+        .btn-card:hover .tooltip {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .btn-key-badge {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            background: rgba(0, 0, 0, 0.75);
+            color: #ffd700;
+            font-size: 9px;
+            padding: 1px 4px;
+            border-radius: 4px;
+            font-weight: 900;
+            border: 1px solid rgba(255,215,0,0.3);
+        }
+
+        .unit-lvl-badge {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            background: #2e7d32;
+            color: #fff;
+            font-size: 9px;
+            padding: 1px 4px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+
+        .btn-icon {
+            width: 38px;
+            height: 38px;
+            margin-top: 4px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .btn-name {
+            font-size: 11px;
+            color: #fff;
+            font-weight: 700;
+        }
+
+        .btn-cost {
+            font-size: 11px;
+            color: #ffd700;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 2px;
+        }
+
+        .cd-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(10, 8, 20, 0.82);
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #fff;
+            font-weight: 900;
+            font-size: 14px;
+            pointer-events: none;
+            backdrop-filter: blur(2px);
+        }
+
+        .card-skill {
+            background: linear-gradient(180deg, #4a148c 0%, #1a0033 100%);
+            border-color: #ab47bc;
+        }
+        .card-skill:hover:not(.disabled) {
+            border-color: #e1bee7;
+            box-shadow: 0 8px 20px rgba(171, 71, 188, 0.5);
+        }
+
+        .card-mine {
+            background: linear-gradient(180deg, #0d47a1 0%, #001033 100%);
+            border-color: #42a5f5;
+        }
+
+        .card-upgrade {
+            background: linear-gradient(180deg, #2e7d32 0%, #002200 100%);
+            border-color: #66bb6a;
+            width: 62px;
+        }
+
+        /* Modal Screens */
+        .modal-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(6, 4, 14, 0.92);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            pointer-events: auto;
+            z-index: 100;
+            backdrop-filter: blur(12px);
+            color: #fff;
+            text-align: center;
+            padding: 24px;
+        }
+
+        .modal-title {
+            font-family: 'Cinzel', 'Noto Sans TC', serif;
+            font-size: 44px;
+            font-weight: 900;
+            background: linear-gradient(180deg, #fff59d 0%, #ffa000 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 25px rgba(255, 215, 0, 0.4);
+            margin-bottom: 12px;
+            letter-spacing: 3px;
+        }
+
+        .modal-desc {
+            font-size: 15px;
+            color: #d1c4e9;
+            max-width: 580px;
+            margin-bottom: 24px;
+            line-height: 1.6;
+        }
+
+        .stats-summary {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 24px;
+            background: rgba(255,255,255,0.05);
+            padding: 12px 24px;
+            border-radius: 12px;
+            border: 1px solid rgba(255,215,0,0.2);
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .stat-val { font-size: 20px; font-weight: 900; color: #ffd700; }
+        .stat-lbl { font-size: 11px; color: #aaa; }
+
+        .primary-btn {
+            padding: 14px 48px;
+            font-size: 20px;
+            font-weight: 900;
+            color: #120c1f;
+            background: linear-gradient(180deg, #ffe082 0%, #ff8f00 100%);
+            border: 2px solid #fff;
+            border-radius: 40px;
+            cursor: pointer;
+            box-shadow: 0 8px 25px rgba(255, 143, 0, 0.5);
+            transition: all 0.25s ease;
+            letter-spacing: 1px;
+        }
+
+        .primary-btn:hover {
+            transform: scale(1.08);
+            box-shadow: 0 12px 35px rgba(255, 193, 7, 0.8);
+        }
+
+        .key-hints {
+            margin-top: 20px;
+            font-size: 12px;
+            color: #b0bec5;
+            background: rgba(255,255,255,0.06);
+            padding: 8px 18px;
+            border-radius: 30px;
+            border: 1px solid rgba(255,255,255,0.12);
+        }
+
+        @media (max-width: 768px) {
+            .btn-card { width: 56px; height: 72px; }
+            .btn-icon { width: 26px; height: 26px; }
+            .btn-name { font-size: 9px; }
+            .btn-cost { font-size: 9px; }
+            .hp-box { width: 95px; }
+            .modal-title { font-size: 30px; }
+            .card-upgrade { width: 48px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-wrapper">
+        <canvas id="gameCanvas"></canvas>
+
+        <!-- BOSS 警告橫幅 -->
+        <div class="boss-warning-banner" id="bossWarning">
+            WARNING: 敵方強襲領主降臨！
+        </div>
+
+        <!-- UI 覆蓋層 -->
+        <div class="ui-layer">
+            <!-- 頂部資訊列 -->
+            <div class="top-bar">
+                <div class="resource-group">
+                    <div class="res-badge">
+                        <span class="gold-icon"></span>
+                        <span id="goldText">200</span>
+                        <span style="color: #4caf50; font-size: 11px; margin-left:2px;">(+<span id="goldRateText">25</span>/s)</span>
+                    </div>
+                </div>
+
+                <div class="stage-badge">
+                    STAGE <span id="stageText">1</span>
+                </div>
+
+                <div class="hp-section">
+                    <div class="hp-box">
+                        <div class="hp-title"><span>皇家城堡</span><span id="playerHpText">1200</span></div>
+                        <div class="hp-track">
+                            <div id="playerHpBuffer" class="hp-buffer"></div>
+                            <div id="playerHpFill" class="hp-fill player-hp-fill"></div>
+                        </div>
+                    </div>
+                    <div class="hp-box">
+                        <div class="hp-title"><span>敵方城堡</span><span id="enemyHpText">1200</span></div>
+                        <div class="hp-track">
+                            <div id="enemyHpBuffer" class="hp-buffer"></div>
+                            <div id="enemyHpFill" class="hp-fill enemy-hp-fill"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="top-actions">
+                    <button class="icon-btn" id="autoBtn" onclick="game.toggleAuto()">自動出兵: OFF</button>
+                    <button class="icon-btn" id="speedBtn" onclick="game.toggleSpeed()">1x 速度</button>
+                    <button class="icon-btn" id="pauseBtn" onclick="game.togglePause()">暫停</button>
+                    <button class="icon-btn" id="bgmBtn" onclick="game.toggleBGM()">BGM: OFF</button>
+                    <button class="icon-btn" id="soundBtn" onclick="game.toggleSound()">音效: ON</button>
+                </div>
+            </div>
+
+            <!-- BOSS 血條 -->
+            <div class="boss-bar-wrapper" id="bossBar" style="display: none;">
+                <div class="boss-title"><span id="bossName">強襲巨魔領主</span><span id="bossHpText">10000/10000</span></div>
+                <div class="hp-track" style="height:16px;">
+                    <div id="bossHpBuffer" class="hp-buffer"></div>
+                    <div id="bossHpFill" class="hp-fill enemy-hp-fill"></div>
+                </div>
+            </div>
+
+            <!-- 底部控制與卡牌面板 -->
+            <div class="bottom-bar">
+                <!-- 出兵卡牌 -->
+                <div class="card-group">
+                    <div class="btn-card" id="btn-infantry" onclick="game.spawnUnit('infantry')">
+                        <div class="tooltip"><b>皇家劍士</b><br>均衡近戰單位<br>血量:200 | 攻擊:20</div>
+                        <span class="btn-key-badge">1</span>
+                        <span class="unit-lvl-badge" id="lvl-infantry">Lv.1</span>
+                        <div class="btn-icon">
+                            <svg viewBox="0 0 36 36" width="30" height="30">
+                                <path d="M18 4 L22 12 L18 28 L14 12 Z" fill="#e0e0e0" stroke="#fff" stroke-width="1.5"/>
+                                <rect x="11" y="22" width="14" height="3" fill="#8b5a2b" rx="1"/>
+                                <circle cx="18" cy="28" r="3" fill="#ffd700"/>
+                            </svg>
+                        </div>
+                        <span class="btn-name">皇家劍士</span>
+                        <span class="btn-cost"><span class="gold-icon" style="width:10px;height:10px;"></span>50</span>
+                        <div class="cd-overlay" id="cd-infantry" style="display:none;">0s</div>
+                    </div>
+
+                    <div class="btn-card" id="btn-archer" onclick="game.spawnUnit('archer')">
+                        <div class="tooltip"><b>神射手</b><br>遠程狙擊 (剋制法師)<br>血量:100 | 攻擊:26</div>
+                        <span class="btn-key-badge">2</span>
+                        <span class="unit-lvl-badge" id="lvl-archer">Lv.1</span>
+                        <div class="btn-icon">
+                            <svg viewBox="0 0 36 36" width="30" height="30">
+                                <path d="M10 6 Q24 18 10 30" fill="none" stroke="#8b5a2b" stroke-width="3"/>
+                                <line x1="10" y1="6" x2="10" y2="30" stroke="#fff" stroke-width="1"/>
+                                <line x1="6" y1="18" x2="26" y2="18" stroke="#e0e0e0" stroke-width="2"/>
+                                <path d="M26 18 L20 14 L20 22 Z" fill="#ff5252"/>
+                            </svg>
+                        </div>
+                        <span class="btn-name">神射手</span>
+                        <span class="btn-cost"><span class="gold-icon" style="width:10px;height:10px;"></span>75</span>
+                        <div class="cd-overlay" id="cd-archer" style="display:none;">0s</div>
+                    </div>
+
+                    <div class="btn-card" id="btn-knight" onclick="game.spawnUnit('knight')">
+                        <div class="tooltip"><b>聖殿騎士</b><br>重裝坦克肉盾<br>血量:480 | 攻擊:36</div>
+                        <span class="btn-key-badge">3</span>
+                        <span class="unit-lvl-badge" id="lvl-knight">Lv.1</span>
+                        <div class="btn-icon">
+                            <svg viewBox="0 0 36 36" width="30" height="30">
+                                <path d="M8 8 L28 8 L24 28 L18 32 L12 28 Z" fill="#78909c" stroke="#eceff1" stroke-width="1.5"/>
+                                <path d="M18 8 L18 32" stroke="#37474f" stroke-width="1.5"/>
+                            </svg>
+                        </div>
+                        <span class="btn-name">聖殿騎士</span>
+                        <span class="btn-cost"><span class="gold-icon" style="width:10px;height:10px;"></span>150</span>
+                        <div class="cd-overlay" id="cd-knight" style="display:none;">0s</div>
+                    </div>
+
+                    <div class="btn-card" id="btn-mage" onclick="game.spawnUnit('mage')">
+                        <div class="tooltip"><b>秘法大師</b><br>範圍AOE魔法傷害<br>血量:130 | 攻擊:42</div>
+                        <span class="btn-key-badge">4</span>
+                        <span class="unit-lvl-badge" id="lvl-mage">Lv.1</span>
+                        <div class="btn-icon">
+                            <svg viewBox="0 0 36 36" width="30" height="30">
+                                <line x1="10" y1="28" x2="24" y2="10" stroke="#8b5a2b" stroke-width="3"/>
+                                <circle cx="26" cy="8" r="6" fill="#ab47bc"/>
+                                <circle cx="26" cy="8" r="3" fill="#ea80fc"/>
+                            </svg>
+                        </div>
+                        <span class="btn-name">秘法大師</span>
+                        <span class="btn-cost"><span class="gold-icon" style="width:10px;height:10px;"></span>200</span>
+                        <div class="cd-overlay" id="cd-mage" style="display:none;">0s</div>
+                    </div>
+                </div>
+
+                <div class="divider"></div>
+
+                <!-- 兵種等級升級按鈕群 -->
+                <div class="card-group">
+                    <div class="btn-card card-upgrade" id="btn-up-infantry" onclick="game.upgradeUnitTier('infantry')" title="升級劍士等級">
+                        <span class="btn-name">劍士+</span>
+                        <span class="btn-cost" id="upCost-infantry">100</span>
+                    </div>
+                    <div class="btn-card card-upgrade" id="btn-up-archer" onclick="game.upgradeUnitTier('archer')" title="升級弓箭手等級">
+                        <span class="btn-name">弓手+</span>
+                        <span class="btn-cost" id="upCost-archer">120</span>
+                    </div>
+                    <div class="btn-card card-upgrade" id="btn-up-knight" onclick="game.upgradeUnitTier('knight')" title="升級騎士等級">
+                        <span class="btn-name">騎士+</span>
+                        <span class="btn-cost" id="upCost-knight">200</span>
+                    </div>
+                    <div class="btn-card card-upgrade" id="btn-up-mage" onclick="game.upgradeUnitTier('mage')" title="升級魔法師等級">
+                        <span class="btn-name">法師+</span>
+                        <span class="btn-cost" id="upCost-mage">250</span>
+                    </div>
+                </div>
+
+                <div class="divider"></div>
+
+                <!-- 經濟與技能 -->
+                <div class="card-group">
+                    <div class="btn-card card-mine" id="btn-upgrade-mine" onclick="game.upgradeMine()">
+                        <div class="tooltip"><b>金礦開發</b><br>提升每秒金幣產出</div>
+                        <span class="btn-key-badge">U</span>
+                        <div class="btn-icon">
+                            <svg viewBox="0 0 36 36" width="28" height="28">
+                                <path d="M6 26 L16 12 L22 18 L30 8" fill="none" stroke="#4caf50" stroke-width="3" stroke-linecap="round"/>
+                                <path d="M22 8 L30 8 L30 16" fill="none" stroke="#4caf50" stroke-width="3" stroke-linecap="round"/>
+                            </svg>
+                        </div>
+                        <span class="btn-name">金礦升級</span>
+                        <span class="btn-cost" id="mineCostText"><span class="gold-icon" style="width:10px;height:10px;"></span>100</span>
+                    </div>
+
+                    <div class="btn-card card-skill" id="btn-skill-arrow" onclick="game.useSkill('arrow')">
+                        <div class="tooltip"><b>箭雨風暴</b><br>對全屏敵軍造成多次打擊</div>
+                        <span class="btn-key-badge">Space</span>
+                        <div class="btn-icon">
+                            <svg viewBox="0 0 36 36" width="28" height="28">
+                                <path d="M8 6 L8 22 M18 10 L18 26 M28 6 L28 22" stroke="#ff5252" stroke-width="2.5"/>
+                                <path d="M5 18 L8 22 L11 18 M15 22 L18 26 L21 22 M25 18 L28 22 L31 18" fill="none" stroke="#ff5252" stroke-width="2"/>
+                            </svg>
+                        </div>
+                        <span class="btn-name">箭雨風暴</span>
+                        <div class="cd-overlay" id="cd-skill-arrow" style="display:none;">15s</div>
+                    </div>
+
+                    <div class="btn-card card-skill" id="btn-skill-shield" onclick="game.useSkill('shield')">
+                        <div class="tooltip"><b>聖光護盾</b><br>給全體友軍加護盾與治癒</div>
+                        <span class="btn-key-badge">E</span>
+                        <div class="btn-icon">
+                            <svg viewBox="0 0 36 36" width="28" height="28">
+                                <path d="M18 4 L30 8 V18 C30 26 18 32 18 32 C18 32 6 26 6 18 V8 Z" fill="none" stroke="#ffb300" stroke-width="2.5"/>
+                                <path d="M18 10 V24 M11 17 H25" stroke="#fff" stroke-width="3"/>
+                            </svg>
+                        </div>
+                        <span class="btn-name">聖光護盾</span>
+                        <div class="cd-overlay" id="cd-skill-shield" style="display:none;">20s</div>
+                    </div>
+
+                    <div class="btn-card card-skill" id="btn-skill-meteor" onclick="game.useSkill('meteor')">
+                        <div class="tooltip"><b>毀滅隕石</b><br>召喚巨型隕石毀滅前線</div>
+                        <span class="btn-key-badge">R</span>
+                        <div class="btn-icon">
+                            <svg viewBox="0 0 36 36" width="28" height="28">
+                                <circle cx="22" cy="14" r="8" fill="#ff7043"/>
+                                <path d="M6 30 L16 18" stroke="#ff8f00" stroke-width="4"/>
+                                <path d="M12 34 L20 22" stroke="#ff3d00" stroke-width="2"/>
+                            </svg>
+                        </div>
+                        <span class="btn-name">毀滅隕石</span>
+                        <div class="cd-overlay" id="cd-skill-meteor" style="display:none;">30s</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 遊戲開始/結算視窗 -->
+        <div class="modal-overlay" id="gameModal">
+            <h1 class="modal-title" id="modalTitle">皇家防線：城堡攻防戰</h1>
+            <p class="modal-desc" id="modalDesc">
+                指揮精銳王國軍隊，保衛皇家城堡並徹底摧毀敵軍大本營！<br>
+                靈活運用兵種克制、升級軍團等級與金礦，並在關鍵時刻釋放三大終極魔法。
+            </p>
+
+            <div class="stats-summary" id="statsBox" style="display:none;">
+                <div class="stat-item"><span class="stat-val" id="statKills">0</span><span class="stat-lbl">擊殺敵軍</span></div>
+                <div class="stat-item"><span class="stat-val" id="statDamage">0</span><span class="stat-lbl">總傷害量</span></div>
+                <div class="stat-item"><span class="stat-val" id="statGold">0</span><span class="stat-lbl">累積金幣</span></div>
+            </div>
+
+            <button class="primary-btn" id="modalBtn" onclick="game.startGame()">發動進攻</button>
+            <div class="key-hints">
+                快捷鍵：[1-4] 召喚兵種 | [U] 升級金礦 | [空白鍵] 箭雨 | [E] 護盾 | [R] 隕石
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* 程序化音效與背景音樂合成器 (Web Audio API) */
+        class SoundFX {
+            constructor() {
+                this.ctx = null;
+                this.enabled = true;
+                this.bgmEnabled = false;
+                this.bgmTimer = null;
+                this.bgmStep = 0;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                }
+            }
+
+            play(type) {
+                if (!this.enabled) return;
+                this.init();
+                if (this.ctx.state === 'suspended') this.ctx.resume();
+
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                switch (type) {
+                    case 'spawn':
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(220, now);
+                        osc.frequency.exponentialRampToValueAtTime(580, now + 0.15);
+                        gain.gain.setValueAtTime(0.2, now);
+                        gain.gain.linearRampToValueAtTime(0.01, now + 0.15);
+                        osc.start(now); osc.stop(now + 0.15);
+                        break;
+                    case 'hit':
+                        osc.type = 'triangle';
+                        osc.frequency.setValueAtTime(140, now);
+                        osc.frequency.exponentialRampToValueAtTime(30, now + 0.1);
+                        gain.gain.setValueAtTime(0.25, now);
+                        gain.gain.linearRampToValueAtTime(0.01, now + 0.1);
+                        osc.start(now); osc.stop(now + 0.1);
+                        break;
+                    case 'crit':
+                        osc.type = 'sawtooth';
+                        osc.frequency.setValueAtTime(300, now);
+                        osc.frequency.exponentialRampToValueAtTime(800, now + 0.2);
+                        gain.gain.setValueAtTime(0.3, now);
+                        gain.gain.linearRampToValueAtTime(0.01, now + 0.2);
+                        osc.start(now); osc.stop(now + 0.2);
+                        break;
+                    case 'arrow':
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(700, now);
+                        osc.frequency.exponentialRampToValueAtTime(250, now + 0.08);
+                        gain.gain.setValueAtTime(0.12, now);
+                        gain.gain.linearRampToValueAtTime(0.01, now + 0.08);
+                        osc.start(now); osc.stop(now + 0.08);
+                        break;
+                    case 'magic':
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(350, now);
+                        osc.frequency.linearRampToValueAtTime(900, now + 0.22);
+                        gain.gain.setValueAtTime(0.2, now);
+                        gain.gain.linearRampToValueAtTime(0.01, now + 0.22);
+                        osc.start(now); osc.stop(now + 0.22);
+                        break;
+                    case 'meteor':
+                        osc.type = 'sawtooth';
+                        osc.frequency.setValueAtTime(160, now);
+                        osc.frequency.linearRampToValueAtTime(35, now + 0.65);
+                        gain.gain.setValueAtTime(0.4, now);
+                        gain.gain.linearRampToValueAtTime(0.01, now + 0.65);
+                        osc.start(now); osc.stop(now + 0.65);
+                        break;
+                    case 'upgrade':
+                        osc.type = 'triangle';
+                        osc.frequency.setValueAtTime(330, now);
+                        osc.frequency.setValueAtTime(440, now + 0.08);
+                        osc.frequency.setValueAtTime(659, now + 0.16);
+                        gain.gain.setValueAtTime(0.25, now);
+                        gain.gain.linearRampToValueAtTime(0.01, now + 0.32);
+                        osc.start(now); osc.stop(now + 0.32);
+                        break;
+                    case 'win':
+                        osc.type = 'triangle';
+                        osc.frequency.setValueAtTime(523, now);
+                        osc.frequency.setValueAtTime(659, now + 0.15);
+                        osc.frequency.setValueAtTime(783, now + 0.3);
+                        osc.frequency.setValueAtTime(1046, now + 0.45);
+                        gain.gain.setValueAtTime(0.35, now);
+                        gain.gain.linearRampToValueAtTime(0.01, now + 0.75);
+                        osc.start(now); osc.stop(now + 0.75);
+                        break;
+                    case 'lose':
+                        osc.type = 'sawtooth';
+                        osc.frequency.setValueAtTime(280, now);
+                        osc.frequency.linearRampToValueAtTime(80, now + 0.6);
+                        gain.gain.setValueAtTime(0.35, now);
+                        gain.gain.linearRampToValueAtTime(0.01, now + 0.6);
+                        osc.start(now); osc.stop(now + 0.6);
+                        break;
+                }
+            }
+
+            /* 即時程式化戰鬥音樂節奏 */
+            toggleBGM() {
+                this.bgmEnabled = !this.bgmEnabled;
+                if (this.bgmEnabled) {
+                    this.init();
+                    if (this.ctx.state === 'suspended') this.ctx.resume();
+                    this.startBGMLoop();
+                } else {
+                    if (this.bgmTimer) clearInterval(this.bgmTimer);
+                }
+                return this.bgmEnabled;
+            }
+
+            startBGMLoop() {
+                const notes = [110, 110, 146, 130, 110, 110, 164, 146]; // Bassline
+                this.bgmTimer = setInterval(() => {
+                    if (!this.bgmEnabled) return;
+                    let freq = notes[this.bgmStep % notes.length];
+                    this.bgmStep++;
+
+                    let now = this.ctx.currentTime;
+                    let osc = this.ctx.createOscillator();
+                    let gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, now);
+                    gain.gain.setValueAtTime(0.05, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.2);
+                }, 250);
+            }
+        }
+
+        const sound = new SoundFX();
+
+        /* 兵種與 BOSS 資料庫 */
+        const UNIT_TYPES = {
+            infantry: {
+                name: '皇家劍士',
+                cost: 50,
+                hp: 200,
+                atk: 20,
+                range: 35,
+                speed: 1.2,
+                atkInterval: 1000,
+                cd: 2,
+                color: '#42a5f5',
+                enemyColor: '#ef5350',
+                width: 30,
+                height: 48
+            },
+            archer: {
+                name: '神射手',
+                cost: 75,
+                hp: 100,
+                atk: 26,
+                range: 240,
+                speed: 1.4,
+                atkInterval: 1100,
+                cd: 3,
+                color: '#66bb6a',
+                enemyColor: '#ff7043',
+                width: 26,
+                height: 44
+            },
+            knight: {
+                name: '聖殿騎士',
+                cost: 150,
+                hp: 480,
+                atk: 36,
+                range: 45,
+                speed: 0.9,
+                atkInterval: 1300,
+                cd: 5,
+                color: '#ffa726',
+                enemyColor: '#ab47bc',
+                width: 38,
+                height: 56
+            },
+            mage: {
+                name: '秘法大師',
+                cost: 200,
+                hp: 130,
+                atk: 42,
+                range: 200,
+                speed: 1.0,
+                atkInterval: 1700,
+                cd: 7,
+                color: '#ab47bc',
+                enemyColor: '#26a69a',
+                width: 28,
+                height: 46
+            },
+            boss: {
+                name: '強襲巨魔領主',
+                cost: 0,
+                hp: 10000,
+                atk: 85,
+                range: 55,
+                speed: 0.6,
+                atkInterval: 1800,
+                cd: 0,
+                color: '#d32f2f',
+                enemyColor: '#b71c1c',
+                width: 65,
+                height: 88
+            }
+        };
+
+        /* 浮動戰鬥文字 */
+        class FloatingText {
+            constructor(text, x, y, color = '#ffffff', isCrit = false) {
+                this.text = text;
+                this.x = x + (Math.random() * 20 - 10);
+                this.y = y;
+                this.color = color;
+                this.isCrit = isCrit;
+                this.life = 0.85;
+                this.maxLife = 0.85;
+                this.vy = isCrit ? -2.8 : -1.6;
+            }
+
+            update(dt) {
+                this.y += this.vy;
+                this.life -= dt;
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, this.life / this.maxLife);
+                ctx.font = this.isCrit ? '900 19px "Noto Sans TC"' : 'bold 14px "Noto Sans TC"';
+                ctx.fillStyle = this.color;
+                ctx.shadowColor = '#000';
+                ctx.shadowBlur = 5;
+                ctx.fillText(this.text, this.x, this.y);
+                ctx.restore();
+            }
+        }
+
+        /* 粒子系統 (包含火花、爆炸與魔法孢子) */
+        class Particle {
+            constructor(x, y, color, vx, vy, size, life) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.vx = vx;
+                this.vy = vy;
+                this.size = size;
+                this.life = life;
+                this.maxLife = life;
+            }
+
+            update(dt) {
+                this.x += this.vx * dt * 60;
+                this.y += this.vy * dt * 60;
+                this.life -= dt;
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, this.life / this.maxLife);
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        /* 戰鬥單位 (升級：倒地死亡動畫與受擊閃白) */
+        class Unit {
+            constructor(type, team, x, y, level = 1, statScale = 1) {
+                const config = UNIT_TYPES[type];
+                this.type = type;
+                this.team = team;
+                this.x = x;
+                this.y = y;
+                this.level = level;
+
+                let lvlMult = 1 + (level - 1) * 0.25;
+                this.maxHp = config.hp * lvlMult * statScale;
+                this.hp = this.maxHp;
+                this.atk = config.atk * lvlMult * statScale;
+                this.range = config.range;
+                this.speed = team === 'player' ? config.speed : -config.speed;
+                this.atkInterval = config.atkInterval;
+                this.color = team === 'player' ? config.color : config.enemyColor;
+                this.width = config.width;
+                this.height = config.height;
+
+                this.shield = 0;
+                this.lastAtkTime = 0;
+                this.state = 'walk'; // walk, attack, dead
+                this.animFrame = 0;
+                this.animTimer = 0;
+
+                // 視覺升級屬性
+                this.hitFlashTimer = 0;
+                this.deathAngle = 0;
+                this.deathAlpha = 1.0;
+            }
+
+            update(now, targets, enemyCastle, dt) {
+                if (this.hitFlashTimer > 0) this.hitFlashTimer -= dt;
+
+                // 處理陣亡倒地動畫
+                if (this.hp <= 0) {
+                    this.state = 'dead';
+                    this.deathAngle = Math.min(Math.PI / 2, this.deathAngle + dt * 6);
+                    this.deathAlpha = Math.max(0, this.deathAlpha - dt * 1.2);
+                    return;
+                }
+
+                let closestTarget = null;
+                let minDistance = Infinity;
+
+                for (let enemy of targets) {
+                    if (enemy.hp <= 0) continue;
+                    let dist = this.team === 'player' ? 
+                        (enemy.x - enemy.width/2) - (this.x + this.width/2) :
+                        (this.x - this.width/2) - (enemy.x + enemy.width/2);
+
+                    if (dist >= -15 && dist < minDistance) {
+                        minDistance = dist;
+                        closestTarget = enemy;
+                    }
+                }
+
+                if (!closestTarget) {
+                    let castleDist = this.team === 'player' ?
+                        (enemyCastle.x - enemyCastle.width/2) - (this.x + this.width/2) :
+                        (this.x - this.width/2) - (enemyCastle.x + enemyCastle.width/2);
+                    
+                    if (castleDist < minDistance) {
+                        minDistance = castleDist;
+                        closestTarget = enemyCastle;
+                    }
+                }
+
+                if (closestTarget && minDistance <= this.range) {
+                    this.state = 'attack';
+                    if (now - this.lastAtkTime >= this.atkInterval) {
+                        this.attack(closestTarget, now);
+                        this.lastAtkTime = now;
+                    }
+                } else {
+                    this.state = 'walk';
+                    this.x += this.speed * dt * 60;
+                }
+
+                this.animTimer += dt;
+                if (this.animTimer > 0.12) {
+                    this.animFrame = (this.animFrame + 1) % 4;
+                    this.animTimer = 0;
+                }
+            }
+
+            attack(target, now) {
+                let isCrit = Math.random() < 0.15;
+                let damage = isCrit ? Math.floor(this.atk * 1.8) : Math.floor(this.atk);
+
+                if (this.type === 'archer') {
+                    game.projectiles.push(new Projectile(this.x, this.y - 20, target, 'arrow', damage, isCrit, this.team));
+                    sound.play('arrow');
+                } else if (this.type === 'mage') {
+                    game.projectiles.push(new Projectile(this.x, this.y - 22, target, 'magic', damage, isCrit, this.team));
+                    sound.play('magic');
+                } else {
+                    target.takeDamage(damage, isCrit);
+                    game.createHitEffect(target.x, target.y - 20, isCrit ? '#ffeb3b' : '#ffffff');
+                    sound.play(isCrit ? 'crit' : 'hit');
+                }
+            }
+
+            takeDamage(amount, isCrit = false) {
+                let actualDamage = amount;
+                if (this.shield > 0) {
+                    if (this.shield >= actualDamage) {
+                        this.shield -= actualDamage;
+                        actualDamage = 0;
+                    } else {
+                        actualDamage -= this.shield;
+                        this.shield = 0;
+                    }
+                }
+
+                if (actualDamage > 0) {
+                    this.hp -= actualDamage;
+                    this.hitFlashTimer = 0.12; // 受擊亮白閃爍
+                    if (this.hp <= 0) {
+                        this.hp = 0;
+                        if (this.team === 'enemy') game.totalKills++;
+                        // 產生陣亡靈魂粒子
+                        for(let i=0; i<6; i++) {
+                            game.particles.push(new Particle(this.x, this.y - 20, '#e040fb', (Math.random()-0.5)*2, -2 - Math.random()*2, 3, 0.8));
+                        }
+                    }
+                }
+
+                if (this.team === 'player') game.totalDamageTaken += amount;
+                else game.totalDamageDealt += amount;
+
+                game.floatingTexts.push(new FloatingText(
+                    isCrit ? `CRIT -${amount}` : `-${amount}`,
+                    this.x, this.y - this.height - 12,
+                    isCrit ? '#ff1744' : (this.team === 'player' ? '#ff5252' : '#ffffff'),
+                    isCrit
+                ));
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+
+                let dir = this.team === 'player' ? 1 : -1;
+                let bobY = (this.state === 'walk') ? Math.sin(this.animFrame * Math.PI / 2) * 3 : 0;
+                let legAngle = (this.state === 'walk') ? Math.sin(this.animFrame * Math.PI / 2) * 0.4 : 0;
+                let isAttacking = (this.state === 'attack');
+
+                if (this.state === 'dead') {
+                    ctx.globalAlpha = this.deathAlpha;
+                    ctx.rotate(this.team === 'player' ? -this.deathAngle : this.deathAngle);
+                }
+
+                // 受擊閃白 Composite
+                if (this.hitFlashTimer > 0) {
+                    ctx.filter = 'brightness(2.5) contrast(1.5)';
+                }
+
+                // 1. 地面陰影
+                if (this.state !== 'dead') {
+                    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+                    ctx.beginPath();
+                    ctx.ellipse(0, 2, this.width * 0.5, 6, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                // 2. 護盾防禦光圈
+                if (this.shield > 0 && this.state !== 'dead') {
+                    ctx.strokeStyle = 'rgba(64, 196, 255, 0.9)';
+                    ctx.lineWidth = 3;
+                    ctx.shadowColor = '#00e5ff';
+                    ctx.shadowBlur = 12;
+                    ctx.beginPath();
+                    ctx.ellipse(0, -this.height / 2 + bobY, this.width * 0.8, this.height * 0.6, 0, 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.shadowBlur = 0;
+                }
+
+                // 3. 血條與等級指示器
+                if (this.state !== 'dead') {
+                    let hpPercent = Math.max(0, this.hp / this.maxHp);
+                    let barW = Math.max(30, this.width);
+                    ctx.fillStyle = 'rgba(10,10,15,0.85)';
+                    ctx.fillRect(-barW/2, -this.height - 18 + bobY, barW, 6);
+                    ctx.fillStyle = this.team === 'player' ? '#4caf50' : '#f44336';
+                    ctx.fillRect(-barW/2 + 1, -this.height - 17 + bobY, (barW - 2) * hpPercent, 4);
+
+                    if (this.level > 1 && this.team === 'player') {
+                        ctx.fillStyle = '#ffd700';
+                        ctx.font = '900 10px sans-serif';
+                        ctx.textAlign = 'center';
+                        ctx.fillText(`Lv.${this.level}`, 0, -this.height - 22 + bobY);
+                    }
+                }
+
+                // 4. 精緻角色組件繪製
+                ctx.scale(dir, 1);
+
+                if (this.type === 'infantry') {
+                    let mainColor = this.team === 'player' ? '#1976d2' : '#c62828';
+                    let armorColor = '#b0bec5';
+
+                    ctx.fillStyle = '#37474f';
+                    ctx.fillRect(-6 + Math.sin(legAngle)*4, -14, 5, 14);
+                    ctx.fillRect(1 - Math.sin(legAngle)*4, -14, 5, 14);
+
+                    let bodyGrad = ctx.createLinearGradient(-10, -32, 10, -14);
+                    bodyGrad.addColorStop(0, mainColor);
+                    bodyGrad.addColorStop(1, '#0d47a1');
+                    ctx.fillStyle = bodyGrad;
+                    ctx.fillRect(-9, -32 + bobY, 18, 18);
+
+                    ctx.fillStyle = armorColor;
+                    ctx.fillRect(-7, -30 + bobY, 14, 10);
+                    ctx.fillStyle = '#ffd700';
+                    ctx.fillRect(-2, -28 + bobY, 4, 6);
+
+                    ctx.fillStyle = armorColor;
+                    ctx.beginPath();
+                    ctx.arc(-9, -30 + bobY, 5, 0, Math.PI*2);
+                    ctx.arc(9, -30 + bobY, 5, 0, Math.PI*2);
+                    ctx.fill();
+
+                    ctx.fillStyle = '#ffe0b2';
+                    ctx.fillRect(-5, -42 + bobY, 10, 10);
+                    ctx.fillStyle = armorColor;
+                    ctx.beginPath();
+                    ctx.arc(0, -42 + bobY, 8, Math.PI, 0);
+                    ctx.fill();
+                    ctx.fillRect(-8, -42 + bobY, 16, 4);
+
+                    ctx.fillStyle = this.team === 'player' ? '#ff1744' : '#ff9800';
+                    ctx.beginPath();
+                    ctx.moveTo(0, -50 + bobY);
+                    ctx.lineTo(-6, -44 + bobY);
+                    ctx.lineTo(2, -44 + bobY);
+                    ctx.closePath();
+                    ctx.fill();
+
+                    let swordSwing = isAttacking ? Math.sin(Date.now() * 0.02) * 0.8 : 0;
+                    
+                    ctx.fillStyle = mainColor;
+                    ctx.beginPath();
+                    ctx.moveTo(-12, -32 + bobY); ctx.lineTo(-4, -32 + bobY);
+                    ctx.lineTo(-4, -18 + bobY); ctx.lineTo(-8, -14 + bobY);
+                    ctx.lineTo(-12, -18 + bobY); ctx.closePath(); ctx.fill();
+                    ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 1.5; ctx.stroke();
+
+                    ctx.save();
+                    ctx.translate(6, -24 + bobY);
+                    ctx.rotate(swordSwing + 0.2);
+                    ctx.fillStyle = '#8d6e63'; ctx.fillRect(-2, -2, 4, 6);
+                    ctx.fillStyle = '#ffd700'; ctx.fillRect(-6, -4, 12, 3);
+                    let swordGrad = ctx.createLinearGradient(0, -22, 0, -4);
+                    swordGrad.addColorStop(0, '#ffffff'); swordGrad.addColorStop(1, '#b0bec5');
+                    ctx.fillStyle = swordGrad;
+                    ctx.beginPath(); ctx.moveTo(-3, -4); ctx.lineTo(-2, -24); ctx.lineTo(0, -28); ctx.lineTo(2, -24); ctx.lineTo(3, -4); ctx.closePath(); ctx.fill();
+                    ctx.restore();
+
+                } else if (this.type === 'archer') {
+                    let cloakColor = this.team === 'player' ? '#2e7d32' : '#d84315';
+
+                    ctx.fillStyle = cloakColor;
+                    ctx.beginPath();
+                    ctx.moveTo(-6, -34 + bobY);
+                    ctx.quadraticCurveTo(-16, -20 + bobY, -12 + Math.sin(Date.now()*0.008)*4, -8);
+                    ctx.lineTo(-2, -14); ctx.closePath(); ctx.fill();
+
+                    ctx.fillStyle = '#4e342e';
+                    ctx.fillRect(-5 + Math.sin(legAngle)*4, -12, 4, 12);
+                    ctx.fillRect(1 - Math.sin(legAngle)*4, -12, 4, 12);
+
+                    ctx.fillStyle = '#6d4c41'; ctx.fillRect(-7, -28 + bobY, 14, 16);
+                    ctx.fillStyle = '#3e2723'; ctx.fillRect(-7, -18 + bobY, 14, 3);
+
+                    ctx.fillStyle = '#4e342e'; ctx.fillRect(-10, -32 + bobY, 5, 16);
+                    ctx.strokeStyle = '#ff1744'; ctx.lineWidth = 2;
+                    ctx.beginPath(); ctx.moveTo(-9, -32 + bobY); ctx.lineTo(-12, -38 + bobY); ctx.moveTo(-7, -32 + bobY); ctx.lineTo(-8, -39 + bobY); ctx.stroke();
+
+                    ctx.fillStyle = '#ffe0b2'; ctx.fillRect(-4, -38 + bobY, 8, 8);
+                    ctx.fillStyle = cloakColor;
+                    ctx.beginPath(); ctx.arc(0, -38 + bobY, 7, Math.PI, 0); ctx.lineTo(6, -34 + bobY); ctx.lineTo(-6, -34 + bobY); ctx.closePath(); ctx.fill();
+
+                    let pull = isAttacking ? 8 : 0;
+                    ctx.save();
+                    ctx.translate(4, -24 + bobY);
+                    ctx.strokeStyle = '#5d4037'; ctx.lineWidth = 3;
+                    ctx.beginPath(); ctx.arc(0, 0, 16, -Math.PI/2.2, Math.PI/2.2); ctx.stroke();
+                    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1;
+                    ctx.beginPath(); ctx.moveTo(Math.cos(-Math.PI/2.2)*16, Math.sin(-Math.PI/2.2)*16); ctx.lineTo(-pull, 0); ctx.lineTo(Math.cos(Math.PI/2.2)*16, Math.sin(Math.PI/2.2)*16); ctx.stroke();
+                    ctx.restore();
+
+                } else if (this.type === 'knight') {
+                    let capColor = this.team === 'player' ? '#c62828' : '#4a148c';
+
+                    ctx.fillStyle = capColor;
+                    ctx.beginPath(); ctx.moveTo(-10, -40 + bobY); ctx.quadraticCurveTo(-22, -25, -18 + Math.sin(Date.now()*0.01)*5, -4); ctx.lineTo(-4, -18); ctx.closePath(); ctx.fill();
+
+                    ctx.fillStyle = '#546e7a';
+                    ctx.fillRect(-8 + Math.sin(legAngle)*3, -16, 7, 16);
+                    ctx.fillRect(1 - Math.sin(legAngle)*3, -16, 7, 16);
+
+                    let plateGrad = ctx.createLinearGradient(-12, -40, 12, -16);
+                    plateGrad.addColorStop(0, '#cfd8dc'); plateGrad.addColorStop(0.5, '#90a4ae'); plateGrad.addColorStop(1, '#37474f');
+                    ctx.fillStyle = plateGrad; ctx.fillRect(-11, -38 + bobY, 22, 22);
+                    ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 2; ctx.strokeRect(-11, -38 + bobY, 22, 22);
+
+                    ctx.fillStyle = '#b0bec5'; ctx.fillRect(-8, -52 + bobY, 16, 14);
+                    ctx.fillStyle = '#1c313a'; ctx.fillRect(-5, -46 + bobY, 10, 3);
+                    ctx.fillStyle = '#ffd700'; ctx.fillRect(-1, -52 + bobY, 2, 14);
+
+                    ctx.fillStyle = '#eceff1';
+                    ctx.beginPath(); ctx.moveTo(-16, -42 + bobY); ctx.lineTo(-4, -42 + bobY); ctx.lineTo(-4, -18 + bobY); ctx.lineTo(-10, -10 + bobY); ctx.lineTo(-16, -18 + bobY); ctx.closePath(); ctx.fill();
+                    ctx.fillStyle = capColor; ctx.fillRect(-12, -32 + bobY, 6, 14); ctx.fillRect(-14, -28 + bobY, 10, 5);
+
+                    ctx.save();
+                    ctx.translate(8, -26 + bobY);
+                    ctx.rotate(isAttacking ? 0.1 : -0.2);
+                    ctx.fillStyle = '#78909c'; ctx.fillRect(0, -3, 35, 5);
+                    ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.moveTo(35, -5); ctx.lineTo(48, 0); ctx.lineTo(35, 5); ctx.fill();
+                    ctx.fillStyle = capColor; ctx.fillRect(20, 2, 12, 8);
+                    ctx.restore();
+
+                } else if (this.type === 'mage') {
+                    let robeColor = this.team === 'player' ? '#6a1b9a' : '#00695c';
+
+                    ctx.strokeStyle = 'rgba(234, 128, 252, 0.4)'; ctx.lineWidth = 1.5;
+                    ctx.beginPath(); ctx.ellipse(0, 0, 16, 6, 0, 0, Math.PI*2); ctx.stroke();
+
+                    let robeGrad = ctx.createLinearGradient(0, -42, 0, 0);
+                    robeGrad.addColorStop(0, robeColor); robeGrad.addColorStop(1, '#1a237e');
+                    ctx.fillStyle = robeGrad;
+                    ctx.beginPath(); ctx.moveTo(-5, -38 + bobY); ctx.lineTo(5, -38 + bobY); ctx.lineTo(12, 0); ctx.lineTo(-12, 0); ctx.closePath(); ctx.fill();
+
+                    ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 1.5;
+                    ctx.beginPath(); ctx.moveTo(-12, 0); ctx.lineTo(0, -38 + bobY); ctx.lineTo(12, 0); ctx.stroke();
+
+                    ctx.fillStyle = '#ffe0b2'; ctx.beginPath(); ctx.arc(0, -42 + bobY, 6, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#4a148c'; ctx.beginPath(); ctx.moveTo(-12, -44 + bobY); ctx.lineTo(12, -44 + bobY); ctx.lineTo(0, -62 + bobY); ctx.closePath(); ctx.fill();
+                    ctx.fillStyle = '#ffd700'; ctx.fillRect(-8, -46 + bobY, 16, 2);
+
+                    ctx.save();
+                    ctx.translate(8, -20 + bobY);
+                    ctx.fillStyle = '#4e342e'; ctx.fillRect(-2, -24, 4, 38);
+                    ctx.fillStyle = '#ffd700'; ctx.beginPath(); ctx.arc(0, -26, 6, 0, Math.PI*2); ctx.fill();
+
+                    let gemPulse = Math.sin(Date.now() * 0.008) * 2;
+                    ctx.fillStyle = '#ea80fc'; ctx.shadowColor = '#e040fb'; ctx.shadowBlur = 10;
+                    ctx.beginPath(); ctx.arc(0, -34 + gemPulse, 5, 0, Math.PI*2); ctx.fill();
+                    ctx.restore();
+
+                } else if (this.type === 'boss') {
+                    let bodyColor = '#3e2723';
+
+                    ctx.fillStyle = '#212121';
+                    ctx.fillRect(-16 + Math.sin(legAngle)*5, -24, 14, 24);
+                    ctx.fillRect(2 - Math.sin(legAngle)*5, -24, 14, 24);
+
+                    ctx.fillStyle = bodyColor;
+                    ctx.beginPath(); ctx.moveTo(-22, -65 + bobY); ctx.lineTo(22, -65 + bobY); ctx.lineTo(16, -22); ctx.lineTo(-16, -22); ctx.closePath(); ctx.fill();
+
+                    ctx.fillStyle = '#212121'; ctx.fillRect(-18, -28 + bobY, 36, 8);
+                    ctx.fillStyle = '#e0e0e0'; ctx.beginPath(); ctx.arc(0, -24 + bobY, 5, 0, Math.PI*2); ctx.fill();
+
+                    ctx.fillStyle = '#212121'; ctx.fillRect(-28, -68 + bobY, 14, 14); ctx.fillRect(14, -68 + bobY, 14, 14);
+                    ctx.fillStyle = '#b0bec5';
+                    ctx.beginPath(); ctx.moveTo(-24, -68 + bobY); ctx.lineTo(-21, -80 + bobY); ctx.lineTo(-18, -68 + bobY); ctx.moveTo(18, -68 + bobY); ctx.lineTo(21, -80 + bobY); ctx.lineTo(24, -68 + bobY); ctx.fill();
+
+                    ctx.fillStyle = '#3e2723'; ctx.fillRect(-12, -82 + bobY, 24, 20);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.beginPath(); ctx.moveTo(-8, -66 + bobY); ctx.lineTo(-6, -74 + bobY); ctx.lineTo(-4, -66 + bobY); ctx.moveTo(4, -66 + bobY); ctx.lineTo(6, -74 + bobY); ctx.lineTo(8, -66 + bobY); ctx.fill();
+
+                    ctx.fillStyle = '#ff1744'; ctx.shadowColor = '#ff1744'; ctx.shadowBlur = 8;
+                    ctx.fillRect(2, -76 + bobY, 6, 4); ctx.shadowBlur = 0;
+
+                    ctx.save();
+                    ctx.translate(16, -45 + bobY);
+                    ctx.rotate(isAttacking ? Math.sin(Date.now()*0.02)*0.6 : 0.3);
+                    ctx.fillStyle = '#212121'; ctx.fillRect(-4, -40, 8, 55);
+                    ctx.fillStyle = '#757575'; ctx.fillRect(-10, -45, 20, 25);
+                    ctx.fillStyle = '#ffb300';
+                    for (let i = -40; i <= -25; i += 8) { ctx.fillRect(-14, i, 4, 3); ctx.fillRect(10, i, 4, 3); }
+                    ctx.restore();
+                }
+
+                ctx.restore();
+            }
+        }
+
+        /* 投射物（帶有粒子拖尾鏈） */
+        class Projectile {
+            constructor(x, y, target, type, damage, isCrit, team) {
+                this.x = x;
+                this.y = y;
+                this.target = target;
+                this.type = type;
+                this.damage = damage;
+                this.isCrit = isCrit;
+                this.team = team;
+                this.speed = type === 'arrow' ? 8.5 : 6;
+                this.active = true;
+
+                let dx = target.x - x;
+                let dy = (target.y - target.height/2) - y;
+                let dist = Math.hypot(dx, dy);
+                this.vx = (dx / dist) * this.speed;
+                this.vy = (dy / dist) * this.speed;
+            }
+
+            update(dt) {
+                if (!this.active) return;
+                this.x += this.vx * dt * 60;
+                this.y += this.vy * dt * 60;
+
+                // 生成粒子拖尾
+                if (Math.random() < 0.6) {
+                    let trailColor = this.type === 'arrow' ? 'rgba(255,255,255,0.4)' : '#ea80fc';
+                    game.particles.push(new Particle(this.x, this.y, trailColor, (Math.random()-0.5)*0.5, (Math.random()-0.5)*0.5, 2, 0.25));
+                }
+
+                let dist = Math.hypot(this.target.x - this.x, (this.target.y - this.target.height/2) - this.y);
+                if (dist < 20 || this.x < 0 || this.x > game.width) {
+                    this.hit();
+                }
+            }
+
+            hit() {
+                this.active = false;
+                if (this.type === 'magic') {
+                    let targets = this.team === 'player' ? game.enemyUnits : game.playerUnits;
+                    for (let u of targets) {
+                        if (Math.hypot(u.x - this.x, u.y - this.y) < 65) {
+                            u.takeDamage(this.damage, this.isCrit);
+                        }
+                    }
+                    if (Math.hypot(this.target.x - this.x, this.target.y - this.y) < 65) {
+                        this.target.takeDamage(this.damage, this.isCrit);
+                    }
+                    game.createExplosionEffect(this.x, this.y, '#ab47bc');
+                } else {
+                    this.target.takeDamage(this.damage, this.isCrit);
+                    game.createHitEffect(this.x, this.y, '#ffd700');
+                }
+                sound.play('hit');
+            }
+
+            draw(ctx) {
+                ctx.save();
+                if (this.type === 'arrow') {
+                    let angle = Math.atan2(this.vy, this.vx);
+                    ctx.translate(this.x, this.y);
+                    ctx.rotate(angle);
+                    ctx.strokeStyle = '#d7ccc8';
+                    ctx.lineWidth = 2.5;
+                    ctx.beginPath(); ctx.moveTo(-10, 0); ctx.lineTo(10, 0); ctx.stroke();
+                    ctx.fillStyle = '#ff1744';
+                    ctx.beginPath(); ctx.moveTo(-10, 0); ctx.lineTo(-14, -3); ctx.lineTo(-14, 3); ctx.fill();
+                } else {
+                    ctx.fillStyle = '#ea80fc';
+                    ctx.shadowColor = '#ab47bc';
+                    ctx.shadowBlur = 12;
+                    ctx.beginPath(); ctx.arc(this.x, this.y, 7, 0, Math.PI * 2); ctx.fill();
+                }
+                ctx.restore();
+            }
+        }
+
+        /* 城堡類別 */
+        class Castle {
+            constructor(x, y, team, maxHp) {
+                this.x = x;
+                this.y = y;
+                this.team = team;
+                this.maxHp = maxHp;
+                this.hp = maxHp;
+                this.width = 110;
+                this.height = 180;
+            }
+
+            takeDamage(amount, isCrit = false) {
+                this.hp -= amount;
+                if (this.hp < 0) this.hp = 0;
+
+                game.floatingTexts.push(new FloatingText(
+                    `-${amount}`,
+                    this.x + (Math.random() * 40 - 20), this.y - this.height,
+                    '#ff1744', true
+                ));
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+
+                let isPlayer = this.team === 'player';
+                let mainColor = isPlayer ? '#455a64' : '#263238';
+                let bannerColor = isPlayer ? '#1565c0' : '#c62828';
+
+                ctx.fillStyle = mainColor;
+                ctx.fillRect(-this.width/2, -this.height, this.width, this.height);
+
+                ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+                ctx.lineWidth = 1.5;
+                for (let y = -this.height + 20; y < 0; y += 20) {
+                    ctx.beginPath(); ctx.moveTo(-this.width/2, y); ctx.lineTo(this.width/2, y); ctx.stroke();
+                }
+
+                let bw = 22;
+                for (let i = -this.width/2; i < this.width/2; i += bw * 1.2) {
+                    ctx.fillRect(i, -this.height - 16, bw, 16);
+                }
+
+                ctx.fillStyle = '#100e17';
+                ctx.fillRect(-24, -40, 48, 40);
+
+                ctx.fillStyle = bannerColor;
+                let flagWave = Math.sin(Date.now() / 200) * 5;
+                ctx.fillRect(isPlayer ? -12 : 0, -this.height - 48, 30 + flagWave, 18);
+                ctx.strokeStyle = '#8d6e63'; ctx.lineWidth = 3;
+                ctx.beginPath(); ctx.moveTo(isPlayer ? -12 : 0, -this.height - 54); ctx.lineTo(isPlayer ? -12 : 0, -this.height); ctx.stroke();
+
+                ctx.restore();
+            }
+        }
+
+        /* 遊戲核心控制引擎 */
+        class Game {
+            constructor() {
+                this.canvas = document.getElementById('gameCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.width = 1280;
+                this.height = 720;
+
+                this.lastTime = 0;
+                this.isRunning = false;
+                this.isPaused = false;
+                this.autoSpawn = false;
+                this.gameSpeed = 1;
+
+                this.gold = 200;
+                this.goldRate = 25;
+                this.mineLevel = 1;
+                this.mineUpgradeCost = 100;
+                this.stage = 1;
+
+                // 統計數據
+                this.totalKills = 0;
+                this.totalDamageDealt = 0;
+                this.totalDamageTaken = 0;
+                this.totalGoldEarned = 200;
+
+                this.unitTiers = { infantry: 1, archer: 1, knight: 1, mage: 1 };
+                this.unitUpgradeCosts = { infantry: 100, archer: 120, knight: 200, mage: 250 };
+                this.skillCDs = { arrow: 0, shield: 0, meteor: 0 };
+                this.spawnCDs = { infantry: 0, archer: 0, knight: 0, mage: 0 };
+
+                this.playerUnits = [];
+                this.enemyUnits = [];
+                this.projectiles = [];
+                this.particles = [];
+                this.floatingTexts = [];
+
+                // 大氣環境雲朵粒子
+                this.ambientParticles = [];
+                for(let i=0; i<30; i++) {
+                    this.ambientParticles.push({
+                        x: Math.random() * this.width,
+                        y: Math.random() * 400,
+                        size: 1 + Math.random() * 2.5,
+                        speed: 0.2 + Math.random() * 0.4,
+                        alpha: 0.2 + Math.random() * 0.5
+                    });
+                }
+
+                this.enemySpawnTimer = 0;
+                this.bossActive = false;
+
+                this.initCanvas();
+                this.bindEvents();
+            }
+
+            initCanvas() {
+                this.canvas.width = this.width;
+                this.canvas.height = this.height;
+            }
+
+            startGame() {
+                document.getElementById('gameModal').style.display = 'none';
+
+                this.gold = 200;
+                this.goldRate = 25;
+                this.mineLevel = 1;
+                this.mineUpgradeCost = 100;
+                this.stage = 1;
+
+                this.totalKills = 0;
+                this.totalDamageDealt = 0;
+                this.totalDamageTaken = 0;
+                this.totalGoldEarned = 200;
+
+                this.playerCastle = new Castle(120, 540, 'player', 1200);
+                this.enemyCastle = new Castle(1160, 540, 'enemy', 1200);
+
+                this.playerUnits = [];
+                this.enemyUnits = [];
+                this.projectiles = [];
+                this.particles = [];
+                this.floatingTexts = [];
+
+                this.enemySpawnTimer = 0;
+                this.bossActive = false;
+                this.bossSpawnedThisStage = false;
+
+                this.isRunning = true;
+                this.isPaused = false;
+                this.lastTime = performance.now();
+                requestAnimationFrame(this.loop.bind(this));
+            }
+
+            triggerShake() {
+                const wrapper = document.getElementById('game-wrapper');
+                wrapper.classList.remove('screen-shake');
+                void wrapper.offsetWidth;
+                wrapper.classList.add('screen-shake');
+            }
+
+            showBossWarning() {
+                const warn = document.getElementById('bossWarning');
+                warn.classList.add('show');
+                this.triggerShake();
+                setTimeout(() => warn.classList.remove('show'), 3000);
+            }
+
+            toggleAuto() {
+                this.autoSpawn = !this.autoSpawn;
+                const btn = document.getElementById('autoBtn');
+                btn.innerText = `自動出兵: ${this.autoSpawn ? 'ON' : 'OFF'}`;
+                btn.classList.toggle('active', this.autoSpawn);
+            }
+
+            toggleSpeed() {
+                this.gameSpeed = this.gameSpeed === 1 ? 2 : 1;
+                document.getElementById('speedBtn').innerText = `${this.gameSpeed}x 速度`;
+            }
+
+            togglePause() {
+                this.isPaused = !this.isPaused;
+                document.getElementById('pauseBtn').innerText = this.isPaused ? '繼續' : '暫停';
+            }
+
+            toggleSound() {
+                sound.enabled = !sound.enabled;
+                document.getElementById('soundBtn').innerText = `音效: ${sound.enabled ? 'ON' : 'OFF'}`;
+            }
+
+            toggleBGM() {
+                let st = sound.toggleBGM();
+                document.getElementById('bgmBtn').innerText = `BGM: ${st ? 'ON' : 'OFF'}`;
+            }
+
+            spawnUnit(type) {
+                if (!this.isRunning || this.isPaused) return;
+                const config = UNIT_TYPES[type];
+
+                if (this.gold >= config.cost && this.spawnCDs[type] <= 0) {
+                    this.gold -= config.cost;
+                    this.spawnCDs[type] = config.cd;
+
+                    let lvl = this.unitTiers[type];
+                    this.playerUnits.push(new Unit(type, 'player', 170, 540, lvl));
+                    sound.play('spawn');
+                    this.updateUI();
+                }
+            }
+
+            upgradeUnitTier(type) {
+                if (!this.isRunning || this.isPaused) return;
+                let cost = this.unitUpgradeCosts[type];
+                if (this.gold >= cost) {
+                    this.gold -= cost;
+                    this.unitTiers[type]++;
+                    this.unitUpgradeCosts[type] = Math.floor(cost * 1.7);
+                    sound.play('upgrade');
+                    this.updateUI();
+                }
+            }
+
+            upgradeMine() {
+                if (!this.isRunning || this.isPaused) return;
+                if (this.gold >= this.mineUpgradeCost) {
+                    this.gold -= this.mineUpgradeCost;
+                    this.mineLevel++;
+                    this.goldRate += 15;
+                    this.mineUpgradeCost = Math.floor(this.mineUpgradeCost * 1.5);
+                    sound.play('upgrade');
+                    this.updateUI();
+                }
+            }
+
+            useSkill(type) {
+                if (!this.isRunning || this.isPaused || this.skillCDs[type] > 0) return;
+
+                if (type === 'arrow') {
+                    this.skillCDs.arrow = 15;
+                    sound.play('meteor');
+                    this.triggerShake();
+
+                    for (let i = 0; i < 45; i++) {
+                        setTimeout(() => {
+                            let rx = 250 + Math.random() * 880;
+                            let ry = 100 + Math.random() * 400;
+                            this.createExplosionEffect(rx, ry + 100, '#ff5252');
+
+                            for (let enemy of this.enemyUnits) {
+                                if (Math.abs(enemy.x - rx) < 90) enemy.takeDamage(35, true);
+                            }
+                            if (Math.abs(this.enemyCastle.x - rx) < 90) this.enemyCastle.takeDamage(20, true);
+                        }, i * 25);
+                    }
+                } 
+                else if (type === 'shield') {
+                    this.skillCDs.shield = 20;
+                    sound.play('upgrade');
+
+                    for (let unit of this.playerUnits) {
+                        unit.shield = 150;
+                        unit.hp = Math.min(unit.maxHp, unit.hp + 100);
+                        this.floatingTexts.push(new FloatingText('+100 HEAL', unit.x, unit.y - unit.height, '#4caf50'));
+                    }
+                }
+                else if (type === 'meteor') {
+                    this.skillCDs.meteor = 30;
+                    sound.play('meteor');
+
+                    setTimeout(() => {
+                        this.triggerShake();
+                        let targetX = 800;
+                        this.createExplosionEffect(targetX, 500, '#ff3d00');
+
+                        for (let enemy of this.enemyUnits) {
+                            if (Math.abs(enemy.x - targetX) < 220) enemy.takeDamage(300, true);
+                        }
+                        if (Math.abs(this.enemyCastle.x - targetX) < 220) this.enemyCastle.takeDamage(150, true);
+                    }, 600);
+                }
+            }
+
+            enemyAI(dt) {
+                this.enemySpawnTimer += dt;
+                let spawnInterval = Math.max(1.8, 4.5 - this.stage * 0.35);
+
+                if (this.stage % 3 === 0 && !this.bossSpawnedThisStage && this.enemyCastle.hp > 0) {
+                    this.bossSpawnedThisStage = true;
+                    this.bossActive = true;
+                    this.showBossWarning();
+                    document.getElementById('bossBar').style.display = 'flex';
+                    let bossScale = 1 + (this.stage - 3) * 0.22;
+                    let boss = new Unit('boss', 'enemy', 1100, 540, 1, bossScale);
+                    this.enemyUnits.push(boss);
+                }
+
+                if (this.enemySpawnTimer >= spawnInterval) {
+                    this.enemySpawnTimer = 0;
+
+                    let rand = Math.random();
+                    let type = 'infantry';
+                    if (rand > 0.35) type = 'archer';
+                    if (rand > 0.65 && this.stage >= 2) type = 'knight';
+                    if (rand > 0.85 && this.stage >= 3) type = 'mage';
+
+                    let scale = 1 + (this.stage - 1) * 0.18;
+                    this.enemyUnits.push(new Unit(type, 'enemy', 1110, 540, 1, scale));
+                }
+            }
+
+            autoSpawnLogic() {
+                if (!this.autoSpawn) return;
+                const types = ['knight', 'mage', 'archer', 'infantry'];
+                for (let t of types) {
+                    if (this.gold >= UNIT_TYPES[t].cost && this.spawnCDs[t] <= 0) {
+                        this.spawnUnit(t);
+                        break;
+                    }
+                }
+            }
+
+            nextStage() {
+                this.stage++;
+                this.gold += 300 + this.stage * 100;
+                this.totalGoldEarned += 300 + this.stage * 100;
+                this.bossActive = false;
+                this.bossSpawnedThisStage = false;
+                document.getElementById('bossBar').style.display = 'none';
+
+                this.playerCastle.hp = this.playerCastle.maxHp;
+                this.enemyCastle.maxHp = 1200 + (this.stage - 1) * 450;
+                this.enemyCastle.hp = this.enemyCastle.maxHp;
+
+                this.playerUnits = [];
+                this.enemyUnits = [];
+                this.projectiles = [];
+
+                sound.play('win');
+            }
+
+            update(dt) {
+                if (!this.isRunning || this.isPaused) return;
+
+                let adjustedDt = dt * this.gameSpeed;
+                let earned = this.goldRate * adjustedDt;
+                this.gold += earned;
+                this.totalGoldEarned += earned;
+
+                for (let k in this.skillCDs) if (this.skillCDs[k] > 0) this.skillCDs[k] = Math.max(0, this.skillCDs[k] - adjustedDt);
+                for (let k in this.spawnCDs) if (this.spawnCDs[k] > 0) this.spawnCDs[k] = Math.max(0, this.spawnCDs[k] - adjustedDt);
+
+                this.enemyAI(adjustedDt);
+                this.autoSpawnLogic();
+
+                for (let u of this.playerUnits) u.update(performance.now(), this.enemyUnits, this.enemyCastle, adjustedDt);
+                for (let u of this.enemyUnits) u.update(performance.now(), this.playerUnits, this.playerCastle, adjustedDt);
+                for (let p of this.projectiles) p.update(adjustedDt);
+                for (let p of this.particles) p.update(adjustedDt);
+                for (let ft of this.floatingTexts) ft.update(adjustedDt);
+
+                // 移除徹底死亡 (淡出完畢) 的單位
+                this.playerUnits = this.playerUnits.filter(u => u.deathAlpha > 0);
+                this.enemyUnits = this.enemyUnits.filter(u => u.deathAlpha > 0);
+                this.projectiles = this.projectiles.filter(p => p.active);
+                this.particles = this.particles.filter(p => p.life > 0);
+                this.floatingTexts = this.floatingTexts.filter(ft => ft.life > 0);
+
+                // 更新環境大氣微粒
+                for(let p of this.ambientParticles) {
+                    p.x += p.speed;
+                    if (p.x > this.width) p.x = 0;
+                }
+
+                if (this.bossActive) {
+                    let boss = this.enemyUnits.find(u => u.type === 'boss');
+                    if (boss && boss.hp > 0) {
+                        document.getElementById('bossHpText').innerText = `${Math.ceil(boss.hp)}/${Math.ceil(boss.maxHp)}`;
+                        document.getElementById('bossHpFill').style.width = `${(boss.hp / boss.maxHp) * 100}%`;
+                    } else {
+                        this.bossActive = false;
+                        document.getElementById('bossBar').style.display = 'none';
+                    }
+                }
+
+                if (this.enemyCastle.hp <= 0) {
+                    this.nextStage();
+                } else if (this.playerCastle.hp <= 0) {
+                    this.gameOver(false);
+                }
+
+                this.updateUI();
+            }
+
+            draw() {
+                this.ctx.clearRect(0, 0, this.width, this.height);
+
+                // 1. 天空漸層與環境微光
+                let skyGrad = this.ctx.createLinearGradient(0, 0, 0, 480);
+                skyGrad.addColorStop(0, '#090d16');
+                skyGrad.addColorStop(0.6, '#151d2a');
+                skyGrad.addColorStop(1, '#2c3e50');
+                this.ctx.fillStyle = skyGrad;
+                this.ctx.fillRect(0, 0, this.width, 480);
+
+                // 大氣飄浮孢子
+                this.ctx.fillStyle = '#64ffda';
+                for(let p of this.ambientParticles) {
+                    this.ctx.globalAlpha = p.alpha;
+                    this.ctx.beginPath();
+                    this.ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
+                    this.ctx.fill();
+                }
+                this.ctx.globalAlpha = 1.0;
+
+                // 2. 遠山景 (視差感)
+                this.ctx.fillStyle = '#0f172a';
+                this.ctx.beginPath();
+                this.ctx.moveTo(0, 480);
+                this.ctx.lineTo(250, 310);
+                this.ctx.lineTo(550, 480);
+                this.ctx.lineTo(880, 290);
+                this.ctx.lineTo(1280, 480);
+                this.ctx.fill();
+
+                // 3. 草地戰場
+                let fieldGrad = this.ctx.createLinearGradient(0, 480, 0, 720);
+                fieldGrad.addColorStop(0, '#2e7d32');
+                fieldGrad.addColorStop(1, '#1b5e20');
+                this.ctx.fillStyle = fieldGrad;
+                this.ctx.fillRect(0, 480, this.width, 240);
+
+                // 行軍石板路
+                this.ctx.fillStyle = '#4e342e';
+                this.ctx.fillRect(0, 525, this.width, 35);
+
+                // 4. 繪製城堡
+                this.playerCastle.draw(this.ctx);
+                this.enemyCastle.draw(this.ctx);
+
+                // 5. 繪製單位 (依 Y 軸排序呈現立體前後景深)
+                let allUnits = [...this.playerUnits, ...this.enemyUnits].sort((a, b) => a.y - b.y);
+                for (let u of allUnits) u.draw(this.ctx);
+
+                // 6. 投射物與特效
+                for (let p of this.projectiles) p.draw(this.ctx);
+                for (let p of this.particles) p.draw(this.ctx);
+                for (let ft of this.floatingTexts) ft.draw(this.ctx);
+            }
+
+            loop(timestamp) {
+                let dt = (timestamp - this.lastTime) / 1000;
+                if (dt > 0.1) dt = 0.1;
+                this.lastTime = timestamp;
+
+                this.update(dt);
+                this.draw();
+
+                if (this.isRunning) {
+                    requestAnimationFrame(this.loop.bind(this));
+                }
+            }
+
+            createHitEffect(x, y, color) {
+                for (let i = 0; i < 9; i++) {
+                    let angle = Math.random() * Math.PI * 2;
+                    let speed = 1.5 + Math.random() * 4;
+                    this.particles.push(new Particle(
+                        x, y, color,
+                        Math.cos(angle) * speed, Math.sin(angle) * speed,
+                        2.5 + Math.random() * 2, 0.3
+                    ));
+                }
+            }
+
+            createExplosionEffect(x, y, color) {
+                for (let i = 0; i < 25; i++) {
+                    let angle = Math.random() * Math.PI * 2;
+                    let speed = 2 + Math.random() * 7;
+                    this.particles.push(new Particle(
+                        x, y, color,
+                        Math.cos(angle) * speed, Math.sin(angle) * speed,
+                        3.5 + Math.random() * 4.5, 0.55
+                    ));
+                }
+            }
+
+            updateUI() {
+                document.getElementById('goldText').innerText = Math.floor(this.gold);
+                document.getElementById('goldRateText').innerText = this.goldRate;
+                document.getElementById('stageText').innerText = this.stage;
+                document.getElementById('mineCostText').innerHTML = `<span class="gold-icon" style="width:10px;height:10px;"></span>${this.mineUpgradeCost}`;
+
+                let mineBtn = document.getElementById('btn-upgrade-mine');
+                if (mineBtn) mineBtn.classList.toggle('disabled', this.gold < this.mineUpgradeCost);
+
+                document.getElementById('playerHpText').innerText = `${Math.ceil(this.playerCastle.hp)}/${this.playerCastle.maxHp}`;
+                document.getElementById('enemyHpText').innerText = `${Math.ceil(this.enemyCastle.hp)}/${this.enemyCastle.maxHp}`;
+                
+                // 血條主條與紅黃緩衝條
+                let pHpPct = (this.playerCastle.hp / this.playerCastle.maxHp) * 100;
+                let eHpPct = (this.enemyCastle.hp / this.enemyCastle.maxHp) * 100;
+                document.getElementById('playerHpFill').style.width = `${pHpPct}%`;
+                document.getElementById('enemyHpFill').style.width = `${eHpPct}%`;
+                document.getElementById('playerHpBuffer').style.width = `${pHpPct}%`;
+                document.getElementById('enemyHpBuffer').style.width = `${eHpPct}%`;
+
+                for (let type in UNIT_TYPES) {
+                    if (type === 'boss') continue;
+                    let config = UNIT_TYPES[type];
+                    let btn = document.getElementById(`btn-${type}`);
+                    let cdOverlay = document.getElementById(`cd-${type}`);
+                    let upBtn = document.getElementById(`btn-up-${type}`);
+
+                    document.getElementById(`lvl-${type}`).innerText = `Lv.${this.unitTiers[type]}`;
+                    document.getElementById(`upCost-${type}`).innerText = this.unitUpgradeCosts[type];
+
+                    btn.classList.toggle('disabled', this.gold < config.cost || this.spawnCDs[type] > 0);
+                    if (upBtn) upBtn.classList.toggle('disabled', this.gold < this.unitUpgradeCosts[type]);
+
+                    if (this.spawnCDs[type] > 0) {
+                        cdOverlay.style.display = 'flex';
+                        cdOverlay.innerText = `${Math.ceil(this.spawnCDs[type])}s`;
+                    } else {
+                        cdOverlay.style.display = 'none';
+                    }
+                }
+
+                for (let skillKey in this.skillCDs) {
+                    let btn = document.getElementById(`btn-skill-${skillKey}`);
+                    let cdOverlay = document.getElementById(`cd-skill-${skillKey}`);
+                    if (this.skillCDs[skillKey] > 0) {
+                        btn.classList.add('disabled');
+                        cdOverlay.style.display = 'flex';
+                        cdOverlay.innerText = `${Math.ceil(this.skillCDs[skillKey])}s`;
+                    } else {
+                        btn.classList.remove('disabled');
+                        cdOverlay.style.display = 'none';
+                    }
+                }
+            }
+
+            gameOver(win) {
+                this.isRunning = false;
+                const modal = document.getElementById('gameModal');
+                const title = document.getElementById('modalTitle');
+                const desc = document.getElementById('modalDesc');
+                const btn = document.getElementById('modalBtn');
+                const statsBox = document.getElementById('statsBox');
+
+                modal.style.display = 'flex';
+                statsBox.style.display = 'flex';
+
+                document.getElementById('statKills').innerText = this.totalKills;
+                document.getElementById('statDamage').innerText = Math.floor(this.totalDamageDealt);
+                document.getElementById('statGold').innerText = Math.floor(this.totalGoldEarned);
+
+                if (win) {
+                    title.innerText = '偉大勝利！';
+                    desc.innerText = `王國軍隊成功擊潰了第 ${this.stage} 關敵軍！`;
+                    btn.innerText = '進軍下一關';
+                    sound.play('win');
+                } else {
+                    title.innerText = '城堡陷落...';
+                    desc.innerText = `皇家城堡已被摧毀！你堅持到了第 ${this.stage} 關。`;
+                    btn.innerText = '重新開始戰鬥';
+                    sound.play('lose');
+                }
+            }
+
+            bindEvents() {
+                window.addEventListener('keydown', (e) => {
+                    if (e.key === '1') this.spawnUnit('infantry');
+                    if (e.key === '2') this.spawnUnit('archer');
+                    if (e.key === '3') this.spawnUnit('knight');
+                    if (e.key === '4') this.spawnUnit('mage');
+                    if (e.key === 'u' || e.key === 'U') this.upgradeMine();
+                    if (e.code === 'Space') { e.preventDefault(); this.useSkill('arrow'); }
+                    if (e.key === 'e' || e.key === 'E') this.useSkill('shield');
+                    if (e.key === 'r' || e.key === 'R') this.useSkill('meteor');
+                });
+            }
+        }
+
+        const game = new Game();
+    </script>
+</body>
+</html>

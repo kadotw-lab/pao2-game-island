@@ -1,0 +1,1550 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>名偵探柯南：米花町極速追緝</title>
+    <!-- Tailwind CSS for modern UI controls -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&family=Noto+Sans+TC:wght@500;700;900&display=swap');
+        
+        * {
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+
+        body {
+            font-family: 'Noto Sans TC', 'Outfit', sans-serif;
+            background-color: #0b0f19;
+            color: #ffffff;
+            overflow: hidden;
+        }
+
+        .conan-blue-glow {
+            box-shadow: 0 0 20px rgba(0, 119, 255, 0.6);
+        }
+
+        .conan-red-glow {
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.6);
+        }
+
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        /* Canvas container responsiveness */
+        #game-container {
+            position: relative;
+            width: 100%;
+            max-width: 960px;
+            aspect-ratio: 16 / 9;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            border-radius: 1rem;
+        }
+
+        /* Custom pulse animations */
+        @keyframes turboPulse {
+            0%, 100% { border-color: rgba(59, 130, 246, 0.8); box-shadow: 0 0 15px rgba(59, 130, 246, 0.5); }
+            50% { border-color: rgba(239, 68, 68, 0.9); box-shadow: 0 0 25px rgba(239, 68, 68, 0.8); }
+        }
+
+        .turbo-active {
+            animation: turboPulse 0.8s infinite;
+        }
+
+        /* Quiz modal animation */
+        @keyframes popIn {
+            0% { transform: scale(0.85); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .animate-pop-in {
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col items-center justify-center p-2 sm:p-4 bg-slate-950">
+
+    <!-- GAME MAIN CONTAINER -->
+    <div id="game-container" class="rounded-2xl overflow-hidden shadow-2xl border border-slate-800 flex flex-col justify-center items-center relative">
+        
+        <!-- CANVAS -->
+        <canvas id="gameCanvas" width="960" height="540"></canvas>
+
+        <!-- TOP HUD OVERLAY (Always visible during play) -->
+        <div id="hud" class="absolute top-3 left-3 right-3 flex justify-between items-center pointer-events-none hidden z-10">
+            <!-- Left Info: Lives & Powerup -->
+            <div class="flex items-center gap-3">
+                <div class="glass-panel px-3 py-1.5 rounded-xl flex items-center gap-2">
+                    <span class="text-xs text-slate-400 font-bold uppercase tracking-wider">生命</span>
+                    <div id="hearts-container" class="flex text-red-500 text-lg">❤️❤️❤️</div>
+                </div>
+                
+                <div id="stage-badge" class="glass-panel px-3 py-1.5 rounded-xl font-bold text-xs text-cyan-300 border border-cyan-500/30">
+                    📍 階段 1: 米花町阿笠博士研究所
+                </div>
+
+                <!-- Soccer Kick Ammo -->
+                <div class="glass-panel px-3 py-1.5 rounded-xl flex items-center gap-1.5 text-xs text-amber-300 border border-amber-500/30">
+                    <span>⚽ 足球攻擊:</span>
+                    <span id="soccer-ammo-display" class="font-bold text-white font-mono">x1</span>
+                </div>
+            </div>
+
+            <!-- Right Info: Distance & Score -->
+            <div class="flex items-center gap-3">
+                <div class="glass-panel px-4 py-1.5 rounded-xl text-right">
+                    <div class="text-[10px] text-slate-400 uppercase font-bold tracking-widest">移動距離</div>
+                    <div class="text-lg font-black text-amber-400 font-mono" id="distance-display">0m</div>
+                </div>
+
+                <div class="glass-panel px-4 py-1.5 rounded-xl text-right border border-blue-500/40">
+                    <div class="text-[10px] text-blue-400 uppercase font-bold tracking-widest">總得分</div>
+                    <div class="text-xl font-black text-white font-mono" id="score-display">0000</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SKATEBOARD TURBO INDICATOR -->
+        <div id="turbo-bar-container" class="absolute top-16 left-1/2 transform -translate-x-1/2 w-64 glass-panel p-1.5 rounded-full hidden z-10">
+            <div class="flex justify-between text-[10px] font-bold text-yellow-300 px-2 mb-0.5">
+                <span>🛹 太陽能滑板極速衝刺！</span>
+                <span id="turbo-timer">5.0s</span>
+            </div>
+            <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                <div id="turbo-progress" class="bg-gradient-to-r from-yellow-400 to-red-500 h-full w-full transition-all duration-100"></div>
+            </div>
+        </div>
+
+        <!-- QUIZ MODAL OVERLAY (CONAN MYSTERY TIME) -->
+        <div id="quiz-modal" class="absolute inset-0 glass-panel flex flex-col items-center justify-center p-6 text-center hidden z-30 bg-slate-950/85">
+            <div class="bg-slate-900 border border-blue-500/50 p-6 rounded-2xl max-w-lg w-full shadow-2xl animate-pop-in relative">
+                <div class="absolute -top-5 left-1/2 -translate-x-1/2 bg-blue-600 text-white font-black text-xs px-4 py-1 rounded-full uppercase tracking-widest border border-cyan-300 shadow-md">
+                    🔍 柯南推理時間 Sherlock Quiz
+                </div>
+                
+                <div class="text-3xl mt-2 mb-2">⚽💡眼鏡發光！</div>
+                <h3 id="quiz-question" class="text-lg sm:text-xl font-bold text-sky-200 mb-6 leading-relaxed">
+                    題目載入中...
+                </h3>
+
+                <!-- Quiz Options -->
+                <div id="quiz-options" class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                    <!-- Dynamic Buttons -->
+                </div>
+
+                <div id="quiz-feedback" class="text-xs font-bold min-h-[18px] text-amber-400">
+                    請選擇正確答案以獲得極速衝刺與補血獎勵！
+                </div>
+            </div>
+        </div>
+
+        <!-- START MENU OVERLAY -->
+        <div id="start-menu" class="absolute inset-0 glass-panel flex flex-col items-center justify-center p-6 text-center z-20">
+            <div class="mb-2 bg-blue-600/20 text-blue-400 border border-blue-500/30 px-3 py-1 rounded-full text-xs font-bold tracking-widest uppercase">
+                Detective Conan Runner v2.0
+            </div>
+            <h1 class="text-3xl sm:text-5xl font-black mb-2 bg-gradient-to-r from-blue-400 via-sky-200 to-red-500 bg-clip-text text-transparent drop-shadow-md">
+                名偵探柯南：極速追緝
+            </h1>
+            <p class="text-slate-300 text-sm max-w-md mb-6 leading-relaxed">
+                真相永遠只有一個！黑衣組織暗中行動，操控配備高科技發明的柯南狂飆，經歷米花町、帝丹高中、暗巷雨夜與特快列車，隨機回答推理問答獲得強化！
+            </p>
+
+            <!-- Instructions -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 max-w-lg w-full mb-6 text-xs text-slate-300">
+                <div class="bg-slate-900/80 p-2 rounded-xl border border-slate-700">
+                    <div class="font-bold text-blue-400 mb-0.5">跳躍 / 飛躍</div>
+                    <div><kbd class="bg-slate-800 px-1 py-0.5 rounded text-[10px]">Space</kbd> / <kbd class="bg-slate-800 px-1 py-0.5 rounded text-[10px]">↑</kbd></div>
+                </div>
+                <div class="bg-slate-900/80 p-2 rounded-xl border border-slate-700">
+                    <div class="font-bold text-amber-400 mb-0.5">蹲下滑行</div>
+                    <div><kbd class="bg-slate-800 px-1 py-0.5 rounded text-[10px]">↓ 箭頭鍵</kbd></div>
+                </div>
+                <div class="bg-slate-900/80 p-2 rounded-xl border border-slate-700">
+                    <div class="font-bold text-sky-400 mb-0.5">太陽能滑板</div>
+                    <div><kbd class="bg-slate-800 px-1 py-0.5 rounded text-[10px]">Shift 鍵</kbd></div>
+                </div>
+                <div class="bg-slate-900/80 p-2 rounded-xl border border-slate-700">
+                    <div class="font-bold text-red-400 mb-0.5">踢足球爆破</div>
+                    <div><kbd class="bg-slate-800 px-1 py-0.5 rounded text-[10px]">E 鍵</kbd></div>
+                </div>
+            </div>
+
+            <button id="start-btn" class="px-8 py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-lg rounded-xl shadow-lg hover:shadow-blue-500/50 transform hover:-translate-y-0.5 transition active:scale-95 flex items-center gap-2">
+                <span>🚀 開始追緝任務</span>
+            </button>
+            <div class="mt-4 text-xs text-slate-400">最高紀錄：<span id="high-score-display" class="text-amber-400 font-mono font-bold">0</span> 分</div>
+        </div>
+
+        <!-- GAME OVER OVERLAY -->
+        <div id="game-over-menu" class="absolute inset-0 glass-panel flex flex-col items-center justify-center p-6 text-center hidden z-20">
+            <div class="text-4xl mb-2">💥</div>
+            <h2 class="text-3xl font-black text-red-500 mb-1">任務結束！</h2>
+            <p class="text-slate-400 text-xs mb-6" id="game-over-reason">柯南不小心撞到了障礙物...</p>
+
+            <div class="bg-slate-900/90 border border-slate-700/80 p-4 rounded-2xl w-full max-w-xs mb-6 space-y-2">
+                <div class="flex justify-between items-center text-sm">
+                    <span class="text-slate-400">奔跑總距離:</span>
+                    <span id="final-distance" class="font-bold text-amber-400 font-mono">0m</span>
+                </div>
+                <div class="flex justify-between items-center text-sm">
+                    <span class="text-slate-400">最終得分:</span>
+                    <span id="final-score" class="font-bold text-white text-xl font-mono">0</span>
+                </div>
+                <div id="new-high-score-tag" class="hidden bg-amber-500/20 text-amber-300 text-xs font-bold py-1 px-2 rounded-lg border border-amber-500/40">
+                    🎉 刷新最高紀錄！
+                </div>
+            </div>
+
+            <button id="restart-btn" class="px-8 py-3 bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white font-bold text-base rounded-xl shadow-lg hover:shadow-red-500/40 transform hover:-translate-y-0.5 transition active:scale-95 flex items-center gap-2">
+                <span>🔄 再試一次</span>
+            </button>
+        </div>
+
+        <!-- MOBILE TOUCH CONTROLS -->
+        <div id="touch-controls" class="absolute bottom-3 left-3 right-3 flex justify-between items-center z-10 md:hidden opacity-80 hover:opacity-100 transition">
+            <div class="flex gap-2">
+                <button id="btn-slide" class="w-13 h-13 bg-slate-800/90 active:bg-amber-600 border border-slate-600 rounded-2xl text-white font-black text-xs flex items-center justify-center shadow-lg active:scale-95">
+                    蹲下
+                </button>
+                <button id="btn-turbo" class="w-13 h-13 bg-slate-800/90 active:bg-blue-600 border border-slate-600 rounded-2xl text-yellow-400 font-black text-xs flex items-center justify-center shadow-lg active:scale-95">
+                    🛹滑板
+                </button>
+                <button id="btn-kick" class="w-13 h-13 bg-red-900/90 active:bg-red-600 border border-red-500 rounded-2xl text-white font-black text-xs flex items-center justify-center shadow-lg active:scale-95">
+                    ⚽踢球
+                </button>
+            </div>
+            <button id="btn-jump" class="w-16 h-13 bg-blue-600 active:bg-blue-500 border border-blue-400 rounded-2xl text-white font-black text-sm flex items-center justify-center shadow-lg active:scale-95">
+                跳躍 ⬆️
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Web Audio API Sound Synthesizer (Zero External File Dependency)
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            playJump() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(180, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(520, this.ctx.currentTime + 0.15);
+                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.15);
+            }
+
+            playCoin() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(800, this.ctx.currentTime);
+                osc.frequency.setValueAtTime(1200, this.ctx.currentTime + 0.08);
+                gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.2);
+            }
+
+            playKick() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(150, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(600, this.ctx.currentTime + 0.2);
+                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.25);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.25);
+            }
+
+            playTurbo() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(200, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(800, this.ctx.currentTime + 0.4);
+                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.4);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.4);
+            }
+
+            playHit() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(120, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(30, this.ctx.currentTime + 0.25);
+                gain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.25);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.25);
+            }
+
+            playStageChange() {
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                [440, 554.37, 659.25, 880].forEach((freq, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.frequency.value = freq;
+                    gain.gain.setValueAtTime(0.15, now + idx * 0.08);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.2);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now + idx * 0.08);
+                    osc.stop(now + idx * 0.08 + 0.2);
+                });
+            }
+        }
+
+        const audio = new SoundEngine();
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Conan TRIVIA QUESTION BANK
+        const CONAN_QUIZ_BANK = [
+            {
+                question: "柯南身體變小的原因是服用了黑衣組織開發的什麼藥物？",
+                options: ["APTX-4869", "APTX-9999", "VODKA-2000", "SHERLOCK-777"],
+                correct: 0
+            },
+            {
+                question: "阿笠博士為柯南開發的「腳力增強鞋」主要靠什麼原理發揮極大破壞力？",
+                options: ["噴射引擎推進", "電磁刺激足底穴道", "重力轉化彈簧", "核能微型電池"],
+                correct: 1
+            },
+            {
+                question: "黑衣組織核心幹部 Gin（琴酒）常開的經典古董車車型是？",
+                options: ["保時捷 356A", "法拉利 F40", "阿斯頓馬丁 DB5", "藍寶堅尼 Countach"],
+                correct: 0
+            },
+            {
+                question: "毛利小五郎在被麻醉針射中後沉睡推理時，最常被稱作什麼暱稱？",
+                options: ["沉睡的小五郎", "神算的毛利", "無敵神探小五郎", "夢遊的名偵探"],
+                correct: 0
+            },
+            {
+                question: "怪盜基德（黑羽快鬥）的經典代號「1412」由來是什麼？",
+                options: ["工藤優作誤將手寫體看成KID", "警察檔案編號", "國際盜賊公會組織代碼", "他生日的日期"],
+                correct: 0
+            },
+            {
+                question: "柯南手錶上的眼鏡配件具有什麼特殊追蹤與放大功能？",
+                options: ["發射麻醉針與發光鏡片/發射器", "發射超音波解鎖", "透視牆壁", "感應黑衣組織氣味"],
+                correct: 0
+            },
+            {
+                question: "灰原哀（宮野志保）在黑衣組織內部的代號是什麼？",
+                options: ["Sherry (雪莉)", "Vermouth (貝爾摩德)", "Bourbon (波本)", "Chianti (基安蒂)"],
+                correct: 0
+            },
+            {
+                question: "安室透（降谷零）在黑衣組織內的潛伏代號是什麼？",
+                options: ["Bourbon (波本)", "Rye (萊伊)", "Scotch (蘇格蘭)", "Gin (琴酒)"],
+                correct: 0
+            }
+        ];
+
+        // Game State Variables
+        let gameState = 'MENU'; // MENU, PLAYING, GAMEOVER, QUIZ
+        let score = 0;
+        let distance = 0; // in meters
+        let highScore = localStorage.getItem('conan_high_score') || 0;
+        let lives = 3;
+        let soccerAmmo = 1;
+        let gameSpeed = 6;
+        let baseSpeed = 6;
+        let animationFrameId = null;
+        let nextQuizDistance = 250; // Trigger quiz every 250 meters
+
+        // Dynamic Background Stages Configuration (5 Distinct detailed stages)
+        const STAGES = [
+            {
+                name: "米花町阿笠博士研究所前",
+                distance: 0,
+                skyTop: "#1e3a8a", skyBottom: "#60a5fa",
+                buildingColor: "#1e293b", buildingOutline: "#334155",
+                sunMoon: { type: 'sun', color: '#fef08a' },
+                landmark: 'agasa_beetle',
+                cloudColor: "rgba(255, 255, 255, 0.75)",
+                groundColor: "#334155", roadColor: "#0f172a"
+            },
+            {
+                name: "夕陽下的東京鐵塔與帝丹高中",
+                distance: 350,
+                skyTop: "#4c1d95", skyBottom: "#f97316",
+                buildingColor: "#2a1124", buildingOutline: "#581c87",
+                sunMoon: { type: 'sunset', color: '#ef4444' },
+                landmark: 'tokyo_tower',
+                cloudColor: "rgba(253, 186, 116, 0.5)",
+                groundColor: "#1e1b4b", roadColor: "#020617"
+            },
+            {
+                name: "黑衣組織狙擊暗巷 (琴酒Porsche追擊)",
+                distance: 850,
+                skyTop: "#020617", skyBottom: "#1e1b4b",
+                buildingColor: "#090d16", buildingOutline: "#1d283a",
+                sunMoon: { type: 'moon', color: '#e2e8f0' },
+                landmark: 'porsche_356a',
+                cloudColor: "rgba(30, 41, 59, 0.5)",
+                groundColor: "#0f172a", roadColor: "#020617",
+                rain: true, neon: true
+            },
+            {
+                name: "月下鐘樓與怪盜基德對決",
+                distance: 1450,
+                skyTop: "#090514", skyBottom: "#2e1065",
+                buildingColor: "#130924", buildingOutline: "#3b0764",
+                sunMoon: { type: 'moon_large', color: '#fef08a' },
+                landmark: 'clock_tower',
+                cloudColor: "rgba(88, 28, 135, 0.4)",
+                groundColor: "#1a0b2e", roadColor: "#05010d"
+            },
+            {
+                name: "鈴木特快列車頂端狂飆",
+                distance: 2100,
+                skyTop: "#020617", skyBottom: "#0f172a",
+                buildingColor: "#090d16", buildingOutline: "#1e293b",
+                sunMoon: { type: 'moon', color: '#38bdf8' },
+                landmark: 'express_train',
+                cloudColor: "rgba(15, 23, 42, 0.6)",
+                groundColor: "#1e293b", roadColor: "#020617"
+            }
+        ];
+
+        let currentStageIndex = 0;
+
+        // Player (Conan) Class
+        class Player {
+            constructor() {
+                this.x = 120;
+                this.y = 380;
+                this.width = 44;
+                this.height = 68;
+                this.normalHeight = 68;
+                this.duckHeight = 38;
+                
+                this.vy = 0;
+                this.gravity = 0.75;
+                this.jumpForce = -14.5;
+                this.isGrounded = true;
+                this.isDucking = false;
+
+                // Powerup states
+                this.isTurbo = false;
+                this.turboTimer = 0;
+                this.invincibleTimer = 0;
+
+                // Animation frames
+                this.animFrame = 0;
+                this.animTimer = 0;
+            }
+
+            reset() {
+                this.y = 380;
+                this.vy = 0;
+                this.isGrounded = true;
+                this.isDucking = false;
+                this.height = this.normalHeight;
+                this.isTurbo = false;
+                this.turboTimer = 0;
+                this.invincibleTimer = 0;
+            }
+
+            jump() {
+                if (this.isGrounded) {
+                    this.vy = this.jumpForce;
+                    this.isGrounded = false;
+                    this.isDucking = false;
+                    this.height = this.normalHeight;
+                    audio.playJump();
+                }
+            }
+
+            duck(enable) {
+                if (this.isGrounded) {
+                    this.isDucking = enable;
+                    if (enable) {
+                        this.height = this.duckHeight;
+                    } else {
+                        this.height = this.normalHeight;
+                    }
+                }
+            }
+
+            activateTurbo(duration = 5) {
+                this.isTurbo = true;
+                this.turboTimer = duration;
+                this.invincibleTimer = duration;
+                audio.playTurbo();
+            }
+
+            update(dt) {
+                // Gravity & Jump Physics
+                this.vy += this.gravity;
+                this.y += this.vy;
+
+                const groundY = 440 - this.height;
+                if (this.y >= groundY) {
+                    this.y = groundY;
+                    this.vy = 0;
+                    this.isGrounded = true;
+                }
+
+                // Timers
+                if (this.turboTimer > 0) {
+                    this.turboTimer -= dt;
+                    if (this.turboTimer <= 0) {
+                        this.isTurbo = false;
+                    }
+                }
+
+                if (this.invincibleTimer > 0) {
+                    this.invincibleTimer -= dt;
+                }
+
+                // Animation tick
+                this.animTimer += dt;
+                if (this.animTimer > 0.08) {
+                    this.animFrame = (this.animFrame + 1) % 4;
+                    this.animTimer = 0;
+                }
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+
+                // Invincibility or Turbo flashing/glow
+                if (this.isTurbo) {
+                    // Skateboard Jet Particles
+                    for (let i = 0; i < 4; i++) {
+                        particles.push(new Particle(
+                            this.x - 12,
+                            this.y + this.height - 10 + (Math.random() * 8 - 4),
+                            -Math.random() * 10 - 6,
+                            Math.random() * 4 - 2,
+                            Math.random() > 0.5 ? '#38bdf8' : '#ef4444',
+                            Math.random() * 6 + 3
+                        ));
+                    }
+                } else if (this.invincibleTimer > 0 && Math.floor(Date.now() / 100) % 2 === 0) {
+                    ctx.globalAlpha = 0.5;
+                }
+
+                // HIGH-DETAIL CONAN DRAWING
+                if (this.isTurbo) {
+                    // Solar Skateboard under feet
+                    ctx.fillStyle = '#0284c7'; // Skateboard body
+                    ctx.beginPath();
+                    ctx.roundRect(-12, this.height - 8, this.width + 24, 10, 5);
+                    ctx.fill();
+
+                    // Yellow/Red Solar Panel Details
+                    ctx.fillStyle = '#f59e0b';
+                    ctx.fillRect(-2, this.height - 6, this.width + 4, 3);
+                    ctx.fillStyle = '#ef4444';
+                    ctx.fillRect(4, this.height - 3, this.width - 8, 2);
+
+                    // Wheels
+                    ctx.fillStyle = '#f8fafc';
+                    ctx.beginPath();
+                    ctx.arc(-4, this.height + 2, 4, 0, Math.PI * 2);
+                    ctx.arc(this.width + 4, this.height + 2, 4, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                if (this.isDucking) {
+                    // Ducking Pose Conan
+                    // Body (Blue Blazer Jacket)
+                    ctx.fillStyle = '#1d4ed8';
+                    ctx.beginPath();
+                    ctx.roundRect(4, 10, this.width - 8, 22, 6);
+                    ctx.fill();
+
+                    // White Shirt Lapel
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(18, 10, 8, 10);
+
+                    // Bowtie (Red)
+                    ctx.fillStyle = '#dc2626';
+                    ctx.beginPath();
+                    ctx.arc(22, 14, 4, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Head
+                    ctx.fillStyle = '#fde047'; // skin undertone
+                    ctx.fillStyle = '#fed7aa'; // Natural skin
+                    ctx.beginPath();
+                    ctx.arc(this.width - 12, 12, 14, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Iconic Spiky Hair
+                    ctx.fillStyle = '#0f172a';
+                    ctx.beginPath();
+                    ctx.arc(this.width - 12, 8, 14, Math.PI * 0.7, Math.PI * 2.2);
+                    ctx.fill();
+
+                    // Conan forehead hair spike
+                    ctx.beginPath();
+                    ctx.moveTo(this.width - 24, 8);
+                    ctx.lineTo(this.width - 32, 10);
+                    ctx.lineTo(this.width - 22, 16);
+                    ctx.closePath();
+                    ctx.fill();
+
+                    // Conan Glasses with glowing lens reflection
+                    ctx.strokeStyle = '#0f172a';
+                    ctx.lineWidth = 2.5;
+                    ctx.strokeRect(this.width - 10, 8, 12, 9);
+                    ctx.fillStyle = 'rgba(56, 189, 248, 0.4)';
+                    ctx.fillRect(this.width - 9, 9, 10, 7);
+
+                } else {
+                    // Normal Running / Jumping Pose Conan
+                    const legOffset = this.isGrounded ? Math.sin(this.animFrame * Math.PI / 2) * 8 : 0;
+
+                    // Shorts (Blue)
+                    ctx.fillStyle = '#1e3a8a';
+                    ctx.fillRect(10, 36, 24, 12);
+
+                    // Legs
+                    ctx.fillStyle = '#fed7aa';
+                    ctx.fillRect(12, 48, 8, 12 + legOffset);
+                    ctx.fillRect(24, 48, 8, 12 - legOffset);
+
+                    // Power-Kick Red Sneakers (腳力增強鞋)
+                    ctx.fillStyle = '#dc2626'; // Bright Red
+                    ctx.fillRect(9, 58 + legOffset, 14, 9);
+                    ctx.fillRect(23, 58 - legOffset, 14, 9);
+                    // White Soles & Dial Knob
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(9, 65 + legOffset, 14, 3);
+                    ctx.fillRect(23, 65 - legOffset, 14, 3);
+                    ctx.fillStyle = '#f59e0b'; // Side dial knob
+                    ctx.beginPath();
+                    ctx.arc(12, 62 + legOffset, 2, 0, Math.PI * 2);
+                    ctx.arc(26, 62 - legOffset, 2, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Classic Blue Suit Jacket (藍色西裝外套)
+                    ctx.fillStyle = '#1d4ed8';
+                    ctx.beginPath();
+                    ctx.roundRect(8, 18, 28, 22, 5);
+                    ctx.fill();
+
+                    // Inner White Shirt & Lapel
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(18, 18, 8, 14);
+
+                    // Red Voice-Changer Bowtie (蝴蝶結變聲器)
+                    ctx.fillStyle = '#dc2626';
+                    ctx.beginPath();
+                    ctx.moveTo(18, 20); ctx.lineTo(13, 16); ctx.lineTo(13, 24); ctx.closePath(); ctx.fill();
+                    ctx.beginPath();
+                    ctx.moveTo(26, 20); ctx.lineTo(31, 16); ctx.lineTo(31, 24); ctx.closePath(); ctx.fill();
+                    ctx.fillStyle = '#991b1b'; // Center dial
+                    ctx.beginPath();
+                    ctx.arc(22, 20, 2.5, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Head
+                    ctx.fillStyle = '#fed7aa';
+                    ctx.beginPath();
+                    ctx.arc(22, 12, 13, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Conan Iconic Hair (Spiky black hair with back swirl and front spike)
+                    ctx.fillStyle = '#0f172a';
+                    ctx.beginPath();
+                    ctx.arc(20, 10, 14, Math.PI * 0.75, Math.PI * 2.25);
+                    ctx.fill();
+                    // Hair spike tuft
+                    ctx.beginPath();
+                    ctx.moveTo(10, 4); ctx.lineTo(0, 7); ctx.lineTo(12, 13); ctx.closePath(); ctx.fill();
+
+                    // Tracking Glasses with blue/white lens shine (追縱眼鏡)
+                    ctx.strokeStyle = '#020617';
+                    ctx.lineWidth = 2.5;
+                    ctx.strokeRect(18, 8, 12, 9);
+                    ctx.fillStyle = 'rgba(56, 189, 248, 0.45)';
+                    ctx.fillRect(19, 9, 10, 7);
+                    // Lens shine line
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(20, 10); ctx.lineTo(24, 14); ctx.stroke();
+                }
+
+                ctx.restore();
+            }
+        }
+
+        // Projectile: Power Soccer Ball (超強力足球)
+        class SoccerBall {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.radius = 14;
+                this.speed = 18;
+                this.rotation = 0;
+                this.markedForDeletion = false;
+            }
+
+            update(dt) {
+                this.x += this.speed;
+                this.rotation += dt * 25;
+
+                // Particle trail
+                particles.push(new Particle(
+                    this.x - 10,
+                    this.y + (Math.random() * 8 - 4),
+                    -Math.random() * 4,
+                    Math.random() * 2 - 1,
+                    '#38bdf8',
+                    3
+                ));
+
+                if (this.x > 980) {
+                    this.markedForDeletion = true;
+                }
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation);
+
+                // Soccer ball outer circle
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#0f172a';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Soccer pentagon patterns
+                ctx.fillStyle = '#0f172a';
+                ctx.beginPath();
+                ctx.arc(0, 0, 5, 0, Math.PI * 2);
+                ctx.fill();
+
+                for (let i = 0; i < 5; i++) {
+                    const ang = (i * Math.PI * 2) / 5;
+                    ctx.beginPath();
+                    ctx.arc(Math.cos(ang) * 9, Math.sin(ang) * 9, 2.5, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                ctx.restore();
+            }
+        }
+
+        // Obstacle Types: CULPRIT (Ground), BARRICADE (Ground jump), DRONE (High flying)
+        class Obstacle {
+            constructor(type, x) {
+                this.x = x;
+                this.type = type; // 'CULPRIT', 'BARRICADE', 'DRONE'
+                this.markedForDeletion = false;
+
+                if (type === 'CULPRIT') {
+                    this.width = 36;
+                    this.height = 64;
+                    this.y = 440 - this.height;
+                } else if (type === 'BARRICADE') {
+                    this.width = 46;
+                    this.height = 36;
+                    this.y = 440 - this.height;
+                } else if (type === 'DRONE') {
+                    this.width = 40;
+                    this.height = 30;
+                    this.y = 320; // Must duck or jump high
+                }
+            }
+
+            update(speed) {
+                this.x -= speed;
+                if (this.x + this.width < 0) {
+                    this.markedForDeletion = true;
+                }
+            }
+
+            draw() {
+                ctx.save();
+                if (this.type === 'CULPRIT') {
+                    // Iconic Conan Black Shadow Man (犯人黑影人)
+                    ctx.fillStyle = '#0f172a';
+                    ctx.beginPath();
+                    ctx.roundRect(this.x + 6, this.y + 16, 24, 48, 4);
+                    ctx.fill();
+
+                    // Head
+                    ctx.beginPath();
+                    ctx.arc(this.x + 18, this.y + 12, 10, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Creepy Glowing White Eyes & Smile
+                    ctx.fillStyle = '#ffffff';
+                    ctx.beginPath();
+                    ctx.arc(this.x + 14, this.y + 10, 2.5, 0, Math.PI * 2);
+                    ctx.arc(this.x + 22, this.y + 10, 2.5, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Smile line
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath();
+                    ctx.arc(this.x + 18, this.y + 13, 5, 0.1, Math.PI - 0.1);
+                    ctx.stroke();
+
+                } else if (this.type === 'BARRICADE') {
+                    // Police Barricade
+                    ctx.fillStyle = '#eab308'; // Yellow/black stripes
+                    ctx.fillRect(this.x, this.y + 10, this.width, 16);
+                    ctx.fillStyle = '#000000';
+                    for (let i = 0; i < this.width; i += 12) {
+                        ctx.beginPath();
+                        ctx.moveTo(this.x + i, this.y + 10);
+                        ctx.lineTo(this.x + i + 6, this.y + 10);
+                        ctx.lineTo(this.x + i, this.y + 26);
+                        ctx.closePath();
+                        ctx.fill();
+                    }
+                    // Legs
+                    ctx.fillStyle = '#64748b';
+                    ctx.fillRect(this.x + 4, this.y + 26, 6, 10);
+                    ctx.fillRect(this.x + this.width - 10, this.y + 26, 6, 10);
+
+                } else if (this.type === 'DRONE') {
+                    // Black Org Surveillance Drone
+                    ctx.fillStyle = '#334155';
+                    ctx.fillRect(this.x + 8, this.y + 10, 24, 12);
+                    // Red camera eye
+                    ctx.fillStyle = '#ef4444';
+                    ctx.beginPath();
+                    ctx.arc(this.x + 20, this.y + 16, 4, 0, Math.PI * 2);
+                    ctx.fill();
+                    // Spinning blades
+                    ctx.strokeStyle = '#94a3b8';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(this.x, this.y + 6); ctx.lineTo(this.x + 40, this.y + 6);
+                    ctx.stroke();
+                }
+                ctx.restore();
+            }
+        }
+
+        // Collectibles Class: BADGE (+Score), SKATEBOARD (Turbo), SOCCER (Ammo)
+        class Collectible {
+            constructor(type, x, y) {
+                this.x = x;
+                this.y = y;
+                this.type = type; // 'BADGE', 'SKATEBOARD', 'SOCCER'
+                this.width = 32;
+                this.height = 32;
+                this.markedForDeletion = false;
+                this.bounceTimer = Math.random() * Math.PI * 2;
+            }
+
+            update(speed, dt) {
+                this.x -= speed;
+                this.bounceTimer += dt * 5;
+                if (this.x + this.width < 0) {
+                    this.markedForDeletion = true;
+                }
+            }
+
+            draw() {
+                ctx.save();
+                const floatY = this.y + Math.sin(this.bounceTimer) * 4;
+
+                if (this.type === 'BADGE') {
+                    // Detective Boys Badge (DB Shield)
+                    ctx.fillStyle = '#f59e0b';
+                    ctx.beginPath();
+                    ctx.moveTo(this.x + 16, floatY);
+                    ctx.lineTo(this.x + 32, floatY + 8);
+                    ctx.lineTo(this.x + 26, floatY + 28);
+                    ctx.lineTo(this.x + 16, floatY + 32);
+                    ctx.lineTo(this.x + 6, floatY + 28);
+                    ctx.lineTo(this.x, floatY + 8);
+                    ctx.closePath();
+                    ctx.fill();
+
+                    // Text DB
+                    ctx.fillStyle = '#1e3a8a';
+                    ctx.font = 'bold 12px sans-serif';
+                    ctx.fillText('DB', this.x + 7, floatY + 21);
+
+                } else if (this.type === 'SKATEBOARD') {
+                    // Solar Skateboard Icon
+                    ctx.fillStyle = '#0ea5e9';
+                    ctx.beginPath();
+                    ctx.roundRect(this.x, floatY + 10, 32, 10, 4);
+                    ctx.fill();
+                    ctx.fillStyle = '#ef4444';
+                    ctx.fillRect(this.x + 4, floatY + 13, 24, 4);
+                    // Wheels
+                    ctx.fillStyle = '#f8fafc';
+                    ctx.beginPath();
+                    ctx.arc(this.x + 6, floatY + 22, 3, 0, Math.PI * 2);
+                    ctx.arc(this.x + 26, floatY + 22, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (this.type === 'SOCCER') {
+                    // Soccer Ball Item
+                    ctx.fillStyle = '#ffffff';
+                    ctx.beginPath();
+                    ctx.arc(this.x + 16, floatY + 16, 12, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.strokeStyle = '#020617';
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
+                    ctx.fillStyle = '#0f172a';
+                    ctx.beginPath();
+                    ctx.arc(this.x + 16, floatY + 16, 4, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                ctx.restore();
+            }
+        }
+
+        // Particle System for effects
+        class Particle {
+            constructor(x, y, vx, vy, color, size = 4) {
+                this.x = x;
+                this.y = y;
+                this.vx = vx;
+                this.vy = vy;
+                this.color = color;
+                this.size = size;
+                this.alpha = 1;
+                this.markedForDeletion = false;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.alpha -= 0.025;
+                if (this.alpha <= 0) {
+                    this.markedForDeletion = true;
+                }
+            }
+
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, this.alpha);
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        // Background Layers Management
+        let buildings = [];
+        let stars = [];
+        let rainDrops = [];
+        let player = new Player();
+        let obstacles = [];
+        let collectibles = [];
+        let soccerBalls = [];
+        let particles = [];
+        let spawnObstacleTimer = 0;
+        let spawnCollectibleTimer = 0;
+
+        // Init Starfield
+        for (let i = 0; i < 50; i++) {
+            stars.push({
+                x: Math.random() * 960,
+                y: Math.random() * 250,
+                size: Math.random() * 2 + 1,
+                alpha: Math.random()
+            });
+        }
+
+        // Init Rain Effect for Stage 3
+        for (let i = 0; i < 60; i++) {
+            rainDrops.push({
+                x: Math.random() * 960,
+                y: Math.random() * 540,
+                length: Math.random() * 18 + 10,
+                speed: Math.random() * 12 + 15
+            });
+        }
+
+        // Generate procedural background skyline
+        for (let i = 0; i < 15; i++) {
+            buildings.push({
+                x: i * 80,
+                width: 60 + Math.random() * 40,
+                height: 100 + Math.random() * 150,
+                windows: Math.random() > 0.3
+            });
+        }
+
+        function updateAndDrawBackground(speed) {
+            const stage = STAGES[currentStageIndex];
+
+            // 1. Sky Gradient
+            const skyGrad = ctx.createLinearGradient(0, 0, 0, 440);
+            skyGrad.addColorStop(0, stage.skyTop);
+            skyGrad.addColorStop(1, stage.skyBottom);
+            ctx.fillStyle = skyGrad;
+            ctx.fillRect(0, 0, 960, 440);
+
+            // 2. Celestial Body (Sun/Moon/Sunset)
+            ctx.save();
+            if (stage.sunMoon.type === 'sun') {
+                ctx.fillStyle = stage.sunMoon.color;
+                ctx.shadowColor = stage.sunMoon.color;
+                ctx.shadowBlur = 20;
+                ctx.beginPath();
+                ctx.arc(800, 90, 36, 0, Math.PI * 2);
+                ctx.fill();
+            } else if (stage.sunMoon.type === 'sunset') {
+                ctx.fillStyle = stage.sunMoon.color;
+                ctx.shadowColor = stage.sunMoon.color;
+                ctx.shadowBlur = 30;
+                ctx.beginPath();
+                ctx.arc(750, 180, 45, 0, Math.PI * 2);
+                ctx.fill();
+            } else if (stage.sunMoon.type.includes('moon')) {
+                // Stars
+                ctx.fillStyle = '#ffffff';
+                stars.forEach(star => {
+                    ctx.globalAlpha = 0.3 + Math.sin(Date.now() * 0.003 + star.x) * 0.4;
+                    ctx.fillRect(star.x, star.y, star.size, star.size);
+                });
+                ctx.globalAlpha = 1;
+
+                // Moon
+                const moonRadius = stage.sunMoon.type === 'moon_large' ? 55 : 30;
+                ctx.fillStyle = stage.sunMoon.color;
+                ctx.shadowColor = stage.sunMoon.color;
+                ctx.shadowBlur = 25;
+                ctx.beginPath();
+                ctx.arc(780, 100, moonRadius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.restore();
+
+            // 3. Stage-Specific Landmarks (博士金龜車 / 東京鐵塔 / 琴酒Porsche / 鐘樓 / 特快列車)
+            if (stage.landmark === 'agasa_beetle') {
+                // Agasa's Yellow Beetle Car Silhouette
+                ctx.save();
+                ctx.fillStyle = '#eab308';
+                ctx.beginPath();
+                ctx.arc(720, 390, 25, Math.PI, 0);
+                ctx.fillRect(690, 390, 60, 15);
+                ctx.fillStyle = '#0f172a';
+                ctx.beginPath();
+                ctx.arc(700, 405, 7, 0, Math.PI * 2);
+                ctx.arc(740, 405, 7, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+
+            } else if (stage.landmark === 'tokyo_tower') {
+                ctx.save();
+                ctx.fillStyle = 'rgba(30, 10, 40, 0.85)';
+                ctx.beginPath();
+                ctx.moveTo(680, 440); ctx.lineTo(720, 200); ctx.lineTo(724, 120);
+                ctx.lineTo(728, 200); ctx.lineTo(768, 440); ctx.closePath();
+                ctx.fill();
+                ctx.restore();
+
+            } else if (stage.landmark === 'porsche_356a') {
+                // Black Organization Gin's Porsche 356A Silhouette in darkness
+                ctx.save();
+                ctx.fillStyle = '#090d16';
+                ctx.strokeStyle = '#1e293b';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(750, 395, 20, Math.PI, 0);
+                ctx.fillRect(720, 395, 65, 12);
+                ctx.stroke();
+                ctx.fill();
+                ctx.fillStyle = '#ef4444'; // Red tail light
+                ctx.fillRect(721, 397, 4, 6);
+                ctx.restore();
+
+            } else if (stage.landmark === 'clock_tower') {
+                ctx.save();
+                ctx.fillStyle = '#0d041a';
+                ctx.fillRect(680, 140, 80, 300);
+                ctx.fillStyle = '#fef08a';
+                ctx.beginPath();
+                ctx.arc(720, 200, 22, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+
+            // 4. Parallax Background Buildings
+            buildings.forEach(b => {
+                b.x -= speed * 0.3; // Parallax slow scroll
+                if (b.x + b.width < 0) {
+                    b.x = 960 + Math.random() * 40;
+                    b.height = 100 + Math.random() * 150;
+                }
+
+                const bY = 440 - b.height;
+                ctx.fillStyle = stage.buildingColor;
+                ctx.fillRect(b.x, bY, b.width, b.height);
+                ctx.strokeStyle = stage.buildingOutline;
+                ctx.lineWidth = 1;
+                ctx.strokeRect(b.x, bY, b.width, b.height);
+
+                // Windows
+                if (b.windows) {
+                    ctx.fillStyle = stage.neon ? (Math.random() > 0.5 ? '#06b6d4' : '#f43f5e') : '#fef08a';
+                    ctx.globalAlpha = 0.4;
+                    for (let wx = b.x + 8; wx < b.x + b.width - 12; wx += 14) {
+                        for (let wy = bY + 12; wy < 420; wy += 22) {
+                            ctx.fillRect(wx, wy, 6, 10);
+                        }
+                    }
+                    ctx.globalAlpha = 1;
+                }
+            });
+
+            // 5. Rain Weather Effect (Stage 3)
+            if (stage.rain) {
+                ctx.strokeStyle = 'rgba(148, 163, 184, 0.4)';
+                ctx.lineWidth = 1.5;
+                rainDrops.forEach(drop => {
+                    drop.y += drop.speed;
+                    drop.x -= speed * 0.5;
+                    if (drop.y > 540) {
+                        drop.y = -20;
+                        drop.x = Math.random() * 960;
+                    }
+                    ctx.beginPath();
+                    ctx.moveTo(drop.x, drop.y);
+                    ctx.lineTo(drop.x - 4, drop.y + drop.length);
+                    ctx.stroke();
+                });
+            }
+
+            // 6. Ground & Road Surface
+            ctx.fillStyle = stage.groundColor;
+            ctx.fillRect(0, 440, 960, 100);
+
+            // Sidewalk Curb
+            ctx.fillStyle = '#475569';
+            ctx.fillRect(0, 440, 960, 8);
+
+            // Road Markings (Fast scroll)
+            ctx.fillStyle = '#f8fafc';
+            const roadOffset = (Date.now() * 0.02 * speed) % 60;
+            for (let rx = -roadOffset; rx < 960; rx += 60) {
+                ctx.fillRect(rx, 485, 35, 6);
+            }
+        }
+
+        // Kick Soccer Ball Action
+        function performSoccerKick() {
+            if (soccerAmmo > 0 && gameState === 'PLAYING') {
+                soccerAmmo--;
+                soccerBalls.push(new SoccerBall(player.x + player.width, player.y + 20));
+                audio.playKick();
+                updateHUD();
+            }
+        }
+
+        function triggerQuiz() {
+            gameState = 'QUIZ';
+            const randomQuiz = CONAN_QUIZ_BANK[Math.floor(Math.random() * CONAN_QUIZ_BANK.length)];
+            
+            document.getElementById('quiz-question').innerText = randomQuiz.question;
+            const optionsContainer = document.getElementById('quiz-options');
+            optionsContainer.innerHTML = '';
+
+            randomQuiz.options.forEach((optText, index) => {
+                const btn = document.createElement('button');
+                btn.className = "p-3 bg-slate-800 hover:bg-blue-600 border border-slate-700 hover:border-blue-400 rounded-xl text-xs sm:text-sm text-white font-bold transition active:scale-95 text-left flex items-center gap-2";
+                btn.innerHTML = `<span class="bg-blue-900/60 text-blue-300 px-2 py-0.5 rounded text-xs">${String.fromCharCode(65 + index)}</span> <span>${optText}</span>`;
+                
+                btn.onclick = () => {
+                    if (index === randomQuiz.correct) {
+                        // Correct Answer
+                        audio.playCoin();
+                        score += 500;
+                        if (lives < 3) lives++;
+                        player.activateTurbo(6);
+                        soccerAmmo += 1;
+                        document.getElementById('quiz-feedback').innerText = "🎉 回答正確！獲得真相加成：極速衝刺 + 補血 + ⚽足球補給！";
+                        document.getElementById('quiz-feedback').className = "text-xs font-bold text-green-400";
+                    } else {
+                        // Wrong Answer
+                        audio.playHit();
+                        document.getElementById('quiz-feedback').innerText = "❌ 推理出錯！真相只有一個，繼續保持警惕！";
+                        document.getElementById('quiz-feedback').className = "text-xs font-bold text-red-400";
+                    }
+
+                    setTimeout(() => {
+                        document.getElementById('quiz-modal').classList.add('hidden');
+                        gameState = 'PLAYING';
+                        lastTime = performance.now();
+                        requestAnimationFrame(gameLoop);
+                    }, 1200);
+                };
+
+                optionsContainer.appendChild(btn);
+            });
+
+            document.getElementById('quiz-modal').classList.remove('hidden');
+        }
+
+        function checkCollisions() {
+            // Player AABB Hitbox
+            const pBox = {
+                x: player.x + 6,
+                y: player.y + 4,
+                width: player.width - 12,
+                height: player.height - 8
+            };
+
+            // Soccer Ball vs Obstacles
+            soccerBalls.forEach(ball => {
+                const bBox = { x: ball.x - ball.radius, y: ball.y - ball.radius, width: ball.radius * 2, height: ball.radius * 2 };
+                obstacles.forEach(obs => {
+                    const oBox = { x: obs.x, y: obs.y, width: obs.width, height: obs.height };
+                    if (bBox.x < oBox.x + oBox.width &&
+                        bBox.x + bBox.width > oBox.x &&
+                        bBox.y < oBox.y + oBox.height &&
+                        bBox.y + bBox.height > oBox.y) {
+
+                        obs.markedForDeletion = true;
+                        ball.markedForDeletion = true;
+                        score += 300;
+                        audio.playHit();
+                        for (let i = 0; i < 15; i++) {
+                            particles.push(new Particle(obs.x + 18, obs.y + 18, Math.random() * 10 - 5, Math.random() * -8 - 2, '#ef4444', 5));
+                        }
+                    }
+                });
+            });
+
+            // Obstacle Collisions
+            obstacles.forEach(obs => {
+                const oBox = { x: obs.x + 4, y: obs.y + 4, width: obs.width - 8, height: obs.height - 8 };
+
+                if (pBox.x < oBox.x + oBox.width &&
+                    pBox.x + pBox.width > oBox.x &&
+                    pBox.y < oBox.y + oBox.height &&
+                    pBox.y + pBox.height > oBox.y) {
+
+                    if (player.isTurbo) {
+                        // Turbo smashes obstacle!
+                        obs.markedForDeletion = true;
+                        score += 200;
+                        audio.playCoin();
+                        for (let i = 0; i < 12; i++) {
+                            particles.push(new Particle(obs.x + 20, obs.y + 15, Math.random() * 8 - 4, Math.random() * -6 - 2, '#ef4444', 5));
+                        }
+                    } else if (player.invincibleTimer <= 0) {
+                        // Take damage
+                        obs.markedForDeletion = true;
+                        lives--;
+                        player.invincibleTimer = 1.5; // 1.5s invincibility flash
+                        audio.playHit();
+                        updateHUD();
+
+                        if (lives <= 0) {
+                            gameOver("柯南體力耗盡！任務失敗。");
+                        }
+                    }
+                }
+            });
+
+            // Collectible Collisions
+            collectibles.forEach(col => {
+                const cBox = { x: col.x, y: col.y, width: col.width, height: col.height };
+
+                if (pBox.x < cBox.x + cBox.width &&
+                    pBox.x + pBox.width > cBox.x &&
+                    pBox.y < cBox.y + cBox.height &&
+                    pBox.y + pBox.height > cBox.y) {
+
+                    col.markedForDeletion = true;
+                    if (col.type === 'BADGE') {
+                        score += 150;
+                        audio.playCoin();
+                        for (let i = 0; i < 8; i++) {
+                            particles.push(new Particle(col.x + 15, col.y + 15, Math.random() * 6 - 3, Math.random() * -4 - 1, '#f59e0b', 4));
+                        }
+                    } else if (col.type === 'SKATEBOARD') {
+                        score += 300;
+                        player.activateTurbo(5);
+                    } else if (col.type === 'SOCCER') {
+                        soccerAmmo += 1;
+                        audio.playCoin();
+                    }
+                    updateHUD();
+                }
+            });
+        }
+
+        function checkStageProgress() {
+            // Check if distance reaches next stage threshold
+            const nextStage = STAGES[currentStageIndex + 1];
+            if (nextStage && distance >= nextStage.distance) {
+                currentStageIndex++;
+                audio.playStageChange();
+
+                // Show Stage Notification Banner on Canvas
+                const badgeEl = document.getElementById('stage-badge');
+                badgeEl.innerText = `📍 階段 ${currentStageIndex + 1}: ${STAGES[currentStageIndex].name}`;
+                badgeEl.classList.add('conan-red-glow');
+                setTimeout(() => badgeEl.classList.remove('conan-red-glow'), 1000);
+            }
+
+            // Check Quiz distance trigger
+            if (distance >= nextQuizDistance) {
+                nextQuizDistance += 250;
+                triggerQuiz();
+            }
+        }
+
+        function updateHUD() {
+            document.getElementById('score-display').innerText = String(Math.floor(score)).padStart(4, '0');
+            document.getElementById('distance-display').innerText = `${Math.floor(distance)}m`;
+            document.getElementById('soccer-ammo-display').innerText = `x${soccerAmmo}`;
+
+            // Hearts
+            let heartsStr = '';
+            for (let i = 0; i < 3; i++) {
+                heartsStr += i < lives ? '❤️' : '🖤';
+            }
+            document.getElementById('hearts-container').innerText = heartsStr;
+
+            // Turbo bar
+            const turboContainer = document.getElementById('turbo-bar-container');
+            if (player.isTurbo) {
+                turboContainer.classList.remove('hidden');
+                document.getElementById('turbo-timer').innerText = `${player.turboTimer.toFixed(1)}s`;
+                document.getElementById('turbo-progress').style.width = `${(player.turboTimer / 5) * 100}%`;
+            } else {
+                turboContainer.classList.add('hidden');
+            }
+        }
+
+        // Main Game Loop
+        let lastTime = 0;
+        function gameLoop(timestamp) {
+            if (gameState !== 'PLAYING') return;
+
+            const dt = Math.min((timestamp - lastTime) / 1000, 0.1);
+            lastTime = timestamp;
+
+            // Speed calculation (base + distance multiplier + turbo)
+            gameSpeed = (baseSpeed + (distance * 0.003)) * (player.isTurbo ? 1.6 : 1.0);
+            distance += (gameSpeed * dt * 3);
+            score += dt * 10 * (player.isTurbo ? 2 : 1);
+
+            // Clear Canvas
+            ctx.clearRect(0, 0, 960, 540);
+
+            // 1. Background
+            updateAndDrawBackground(gameSpeed);
+
+            // 2. Check Stage Progress & Quiz Triggers
+            checkStageProgress();
+
+            // 3. Spawners
+            spawnObstacleTimer += dt;
+            if (spawnObstacleTimer > Math.max(1.1, 2.2 - (distance * 0.0008))) {
+                spawnObstacleTimer = 0;
+                const types = ['CULPRIT', 'BARRICADE', 'DRONE'];
+                const selectedType = types[Math.floor(Math.random() * types.length)];
+                obstacles.push(new Obstacle(selectedType, 980));
+            }
+
+            spawnCollectibleTimer += dt;
+            if (spawnCollectibleTimer > 3.2) {
+                spawnCollectibleTimer = 0;
+                const rand = Math.random();
+                const colType = rand > 0.6 ? 'SKATEBOARD' : (rand > 0.3 ? 'SOCCER' : 'BADGE');
+                const spawnY = Math.random() > 0.5 ? 320 : 380;
+                collectibles.push(new Collectible(colType, 980, spawnY));
+            }
+
+            // 4. Update & Draw Entities
+            player.update(dt);
+            player.draw();
+
+            soccerBalls.forEach(ball => {
+                ball.update(dt);
+                ball.draw();
+            });
+
+            obstacles.forEach(obs => {
+                obs.update(gameSpeed);
+                obs.draw();
+            });
+
+            collectibles.forEach(col => {
+                col.update(gameSpeed, dt);
+                col.draw();
+            });
+
+            particles.forEach(p => {
+                p.update();
+                p.draw();
+            });
+
+            // Cleanup
+            soccerBalls = soccerBalls.filter(b => !b.markedForDeletion);
+            obstacles = obstacles.filter(o => !o.markedForDeletion);
+            collectibles = collectibles.filter(c => !c.markedForDeletion);
+            particles = particles.filter(p => !p.markedForDeletion);
+
+            // 5. Collisions & HUD
+            checkCollisions();
+            updateHUD();
+
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+
+        function startGame() {
+            audio.init();
+            gameState = 'PLAYING';
+            score = 0;
+            distance = 0;
+            lives = 3;
+            soccerAmmo = 1;
+            nextQuizDistance = 250;
+            currentStageIndex = 0;
+            obstacles = [];
+            collectibles = [];
+            soccerBalls = [];
+            particles = [];
+            player.reset();
+
+            document.getElementById('start-menu').classList.add('hidden');
+            document.getElementById('game-over-menu').classList.add('hidden');
+            document.getElementById('quiz-modal').classList.add('hidden');
+            document.getElementById('hud').classList.remove('hidden');
+
+            lastTime = performance.now();
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+
+        function gameOver(reason) {
+            gameState = 'GAMEOVER';
+            audio.playHit();
+
+            document.getElementById('hud').classList.add('hidden');
+            document.getElementById('turbo-bar-container').classList.add('hidden');
+            document.getElementById('game-over-menu').classList.remove('hidden');
+
+            document.getElementById('game-over-reason').innerText = reason;
+            document.getElementById('final-distance').innerText = `${Math.floor(distance)}m`;
+            document.getElementById('final-score').innerText = Math.floor(score);
+
+            const isNewHigh = score > highScore;
+            if (isNewHigh) {
+                highScore = Math.floor(score);
+                localStorage.setItem('conan_high_score', highScore);
+                document.getElementById('new-high-score-tag').classList.remove('hidden');
+            } else {
+                document.getElementById('new-high-score-tag').classList.add('hidden');
+            }
+            document.getElementById('high-score-display').innerText = highScore;
+        }
+
+        // Keyboard Event Listeners
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' || e.code === 'ArrowUp') {
+                e.preventDefault();
+                if (gameState === 'PLAYING') player.jump();
+            } else if (e.code === 'ArrowDown') {
+                e.preventDefault();
+                if (gameState === 'PLAYING') player.duck(true);
+            } else if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
+                if (gameState === 'PLAYING' && !player.isTurbo) {
+                    player.activateTurbo(4);
+                }
+            } else if (e.code === 'KeyE' || e.code === 'KeyF') {
+                if (gameState === 'PLAYING') performSoccerKick();
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.code === 'ArrowDown') {
+                if (gameState === 'PLAYING') player.duck(false);
+            }
+        });
+
+        // Touch Control Listeners for Mobile
+        const btnJump = document.getElementById('btn-jump');
+        const btnSlide = document.getElementById('btn-slide');
+        const btnTurbo = document.getElementById('btn-turbo');
+        const btnKick = document.getElementById('btn-kick');
+
+        btnJump.addEventListener('touchstart', (e) => { e.preventDefault(); if (gameState === 'PLAYING') player.jump(); });
+        btnSlide.addEventListener('touchstart', (e) => { e.preventDefault(); if (gameState === 'PLAYING') player.duck(true); });
+        btnSlide.addEventListener('touchend', (e) => { e.preventDefault(); if (gameState === 'PLAYING') player.duck(false); });
+        btnTurbo.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            if (gameState === 'PLAYING' && !player.isTurbo) player.activateTurbo(4);
+        });
+        btnKick.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            if (gameState === 'PLAYING') performSoccerKick();
+        });
+
+        // Menu Button Handlers
+        document.getElementById('start-btn').addEventListener('click', startGame);
+        document.getElementById('restart-btn').addEventListener('click', startGame);
+
+        // Initial UI High Score
+        document.getElementById('high-score-display').innerText = highScore;
+    </script>
+</body>
+</html>

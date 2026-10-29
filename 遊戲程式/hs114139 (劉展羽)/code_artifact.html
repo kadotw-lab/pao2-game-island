@@ -1,0 +1,1978 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>霓虹無盡生存：Roguelite (Neon Survivor)</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            margin: 0;
+            padding: 0;
+        }
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #080810;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            color: #fff;
+        }
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        canvas {
+            display: block;
+            background: radial-gradient(circle at center, #121225 0%, #05050b 100%);
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.8);
+        }
+
+        /* HUD CSS */
+        .hud-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 15px 20px;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 10;
+        }
+        .hud-top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+        }
+        .hud-stats {
+            display: flex;
+            gap: 20px;
+            font-size: 16px;
+            font-weight: 700;
+            text-shadow: 0 0 8px rgba(0,255,200,0.6);
+            align-items: center;
+        }
+        .hud-stat-item span {
+            color: #00ffcc;
+        }
+        /* Volume Control UI */
+        .volume-control {
+            pointer-events: auto;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(0, 0, 0, 0.4);
+            padding: 4px 10px;
+            border-radius: 15px;
+            border: 1px solid rgba(0, 255, 204, 0.3);
+            backdrop-filter: blur(4px);
+        }
+        .volume-icon {
+            font-size: 16px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .volume-slider {
+            width: 70px;
+            height: 4px;
+            accent-color: #00ffcc;
+            cursor: pointer;
+        }
+        .bars-container {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            width: 100%;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        .bar-wrapper {
+            position: relative;
+            width: 100%;
+            height: 14px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(4px);
+        }
+        .bar-fill {
+            height: 100%;
+            width: 0%;
+            transition: width 0.15s ease-out;
+            border-radius: 8px;
+        }
+        #hp-fill {
+            background: linear-gradient(90deg, #ff3366, #ff6699);
+            box-shadow: 0 0 10px #ff3366;
+        }
+        #exp-fill {
+            background: linear-gradient(90deg, #00f2fe, #4facfe);
+            box-shadow: 0 0 10px #00f2fe;
+        }
+        .bar-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 10px;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 1px 1px 2px #000;
+        }
+
+        /* Status Buff Badges */
+        .status-buffs {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            margin-top: 4px;
+        }
+        .buff-badge {
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 12px;
+            padding: 2px 8px;
+            font-size: 11px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            backdrop-filter: blur(4px);
+            animation: pulse 1s infinite alternate;
+        }
+        @keyframes pulse {
+            0% { transform: scale(0.95); }
+            100% { transform: scale(1.05); }
+        }
+
+        /* Overlay UI Screens */
+        .overlay-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(5, 5, 12, 0.85);
+            backdrop-filter: blur(8px);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            opacity: 1;
+            transition: opacity 0.3s ease;
+        }
+        .overlay-screen.hidden {
+            display: none;
+            opacity: 0;
+            pointer-events: none;
+        }
+        .title-text {
+            font-size: 42px;
+            font-weight: 900;
+            letter-spacing: 2px;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #00ffcc, #ff007f);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 20px rgba(0, 255, 204, 0.4);
+            text-align: center;
+        }
+        .subtitle-text {
+            font-size: 16px;
+            color: #a0a0c0;
+            margin-bottom: 30px;
+            text-align: center;
+            line-height: 1.5;
+        }
+        .btn-action {
+            padding: 14px 40px;
+            font-size: 18px;
+            font-weight: bold;
+            color: #05050b;
+            background: linear-gradient(90deg, #00ffcc, #00b8ff);
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 0 15px rgba(0, 255, 204, 0.5);
+            transition: all 0.2s ease;
+        }
+        .btn-action:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 25px rgba(0, 255, 204, 0.8);
+        }
+
+        /* Upgrade Modal Cards Grid */
+        .cards-container {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-top: 20px;
+            width: 100%;
+            max-width: 960px;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+        .upgrade-card {
+            background: rgba(20, 20, 40, 0.85);
+            border: 2px solid #333366;
+            border-radius: 16px;
+            padding: 18px 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+            position: relative;
+        }
+        .upgrade-card:hover {
+            transform: translateY(-8px) scale(1.03);
+            border-color: #00ffcc;
+            box-shadow: 0 0 20px rgba(0, 255, 204, 0.6);
+            background: rgba(30, 30, 60, 0.95);
+        }
+        .card-icon {
+            font-size: 38px;
+            margin-bottom: 10px;
+        }
+        .card-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: #00ffcc;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+        .card-desc {
+            font-size: 12px;
+            color: #c0c0e0;
+            text-align: center;
+            line-height: 1.4;
+        }
+
+        /* Mobile & Tablet 2x2 Grid Adaptation */
+        @media (max-width: 768px) {
+            .cards-container {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 10px;
+                max-width: 500px;
+            }
+            .upgrade-card {
+                padding: 12px 8px;
+            }
+            .card-icon {
+                font-size: 28px;
+                margin-bottom: 6px;
+            }
+            .card-title {
+                font-size: 14px;
+                margin-bottom: 4px;
+            }
+            .card-desc {
+                font-size: 11px;
+            }
+        }
+
+        /* Virtual Joystick */
+        #joystick-zone {
+            position: absolute;
+            bottom: 30px;
+            left: 30px;
+            width: 120px;
+            height: 120px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            display: none;
+            touch-action: none;
+            z-index: 50;
+        }
+        #joystick-knob {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 50px;
+            height: 50px;
+            background: radial-gradient(circle, #00ffcc, #0088cc);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 10px rgba(0, 255, 204, 0.8);
+            pointer-events: none;
+        }
+
+        /* Damage Vignette */
+        #damage-flash {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            box-shadow: inset 0 0 50px rgba(255, 0, 0, 0.8);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.1s ease;
+            z-index: 20;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+        <div id="damage-flash"></div>
+
+        <!-- HUD Overlay -->
+        <div class="hud-overlay">
+            <div class="hud-top-bar">
+                <div class="hud-stats">
+                    <div class="hud-stat-item">LV: <span id="hud-level">1</span></div>
+                    <div class="hud-stat-item">擊殺: <span id="hud-kills">0</span></div>
+                    <div class="hud-stat-item">時間: <span id="hud-timer">00:00</span></div>
+                </div>
+                <div class="hud-stats">
+                    <div class="hud-stat-item">最高分: <span id="hud-highscore">0</span></div>
+                    <div class="volume-control">
+                        <span id="volume-icon" class="volume-icon" title="點擊切換靜音">🔊</span>
+                        <input type="range" id="volume-slider" class="volume-slider" min="0" max="1" step="0.05" value="0.5">
+                    </div>
+                </div>
+            </div>
+            <div class="bars-container">
+                <div class="bar-wrapper">
+                    <div id="hp-fill" class="bar-fill"></div>
+                    <div id="hp-text" class="bar-text">100 / 100</div>
+                </div>
+                <div class="bar-wrapper" id="shield-bar-wrapper" style="display: none; border-color: rgba(0, 255, 255, 0.4);">
+                    <div id="shield-fill" class="bar-fill" style="background: linear-gradient(90deg, #00f2fe, #4facfe); box-shadow: 0 0 10px #00f2fe;"></div>
+                    <div id="shield-text" class="bar-text">SHIELD 0 / 0</div>
+                </div>
+                <div class="bar-wrapper">
+                    <div id="exp-fill" class="bar-fill"></div>
+                    <div id="exp-text" class="bar-text">EXP 0%</div>
+                </div>
+                <div id="status-buffs" class="status-buffs"></div>
+            </div>
+        </div>
+
+        <!-- Start Screen -->
+        <div id="start-screen" class="overlay-screen">
+            <h1 class="title-text">霓虹無盡生存</h1>
+            <p class="subtitle-text">操作：WASD / 方向鍵移動，或使用觸控搖桿<br>自動瞄準射擊，戰勝每 15 等登場的 BOSS 與無盡敵群！</p>
+            <button id="btn-start" class="btn-action">開始遊戲</button>
+        </div>
+
+        <!-- Level Up Modal -->
+        <div id="upgrade-screen" class="overlay-screen hidden">
+            <h2 class="title-text" style="font-size: 32px;">等級提升！LEVEL UP</h2>
+            <p class="subtitle-text">選擇一項強化增益</p>
+            <div class="cards-container" id="upgrade-cards"></div>
+        </div>
+
+        <!-- Game Over Screen -->
+        <div id="gameover-screen" class="overlay-screen hidden">
+            <h1 class="title-text" style="background: linear-gradient(45deg, #ff3366, #ff0055); -webkit-background-clip: text;">戰敗結算</h1>
+            <p class="subtitle-text" id="gameover-stats">存活時間: 00:00 | 擊殺數: 0 | 最終等級: 1</p>
+            <button id="btn-restart" class="btn-action">重新挑戰</button>
+        </div>
+
+        <!-- Virtual Joystick -->
+        <div id="joystick-zone">
+            <div id="joystick-knob"></div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        const mapBound = 1200;
+
+        // Player state object initialized globally
+        const player = {
+            x: 0,
+            y: 0,
+            radius: 16,
+            color: '#00ffcc',
+            hp: 100,
+            maxHp: 100,
+            level: 1,
+            exp: 0,
+            expToNext: 10,
+            speed: 3.5,
+            damage: 25,
+            attackInterval: 400,
+            multishot: 1,
+            pierce: 1,
+            pickupRadius: 90,
+            areaPulseUnlocked: false,
+            areaPulseRadius: 100,
+            areaPulseDamage: 30,
+            areaPulseInterval: 2500,
+            areaPulseTimer: 0,
+            lastAttackTime: 0,
+            critChance: 0,
+            critDamage: 2.5,
+            lifesteal: 0,
+            bounces: 0,
+            expBonus: 1.0,
+            expBoostCount: 0,
+            payloadCount: 0,
+            bulletScale: 1.0,
+            cooldownReduction: 1.0,
+            shield: 0,
+            maxShield: 0,
+            shieldRegenTimer: 0,
+            orbiterCount: 0,
+            orbiterAngle: 0,
+            orbiterDamage: 15,
+            lightningTargets: 0,
+            lightningDamage: 35,
+            lightningInterval: 2200,
+            lightningTimer: 0,
+            missileInterval: 0,
+            missileDamage: 45,
+            missileTimer: 0,
+            laserDamage: 90,
+            laserInterval: 0,
+            laserTimer: 0,
+            poisonDamage: 0,
+            poisonInterval: 400,
+            poisonTimer: 0
+        };
+
+        let gameState = 'Start'; // 'Start', 'Playing', 'Paused', 'GameOver'
+        let gameTime = 0;
+        let killCount = 0;
+        let highScore = parseInt(localStorage.getItem('neon_survivor_highscore')) || 0;
+        let lastBossLevel = 0;
+        let pendingUpgrades = 0;
+        let freezeTimer = 0;
+        let doubleExpTimer = 0;
+        let lastTimestamp = 0;
+
+        let bullets = [];
+        let enemies = [];
+        let gems = [];
+        let items = [];
+        let particles = [];
+        let floatingTexts = [];
+        let pulseAnimations = [];
+        let homingMissiles = [];
+        let lightningArcs = [];
+        let laserBeams = [];
+        let poisonPools = [];
+        let bossBullets = [];
+
+        // Web Audio Synthesizer
+        const soundFX = {
+            ctx: null,
+            masterVolume: 0.5,
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    if (AudioContext) this.ctx = new AudioContext();
+                }
+                if (this.ctx && this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            },
+            setVolume(vol) {
+                this.masterVolume = Math.max(0, Math.min(1, vol));
+            },
+            playShoot() {
+                if (!this.ctx || this.masterVolume <= 0) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(440, this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(110, this.ctx.currentTime + 0.08);
+                    gain.gain.setValueAtTime(0.15 * this.masterVolume, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.08);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.08);
+                } catch (e) {}
+            },
+            playHit() {
+                if (!this.ctx || this.masterVolume <= 0) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(280, this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(80, this.ctx.currentTime + 0.05);
+                    gain.gain.setValueAtTime(0.12 * this.masterVolume, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.05);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.05);
+                } catch (e) {}
+            },
+            playKill() {
+                if (!this.ctx || this.masterVolume <= 0) return;
+                try {
+                    const now = this.ctx.currentTime;
+                    const osc1 = this.ctx.createOscillator();
+                    const osc2 = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    
+                    osc1.type = 'sawtooth';
+                    osc2.type = 'square';
+                    
+                    osc1.frequency.setValueAtTime(320, now);
+                    osc1.frequency.exponentialRampToValueAtTime(40, now + 0.18);
+                    
+                    osc2.frequency.setValueAtTime(160, now);
+                    osc2.frequency.exponentialRampToValueAtTime(20, now + 0.18);
+                    
+                    gain.gain.setValueAtTime(0.25 * this.masterVolume, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.18);
+                    
+                    osc1.connect(gain);
+                    osc2.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    
+                    osc1.start(now);
+                    osc2.start(now);
+                    osc1.stop(now + 0.18);
+                    osc2.stop(now + 0.18);
+                } catch (e) {}
+            },
+            playHurt() {
+                if (!this.ctx || this.masterVolume <= 0) return;
+                try {
+                    const now = this.ctx.currentTime;
+                    const osc1 = this.ctx.createOscillator();
+                    const osc2 = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    
+                    osc1.type = 'sawtooth';
+                    osc2.type = 'triangle';
+                    
+                    osc1.frequency.setValueAtTime(220, now);
+                    osc1.frequency.exponentialRampToValueAtTime(40, now + 0.22);
+                    
+                    osc2.frequency.setValueAtTime(170, now);
+                    osc2.frequency.exponentialRampToValueAtTime(30, now + 0.22);
+                    
+                    gain.gain.setValueAtTime(0.35 * this.masterVolume, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.22);
+                    
+                    osc1.connect(gain);
+                    osc2.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    
+                    osc1.start(now);
+                    osc2.start(now);
+                    osc1.stop(now + 0.22);
+                    osc2.stop(now + 0.22);
+                } catch (e) {}
+            },
+            playGem() {
+                if (!this.ctx || this.masterVolume <= 0) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(880, this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(1320, this.ctx.currentTime + 0.06);
+                    gain.gain.setValueAtTime(0.1 * this.masterVolume, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.06);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.06);
+                } catch (e) {}
+            },
+            playItem() {
+                if (!this.ctx || this.masterVolume <= 0) return;
+                try {
+                    const now = this.ctx.currentTime;
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(523.25, now);
+                    osc.frequency.setValueAtTime(659.25, now + 0.05);
+                    osc.frequency.setValueAtTime(783.99, now + 0.1);
+                    gain.gain.setValueAtTime(0.2 * this.masterVolume, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(now + 0.2);
+                } catch (e) {}
+            },
+            playLevelUp() {
+                if (!this.ctx || this.masterVolume <= 0) return;
+                try {
+                    const now = this.ctx.currentTime;
+                    [440, 554.37, 659.25, 880].forEach((freq, idx) => {
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.type = 'triangle';
+                        osc.frequency.setValueAtTime(freq, now + idx * 0.06);
+                        gain.gain.setValueAtTime(0.2 * this.masterVolume, now + idx * 0.06);
+                        gain.gain.exponentialRampToValueAtTime(0.01, now + idx * 0.06 + 0.12);
+                        osc.connect(gain);
+                        gain.connect(this.ctx.destination);
+                        osc.start(now + idx * 0.06);
+                        osc.stop(now + idx * 0.06 + 0.12);
+                    });
+                } catch (e) {}
+            }
+        };
+
+        function spawnBoss() {
+            const angle = Math.random() * Math.PI * 2;
+            const dist = 380;
+            let bx = player.x + Math.cos(angle) * dist;
+            let by = player.y + Math.sin(angle) * dist;
+
+            bx = Math.max(-mapBound + 60, Math.min(mapBound - 60, bx));
+            by = Math.max(-mapBound + 60, Math.min(mapBound - 60, by));
+
+            const bossTier = Math.max(1, Math.floor(player.level / 15));
+            const scale = 1 + (player.level - 1) * 0.22 + (gameTime / 1000) / 45;
+            const bossHp = Math.round(450 * scale);
+            const bossDamage = Math.round(8 * scale);
+            const bossRadius = Math.min(75, 42 + bossTier * 4);
+
+            // 大幅延長 Boss 發射彈幕的冷卻時間（大幅降低攻擊頻率）
+            const shootInterval = Math.max(3200, 5000 - bossTier * 300);
+
+            enemies.push({
+                x: bx, y: by,
+                radius: bossRadius,
+                speed: 1.1 + Math.min(1.2, bossTier * 0.15),
+                hp: bossHp,
+                maxHp: bossHp,
+                color: bossTier >= 3 ? '#ff00ff' : (bossTier >= 2 ? '#ff3300' : '#ff0055'),
+                damage: bossDamage,
+                type: 'boss',
+                isBoss: true,
+                bossTier: bossTier,
+                bossName: `霓虹霸主 T${bossTier} (LV.${player.level})`,
+                shootTimer: 0,
+                shootInterval: shootInterval,
+                attackPhase: 0,
+                enraged: false,
+                hitFlash: 0
+            });
+
+            showFloatingText(player.x, player.y - 60, `⚠️ T${bossTier} BOSS 登場！(強度 x${scale.toFixed(1)})`, '#ff0055');
+            flashDamageScreen();
+            soundFX.playHurt();
+        }
+
+        const itemTypes = [
+            { type: 'heal', name: '醫療包', color: '#ff3366', icon: '❤️' },
+            { type: 'magnet', name: '全圖磁鐵', color: '#00ffff', icon: '🧲' },
+            { type: 'bomb', name: '極光炸彈', color: '#ff9900', icon: '💣' },
+            { type: 'freeze', name: '寒冰凍結', color: '#0099ff', icon: '❄️' },
+            { type: 'doubleExp', name: '雙倍經驗', color: '#ffff00', icon: '⭐' }
+        ];
+
+        function spawnItem(x, y, forcedType = null) {
+            const clampedX = Math.max(-mapBound + 50, Math.min(mapBound - 50, x));
+            const clampedY = Math.max(-mapBound + 50, Math.min(mapBound - 50, y));
+
+            const typeObj = forcedType || itemTypes[Math.floor(Math.random() * itemTypes.length)];
+            items.push({
+                x: clampedX, 
+                y: clampedY,
+                type: typeObj.type,
+                name: typeObj.name,
+                color: typeObj.color,
+                icon: typeObj.icon,
+                radius: 12,
+                floatOffset: Math.random() * Math.PI * 2,
+                lifeTime: 20000
+            });
+        }
+
+        function applyItemEffect(item) {
+            soundFX.playItem();
+            if (item.type === 'heal') {
+                const healAmount = Math.round(player.maxHp * 0.35);
+                player.hp = Math.min(player.maxHp, player.hp + healAmount);
+                showFloatingText(player.x, player.y - 30, `+${healAmount} HP`, '#00ffcc');
+            } else if (item.type === 'magnet') {
+                gems.forEach(g => {
+                    g.x = player.x;
+                    g.y = player.y;
+                });
+                showFloatingText(player.x, player.y - 30, '全圖磁鐵！', '#00ffff');
+            } else if (item.type === 'bomb') {
+                enemies.forEach(e => {
+                    e.hp -= 160;
+                    e.hitFlash = 8;
+                    spawnParticles(e.x, e.y, '#ff9900', 8);
+                });
+                pulseAnimations.push({
+                    x: player.x, y: player.y,
+                    radius: 0,
+                    maxRadius: Math.max(canvas.width, canvas.height),
+                    alpha: 1
+                });
+                showFloatingText(player.x, player.y - 30, '全螢幕炸彈！', '#ff9900');
+            } else if (item.type === 'freeze') {
+                freezeTimer = 5000;
+                showFloatingText(player.x, player.y - 30, '寒冰緩速 5s！', '#0099ff');
+            } else if (item.type === 'doubleExp') {
+                doubleExpTimer = 8000;
+                showFloatingText(player.x, player.y - 30, '雙倍經驗 8s！', '#ffff00');
+            }
+        }
+
+        const keys = {};
+        const joystickState = { active: false, dx: 0, dy: 0 };
+
+        window.addEventListener('keydown', (e) => keys[e.code] = true);
+        window.addEventListener('keyup', (e) => keys[e.code] = false);
+
+        const joystickZone = document.getElementById('joystick-zone');
+        const joystickKnob = document.getElementById('joystick-knob');
+
+        if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+            joystickZone.style.display = 'block';
+        }
+
+        let touchId = null;
+        let joyCenter = { x: 0, y: 0 };
+
+        joystickZone.addEventListener('touchstart', (e) => {
+            const touch = e.changedTouches[0];
+            touchId = touch.identifier;
+            const rect = joystickZone.getBoundingClientRect();
+            joyCenter = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+            updateJoystick(touch.clientX, touch.clientY);
+        }, { passive: false });
+
+        joystickZone.addEventListener('touchmove', (e) => {
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                if (e.changedTouches[i].identifier === touchId) {
+                    updateJoystick(e.changedTouches[i].clientX, e.changedTouches[i].clientY);
+                    break;
+                }
+            }
+        }, { passive: false });
+
+        function resetJoystick() {
+            touchId = null;
+            joystickState.active = false;
+            joystickState.dx = 0;
+            joystickState.dy = 0;
+            joystickKnob.style.left = '50%';
+            joystickKnob.style.top = '50%';
+        }
+
+        joystickZone.addEventListener('touchend', resetJoystick);
+        joystickZone.addEventListener('touchcancel', resetJoystick);
+
+        function updateJoystick(clientX, clientY) {
+            joystickState.active = true;
+            let dx = clientX - joyCenter.x;
+            let dy = clientY - joyCenter.y;
+            let dist = Math.hypot(dx, dy);
+            let maxDist = 45;
+            if (dist > maxDist) {
+                dx = (dx / dist) * maxDist;
+                dy = (dy / dist) * maxDist;
+            }
+            joystickKnob.style.left = `${50 + (dx / maxDist) * 35}%`;
+            joystickKnob.style.top = `${50 + (dy / maxDist) * 35}%`;
+            joystickState.dx = dx / maxDist;
+            joystickState.dy = dy / maxDist;
+        }
+
+        const upgradePool = [
+            { id: 'dmg', title: '攻擊力提升', desc: '子彈基礎傷害增加 25%', icon: '⚔️', apply: () => player.damage *= 1.25 },
+            { id: 'spd', title: '射速提升', desc: '主武器攻擊冷卻減少 15%', icon: '⚡', apply: () => player.attackInterval = Math.max(100, player.attackInterval * 0.85) },
+            { id: 'multi', title: '多重發射', desc: '每次攻擊額外增加 1 發子彈', icon: '💥', apply: () => player.multishot += 1 },
+            { id: 'move', title: '移動加速', desc: '玩家移動速度增加 15%', icon: '👟', apply: () => player.speed *= 1.15 },
+            { id: 'hp', title: '生命上限 & 回復', desc: '最大生命值 +30，並回復 50 HP', icon: '❤️', apply: () => { player.maxHp += 30; player.hp = Math.min(player.maxHp, player.hp + 50); } },
+            { id: 'magnet', title: '拾取範圍', desc: '經驗寶石與道具磁鐵吸收範圍 +40%', icon: '🧲', apply: () => player.pickupRadius *= 1.4 },
+            { id: 'pierce', title: '穿透射擊', desc: '子彈可多穿透 1 個目標', icon: '🏹', apply: () => player.pierce += 1 },
+            { id: 'nova', title: '霓虹新星脈衝', desc: player.areaPulseUnlocked ? '提升脈衝範圍與 35% 傷害' : '解鎖環形脈衝，定期對周圍敵人造成傷害', icon: '🌀', apply: () => {
+                if (!player.areaPulseUnlocked) { player.areaPulseUnlocked = true; } 
+                else { player.areaPulseDamage *= 1.35; player.areaPulseRadius += 25; }
+            }},
+            { id: 'shield', title: '等離子防護盾', desc: player.maxShield > 0 ? '護盾上限 +30 並立即補滿' : '獲得 40 點可自動充能的等離子防護盾', icon: '🛡️', apply: () => {
+                player.maxShield += player.maxShield > 0 ? 30 : 40;
+                player.shield = player.maxShield;
+                document.getElementById('shield-bar-wrapper').style.display = 'block';
+            }},
+            { id: 'crit', title: '暴擊精通', desc: '暴擊率 +15%，暴擊造成 250% 傷害', icon: '🎯', apply: () => player.critChance = Math.min(0.85, player.critChance + 0.15) },
+            { id: 'lightning', title: '連環雷霆', desc: player.lightningTargets > 0 ? '雷霆鏈擊敵人數 +2，傷害 +30%' : '定期召喚落雷，在多個敵人之間彈射', icon: '⚡', apply: () => {
+                player.lightningTargets += 2;
+                player.lightningDamage *= 1.3;
+            }},
+            { id: 'missile', title: '追蹤星核飛彈', desc: player.missileInterval > 0 ? '飛彈傷害 +35% 並加快發射頻率' : '解鎖追蹤飛彈，自動攻擊並引爆敵群', icon: '🚀', apply: () => {
+                player.missileInterval = player.missileInterval > 0 ? Math.max(800, player.missileInterval - 200) : 1800;
+                player.missileDamage *= 1.35;
+            }},
+            { id: 'orbiter', title: '旋轉光刃護盾', desc: '召喚 1 具環繞身軀的切割光刃', icon: '⚔️', apply: () => player.orbiterCount += 1 },
+            { id: 'laser', title: '量子極光雷射', desc: player.laserInterval > 0 ? '極光雷射傷害 +40% 且冷卻時間縮短' : '定期向前方發射貫穿全螢幕的強烈雷射', icon: '⚛️', apply: () => {
+                player.laserInterval = player.laserInterval > 0 ? Math.max(1800, player.laserInterval - 400) : 4000;
+                player.laserDamage *= 1.4;
+            }},
+            { id: 'poison', title: '劇毒步道', desc: '移動時在地面留下毒霧，持續毒殺經過的敵人', icon: '☣️', apply: () => player.poisonDamage += 6 },
+            { id: 'bounce', title: '彈射子彈', desc: '子彈命中目標或邊界時可額外彈射 1 次', icon: '🔄', apply: () => player.bounces += 1 },
+            { id: 'vamp', title: '生命吸取', desc: '造成傷害或擊殺敵人時有概率回復 1 HP', icon: '🩸', apply: () => player.lifesteal += 0.08 },
+            { id: 'payload', title: '巨化核彈頭', desc: '子彈體積 +50%，傷害 +35%，擊退力大幅提升（最多選擇 8 次）', icon: '💣', apply: () => { player.bulletScale *= 1.5; player.damage *= 1.35; player.payloadCount++; }},
+            { id: 'expboost', title: '幸運星', desc: '永久提升獲得的所有經驗值 +40%（最多選擇 3 次）', icon: '⭐', apply: () => { player.expBonus += 0.4; player.expBoostCount++; } },
+            { id: 'cd', title: '急速冷卻', desc: '所有技能與主武器冷卻時間縮短 20%', icon: '⏱️', apply: () => player.cooldownReduction *= 0.8 }
+        ];
+
+        function spawnParticles(x, y, color, count = 8) {
+            for (let i = 0; i < count; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 3 + 1;
+                particles.push({
+                    x, y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    radius: Math.random() * 3 + 2,
+                    color,
+                    alpha: 1,
+                    decay: Math.random() * 0.03 + 0.02
+                });
+            }
+        }
+
+        function showFloatingText(x, y, text, color = '#ffffff') {
+            floatingTexts.push({
+                x, y, text, color,
+                alpha: 1,
+                vy: -1.2,
+                life: 30
+            });
+        }
+
+        function flashDamageScreen() {
+            const el = document.getElementById('damage-flash');
+            el.style.opacity = '1';
+            setTimeout(() => el.style.opacity = '0', 150);
+        }
+
+        let spawnTimer = 0;
+        function spawnEnemies(delta) {
+            spawnTimer += delta;
+            const spawnInterval = Math.max(300, 1600 - (gameTime / 1000) * 10);
+            
+            if (spawnTimer >= spawnInterval) {
+                spawnTimer = 0;
+
+                const angle = Math.random() * Math.PI * 2;
+                const dist = Math.hypot(canvas.width, canvas.height) / 2 + 50;
+                let ex = player.x + Math.cos(angle) * dist;
+                let ey = player.y + Math.sin(angle) * dist;
+
+                ex = Math.max(-mapBound + 20, Math.min(mapBound - 20, ex));
+                ey = Math.max(-mapBound + 20, Math.min(mapBound - 20, ey));
+
+                const timeFactor = 1 + (gameTime / 1000) / 75;
+                const levelFactor = 1 + (player.level - 1) * 0.08;
+                const scale = timeFactor * levelFactor;
+
+                const rand = Math.random();
+                let type = 'basic';
+                let radius = 14;
+                let speed = 1.4 + Math.random() * 0.3;
+                let hp = 18 * scale;
+                let color = '#ff3366';
+                let damage = 4 * scale;
+
+                if (rand < 0.25) {
+                    type = 'rusher';
+                    radius = 10;
+                    speed = 2.8;
+                    hp = 10 * scale;
+                    color = '#ffcc00';
+                    damage = 3 * scale;
+                } else if (rand > 0.85) {
+                    type = 'tank';
+                    radius = 24;
+                    speed = 0.95;
+                    hp = 70 * scale;
+                    color = '#aa00ff';
+                    damage = 10 * scale;
+                }
+
+                enemies.push({
+                    x: ex, y: ey,
+                    radius, speed, hp, maxHp: hp,
+                    color, damage, type,
+                    hitFlash: 0
+                });
+            }
+        }
+
+        function handleAutoAttack(now) {
+            const effectiveInterval = player.attackInterval * player.cooldownReduction;
+            if (now - player.lastAttackTime < effectiveInterval) return;
+            if (enemies.length === 0) return;
+
+            let closestEnemy = null;
+            let minDist = Infinity;
+
+            enemies.forEach(e => {
+                const dist = Math.hypot(e.x - player.x, e.y - player.y);
+                if (dist < minDist) {
+                    minDist = dist;
+                    closestEnemy = e;
+                }
+            });
+
+            if (!closestEnemy) return;
+            player.lastAttackTime = now;
+            soundFX.playShoot();
+
+            const baseAngle = Math.atan2(closestEnemy.y - player.y, closestEnemy.x - player.x);
+            const spread = 0.18;
+
+            for (let i = 0; i < player.multishot; i++) {
+                const offset = (i - (player.multishot - 1) / 2) * spread;
+                const angle = baseAngle + offset;
+                const speed = 9;
+
+                const isCrit = Math.random() < player.critChance;
+                const finalDmg = isCrit ? player.damage * player.critDamage : player.damage;
+
+                bullets.push({
+                    x: player.x,
+                    y: player.y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    radius: 4 * player.bulletScale,
+                    damage: finalDmg,
+                    pierce: player.pierce,
+                    bounces: player.bounces,
+                    isCrit: isCrit,
+                    hitList: []
+                });
+            }
+        }
+
+        function update(delta, now) {
+            if (gameState !== 'Playing') return;
+
+            gameTime += delta;
+
+            // Boss Attacks & Danmaku Bullets
+            enemies.forEach(e => {
+                if (e.isBoss) {
+                    if (!e.enraged && e.hp < e.maxHp * 0.3) {
+                        e.enraged = true;
+                        e.speed *= 1.4;
+                        e.shootInterval *= 0.8;
+                        showFloatingText(e.x, e.y - e.radius - 15, '⚡ 狂暴狀態！攻擊加快！', '#ff0055');
+                        spawnParticles(e.x, e.y, '#ff0000', 30);
+                    }
+
+                    e.shootTimer += delta;
+                    if (e.shootTimer >= e.shootInterval) {
+                        e.shootTimer = 0;
+                        e.attackPhase = (e.attackPhase + 1) % 3;
+
+                        // 大幅減少基礎環狀彈幕數量 (從 6+2*Tier 降至 3+Tier)
+                        const baseCount = 3 + (e.bossTier || 1);
+                        const bulletSpeed = 2.6 + (e.bossTier || 1) * 0.2;
+                        const bulletDmg = Math.round(e.damage * 0.3);
+
+                        for (let k = 0; k < baseCount; k++) {
+                            const bAngle = (k * Math.PI * 2) / baseCount + (e.attackPhase * 0.1);
+                            bossBullets.push({
+                                x: e.x,
+                                y: e.y,
+                                vx: Math.cos(bAngle) * bulletSpeed,
+                                vy: Math.sin(bAngle) * bulletSpeed,
+                                radius: 7 + (e.bossTier > 2 ? 2 : 0),
+                                damage: bulletDmg,
+                                life: 300
+                            });
+                        }
+
+                        // 減少階段 2 瞄準散射彈數 (從 5 顆降至 3 顆)
+                        if (e.bossTier >= 2 && e.attackPhase === 1) {
+                            const pAngle = Math.atan2(player.y - e.y, player.x - e.x);
+                            for (let a = -1; a <= 1; a++) {
+                                const sprAngle = pAngle + a * 0.22;
+                                bossBullets.push({
+                                    x: e.x,
+                                    y: e.y,
+                                    vx: Math.cos(sprAngle) * (bulletSpeed * 1.2),
+                                    vy: Math.sin(sprAngle) * (bulletSpeed * 1.2),
+                                    radius: 8,
+                                    damage: Math.round(bulletDmg * 1.2),
+                                    life: 300
+                                });
+                            }
+                        }
+
+                        // 減少階段 3 大範圍圓形彈幕數 (從 12 顆降至 6 顆)
+                        if (e.bossTier >= 3 && e.attackPhase === 2) {
+                            for (let s = 0; s < 6; s++) {
+                                const spAngle = (s * Math.PI * 2) / 6 + Date.now() * 0.002;
+                                bossBullets.push({
+                                    x: e.x,
+                                    y: e.y,
+                                    vx: Math.cos(spAngle) * (bulletSpeed * 0.9),
+                                    vy: Math.sin(spAngle) * (bulletSpeed * 0.9),
+                                    radius: 9,
+                                    damage: Math.round(bulletDmg * 1.3),
+                                    life: 320
+                                });
+                            }
+                        }
+
+                        soundFX.playShoot();
+                    }
+                }
+            });
+
+            // Update Boss Bullets
+            for (let i = bossBullets.length - 1; i >= 0; i--) {
+                const bb = bossBullets[i];
+                bb.x += bb.vx;
+                bb.y += bb.vy;
+                bb.life--;
+
+                if (bb.life <= 0 || Math.abs(bb.x) >= mapBound || Math.abs(bb.y) >= mapBound) {
+                    bossBullets.splice(i, 1);
+                    continue;
+                }
+
+                const dist = Math.hypot(player.x - bb.x, player.y - bb.y);
+                if (dist < player.radius + bb.radius) {
+                    player.shieldRegenTimer = 0;
+                    const rawDmg = bb.damage;
+                    if (player.shield > 0) {
+                        if (player.shield >= rawDmg) player.shield -= rawDmg;
+                        else {
+                            const overflow = rawDmg - player.shield;
+                            player.shield = 0;
+                            player.hp -= overflow;
+                        }
+                    } else {
+                        player.hp -= rawDmg;
+                    }
+                    flashDamageScreen();
+                    soundFX.playHurt();
+                    bossBullets.splice(i, 1);
+                    if (player.hp <= 0) {
+                        player.hp = 0;
+                        gameOver();
+                    }
+                }
+            }
+
+            // Shield Regeneration
+            if (player.maxShield > 0 && player.shield < player.maxShield) {
+                player.shieldRegenTimer += delta;
+                if (player.shieldRegenTimer >= 3000) {
+                    player.shield = Math.min(player.maxShield, player.shield + 10 * (delta / 1000));
+                }
+            }
+
+            // Player Movement Logic
+            let moveX = 0;
+            let moveY = 0;
+
+            if (keys['KeyW'] || keys['ArrowUp']) moveY -= 1;
+            if (keys['KeyS'] || keys['ArrowDown']) moveY += 1;
+            if (keys['KeyA'] || keys['ArrowLeft']) moveX -= 1;
+            if (keys['KeyD'] || keys['ArrowRight']) moveX += 1;
+
+            if (joystickState.active) {
+                moveX = joystickState.dx;
+                moveY = joystickState.dy;
+            } else if (moveX !== 0 && moveY !== 0) {
+                const len = Math.hypot(moveX, moveY);
+                moveX /= len;
+                moveY /= len;
+            }
+
+            player.x += moveX * player.speed;
+            player.y += moveY * player.speed;
+
+            const pMin = -mapBound + player.radius;
+            const pMax = mapBound - player.radius;
+            if (player.x <= pMin || player.x >= pMax || player.y <= pMin || player.y >= pMax) {
+                spawnParticles(player.x, player.y, '#ff0055', 1);
+            }
+            player.x = Math.max(pMin, Math.min(pMax, player.x));
+            player.y = Math.max(pMin, Math.min(pMax, player.y));
+
+            handleAutoAttack(now);
+
+            // Active Skill 1: Orbiters
+            if (player.orbiterCount > 0) {
+                player.orbiterAngle += 0.04;
+                const orbiterRadius = 65;
+                for (let i = 0; i < player.orbiterCount; i++) {
+                    const angle = player.orbiterAngle + (i * Math.PI * 2) / player.orbiterCount;
+                    const ox = player.x + Math.cos(angle) * orbiterRadius;
+                    const oy = player.y + Math.sin(angle) * orbiterRadius;
+
+                    enemies.forEach(e => {
+                        if (Math.hypot(e.x - ox, e.y - oy) < e.radius + 12) {
+                            e.hp -= player.orbiterDamage * (delta / 1000) * 10;
+                            e.hitFlash = 2;
+                            spawnParticles(ox, oy, '#00ffff', 1);
+                        }
+                    });
+                }
+            }
+
+            // Active Skill 2: Chain Lightning
+            player.lightningTimer += delta;
+            if (player.lightningTargets > 0 && player.lightningTimer >= player.lightningInterval * player.cooldownReduction && enemies.length > 0) {
+                player.lightningTimer = 0;
+                let current = player;
+                let hitTargets = [];
+                for (let i = 0; i < player.lightningTargets; i++) {
+                    let nextEnemy = null;
+                    let minDist = 300;
+                    enemies.forEach(e => {
+                        if (!hitTargets.includes(e)) {
+                            const d = Math.hypot(e.x - current.x, e.y - current.y);
+                            if (d < minDist) { minDist = d; nextEnemy = e; }
+                        }
+                    });
+
+                    if (nextEnemy) {
+                        nextEnemy.hp -= player.lightningDamage;
+                        nextEnemy.hitFlash = 6;
+                        lightningArcs.push({ x1: current.x, y1: current.y, x2: nextEnemy.x, y2: nextEnemy.y, alpha: 1.0 });
+                        hitTargets.push(nextEnemy);
+                        showFloatingText(nextEnemy.x, nextEnemy.y, Math.round(player.lightningDamage), '#ffff00');
+                        current = nextEnemy;
+                    } else break;
+                }
+                if (hitTargets.length > 0) soundFX.playHit();
+            }
+
+            for (let i = lightningArcs.length - 1; i >= 0; i--) {
+                lightningArcs[i].alpha -= 0.08;
+                if (lightningArcs[i].alpha <= 0) lightningArcs.splice(i, 1);
+            }
+
+            // Active Skill 3: Homing Missiles
+            player.missileTimer += delta;
+            if (player.missileInterval > 0 && player.missileTimer >= player.missileInterval * player.cooldownReduction && enemies.length > 0) {
+                player.missileTimer = 0;
+                homingMissiles.push({
+                    x: player.x, y: player.y,
+                    vx: (Math.random() - 0.5) * 4,
+                    vy: (Math.random() - 0.5) * 4,
+                    damage: player.missileDamage,
+                    life: 250
+                });
+            }
+
+            for (let i = homingMissiles.length - 1; i >= 0; i--) {
+                const m = homingMissiles[i];
+                m.life--;
+                if (m.life <= 0) { homingMissiles.splice(i, 1); continue; }
+
+                let target = null;
+                let minDist = Infinity;
+                enemies.forEach(e => {
+                    const d = Math.hypot(e.x - m.x, e.y - m.y);
+                    if (d < minDist) { minDist = d; target = e; }
+                });
+
+                if (target) {
+                    const angle = Math.atan2(target.y - m.y, target.x - m.x);
+                    m.vx += Math.cos(angle) * 0.8;
+                    m.vy += Math.sin(angle) * 0.8;
+                    const speed = Math.hypot(m.vx, m.vy);
+                    if (speed > 7) { m.vx = (m.vx / speed) * 7; m.vy = (m.vy / speed) * 7; }
+                }
+
+                m.x += m.vx;
+                m.y += m.vy;
+                spawnParticles(m.x, m.y, '#ff9900', 1);
+
+                for (let j = enemies.length - 1; j >= 0; j--) {
+                    const e = enemies[j];
+                    if (Math.hypot(m.x - e.x, m.y - e.y) < e.radius + 10) {
+                        enemies.forEach(ne => {
+                            if (Math.hypot(m.x - ne.x, m.y - ne.y) < 70) {
+                                ne.hp -= m.damage;
+                                ne.hitFlash = 6;
+                                showFloatingText(ne.x, ne.y, Math.round(m.damage), '#ff9900');
+                            }
+                        });
+                        pulseAnimations.push({ x: m.x, y: m.y, radius: 0, maxRadius: 65, alpha: 1 });
+                        soundFX.playHit();
+                        homingMissiles.splice(i, 1);
+                        break;
+                    }
+                }
+            }
+
+            // Active Skill 4: Quantum Laser Beam
+            player.laserTimer += delta;
+            if (player.laserInterval > 0 && player.laserTimer >= player.laserInterval * player.cooldownReduction && enemies.length > 0) {
+                player.laserTimer = 0;
+                let closest = enemies[0];
+                let minDist = Math.hypot(closest.x - player.x, closest.y - player.y);
+                enemies.forEach(e => {
+                    const d = Math.hypot(e.x - player.x, e.y - player.y);
+                    if (d < minDist) { minDist = d; closest = e; }
+                });
+
+                const angle = Math.atan2(closest.y - player.y, closest.x - player.x);
+                laserBeams.push({ x: player.x, y: player.y, angle: angle, alpha: 1.0 });
+
+                enemies.forEach(e => {
+                    const dx = e.x - player.x;
+                    const dy = e.y - player.y;
+                    const proj = dx * Math.cos(angle) + dy * Math.sin(angle);
+                    if (proj > 0) {
+                        const perp = Math.abs(-dx * Math.sin(angle) + dy * Math.cos(angle));
+                        if (perp < e.radius + 25) {
+                            e.hp -= player.laserDamage;
+                            e.hitFlash = 8;
+                            showFloatingText(e.x, e.y, Math.round(player.laserDamage), '#ff00ff');
+                        }
+                    }
+                });
+                soundFX.playShoot();
+            }
+
+            for (let i = laserBeams.length - 1; i >= 0; i--) {
+                laserBeams[i].alpha -= 0.05;
+                if (laserBeams[i].alpha <= 0) laserBeams.splice(i, 1);
+            }
+
+            // Active Skill 5: Toxic Trails
+            if (player.poisonDamage > 0) {
+                player.poisonTimer += delta;
+                if (player.poisonTimer >= player.poisonInterval) {
+                    player.poisonTimer = 0;
+                    poisonPools.push({ x: player.x, y: player.y, radius: 25, life: 180 });
+                }
+            }
+
+            for (let i = poisonPools.length - 1; i >= 0; i--) {
+                const pool = poisonPools[i];
+                pool.life--;
+                if (pool.life <= 0) { poisonPools.splice(i, 1); continue; }
+
+                enemies.forEach(e => {
+                    if (Math.hypot(e.x - pool.x, e.y - pool.y) < pool.radius + e.radius) {
+                        e.hp -= player.poisonDamage * (delta / 1000);
+                        e.hitFlash = 1;
+                    }
+                });
+            }
+
+            // Active Skill 6: Area Pulse Nova
+            if (player.areaPulseUnlocked) {
+                player.areaPulseTimer += delta;
+                if (player.areaPulseTimer >= player.areaPulseInterval) {
+                    player.areaPulseTimer = 0;
+                    pulseAnimations.push({
+                        x: player.x, y: player.y,
+                        radius: 0,
+                        maxRadius: player.areaPulseRadius,
+                        alpha: 1
+                    });
+                    soundFX.playHit();
+
+                    enemies.forEach(e => {
+                        const dist = Math.hypot(e.x - player.x, e.y - player.y);
+                        if (dist <= player.areaPulseRadius + e.radius) {
+                            e.hp -= player.areaPulseDamage;
+                            e.hitFlash = 5;
+                            const angle = Math.atan2(e.y - player.y, e.x - player.x);
+                            e.x += Math.cos(angle) * 15;
+                            e.y += Math.sin(angle) * 15;
+                            showFloatingText(e.x, e.y, Math.round(player.areaPulseDamage), '#00ffff');
+                        }
+                    });
+                }
+            }
+
+            for (let i = pulseAnimations.length - 1; i >= 0; i--) {
+                const p = pulseAnimations[i];
+                p.radius += (p.maxRadius - p.radius) * 0.15 + 4;
+                p.alpha -= 0.04;
+                if (p.alpha <= 0 || p.radius >= p.maxRadius) {
+                    pulseAnimations.splice(i, 1);
+                }
+            }
+
+            // Update Bullets
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                const b = bullets[i];
+                b.x += b.vx;
+                b.y += b.vy;
+
+                if (b.bounces > 0) {
+                    if (Math.abs(b.x) >= mapBound) { b.vx *= -1; b.bounces--; }
+                    if (Math.abs(b.y) >= mapBound) { b.vy *= -1; b.bounces--; }
+                } else {
+                    if (Math.abs(b.x) >= mapBound || Math.abs(b.y) >= mapBound) {
+                        spawnParticles(b.x, b.y, '#ffff00', 3);
+                        bullets.splice(i, 1);
+                        continue;
+                    }
+                }
+
+                if (Math.hypot(b.x - player.x, b.y - player.y) > 1200) {
+                    bullets.splice(i, 1);
+                    continue;
+                }
+
+                for (let j = enemies.length - 1; j >= 0; j--) {
+                    const e = enemies[j];
+                    if (b.hitList.includes(e)) continue;
+
+                    const dist = Math.hypot(b.x - e.x, b.y - e.y);
+                    if (dist < b.radius + e.radius) {
+                        e.hp -= b.damage;
+                        e.hitFlash = 4;
+                        b.hitList.push(e);
+                        soundFX.playHit();
+
+                        if (player.lifesteal > 0 && Math.random() < player.lifesteal) {
+                            player.hp = Math.min(player.maxHp, player.hp + 1);
+                        }
+
+                        const hitAngle = Math.atan2(e.y - b.y, e.x - b.x);
+                        const kb = 4 * player.bulletScale;
+                        e.x += Math.cos(hitAngle) * kb;
+                        e.y += Math.sin(hitAngle) * kb;
+
+                        spawnParticles(b.x, b.y, e.color, 4);
+                        showFloatingText(e.x, e.y, Math.round(b.damage) + (b.isCrit ? ' CRIT!' : ''), b.isCrit ? '#ffcc00' : '#ffffff');
+
+                        b.pierce--;
+                        if (b.pierce <= 0) {
+                            bullets.splice(i, 1);
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // Update Enemies
+            spawnEnemies(delta);
+
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                const e = enemies[i];
+                if (e.hitFlash > 0) e.hitFlash--;
+
+                const moveSpeed = freezeTimer > 0 ? e.speed * 0.25 : e.speed;
+                const angle = Math.atan2(player.y - e.y, player.x - e.x);
+                e.x += Math.cos(angle) * moveSpeed;
+                e.y += Math.sin(angle) * moveSpeed;
+
+                e.x = Math.max(-mapBound + e.radius, Math.min(mapBound - e.radius, e.x));
+                e.y = Math.max(-mapBound + e.radius, Math.min(mapBound - e.radius, e.y));
+
+                if (e.hp <= 0) {
+                    killCount++;
+                    soundFX.playKill();
+                    spawnParticles(e.x, e.y, e.color, e.isBoss ? 35 : 12);
+
+                    if (e.isBoss) {
+                        const bossExp = 10 * (e.bossTier || 1);
+                        gems.push({ x: e.x, y: e.y, radius: 18, value: bossExp });
+                        spawnItem(e.x - 25, e.y, itemTypes[0]);
+                        spawnItem(e.x + 25, e.y);
+                        spawnItem(e.x, e.y - 25);
+                        showFloatingText(e.x, e.y, `BOSS 擊破！+${bossExp} EXP`, '#00ffcc');
+                    } else {
+                        gems.push({
+                            x: e.x,
+                            y: e.y,
+                            radius: 6,
+                            value: e.type === 'tank' ? 5 : (e.type === 'rusher' ? 1.5 : 2)
+                        });
+                        if (Math.random() < 0.08) {
+                            spawnItem(e.x, e.y);
+                        }
+                    }
+
+                    enemies.splice(i, 1);
+                    continue;
+                }
+
+                const distToPlayer = Math.hypot(player.x - e.x, player.y - e.y);
+                if (distToPlayer < player.radius + e.radius) {
+                    player.shieldRegenTimer = 0;
+                    const rawDamage = e.damage * (delta / 1000);
+
+                    if (player.shield > 0) {
+                        if (player.shield >= rawDamage) {
+                            player.shield -= rawDamage;
+                        } else {
+                            const overflow = rawDamage - player.shield;
+                            player.shield = 0;
+                            player.hp -= overflow;
+                        }
+                    } else {
+                        player.hp -= rawDamage;
+                    }
+
+                    flashDamageScreen();
+                    soundFX.playHurt();
+
+                    if (player.hp <= 0) {
+                        player.hp = 0;
+                        gameOver();
+                    }
+                }
+            }
+
+            // Update EXP Gems
+            for (let i = gems.length - 1; i >= 0; i--) {
+                const g = gems[i];
+                const dist = Math.hypot(player.x - g.x, player.y - g.y);
+
+                if (dist < player.pickupRadius) {
+                    const angle = Math.atan2(player.y - g.y, player.x - g.x);
+                    const flySpeed = Math.max(6, (1 - dist / player.pickupRadius) * 12);
+                    g.x += Math.cos(angle) * flySpeed;
+                    g.y += Math.sin(angle) * flySpeed;
+                }
+
+                if (dist < player.radius + g.radius) {
+                    addExp(g.value);
+                    soundFX.playGem();
+                    gems.splice(i, 1);
+                }
+            }
+
+            // Update Map Items
+            for (let i = items.length - 1; i >= 0; i--) {
+                const item = items[i];
+                item.lifeTime -= delta;
+                if (item.lifeTime <= 0) {
+                    items.splice(i, 1);
+                    continue;
+                }
+
+                const dist = Math.hypot(player.x - item.x, player.y - item.y);
+
+                if (dist < player.pickupRadius) {
+                    const angle = Math.atan2(player.y - item.y, player.x - item.x);
+                    item.x += Math.cos(angle) * 7;
+                    item.y += Math.sin(angle) * 7;
+                }
+
+                if (dist < player.radius + item.radius) {
+                    applyItemEffect(item);
+                    spawnParticles(item.x, item.y, item.color, 15);
+                    items.splice(i, 1);
+                }
+            }
+
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.alpha -= p.decay;
+                if (p.alpha <= 0) particles.splice(i, 1);
+            }
+
+            for (let i = floatingTexts.length - 1; i >= 0; i--) {
+                const ft = floatingTexts[i];
+                ft.y += ft.vy;
+                ft.life--;
+                ft.alpha = ft.life / 30;
+                if (ft.life <= 0) floatingTexts.splice(i, 1);
+            }
+
+            updateHUD();
+        }
+
+        function addExp(amount) {
+            const finalAmount = (doubleExpTimer > 0 ? amount * 2 : amount) * player.expBonus;
+            player.exp += finalAmount;
+            let leveledUp = false;
+            while (player.exp >= player.expToNext) {
+                player.exp -= player.expToNext;
+                player.level++;
+                player.expToNext = 10 + Math.floor((player.level - 1) / 4);
+                pendingUpgrades++;
+                leveledUp = true;
+
+                if (player.level % 15 === 0 && player.level > lastBossLevel) {
+                    lastBossLevel = player.level;
+                    spawnBoss();
+                }
+            }
+            if (leveledUp && gameState === 'Playing') {
+                soundFX.playLevelUp();
+                triggerLevelUpModal();
+            }
+        }
+
+        function triggerLevelUpModal() {
+            gameState = 'Paused';
+            const screen = document.getElementById('upgrade-screen');
+            const container = document.getElementById('upgrade-cards');
+            container.innerHTML = '';
+
+            const availablePool = upgradePool.filter(opt => {
+                if (opt.id === 'expboost' && player.expBoostCount >= 3) return false;
+                if (opt.id === 'payload' && player.payloadCount >= 8) return false;
+                return true;
+            });
+
+            const shuffled = [...availablePool].sort(() => 0.5 - Math.random());
+            const choices = shuffled.slice(0, 4);
+
+            choices.forEach((opt, index) => {
+                const card = document.createElement('div');
+                card.className = 'upgrade-card';
+                card.innerHTML = `
+                    <div style="position: absolute; top: 6px; left: 10px; font-size: 11px; color: rgba(0,255,204,0.6); font-weight: bold;">選項 ${index + 1}</div>
+                    <div class="card-icon">${opt.icon}</div>
+                    <div class="card-title">${opt.title}</div>
+                    <div class="card-desc">${opt.desc}</div>
+                `;
+                card.onclick = () => {
+                    opt.apply();
+                    pendingUpgrades--;
+                    if (pendingUpgrades > 0) {
+                        triggerLevelUpModal();
+                    } else {
+                        screen.classList.add('hidden');
+                        gameState = 'Playing';
+                    }
+                };
+                container.appendChild(card);
+            });
+
+            screen.classList.remove('hidden');
+        }
+
+        function render() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            ctx.save();
+            ctx.translate(canvas.width / 2 - player.x, canvas.height / 2 - player.y);
+
+            // Draw Grid
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+            ctx.lineWidth = 1;
+            const gridSize = 100;
+            const startX = Math.floor((player.x - canvas.width / 2) / gridSize) * gridSize;
+            const endX = startX + canvas.width + gridSize * 2;
+            const startY = Math.floor((player.y - canvas.height / 2) / gridSize) * gridSize;
+            const endY = startY + canvas.height + gridSize * 2;
+
+            for (let x = startX; x < endX; x += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(x, startY);
+                ctx.lineTo(x, endY);
+                ctx.stroke();
+            }
+            for (let y = startY; y < endY; y += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(startX, y);
+                ctx.lineTo(endX, y);
+                ctx.stroke();
+            }
+
+            // Draw Boundary
+            ctx.strokeStyle = '#00ffcc';
+            ctx.lineWidth = 4;
+            ctx.shadowColor = '#00ffcc';
+            ctx.shadowBlur = 15;
+            ctx.strokeRect(-mapBound, -mapBound, mapBound * 2, mapBound * 2);
+            ctx.shadowBlur = 0;
+
+            // Poison Pools
+            poisonPools.forEach(pool => {
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(pool.x, pool.y, pool.radius, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(0, 255, 100, ${Math.min(0.35, pool.life / 180)})`;
+                ctx.fill();
+                ctx.restore();
+            });
+
+            // Quantum Lasers
+            laserBeams.forEach(lb => {
+                ctx.save();
+                ctx.strokeStyle = `rgba(255, 0, 255, ${lb.alpha})`;
+                ctx.lineWidth = 16;
+                ctx.shadowColor = '#ff00ff';
+                ctx.shadowBlur = 20;
+                ctx.beginPath();
+                ctx.moveTo(lb.x, lb.y);
+                ctx.lineTo(lb.x + Math.cos(lb.angle) * 2000, lb.y + Math.sin(lb.angle) * 2000);
+                ctx.stroke();
+                ctx.restore();
+            });
+
+            // Chain Lightning
+            lightningArcs.forEach(arc => {
+                ctx.save();
+                ctx.strokeStyle = `rgba(255, 255, 0, ${arc.alpha})`;
+                ctx.lineWidth = 3;
+                ctx.shadowColor = '#ffff00';
+                ctx.shadowBlur = 10;
+                ctx.beginPath();
+                ctx.moveTo(arc.x1, arc.y1);
+                ctx.lineTo(arc.x2, arc.y2);
+                ctx.stroke();
+                ctx.restore();
+            });
+
+            // Homing Missiles
+            homingMissiles.forEach(m => {
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(m.x, m.y, 5, 0, Math.PI * 2);
+                ctx.fillStyle = '#ff9900';
+                ctx.shadowColor = '#ff9900';
+                ctx.shadowBlur = 8;
+                ctx.fill();
+                ctx.restore();
+            });
+
+            // Orbiters
+            if (player.orbiterCount > 0) {
+                const orbiterRadius = 65;
+                for (let i = 0; i < player.orbiterCount; i++) {
+                    const angle = player.orbiterAngle + (i * Math.PI * 2) / player.orbiterCount;
+                    const ox = player.x + Math.cos(angle) * orbiterRadius;
+                    const oy = player.y + Math.sin(angle) * orbiterRadius;
+
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.arc(ox, oy, 8, 0, Math.PI * 2);
+                    ctx.fillStyle = '#00ffff';
+                    ctx.shadowColor = '#00ffff';
+                    ctx.shadowBlur = 12;
+                    ctx.fill();
+                    ctx.restore();
+                }
+            }
+
+            // Draw Gems
+            gems.forEach(g => {
+                ctx.beginPath();
+                ctx.arc(g.x, g.y, g.radius, 0, Math.PI * 2);
+                ctx.fillStyle = '#00f2fe';
+                ctx.shadowColor = '#00f2fe';
+                ctx.shadowBlur = 8;
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            });
+
+            // Draw Items
+            items.forEach(item => {
+                ctx.save();
+                ctx.translate(item.x, item.y + Math.sin(Date.now() / 200 + item.floatOffset) * 4);
+                ctx.font = '20px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(item.icon, 0, 0);
+                ctx.restore();
+            });
+
+            // Draw Player Bullets
+            bullets.forEach(b => {
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
+                ctx.fillStyle = b.isCrit ? '#ffcc00' : '#00ffcc';
+                ctx.shadowColor = b.isCrit ? '#ffcc00' : '#00ffcc';
+                ctx.shadowBlur = 10;
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            });
+
+            // Draw Boss Bullets
+            bossBullets.forEach(bb => {
+                ctx.beginPath();
+                ctx.arc(bb.x, bb.y, bb.radius, 0, Math.PI * 2);
+                ctx.fillStyle = '#ff0055';
+                ctx.shadowColor = '#ff0055';
+                ctx.shadowBlur = 10;
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            });
+
+            // Draw Enemies
+            enemies.forEach(e => {
+                ctx.beginPath();
+                ctx.arc(e.x, e.y, e.radius, 0, Math.PI * 2);
+                ctx.fillStyle = e.hitFlash > 0 ? '#ffffff' : e.color;
+                ctx.shadowColor = e.color;
+                ctx.shadowBlur = 12;
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            });
+
+            // Overhead Boss HP Bar
+            const currentBoss = enemies.find(e => e.isBoss);
+            if (currentBoss) {
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(currentBoss.x, currentBoss.y, currentBoss.radius + 10, 0, Math.PI * 2);
+                ctx.strokeStyle = currentBoss.enraged ? '#ff0000' : (currentBoss.color || '#ff0055');
+                ctx.lineWidth = currentBoss.enraged ? 4 : 2;
+                ctx.shadowColor = currentBoss.color;
+                ctx.shadowBlur = currentBoss.enraged ? 25 : 15;
+                ctx.stroke();
+
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                ctx.fillRect(currentBoss.x - 55, currentBoss.y - currentBoss.radius - 24, 110, 10);
+                ctx.fillStyle = currentBoss.enraged ? '#ff0000' : '#ff0055';
+                const hpPct = Math.max(0, currentBoss.hp / currentBoss.maxHp);
+                ctx.fillRect(currentBoss.x - 55, currentBoss.y - currentBoss.radius - 24, 110 * hpPct, 10);
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(currentBoss.x - 55, currentBoss.y - currentBoss.radius - 24, 110, 10);
+
+                ctx.font = 'bold 12px sans-serif';
+                ctx.fillStyle = currentBoss.enraged ? '#ff3333' : '#ff0055';
+                ctx.textAlign = 'center';
+                const statusText = currentBoss.enraged ? ' [狂暴中!]' : '';
+                ctx.fillText(`${currentBoss.bossName}${statusText}`, currentBoss.x, currentBoss.y - currentBoss.radius - 29);
+                ctx.restore();
+            }
+
+            // Draw Player
+            ctx.beginPath();
+            ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
+            ctx.fillStyle = player.color;
+            ctx.shadowColor = player.color;
+            ctx.shadowBlur = 20;
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            // Plasma Shield Ring
+            if (player.shield > 0) {
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(player.x, player.y, player.radius + 6, 0, Math.PI * 2);
+                ctx.strokeStyle = `rgba(0, 242, 254, ${0.4 + (player.shield / player.maxShield) * 0.5})`;
+                ctx.lineWidth = 3;
+                ctx.shadowColor = '#00f2fe';
+                ctx.shadowBlur = 12;
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            // Draw Particles
+            particles.forEach(p => {
+                ctx.save();
+                ctx.globalAlpha = p.alpha;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                ctx.fillStyle = p.color;
+                ctx.fill();
+                ctx.restore();
+            });
+
+            // Draw Floating Text
+            floatingTexts.forEach(ft => {
+                ctx.save();
+                ctx.globalAlpha = ft.alpha;
+                ctx.font = 'bold 14px sans-serif';
+                ctx.fillStyle = ft.color;
+                ctx.textAlign = 'center';
+                ctx.fillText(ft.text, ft.x, ft.y);
+                ctx.restore();
+            });
+
+            ctx.restore();
+        }
+
+        function gameOver() {
+            gameState = 'GameOver';
+            if (killCount > highScore) {
+                highScore = killCount;
+                localStorage.setItem('neon_survivor_highscore', highScore);
+            }
+            const totalSecs = Math.floor(gameTime / 1000);
+            const mins = String(Math.floor(totalSecs / 60)).padStart(2, '0');
+            const secs = String(totalSecs % 60).padStart(2, '0');
+            document.getElementById('gameover-stats').innerText = `存活時間: ${mins}:${secs} | 擊殺數: ${killCount} | 最終等級: ${player.level}`;
+            document.getElementById('gameover-screen').classList.remove('hidden');
+        }
+
+        function updateHUD() {
+            document.getElementById('hud-level').innerText = player.level;
+            document.getElementById('hud-kills').innerText = killCount;
+            document.getElementById('hud-highscore').innerText = highScore;
+
+            const totalSecs = Math.floor(gameTime / 1000);
+            const mins = String(Math.floor(totalSecs / 60)).padStart(2, '0');
+            const secs = String(totalSecs % 60).padStart(2, '0');
+            document.getElementById('hud-timer').innerText = `${mins}:${secs}`;
+
+            const hpPct = Math.max(0, Math.min(100, (player.hp / player.maxHp) * 100));
+            document.getElementById('hp-fill').style.width = `${hpPct}%`;
+            document.getElementById('hp-text').innerText = `${Math.ceil(player.hp)} / ${Math.ceil(player.maxHp)}`;
+
+            if (player.maxShield > 0) {
+                const shieldPct = Math.max(0, Math.min(100, (player.shield / player.maxShield) * 100));
+                document.getElementById('shield-fill').style.width = `${shieldPct}%`;
+                document.getElementById('shield-text').innerText = `護盾 ${Math.ceil(player.shield)} / ${Math.ceil(player.maxShield)}`;
+            }
+
+            const expPct = Math.min(100, (player.exp / player.expToNext) * 100);
+            document.getElementById('exp-fill').style.width = `${expPct}%`;
+            document.getElementById('exp-text').innerText = `EXP ${Math.floor(expPct)}%`;
+
+            const statusBuffsEl = document.getElementById('status-buffs');
+            let buffHtml = '';
+            if (freezeTimer > 0) {
+                buffHtml += `<div class="buff-badge" style="color: #00ffff; border-color: #00ffff;">❄️ 凍結中 (${Math.ceil(freezeTimer / 1000)}s)</div>`;
+            }
+            if (doubleExpTimer > 0) {
+                buffHtml += `<div class="buff-badge" style="color: #ffff00; border-color: #ffff00;">⭐ 雙倍經驗 (${Math.ceil(doubleExpTimer / 1000)}s)</div>`;
+            }
+            if (player.expBonus > 1) {
+                buffHtml += `<div class="buff-badge" style="color: #00ffcc; border-color: #00ffcc;">✨ EXP +${Math.round((player.expBonus - 1) * 100)}%</div>`;
+            }
+            statusBuffsEl.innerHTML = buffHtml;
+        }
+
+        function resetGame() {
+            player.x = 0;
+            player.y = 0;
+            player.hp = 100;
+            player.maxHp = 100;
+            player.level = 1;
+            player.exp = 0;
+            player.expToNext = 10;
+            player.speed = 3.5;
+            player.damage = 25;
+            player.attackInterval = 400;
+            player.multishot = 1;
+            player.pierce = 1;
+            player.pickupRadius = 90;
+            player.areaPulseUnlocked = false;
+
+            player.critChance = 0;
+            player.lifesteal = 0;
+            player.bounces = 0;
+            player.expBonus = 1.0;
+            player.expBoostCount = 0;
+            player.payloadCount = 0;
+            player.bulletScale = 1.0;
+            player.cooldownReduction = 1.0;
+            player.shield = 0;
+            player.maxShield = 0;
+            player.orbiterCount = 0;
+            player.lightningTargets = 0;
+            player.missileInterval = 0;
+            player.laserDamage = 90;
+            player.laserInterval = 0;
+            player.poisonDamage = 0;
+
+            bullets = [];
+            enemies = [];
+            gems = [];
+            items = [];
+            particles = [];
+            floatingTexts = [];
+            pulseAnimations = [];
+            homingMissiles = [];
+            lightningArcs = [];
+            laserBeams = [];
+            poisonPools = [];
+            bossBullets = [];
+            lastBossLevel = 0;
+
+            document.getElementById('shield-bar-wrapper').style.display = 'none';
+
+            freezeTimer = 0;
+            doubleExpTimer = 0;
+            pendingUpgrades = 0;
+
+            gameTime = 0;
+            killCount = 0;
+            gameState = 'Playing';
+
+            document.getElementById('start-screen').classList.add('hidden');
+            document.getElementById('gameover-screen').classList.add('hidden');
+            document.getElementById('upgrade-screen').classList.add('hidden');
+        }
+
+        const volumeSlider = document.getElementById('volume-slider');
+        const volumeIcon = document.getElementById('volume-icon');
+        let previousVolume = 0.5;
+
+        volumeSlider.addEventListener('input', (e) => {
+            const val = parseFloat(e.target.value);
+            soundFX.setVolume(val);
+            volumeIcon.innerText = val === 0 ? '🔇' : (val < 0.5 ? '🔉' : '🔊');
+        });
+
+        volumeIcon.addEventListener('click', () => {
+            if (soundFX.masterVolume > 0) {
+                previousVolume = soundFX.masterVolume;
+                soundFX.setVolume(0);
+                volumeSlider.value = 0;
+                volumeIcon.innerText = '🔇';
+            } else {
+                soundFX.setVolume(previousVolume || 0.5);
+                volumeSlider.value = soundFX.masterVolume;
+                volumeIcon.innerText = soundFX.masterVolume < 0.5 ? '🔉' : '🔊';
+            }
+        });
+
+        document.getElementById('btn-start').addEventListener('click', () => {
+            soundFX.init();
+            resetGame();
+        });
+
+        document.getElementById('btn-restart').addEventListener('click', () => {
+            soundFX.init();
+            resetGame();
+        });
+
+        function gameLoop(timestamp) {
+            if (!lastTimestamp) lastTimestamp = timestamp;
+            const delta = timestamp - lastTimestamp;
+            lastTimestamp = timestamp;
+
+            if (gameState === 'Playing') {
+                if (freezeTimer > 0) freezeTimer -= delta;
+                if (doubleExpTimer > 0) doubleExpTimer -= delta;
+                update(delta, timestamp);
+            }
+            render();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        window.onload = function() {
+            requestAnimationFrame(gameLoop);
+        };
+    </script>
+</body>
+</html>

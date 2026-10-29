@@ -1,0 +1,1185 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>水果合併消消樂</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+        }
+
+        body {
+            background-color: #f0f9ff;
+            background-image: radial-gradient(#e0f2fe 2px, transparent 2px);
+            background-size: 24px 24px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+            color: #334155;
+        }
+
+        #app-container {
+            position: relative;
+            width: 100%;
+            max-width: 450px;
+            height: 100vh;
+            max-height: 850px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            background-color: #ffffff;
+            border-radius: 20px;
+            border: 4px solid #bae6fd;
+            overflow: hidden;
+        }
+
+        /* 頂部儀表板 */
+        header {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(135deg, #e0f2fe, #bae6fd);
+            padding: 10px 16px;
+            border-radius: 16px;
+            box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.8), 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            z-index: 10;
+        }
+
+        .score-board {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .score-title {
+            font-size: 12px;
+            font-weight: 700;
+            color: #0284c7;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .score-value {
+            font-size: 22px;
+            font-weight: 900;
+            color: #0369a1;
+            line-height: 1;
+        }
+
+        .next-preview {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+        }
+
+        .next-box {
+            width: 48px;
+            height: 48px;
+            background: #ffffff;
+            border-radius: 12px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.06);
+            border: 2px solid #7dd3fc;
+        }
+
+        .next-canvas {
+            width: 40px;
+            height: 40px;
+        }
+
+        .controls-header {
+            display: flex;
+            gap: 8px;
+        }
+
+        .icon-btn {
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
+            border: none;
+            background: #ffffff;
+            color: #0284c7;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: all 0.15s ease;
+        }
+
+        .icon-btn:active {
+            transform: scale(0.92);
+            box-shadow: none;
+        }
+
+        /* 主遊戲視窗 */
+        #game-wrapper {
+            position: relative;
+            width: 100%;
+            flex-grow: 1;
+            margin: 10px 0;
+            border-radius: 16px;
+            overflow: hidden;
+            background: linear-gradient(to bottom, #f8fafc 0%, #f1f5f9 100%);
+            border: 3px solid #e2e8f0;
+            box-shadow: inset 0 4px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        #gameCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* 浮動得分動畫文字 */
+        .float-text {
+            position: absolute;
+            font-weight: 900;
+            font-size: 20px;
+            color: #f59e0b;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2), 0 0 8px rgba(255, 255, 255, 0.8);
+            pointer-events: none;
+            animation: floatUp 0.8s ease-out forwards;
+            z-index: 20;
+        }
+
+        @keyframes floatUp {
+            0% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(0.8);
+            }
+            50% {
+                transform: translate(-50%, -80%) scale(1.2);
+            }
+            100% {
+                opacity: 0;
+                transform: translate(-50%, -120%) scale(1);
+            }
+        }
+
+        /* 遮罩彈窗（Modal） */
+        .modal-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(4px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 50;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s ease;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-card {
+            background: #ffffff;
+            width: 85%;
+            padding: 24px;
+            border-radius: 24px;
+            text-align: center;
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.2), 0 8px 10px -6px rgba(0,0,0,0.1);
+            transform: scale(0.9);
+            transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            border: 4px solid #7dd3fc;
+        }
+
+        .modal-overlay.active .modal-card {
+            transform: scale(1);
+        }
+
+        .modal-title {
+            font-size: 26px;
+            font-weight: 900;
+            color: #0284c7;
+            margin-bottom: 12px;
+        }
+
+        .modal-desc {
+            font-size: 14px;
+            color: #64748b;
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+
+        .btn-primary {
+            width: 100%;
+            padding: 14px;
+            font-size: 18px;
+            font-weight: 800;
+            color: #ffffff;
+            background: linear-gradient(135deg, #38bdf8, #0284c7);
+            border: none;
+            border-radius: 14px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(2, 132, 199, 0.3);
+            transition: all 0.15s ease;
+        }
+
+        .btn-primary:active {
+            transform: translateY(2px);
+            box-shadow: 0 2px 6px rgba(2, 132, 199, 0.3);
+        }
+
+        .final-score {
+            font-size: 42px;
+            font-weight: 900;
+            color: #f59e0b;
+            margin: 10px 0;
+        }
+
+        .sound-toggle {
+            position: absolute;
+            bottom: 12px;
+            right: 12px;
+            background: rgba(255,255,255,0.8);
+            border: 1px solid #cbd5e1;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #475569;
+            cursor: pointer;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="app-container">
+        <!-- 頂部儀表板 -->
+        <header>
+            <div class="score-board">
+                <span class="score-title">得分</span>
+                <span id="currentScore" class="score-value">0</span>
+            </div>
+            <div class="score-board">
+                <span class="score-title">最高分</span>
+                <span id="bestScore" class="score-value">0</span>
+            </div>
+            <div class="next-preview">
+                <span class="score-title">下一個</span>
+                <div class="next-box">
+                    <canvas id="nextCanvas" class="next-canvas" width="40" height="40"></canvas>
+                </div>
+            </div>
+            <div class="controls-header">
+                <button id="pauseBtn" class="icon-btn" title="暫停">⏸</button>
+            </div>
+        </header>
+
+        <!-- 主遊戲視窗 -->
+        <div id="game-wrapper">
+            <canvas id="gameCanvas"></canvas>
+            <button id="soundBtn" class="sound-toggle">🔊 音效: 開</button>
+        </div>
+
+        <!-- 左右彈力操作按鈕區 -->
+        <div class="bounce-controls" style="width: 100%; display: flex; gap: 12px; margin-top: 4px;">
+            <button id="bounceLeftBtn" class="btn-primary" style="flex: 1; padding: 10px; font-size: 15px; background: linear-gradient(135deg, #38bdf8, #0284c7);">◀ 向左彈</button>
+            <button id="bounceRightBtn" class="btn-primary" style="flex: 1; padding: 10px; font-size: 15px; background: linear-gradient(135deg, #38bdf8, #0284c7);">向右彈 ▶</button>
+        </div>
+
+        <!-- 開始選單彈窗 -->
+        <div id="startModal" class="modal-overlay active">
+            <div class="modal-card">
+                <h1 class="modal-title">水果合併消消樂</h1>
+                <p class="modal-desc">移動並放下水果！相同種類的水果碰撞時會自動合併為更大的水果！</p>
+                <button id="startGameBtn" class="btn-primary">開始遊戲</button>
+            </div>
+        </div>
+
+        <!-- 暫停選單彈窗 -->
+        <div id="pauseModal" class="modal-overlay">
+            <div class="modal-card">
+                <h1 class="modal-title">遊戲暫停</h1>
+                <p class="modal-desc">休閒一下，等會繼續挑戰最高紀錄吧！</p>
+                <button id="resumeGameBtn" class="btn-primary" style="margin-bottom: 10px;">繼續遊戲</button>
+                <button id="restartGameBtn" class="btn-primary" style="background: linear-gradient(135deg, #f87171, #dc2626);">重新開始</button>
+            </div>
+        </div>
+
+        <!-- 遊戲結束彈窗 -->
+        <div id="gameOverModal" class="modal-overlay">
+            <div class="modal-card">
+                <h1 class="modal-title" style="color: #ef4444;">遊戲結束</h1>
+                <p class="modal-desc" style="margin-bottom: 4px;">本次得分</p>
+                <div id="finalScore" class="final-score">0</div>
+                <p id="newRecordText" class="modal-desc" style="color: #10b981; font-weight: bold; display: none;">🎉 創下新紀錄！</p>
+                <button id="playAgainBtn" class="btn-primary">再玩一次</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 全域變數與遊戲設定 ---
+        const GameState = {
+            INIT: 'INIT',
+            START: 'START',
+            PAUSED: 'PAUSED',
+            GAMEOVER: 'GAMEOVER'
+        };
+
+        let currentState = GameState.INIT;
+        let score = 0;
+        let bestScore = parseInt(localStorage.getItem('fruit_suika_best_score') || '0', 10);
+        let soundEnabled = true;
+
+        // Canvas 畫布尺寸與變數
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const nextCanvas = document.getElementById('nextCanvas');
+        const nextCtx = nextCanvas.getContext('2d');
+        const gameWrapper = document.getElementById('game-wrapper');
+
+        let width = 0;
+        let height = 0;
+        const warningYRatio = 0.2; // 警戒線比例 (頂部 20% 位置)
+        let warningY = 0;
+
+        // 水果等級數據設定 (基礎 7 級)
+        const FRUIT_TYPES = [
+            { level: 0, name: '櫻桃', radiusRatio: 0.05, color: '#ef4444', score: 2, icon: '🍒' },
+            { level: 1, name: '草莓', radiusRatio: 0.07, color: '#f43f5e', score: 4, icon: '🍓' },
+            { level: 2, name: '葡萄', radiusRatio: 0.09, color: '#a855f7', score: 8, icon: '🍇' },
+            { level: 3, name: '橘子', radiusRatio: 0.12, color: '#f97316', score: 14, icon: '🍊' },
+            { level: 4, name: '蘋果', radiusRatio: 0.15, color: '#dc2626', score: 22, icon: '🍎' },
+            { level: 5, name: '菠蘿', radiusRatio: 0.18, color: '#eab308', score: 32, icon: '🍍' },
+            { level: 6, name: '西瓜', radiusRatio: 0.22, color: '#22c55e', score: 46, icon: '🍉' }
+        ];
+
+        // 動態獲取水果種類 (支援無限升級)
+        function getFruitType(level) {
+            if (level < FRUIT_TYPES.length) {
+                return FRUIT_TYPES[level];
+            }
+            // 當超過西瓜級別，動態生成神級水果
+            const extraIcons = ['👑', '💎', '🌟', '🌌', '💥', '🪐', '☀️', '🌀'];
+            const iconIndex = (level - FRUIT_TYPES.length) % extraIcons.length;
+            const icon = extraIcons[iconIndex];
+            const hue = ((level - 7) * 45 + 50) % 360;
+            const color = `hsl(${hue}, 85%, 55%)`;
+            // 尺寸漸進微幅增大，最高限制在畫布寬度的 0.25 倍以防洗版
+            const radiusRatio = Math.min(0.25, 0.22 + (level - 6) * 0.008);
+            const score = Math.round(46 * Math.pow(1.8, level - 6));
+            const name = `神級水果 Lv.${level - 5}`;
+            return { level, name, radiusRatio, color, score, icon };
+        }
+
+        // 物理與遊戲變數
+        let fruits = [];
+        let particles = [];
+        let currentFruit = null;
+        let nextFruitTypeIndex = 0;
+        let canDrop = true;
+        let dropCooldownTimer = null;
+
+        // 不定時掉落水果變數
+        let randomDropTimer = 0;
+        let nextRandomDropInterval = getRandomDropInterval();
+
+        function getRandomDropInterval() {
+            // 每 3 ~ 7 秒隨機掉落一顆水果
+            return Math.random() * 4 + 3;
+        }
+
+        let warningTimer = 0; // 警戒線計時器
+        const MAX_WARNING_TIME = 2.0; // 超過警戒線 2 秒判定淘汰
+
+        const GRAVITY = 0.35;
+        const FRICTION = 0.99; // 微調摩擦力使反彈更加流暢
+        const RESTITUTION = 0.8; // 水果間碰撞彈性係數
+        const SUPER_BOUNCE = 1.35; // 提高側向反彈力道
+        const BOUNCE_DECAY = 0.75; // 彈力遞減係數調整
+
+        // 主動左右衝擊彈跳功能
+        function applySideBounce(direction) {
+            if (currentState !== GameState.START || fruits.length === 0) return;
+
+            // direction: -1 (往左), 1 (往右)
+            const forceX = direction * 8.5;
+            const forceY = -3.5; // 帶一點微微向上浮起的效果，方便重新排布
+
+            fruits.forEach(f => {
+                if (!f.isStatic) {
+                    f.vx += forceX + (Math.random() - 0.5) * 2;
+                    f.vy += forceY + (Math.random() - 0.5) * 2;
+                    f.bounceCount = 0; // 重置彈跳次數限制，恢復高彈性
+                }
+            });
+
+            audioSys.playBounce();
+            
+            // 邊框震動視覺特效
+            const wrapper = document.getElementById('game-wrapper');
+            wrapper.style.transform = `translateX(${direction * 8}px)`;
+            setTimeout(() => {
+                wrapper.style.transform = 'translateX(0)';
+            }, 100);
+
+            // 產生兩側邊緣粒子
+            const particleX = direction === -1 ? width * 0.9 : width * 0.1;
+            createParticles(particleX, height * 0.6, '#38bdf8');
+        }
+
+        // --- Web Audio API 音效生成器 ---
+        class SoundSystem {
+            constructor() {
+                this.ctx = null;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            playBounce() {
+                if (!soundEnabled) return;
+                this.init();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(180, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(450, this.ctx.currentTime + 0.08);
+                gain.gain.setValueAtTime(0.25, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.08);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.08);
+            }
+
+            playDrop() {
+                if (!soundEnabled) return;
+                this.init();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(300, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(120, this.ctx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.1);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.1);
+            }
+
+            playCombine(level) {
+                if (!soundEnabled) return;
+                this.init();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                const baseFreq = 400 + level * 70;
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(baseFreq, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(baseFreq * 1.5, this.ctx.currentTime + 0.15);
+                gain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.15);
+            }
+
+            playGameOver() {
+                if (!soundEnabled) return;
+                this.init();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(300, this.ctx.currentTime);
+                osc.frequency.linearRampToValueAtTime(80, this.ctx.currentTime + 0.6);
+                gain.gain.setValueAtTime(0.5, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.6);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.6);
+            }
+        }
+
+        const audioSys = new SoundSystem();
+
+        // --- 水果類別 ---
+        class Fruit {
+            constructor(x, y, typeIndex, isStatic = false) {
+                this.x = x;
+                this.y = y;
+                this.typeIndex = typeIndex;
+                this.type = getFruitType(typeIndex);
+                this.radius = width * this.type.radiusRatio;
+                this.vx = 0;
+                this.vy = 0;
+                this.isStatic = isStatic;
+                this.scale = 1; // 生成動畫縮放
+                this.targetScale = 1;
+                this.id = Math.random().toString(36).substr(2, 9);
+                this.hasPassedWarning = false; // 是否已落入虛線下方
+                this.bounceCount = 0; // 反彈次數紀錄，用於彈力遞減
+            }
+
+            update() {
+                if (this.isStatic) return;
+
+                // 物理運動：重力與摩擦力
+                this.vy += GRAVITY;
+                this.vx *= FRICTION;
+                this.vy *= FRICTION;
+
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // 記錄水果是否已成功落下並穿過警戒線
+                if (!this.hasPassedWarning && (this.y - this.radius > warningY)) {
+                    this.hasPassedWarning = true;
+                }
+
+                // 反彈力道遞減機制：隨反彈次數增加，反彈倍率指數級衰減
+                const bounceFactor = Math.max(0.15, SUPER_BOUNCE * Math.pow(BOUNCE_DECAY, this.bounceCount));
+
+                // 1. 左牆壁反彈
+                if (this.x - this.radius < 0) {
+                    this.x = this.radius;
+                    if (Math.abs(this.vx) > 0.5) {
+                        this.vx = Math.abs(this.vx) * bounceFactor;
+                        if (this.bounceCount < 3) {
+                            audioSys.playBounce();
+                            createParticles(this.x, this.y, '#38bdf8');
+                        }
+                        this.bounceCount++;
+                    } else {
+                        this.vx = 0;
+                    }
+                }
+                // 2. 右牆壁反彈
+                if (this.x + this.radius > width) {
+                    this.x = width - this.radius;
+                    if (Math.abs(this.vx) > 0.5) {
+                        this.vx = -Math.abs(this.vx) * bounceFactor;
+                        if (this.bounceCount < 3) {
+                            audioSys.playBounce();
+                            createParticles(this.x, this.y, '#38bdf8');
+                        }
+                        this.bounceCount++;
+                    } else {
+                        this.vx = 0;
+                    }
+                }
+                // 3. 底部牆壁反彈
+                if (this.y + this.radius > height) {
+                    this.y = height - this.radius;
+                    if (Math.abs(this.vy) > 0.5) {
+                        this.vy = -Math.abs(this.vy) * bounceFactor;
+                        if (this.bounceCount < 3) {
+                            audioSys.playBounce();
+                            createParticles(this.x, this.y, '#38bdf8');
+                        }
+                        this.bounceCount++;
+                    } else {
+                        this.vy = 0;
+                    }
+                }
+                // 4. 頂部警戒虛線超級向下反彈 (當水果落入後向上彈起撞擊虛線時)
+                if (this.hasPassedWarning && (this.y - this.radius < warningY)) {
+                    this.y = warningY + this.radius;
+                    if (Math.abs(this.vy) > 0.5) {
+                        this.vy = Math.abs(this.vy) * bounceFactor;
+                        if (this.bounceCount < 3) {
+                            audioSys.playBounce();
+                            createParticles(this.x, warningY, '#ef4444');
+                        }
+                        this.bounceCount++;
+                    } else {
+                        this.vy = 0;
+                    }
+                }
+            }
+
+            draw(context) {
+                context.save();
+                context.translate(this.x, this.y);
+                context.scale(this.scale, this.scale);
+
+                // 繪製圓形底色與外框
+                context.beginPath();
+                context.arc(0, 0, this.radius, 0, Math.PI * 2);
+                context.fillStyle = this.type.color;
+                context.fill();
+
+                // 陰影與立體質感
+                context.beginPath();
+                context.arc(-this.radius * 0.2, -this.radius * 0.2, this.radius * 0.7, 0, Math.PI * 2);
+                context.fillStyle = 'rgba(255, 255, 255, 0.25)';
+                context.fill();
+
+                context.lineWidth = 3;
+                context.strokeStyle = 'rgba(0, 0, 0, 0.1)';
+                context.stroke();
+
+                // 繪製圖案或文字
+                context.font = `${this.radius * 1.1}px sans-serif`;
+                context.textAlign = 'center';
+                context.textBaseline = 'middle';
+                context.fillText(this.type.icon, 0, 2);
+
+                context.restore();
+            }
+        }
+
+        // --- 粒子特效系統 ---
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.radius = Math.random() * 4 + 2;
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 6 + 2;
+                this.vx = Math.cos(angle) * speed;
+                this.vy = Math.sin(angle) * speed;
+                this.alpha = 1;
+                this.decay = Math.random() * 0.03 + 0.02;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vy += 0.1; // 輕微重力
+                this.alpha -= this.decay;
+            }
+
+            draw(context) {
+                context.save();
+                context.globalAlpha = Math.max(0, this.alpha);
+                context.beginPath();
+                context.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                context.fillStyle = this.color;
+                context.fill();
+                context.restore();
+            }
+        }
+
+        // --- RWD 與 畫布初始化 ---
+        function resizeCanvas() {
+            const rect = gameWrapper.getBoundingClientRect();
+            width = rect.width;
+            height = rect.height;
+
+            canvas.width = width;
+            canvas.height = height;
+
+            warningY = height * warningYRatio;
+
+            // 調整現有水果半徑以維持響應式比例
+            fruits.forEach(f => {
+                f.radius = width * f.type.radiusRatio;
+            });
+
+            if (currentFruit) {
+                currentFruit.radius = width * currentFruit.type.radiusRatio;
+                currentFruit.y = warningY * 0.6;
+            }
+        }
+
+        // --- 遊戲狀態控制 ---
+        function setGameState(state) {
+            currentState = state;
+            document.getElementById('startModal').classList.remove('active');
+            document.getElementById('pauseModal').classList.remove('active');
+            document.getElementById('gameOverModal').classList.remove('active');
+
+            if (state === GameState.INIT) {
+                document.getElementById('startModal').classList.add('active');
+            } else if (state === GameState.PAUSED) {
+                document.getElementById('pauseModal').classList.add('active');
+            } else if (state === GameState.GAMEOVER) {
+                audioSys.playGameOver();
+                document.getElementById('finalScore').innerText = score;
+                const isNewRecord = score > bestScore;
+                if (isNewRecord) {
+                    bestScore = score;
+                    localStorage.setItem('fruit_suika_best_score', bestScore.toString());
+                    document.getElementById('bestScore').innerText = bestScore;
+                    document.getElementById('newRecordText').style.display = 'block';
+                } else {
+                    document.getElementById('newRecordText').style.display = 'none';
+                }
+                document.getElementById('gameOverModal').classList.add('active');
+            }
+        }
+
+        function initGame() {
+            score = 0;
+            document.getElementById('currentScore').innerText = score;
+            document.getElementById('bestScore').innerText = bestScore;
+            fruits = [];
+            particles = [];
+            warningTimer = 0;
+            randomDropTimer = 0;
+            nextRandomDropInterval = getRandomDropInterval();
+            canDrop = true;
+
+            nextFruitTypeIndex = getRandomFruitIndex();
+            spawnCurrentFruit();
+            updateNextPreview();
+            setGameState(GameState.START);
+        }
+
+        function updateNextPreview() {
+            nextCtx.clearRect(0, 0, nextCanvas.width, nextCanvas.height);
+            const type = getFruitType(nextFruitTypeIndex);
+            
+            nextCtx.save();
+            nextCtx.translate(nextCanvas.width / 2, nextCanvas.height / 2);
+            
+            nextCtx.beginPath();
+            nextCtx.arc(0, 0, 16, 0, Math.PI * 2);
+            nextCtx.fillStyle = type.color;
+            nextCtx.fill();
+
+            nextCtx.font = '18px sans-serif';
+            nextCtx.textAlign = 'center';
+            nextCtx.textBaseline = 'middle';
+            nextCtx.fillText(type.icon, 0, 1);
+
+            nextCtx.restore();
+        }
+
+        // 突襲不定時掉落水果邏輯
+        function spawnRandomFallingFruit() {
+            if (currentState !== GameState.START) return;
+
+            const dropTypeIndex = Math.floor(Math.random() * 3); // 隨機掉落前3種小水果
+            const type = getFruitType(dropTypeIndex);
+            const dropRadius = width * type.radiusRatio;
+            const dropX = Math.random() * (width - 2 * dropRadius) + dropRadius;
+
+            const droppedFruit = new Fruit(dropX, warningY * 0.3, dropTypeIndex, false);
+            droppedFruit.vx = (Math.random() - 0.5) * 3; // 賦予隨機微幅橫向推力
+            fruits.push(droppedFruit);
+
+            audioSys.playDrop();
+            createFloatingText('⚠️ 突襲!', dropX, warningY);
+            createParticles(dropX, warningY * 0.3, type.color);
+        }
+
+        function getRandomFruitIndex() {
+            // 隨機生成前3種較小的水果作為預覽與當前發射水果
+            return Math.floor(Math.random() * 3);
+        }
+
+        function spawnCurrentFruit() {
+            const typeIndex = nextFruitTypeIndex;
+            nextFruitTypeIndex = getRandomFruitIndex();
+            updateNextPreview();
+
+            const startX = width / 2;
+            const startY = warningY * 0.6;
+
+            currentFruit = new Fruit(startX, startY, typeIndex, true);
+        }
+
+        function updateNextPreview() {
+            nextCtx.clearRect(0, 0, nextCanvas.width, nextCanvas.height);
+            const type = FRUIT_TYPES[nextFruitTypeIndex];
+            
+            nextCtx.save();
+            nextCtx.translate(nextCanvas.width / 2, nextCanvas.height / 2);
+            
+            nextCtx.beginPath();
+            nextCtx.arc(0, 0, 16, 0, Math.PI * 2);
+            nextCtx.fillStyle = type.color;
+            nextCtx.fill();
+
+            nextCtx.font = '18px sans-serif';
+            nextCtx.textAlign = 'center';
+            nextCtx.textBaseline = 'middle';
+            nextCtx.fillText(type.icon, 0, 1);
+
+            nextCtx.restore();
+        }
+
+        // --- 水果發射與輸入處理 ---
+        function dropFruit(clientX) {
+            if (!canDrop || !currentFruit || currentState !== GameState.START) return;
+
+            const rect = canvas.getBoundingClientRect();
+            let dropX = clientX - rect.left;
+
+            // 限制落下位置不超過邊界
+            dropX = Math.max(currentFruit.radius, Math.min(width - currentFruit.radius, dropX));
+
+            currentFruit.x = dropX;
+            currentFruit.isStatic = false;
+            fruits.push(currentFruit);
+
+            audioSys.playDrop();
+
+            currentFruit = null;
+            canDrop = false;
+
+            // 設置發射冷卻時間（0.5秒）
+            clearTimeout(dropCooldownTimer);
+            dropCooldownTimer = setTimeout(() => {
+                if (currentState === GameState.START) {
+                    spawnCurrentFruit();
+                    canDrop = true;
+                }
+            }, 500);
+        }
+
+        function moveCurrentFruit(clientX) {
+            if (!currentFruit || currentState !== GameState.START) return;
+
+            const rect = canvas.getBoundingClientRect();
+            let moveX = clientX - rect.left;
+            moveX = Math.max(currentFruit.radius, Math.min(width - currentFruit.radius, moveX));
+
+            currentFruit.x = moveX;
+        }
+
+        // --- 碰撞偵測與合併邏輯 ---
+        function handleCollisions() {
+            for (let i = 0; i < fruits.length; i++) {
+                for (let j = i + 1; j < fruits.length; j++) {
+                    const f1 = fruits[i];
+                    const f2 = fruits[j];
+
+                    const dx = f2.x - f1.x;
+                    const dy = f2.y - f1.y;
+                    const dist = Math.hypot(dx, dy);
+                    const minDist = f1.radius + f2.radius;
+
+                    if (dist < minDist) {
+                        // 1. 同等級合併判斷 (無等級上限，西瓜與神級水果皆可繼續合併)
+                        if (f1.typeIndex === f2.typeIndex) {
+                            combineFruits(i, j, f1, f2);
+                            return; // 一次處理解決一個合併，避免索引混亂
+                        }
+
+                        // 2. 圓形重疊彈開物理推擠
+                        const overlap = minDist - dist;
+                        const nx = dx / (dist || 1);
+                        const ny = dy / (dist || 1);
+
+                        // 依質量/半徑分配位移補償
+                        f1.x -= nx * overlap * 0.5;
+                        f1.y -= ny * overlap * 0.5;
+                        f2.x += nx * overlap * 0.5;
+                        f2.y += ny * overlap * 0.5;
+
+                        // 相對速度衝擊計算
+                        const kx = f1.vx - f2.vx;
+                        const ky = f1.vy - f2.vy;
+                        const p = 2 * (nx * kx + ny * ky) / 2;
+
+                        f1.vx -= p * nx * RESTITUTION;
+                        f1.vy -= p * ny * RESTITUTION;
+                        f2.vx += p * nx * RESTITUTION;
+                        f2.vy += p * ny * RESTITUTION;
+                    }
+                }
+            }
+        }
+
+        function combineFruits(index1, index2, f1, f2) {
+            // 合併中點位置
+            const midX = (f1.x + f2.x) / 2;
+            const midY = (f1.y + f2.y) / 2;
+            const newTypeIndex = f1.typeIndex + 1;
+
+            // 移除兩個舊水果
+            fruits.splice(Math.max(index1, index2), 1);
+            fruits.splice(Math.min(index1, index2), 1);
+
+            // 生成升級後的水果
+            const newFruit = new Fruit(midX, midY, newTypeIndex);
+            fruits.push(newFruit);
+
+            // 獲得分數
+            const gainedScore = newFruit.type.score;
+            score += gainedScore;
+            document.getElementById('currentScore').innerText = score;
+            if (score > bestScore) {
+                bestScore = score;
+                document.getElementById('bestScore').innerText = bestScore;
+            }
+
+            // 觸發效果
+            createParticles(midX, midY, newFruit.type.color);
+            createFloatingText(`+${gainedScore}`, midX, midY);
+            audioSys.playCombine(newTypeIndex);
+        }
+
+        function createParticles(x, y, color) {
+            const count = 15;
+            for (let i = 0; i < count; i++) {
+                particles.push(new Particle(x, y, color));
+            }
+        }
+
+        function createFloatingText(text, x, y) {
+            const el = document.createElement('div');
+            el.className = 'float-text';
+            el.innerText = text;
+            el.style.left = `${x}px`;
+            el.style.top = `${y}px`;
+            gameWrapper.appendChild(el);
+
+            setTimeout(() => {
+                if (el.parentNode) {
+                    el.parentNode.removeChild(el);
+                }
+            }, 800);
+        }
+
+        // --- 淘汰檢測 (Game Over Check) ---
+        function checkGameOver(deltaTime) {
+            let overflowDetected = false;
+
+            for (let f of fruits) {
+                // 水果靜止或穩定且最高點高於警戒線
+                if (!f.isStatic && (f.y - f.radius) < warningY && Math.abs(f.vy) < 1) {
+                    overflowDetected = true;
+                    break;
+                }
+            }
+
+            if (overflowDetected) {
+                warningTimer += deltaTime;
+                if (warningTimer >= MAX_WARNING_TIME) {
+                    setGameState(GameState.GAMEOVER);
+                }
+            } else {
+                warningTimer = Math.max(0, warningTimer - deltaTime * 2);
+            }
+        }
+
+        // --- 繪製遊戲畫面 ---
+        function render() {
+            ctx.clearRect(0, 0, width, height);
+
+            // 1. 繪製警戒線
+            ctx.save();
+            ctx.beginPath();
+            ctx.setLineDash([8, 6]);
+            ctx.moveTo(0, warningY);
+            ctx.lineTo(width, warningY);
+            ctx.lineWidth = 2;
+            
+            // 根據警告進度變紅
+            const warnRatio = Math.min(1, warningTimer / MAX_WARNING_TIME);
+            ctx.strokeStyle = warnRatio > 0 ? `rgba(239, 68, 68, ${0.4 + warnRatio * 0.6})` : 'rgba(203, 213, 225, 0.8)';
+            ctx.stroke();
+
+            // 如果有警告進度，顯示警示遮罩
+            if (warnRatio > 0) {
+                ctx.fillStyle = `rgba(239, 68, 68, ${warnRatio * 0.15})`;
+                ctx.fillRect(0, 0, width, warningY);
+            }
+            ctx.restore();
+
+            // 2. 繪製預覽輔助虛線 (垂直指引線)
+            if (currentFruit && currentState === GameState.START) {
+                ctx.save();
+                ctx.beginPath();
+                ctx.setLineDash([4, 4]);
+                ctx.moveTo(currentFruit.x, currentFruit.y);
+                ctx.lineTo(currentFruit.x, height);
+                ctx.strokeStyle = 'rgba(148, 163, 184, 0.4)';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+                ctx.restore();
+
+                currentFruit.draw(ctx);
+            }
+
+            // 3. 繪製場上所有水果
+            fruits.forEach(f => f.draw(ctx));
+
+            // 4. 繪製粒子特效
+            particles.forEach(p => p.draw(ctx));
+        }
+
+        // --- 遊戲主循環 ---
+        let lastTime = performance.now();
+
+        function gameLoop(time) {
+            const deltaTime = (time - lastTime) / 1000;
+            lastTime = time;
+
+            if (currentState === GameState.START) {
+                // 不定時水果掉落計時器
+                randomDropTimer += deltaTime;
+                if (randomDropTimer >= nextRandomDropInterval) {
+                    spawnRandomFallingFruit();
+                    randomDropTimer = 0;
+                    nextRandomDropInterval = getRandomDropInterval();
+                }
+
+                // 更新水果物理狀態
+                fruits.forEach(f => f.update());
+
+                // 處理碰撞
+                handleCollisions();
+
+                // 更新粒子狀態
+                for (let i = particles.length - 1; i >= 0; i--) {
+                    particles[i].update();
+                    if (particles[i].alpha <= 0) {
+                        particles.splice(i, 1);
+                    }
+                }
+
+                // 淘汰檢測
+                checkGameOver(deltaTime);
+            }
+
+            // 繪製畫面
+            render();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // --- 事件監聽與綁定 ---
+        function setupEventListeners() {
+            window.addEventListener('resize', resizeCanvas);
+
+            // 左右彈力按鈕綁定
+            document.getElementById('bounceLeftBtn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                applySideBounce(-1);
+            });
+
+            document.getElementById('bounceRightBtn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                applySideBounce(1);
+            });
+
+            // 鍵盤操控 (支援方向鍵 / A/D 操控微調與左右彈跳)
+            window.addEventListener('keydown', (e) => {
+                if (currentState !== GameState.START) return;
+
+                if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+                    if (currentFruit) {
+                        currentFruit.x = Math.max(currentFruit.radius, currentFruit.x - 20);
+                    } else {
+                        applySideBounce(-1);
+                    }
+                } else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+                    if (currentFruit) {
+                        currentFruit.x = Math.min(width - currentFruit.radius, currentFruit.x + 20);
+                    } else {
+                        applySideBounce(1);
+                    }
+                } else if (e.key === 'ArrowDown' || e.key === ' ' || e.key === 's' || e.key === 'S') {
+                    if (currentFruit) {
+                        dropFruit(currentFruit.x + gameWrapper.getBoundingClientRect().left);
+                    }
+                } else if (e.key === 'z' || e.key === 'Z') {
+                    applySideBounce(-1);
+                } else if (e.key === 'x' || e.key === 'X') {
+                    applySideBounce(1);
+                }
+            });
+
+            // 滑鼠事件
+            gameWrapper.addEventListener('mousemove', (e) => {
+                moveCurrentFruit(e.clientX);
+            });
+
+            gameWrapper.addEventListener('click', (e) => {
+                if (e.target.id === 'soundBtn') return;
+                dropFruit(e.clientX);
+            });
+
+            // 觸控事件 (Mobile RWD 支援)
+            gameWrapper.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                if (e.touches.length > 0) {
+                    moveCurrentFruit(e.touches[0].clientX);
+                }
+            }, { passive: false });
+
+            gameWrapper.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                if (e.changedTouches.length > 0) {
+                    dropFruit(e.changedTouches[0].clientX);
+                }
+            }, { passive: false });
+
+            // UI 按鈕控制
+            document.getElementById('startGameBtn').addEventListener('click', () => {
+                audioSys.init();
+                initGame();
+            });
+
+            document.getElementById('pauseBtn').addEventListener('click', () => {
+                if (currentState === GameState.START) {
+                    setGameState(GameState.PAUSED);
+                }
+            });
+
+            document.getElementById('resumeGameBtn').addEventListener('click', () => {
+                setGameState(GameState.START);
+            });
+
+            document.getElementById('restartGameBtn').addEventListener('click', () => {
+                initGame();
+            });
+
+            document.getElementById('playAgainBtn').addEventListener('click', () => {
+                initGame();
+            });
+
+            // 音效開關
+            const soundBtn = document.getElementById('soundBtn');
+            soundBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                soundEnabled = !soundEnabled;
+                soundBtn.innerText = soundEnabled ? '🔊 音效: 開' : '🔇 音效: 關';
+            });
+        }
+
+        // --- 遊戲初始化進入點 ---
+        window.addEventListener('load', () => {
+            resizeCanvas();
+            setupEventListeners();
+            document.getElementById('bestScore').innerText = bestScore;
+            requestAnimationFrame(gameLoop);
+        });
+    </script>
+</body>
+</html>

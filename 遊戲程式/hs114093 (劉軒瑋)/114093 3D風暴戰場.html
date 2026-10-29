@@ -1,0 +1,1920 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>COD:M Style 5v5 Team Deathmatch</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@600;700&display=swap" rel="stylesheet">
+    <!-- Three.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Three.js PointerLockControls -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/PointerLockControls.js"></script>
+
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            user-select: none;
+            background-color: #030712;
+            font-family: 'Rajdhani', sans-serif;
+        }
+        .font-orbitron { font-family: 'Orbitron', sans-serif; }
+        
+        /* 戰術玻璃質感 UI */
+        .tactical-panel {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.6);
+        }
+        
+        .tactical-card {
+            background: linear-gradient(145deg, rgba(30, 41, 59, 0.7), rgba(15, 23, 42, 0.9));
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+        }
+        .tactical-card:hover {
+            border-color: #3b82f6;
+            transform: translateY(-2px);
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.3);
+        }
+        .tactical-card.selected {
+            border-color: #3b82f6;
+            background: linear-gradient(145deg, rgba(30, 58, 138, 0.8), rgba(15, 23, 42, 0.95));
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
+        }
+
+        .cyber-btn {
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            border: 1px solid #60a5fa;
+            clip-path: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px);
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        .cyber-btn:hover {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.6);
+            transform: translateY(-2px);
+        }
+
+        /* 準心樣式 */
+        #crosshair {
+            transition: opacity 0.12s ease-out;
+        }
+        .crosshair-line {
+            position: absolute;
+            background-color: rgba(255, 255, 255, 0.9);
+            box-shadow: 0 0 4px rgba(0, 0, 0, 0.8);
+            transition: transform 0.05s ease-out;
+        }
+
+        /* Hitmarker */
+        #hitmarker { opacity: 0; transition: opacity 0.1s ease-out; }
+
+        /* 敵人/友軍 頭頂戰術血條與名稱 */
+        .nametag-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            will-change: transform, opacity;
+            pointer-events: none;
+            transition: opacity 0.15s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* 通透輕量化瞄準鏡遮罩 */
+        #scope-overlay {
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.15s ease-out;
+            background: radial-gradient(circle at center, transparent 45%, rgba(3, 7, 18, 0.45) 80%, rgba(3, 7, 18, 0.82) 100%);
+        }
+
+        /* 受傷紅閃與動態受傷方向指示 */
+        #damage-flash {
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.15s ease-out;
+            background: radial-gradient(circle, rgba(239, 68, 68, 0) 40%, rgba(239, 68, 68, 0.65) 100%);
+        }
+
+        /* 戰術受傷方向箭頭 (360 Directional Damage Ring) */
+        .dmg-indicator-arc {
+            position: absolute;
+            width: 180px;
+            height: 180px;
+            border-radius: 50%;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.8s ease-out;
+            background: conic-gradient(from -25deg, transparent 0deg, rgba(239, 68, 68, 0.95) 25deg, transparent 50deg);
+            mask: radial-gradient(transparent 58px, #000 60px);
+            -webkit-mask: radial-gradient(transparent 58px, #000 60px);
+        }
+
+        /* 擊殺回血綠閃 */
+        #heal-flash {
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s ease-out;
+            background: radial-gradient(circle, rgba(34, 197, 94, 0) 30%, rgba(34, 197, 94, 0.5) 100%);
+        }
+
+        /* 雷達地圖風格 */
+        .minimap-dot {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            will-change: transform;
+        }
+
+        /* 熱點爭奪模式 HUD 指示器 */
+        #hardpoint-indicator {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* 攀爬提示 UI */
+        #climb-prompt {
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+        }
+    </style>
+</head>
+<body class="w-screen h-screen overflow-hidden select-none bg-slate-950 text-slate-100">
+
+    <!-- WebGL Canvas Container -->
+    <div id="canvas-container" class="w-full h-full absolute inset-0 z-0"></div>
+
+    <!-- Visual FX overlays -->
+    <div id="damage-flash" class="absolute inset-0 z-10"></div>
+    <div id="heal-flash" class="absolute inset-0 z-10"></div>
+    
+    <!-- 改進版：視野清晰的高科技戰術紅點鏡 -->
+    <div id="scope-overlay" class="absolute inset-0 z-10 flex items-center justify-center">
+        <div class="w-72 h-72 border border-cyan-400/40 rounded-full flex items-center justify-center relative shadow-[0_0_25px_rgba(6,182,212,0.15)]">
+            <div class="absolute inset-0 border border-cyan-400/20 rounded-full scale-105"></div>
+            <div class="w-full h-[1px] bg-cyan-400/30 absolute"></div>
+            <div class="h-full w-[1px] bg-cyan-400/30 absolute"></div>
+            <div class="w-1.5 h-1.5 bg-red-500 rounded-full shadow-[0_0_8px_#ef4444]"></div>
+            <div class="absolute bottom-4 text-[9px] font-mono text-cyan-400/80 tracking-widest bg-black/50 px-2 py-0.5 rounded backdrop-blur-sm">TAC-OPTIC 2.5X</div>
+        </div>
+    </div>
+
+    <!-- 敵人/友軍 3D 浮動名稱血條容器 -->
+    <div id="nametag-container" class="absolute inset-0 z-15 pointer-events-none overflow-hidden"></div>
+
+    <!-- 重生護盾無敵指示器 (Spawn Protection Indicator) -->
+    <div id="spawn-protection-tag" class="hidden absolute top-24 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-cyan-950/80 border border-cyan-400/60 px-4 py-1.5 rounded-full text-cyan-300 font-bold text-xs tracking-widest shadow-[0_0_20px_rgba(6,182,212,0.5)] animate-bounce">
+        <svg class="w-4 h-4 fill-cyan-400" viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-5.45 9-12V5l-9-4z"/></svg>
+        <span>SPAWN PROTECTION ACTIVE [2.0s]</span>
+    </div>
+
+    <!-- 玩家死亡重生戰術遮罩 (顯示擊殺者細節) -->
+    <div id="death-overlay" class="hidden absolute inset-0 z-22 flex flex-col items-center justify-center pointer-events-none bg-red-950/30 backdrop-blur-sm">
+        <div class="tactical-panel p-8 rounded-2xl text-center space-y-4 max-w-md w-full border border-red-500/50 shadow-[0_0_30px_rgba(239,68,68,0.4)] animate-pulse">
+            <div class="text-red-500 font-black text-4xl font-orbitron tracking-widest">KILLED IN ACTION</div>
+            <div id="killer-info" class="text-slate-200 text-sm font-bold bg-slate-900/80 p-3 rounded-xl border border-red-500/30">
+                <div>ELIMINATED BY: <span id="killer-name" class="text-red-400 font-black text-base font-orbitron">HOSTILE</span></div>
+                <div class="text-xs text-slate-400 font-mono mt-1">ENGAGEMENT DISTANCE: <span id="killer-dist" class="text-amber-400 font-bold">12m</span></div>
+            </div>
+            <div class="space-y-1.5 pt-2">
+                <div class="text-xs text-slate-400 font-mono tracking-wider">RESPAWNING IN</div>
+                <div id="respawn-timer" class="text-4xl font-black text-amber-400 font-orbitron">3.0</div>
+                <div class="w-full bg-slate-900 h-2 rounded-full overflow-hidden border border-slate-700/80 mt-2">
+                    <div id="respawn-bar" class="bg-amber-400 h-full w-full transition-all duration-100"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 遊戲中戰術 HUD -->
+    <div id="hud-layer" class="hidden absolute inset-0 z-20 flex flex-col justify-between p-6 pointer-events-none">
+        
+        <!-- 頂部計分板與目標進度 (TDM Scoreboard) -->
+        <div class="flex justify-between items-start w-full">
+            <!-- 玩家個人狀態 & 戰術小地圖 -->
+            <div class="flex gap-4 items-start">
+                <div class="tactical-panel p-3 rounded-xl flex flex-col gap-2 w-64">
+                    <div class="flex justify-between text-xs font-bold text-slate-300">
+                        <span>OPERATOR HEALTH</span>
+                        <span id="hp-text" class="text-blue-400 font-orbitron">100 / 100</span>
+                    </div>
+                    <div class="w-full h-3 bg-slate-900 rounded-full overflow-hidden border border-slate-700 p-0.5">
+                        <div id="hp-bar" class="h-full bg-gradient-to-r from-red-500 via-blue-500 to-emerald-400 w-full rounded-full transition-all duration-200"></div>
+                    </div>
+                    <div class="text-[10px] text-slate-400 font-mono tracking-wider flex justify-between">
+                        <span>TACTICAL STATUS: OPTIMAL</span>
+                        <span id="operator-tag" class="text-blue-400 font-bold">GHOST</span>
+                    </div>
+                </div>
+
+                <!-- 戰術小地圖 (Minimap) -->
+                <div class="tactical-panel w-28 h-28 rounded-xl relative overflow-hidden border border-blue-500/40 flex items-center justify-center">
+                    <div class="absolute inset-0 bg-[radial-gradient(#3b82f6_1px,transparent_1px)] [background-size:8px_8px] opacity-20"></div>
+                    <div id="minimap-radar" class="relative w-full h-full">
+                        <div id="minimap-player" class="minimap-dot bg-blue-400 shadow-[0_0_6px_#3b82f6] border border-white"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 陣營分數 (5v5 Scoreboard) -->
+            <div class="tactical-panel px-8 py-3 rounded-xl flex items-center gap-6 border-b-2 border-b-blue-500 shadow-2xl">
+                <div class="text-center">
+                    <div id="blue-score-label" class="text-[10px] font-bold text-blue-400 tracking-widest">ALLIED (BLUE)</div>
+                    <div id="blue-score" class="text-4xl font-black text-blue-400 font-orbitron">0</div>
+                </div>
+                <div class="text-2xl font-black text-slate-600 font-orbitron">VS</div>
+                <div class="text-center">
+                    <div id="red-score-label" class="text-[10px] font-bold text-red-400 tracking-widest">HOSTILE (RED)</div>
+                    <div id="red-score" class="text-4xl font-black text-red-500 font-orbitron">0</div>
+                </div>
+                <div class="border-l border-slate-700 pl-5 text-center">
+                    <div class="text-[10px] font-bold text-slate-400 tracking-widest">GOAL</div>
+                    <div id="target-score" class="text-xl font-bold text-amber-400 font-orbitron">30</div>
+                </div>
+            </div>
+
+            <!-- 擊殺動態 Killfeed -->
+            <div id="killfeed-container" class="w-80 h-36 flex flex-col justify-start gap-1.5 overflow-hidden text-xs font-bold"></div>
+        </div>
+
+        <!-- 熱點爭奪戰 (Hardpoint) 狀態條 -->
+        <div id="hardpoint-indicator" class="hidden absolute top-20 left-1/2 -translate-x-1/2 tactical-panel px-6 py-2 rounded-full flex items-center gap-4 border border-amber-500/40 shadow-lg">
+            <span class="text-xs font-bold text-amber-400 font-orbitron tracking-wider">HARDPOINT ZONE</span>
+            <div class="w-32 h-2.5 bg-slate-900 rounded-full overflow-hidden border border-slate-700">
+                <div id="hardpoint-progress" class="h-full bg-amber-400 w-0 transition-all duration-200"></div>
+            </div>
+            <span id="hardpoint-owner" class="text-xs font-mono font-bold text-slate-300">NEUTRAL</span>
+        </div>
+
+        <!-- 畫面中央準心 & Hitmarker & 受傷方向指示器 -->
+        <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <!-- 戰術受傷方向弧形指示器 (Directional Damage Arc) -->
+            <div id="damage-arc" class="dmg-indicator-arc"></div>
+
+            <!-- 擊殺回血提示 Popup -->
+            <div id="kill-heal-popup" class="hidden absolute -translate-y-16 text-emerald-400 font-black text-lg font-orbitron tracking-widest bg-emerald-950/80 px-4 py-1 rounded-full border border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.5)]">
+                +35 HP RECOVERY
+            </div>
+
+            <!-- 攀爬梯子戰術提示 -->
+            <div id="climb-prompt" class="opacity-0 absolute translate-y-12 bg-slate-900/90 border border-cyan-400/60 px-4 py-1.5 rounded-full text-cyan-300 font-bold text-xs font-orbitron tracking-widest shadow-[0_0_15px_rgba(6,182,212,0.4)] flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
+                <span>PRESS [W] TO CLIMB LADDER</span>
+            </div>
+
+            <div id="crosshair" class="relative w-8 h-8 flex items-center justify-center">
+                <div id="ch-top" class="crosshair-line w-0.5 h-2.5 -translate-y-2.5"></div>
+                <div id="ch-bottom" class="crosshair-line w-0.5 h-2.5 translate-y-2.5"></div>
+                <div id="ch-left" class="crosshair-line h-0.5 w-2.5 -translate-x-2.5"></div>
+                <div id="ch-right" class="crosshair-line h-0.5 w-2.5 translate-x-2.5"></div>
+                <div class="w-1.5 h-1.5 bg-white/80 rounded-full shadow-sm"></div>
+            </div>
+
+            <div id="hitmarker" class="absolute w-10 h-10 pointer-events-none">
+                <svg viewBox="0 0 100 100" class="w-full h-full stroke-red-500 stroke-[10] drop-shadow-[0_0_4px_rgba(239,68,68,0.8)]">
+                    <line x1="20" y1="20" x2="38" y2="38"/>
+                    <line x1="80" y1="20" x2="62" y2="38"/>
+                    <line x1="20" y1="80" x2="38" y2="62"/>
+                    <line x1="80" y1="80" x2="62" y2="62"/>
+                </svg>
+            </div>
+        </div>
+
+        <!-- 底部彈藥與戰績提示 -->
+        <div class="flex justify-between items-end w-full">
+            <div class="tactical-panel px-5 py-3 rounded-xl text-xs text-slate-300 space-y-1">
+                <div><span class="text-blue-400 font-bold">[WASD]</span> 移動 | <span class="text-blue-400 font-bold">[SHIFT]</span> 衝刺 | <span class="text-blue-400 font-bold">[SPACE]</span> 跳躍</div>
+                <div><span class="text-blue-400 font-bold">[SHIFT + C/CTRL]</span> 戰術滑鏟 | <span class="text-blue-400 font-bold">[C / CTRL]</span> 蹲下</div>
+                <div><span class="text-blue-400 font-bold">[滑鼠左鍵]</span> 開火 | <span class="text-blue-400 font-bold">[滑鼠右鍵]</span> 瞄準 | <span class="text-blue-400 font-bold">[R]</span> 換彈 | <span class="text-blue-400 font-bold">[ESC]</span> 暫停</div>
+            </div>
+
+            <!-- 個人 K/D/A 與彈藥量 -->
+            <div class="flex gap-4 items-end">
+                <div class="tactical-panel px-5 py-3 rounded-xl text-center">
+                    <div class="text-[10px] text-slate-400 font-bold tracking-widest">K / D RATIO</div>
+                    <div id="player-kda" class="text-2xl font-bold text-amber-400 font-orbitron">0 / 0</div>
+                </div>
+
+                <div class="tactical-panel px-7 py-3.5 rounded-xl flex items-baseline gap-2 border-r-2 border-r-blue-500">
+                    <span id="ammo-val" class="text-5xl font-black text-blue-400 font-orbitron">30</span>
+                    <span class="text-2xl font-bold text-slate-600">/</span>
+                    <span id="reserve-ammo-val" class="text-xl font-bold text-slate-400 font-orbitron">120</span>
+                    <span id="reload-msg" class="hidden text-xs font-bold text-amber-400 animate-pulse ml-2">RELOADING...</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 戰術方位指南針 HUD -->
+        <div class="absolute top-2 left-1/2 -translate-x-1/2 pointer-events-none flex flex-col items-center">
+            <div class="tactical-panel px-6 py-1 rounded-full text-xs font-mono font-bold text-cyan-300 border border-cyan-500/30 flex gap-4 tracking-widest">
+                <span id="compass-deg">000°</span>
+                <span id="compass-dir" class="text-amber-400 font-orbitron">N</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- COD:M 風格主選單 -->
+    <div id="start-screen" class="absolute inset-0 z-30 flex flex-col justify-between p-4 sm:p-8 bg-slate-950/95 backdrop-blur-md overflow-y-auto">
+        <div class="flex justify-between items-center border-b border-slate-800 pb-4 max-w-7xl mx-auto w-full shrink-0">
+            <div class="flex items-center gap-3">
+                <div class="w-3.5 h-9 bg-blue-500 shadow-[0_0_12px_#3b82f6]"></div>
+                <h1 class="text-2xl sm:text-3xl font-black tracking-wider text-white font-orbitron">
+                    TACTICAL ELIMINATION <span class="text-blue-500 text-lg ml-2">FPS BATTLE</span>
+                </h1>
+            </div>
+            <div class="text-xs text-slate-400 font-bold tracking-widest uppercase bg-slate-900 px-3 py-1.5 rounded-md border border-slate-800">
+                SEASON 1: SHADOW OPERATIVE
+            </div>
+        </div>
+
+        <div class="grid grid-cols-12 gap-5 my-auto py-4 max-w-7xl mx-auto w-full shrink-0">
+            <div class="col-span-12 sm:col-span-6 lg:col-span-3 space-y-3">
+                <h2 class="text-sm font-bold text-amber-400 tracking-wider font-orbitron flex items-center gap-2">
+                    <span class="w-2 h-2 bg-amber-500 inline-block rounded-full"></span>
+                    <span>GAME MODE</span>
+                </h2>
+                <div class="space-y-2.5 max-h-[260px] sm:max-h-[300px] overflow-y-auto pr-1" id="mode-list"></div>
+            </div>
+
+            <div class="col-span-12 sm:col-span-6 lg:col-span-3 space-y-3">
+                <h2 class="text-sm font-bold text-blue-400 tracking-wider font-orbitron flex items-center gap-2">
+                    <span class="w-2 h-2 bg-blue-500 inline-block rounded-full"></span>
+                    <span>PRIMARY WEAPON</span>
+                </h2>
+                <div class="space-y-2.5 max-h-[260px] sm:max-h-[300px] overflow-y-auto pr-1" id="weapon-list"></div>
+            </div>
+
+            <div class="col-span-12 sm:col-span-6 lg:col-span-3 space-y-3">
+                <h2 class="text-sm font-bold text-blue-400 tracking-wider font-orbitron flex items-center gap-2">
+                    <span class="w-2 h-2 bg-blue-500 inline-block rounded-full"></span>
+                    <span>OPERATOR</span>
+                </h2>
+                <div class="space-y-2.5 max-h-[260px] sm:max-h-[300px] overflow-y-auto pr-1" id="operator-list"></div>
+            </div>
+
+            <div class="col-span-12 sm:col-span-6 lg:col-span-3 space-y-3">
+                <h2 class="text-sm font-bold text-emerald-400 tracking-wider font-orbitron flex items-center gap-2">
+                    <span class="w-2 h-2 bg-emerald-500 inline-block rounded-full"></span>
+                    <span>TACTICAL MAP</span>
+                </h2>
+                <div class="space-y-2.5 max-h-[260px] sm:max-h-[300px] overflow-y-auto pr-1" id="map-list"></div>
+            </div>
+        </div>
+
+        <div class="flex flex-col sm:flex-row justify-between items-center border-t border-slate-800 pt-4 max-w-7xl mx-auto w-full gap-4 shrink-0 pb-2">
+            <div class="text-xs text-slate-400" id="mode-goal-desc">
+                勝利條件：率先達成指定擊殺或目標分數的團隊/玩家勝出。
+            </div>
+            <button id="start-btn" class="cyber-btn px-12 py-4 text-xl font-black text-white font-orbitron tracking-widest uppercase rounded">
+                DEPLOY TO BATTLEFIELD
+            </button>
+        </div>
+    </div>
+
+    <!-- 暫停選單 -->
+    <div id="pause-screen" class="hidden absolute inset-0 z-30 flex items-center justify-center bg-slate-950/85 backdrop-blur-sm">
+        <div class="tactical-panel p-8 rounded-2xl text-center space-y-6 max-w-md w-full border border-blue-500/40 shadow-2xl">
+            <h2 class="text-3xl font-black text-blue-400 font-orbitron tracking-widest">TACTICAL PAUSE</h2>
+            <p class="text-slate-300 text-sm">按 [RESUME] 或畫面返回戰場</p>
+            <div class="space-y-3">
+                <button id="resume-btn" class="cyber-btn w-full py-3.5 text-lg font-bold text-white uppercase rounded">
+                    RESUME MATCH
+                </button>
+                <button id="quit-btn" class="w-full py-3 text-sm font-bold text-slate-400 hover:text-white transition-colors">
+                    QUIT TO MENU
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 戰術結算頁面 -->
+    <div id="gameover-screen" class="hidden absolute inset-0 z-30 flex items-center justify-center bg-slate-950/90 backdrop-blur-md">
+        <div class="tactical-panel p-10 rounded-2xl text-center space-y-6 max-w-lg w-full border border-blue-500/50 shadow-2xl">
+            <h2 id="match-result-title" class="text-5xl font-black font-orbitron tracking-wider">VICTORY</h2>
+            
+            <div class="grid grid-cols-2 gap-4 bg-slate-900/80 p-5 rounded-xl border border-slate-800">
+                <div>
+                    <div class="text-xs text-slate-400 font-bold">YOUR KILLS</div>
+                    <div id="final-kills" class="text-4xl font-black text-blue-400 font-orbitron mt-1">0</div>
+                </div>
+                <div>
+                    <div class="text-xs text-slate-400 font-bold">YOUR DEATHS</div>
+                    <div id="final-deaths" class="text-4xl font-black text-slate-200 font-orbitron mt-1">0</div>
+                </div>
+            </div>
+
+            <div class="flex justify-between items-center text-sm px-4 text-slate-300 bg-slate-900/40 py-3 rounded-lg border border-slate-800/80">
+                <span>BLUE TEAM KILLS: <b id="final-blue-score" class="text-blue-400 font-orbitron">0</b></span>
+                <span>RED TEAM KILLS: <b id="final-red-score" class="text-red-400 font-orbitron">0</b></span>
+            </div>
+
+            <button id="restart-btn" class="cyber-btn w-full py-4 text-xl font-bold text-white uppercase rounded">
+                RETURN TO LOADOUT
+            </button>
+        </div>
+    </div>
+
+    <!-- 遊戲核心邏輯腳本 -->
+    <script>
+        const MODES = [
+            { id: 'tdm', name: '5v5 團隊競技 (TDM)', goal: 30, goalType: 'kills', desc: '傳統 5v5 團隊對抗，率先達到 30 次擊殺的隊伍取得勝利。' },
+            { id: 'ffa', name: '個人大亂鬥 (FFA)', goal: 20, goalType: 'kills', desc: '沒有友軍！所有戰術幹員皆為敵人，率先達到 20 擊殺者獲勝。' },
+            { id: 'hardpoint', name: '熱點爭奪戰 (Hardpoint)', goal: 150, goalType: 'score', desc: '佔領動態變換的熱點區域，在區域內每秒獲得 1 分，先達到 150 分勝出。' },
+            { id: 'sniper', name: '狙擊對決 (Sniper Only)', goal: 25, goalType: 'kills', desc: '全員統一限定使用 Barrett .50 反器材狙擊步槍，考驗準頭與對狙反應。' }
+        ];
+
+        const WEAPONS = [
+            { id: 'm4', name: 'M4A1 Assault Rifle', type: 'AR', damage: 28, rate: 0.1, ammo: 30, reserve: 150, speed: 1.0, range: 120, recoil: 0.02, color: 0x3b82f6, desc: '標準多用途突擊步槍，高射速與高精度平衡。' },
+            { id: 'ak47', name: 'AK-47 Tactical', type: 'AR', damage: 38, rate: 0.13, ammo: 30, reserve: 120, speed: 0.95, range: 140, recoil: 0.04, color: 0xd97706, desc: '大口徑重型步槍，極高單發威力但後座力較強。' },
+            { id: 'mp5', name: 'MP5-K Tactical SMG', type: 'SMG', damage: 22, rate: 0.07, ammo: 35, reserve: 175, speed: 1.15, range: 65, recoil: 0.015, color: 0x10b981, desc: '高射速近戰衝鋒槍，適合快速突擊與走位。' },
+            { id: 'vector', name: 'KNV-Vector SMG', type: 'SMG', damage: 18, rate: 0.045, ammo: 40, reserve: 200, speed: 1.20, range: 50, recoil: 0.012, color: 0x06b6d4, desc: '極速撕裂者！極致的近距離射速與高機動性。' },
+            { id: 'barrett', name: 'Barrett .50 Anti-Material', type: 'Sniper', damage: 120, rate: 0.95, ammo: 7, reserve: 35, speed: 0.82, range: 300, recoil: 0.09, color: 0xef4444, desc: '重型穿甲狙擊槍，可輕鬆貫穿可穿透掩體。' },
+            { id: 'm870', name: 'M870 Combat Shotgun', type: 'Shotgun', damage: 19, rate: 0.8, ammo: 8, reserve: 40, speed: 0.95, range: 35, recoil: 0.06, color: 0xf59e0b, desc: '近戰破門霰彈槍，每次擊發散佈 9 顆高威力彈粒。' },
+            { id: 'rpk', name: 'RPK Heavy LMG', type: 'LMG', damage: 32, rate: 0.11, ammo: 100, reserve: 200, speed: 0.80, range: 150, recoil: 0.035, color: 0x8b5cf6, desc: '班用輕機槍，擁有 100 發彈鼓持續火力壓制。' },
+            { id: 'plasma', name: 'Plasma Pulse Rifle', type: 'Plasma', damage: 45, rate: 0.18, ammo: 25, reserve: 125, speed: 1.05, range: 180, recoil: 0.01, color: 0xec4899, desc: '未來自律電漿步槍，精準度極高。' }
+        ];
+
+        // 戰術陣營出生點定義
+        const SPAWN_POINTS = {
+            BLUE: [
+                new THREE.Vector3(-110, 0, 130),
+                new THREE.Vector3(-60, 0, 135),
+                new THREE.Vector3(60, 0, 135),
+                new THREE.Vector3(110, 0, 130),
+                new THREE.Vector3(0, 18, 110)
+            ],
+            RED: [
+                new THREE.Vector3(-110, 0, -130),
+                new THREE.Vector3(-60, 0, -135),
+                new THREE.Vector3(60, 0, -135),
+                new THREE.Vector3(110, 0, -130),
+                new THREE.Vector3(0, 18, -110)
+            ],
+            FFA: [
+                new THREE.Vector3(-120, 0, -120),
+                new THREE.Vector3(120, 0, -120),
+                new THREE.Vector3(-120, 0, 120),
+                new THREE.Vector3(120, 0, 120),
+                new THREE.Vector3(0, 0, 0),
+                new THREE.Vector3(-75, 14, 25),
+                new THREE.Vector3(75, 14, -25),
+                new THREE.Vector3(-30, 0, -100),
+                new THREE.Vector3(30, 0, 100)
+            ]
+        };
+
+        function getSpawnPoint(team) {
+            const points = SPAWN_POINTS[team] || SPAWN_POINTS.FFA;
+            return points[Math.floor(Math.random() * points.length)].clone();
+        }
+
+        const OPERATORS = [
+            { id: 'assault', name: 'GHOST - ASSAULT', hp: 100, speed: 12.0, desc: '標準前線戰術干員，均衡的血量與移動速度。' },
+            { id: 'juggernaut', name: 'SOAP - JUGGERNAUT', hp: 150, speed: 9.5, desc: '配備重型防爆裝甲，擁有極高血量與防禦力。' },
+            { id: 'scout', name: 'URBAN TRACKER', hp: 85, speed: 14.8, desc: '輕裝偵察專家，擁有極高跑速與敏捷轉向。' }
+        ];
+
+        const MAPS = [
+            { id: 'desert', name: '巨型兵工廠 (Industrial Outpost)', bg: 0x334155, fog: 0x334155, floor: 0x1e293b, desc: '加大型 320m² 戰略特區，配備 3 層鋼架大樓與高空天橋通道。' },
+            { id: 'cyber', name: '賽博大都會 (Neon Cybercity EX)', bg: 0x070a12, fog: 0x070a12, floor: 0x0b1329, desc: '夜間超高層都市，具備可攀爬摩天樓、光輪階梯與電漿天台。' },
+            { id: 'bunker', name: '山谷雨林基地 (Rainforest Fortress)', bg: 0x112217, fog: 0x112217, floor: 0x173322, desc: '廣袤叢林地形，包含哨所觀測塔、掩體高台與多層戰術碉堡。' }
+        ];
+
+        let selectedMode = MODES[0];
+        let selectedWeapon = WEAPONS[0];
+        let selectedOperator = OPERATORS[0];
+        let selectedMap = MAPS[0];
+
+        const STATE = { INIT: 'INIT', PLAYING: 'PLAYING', PAUSE: 'PAUSE', GAMEOVER: 'GAMEOVER' };
+        let currentState = STATE.INIT;
+
+        let blueTeamScore = 0;
+        let redTeamScore = 0;
+        let playerKills = 0;
+        let playerDeaths = 0;
+
+        // 熱點爭奪 (Hardpoint) 變量
+        let hardpointMesh = null;
+        let hardpointPos = new THREE.Vector3(0, 0.1, 0);
+        let hardpointRadius = 12.0;
+        let hardpointTimer = 0;
+        let hardpointOwner = 'NEUTRAL';
+
+        const _v1 = new THREE.Vector3();
+        const _v2 = new THREE.Vector3();
+        const _dir = new THREE.Vector3();
+        const _tempVec = new THREE.Vector3();
+        const _raycaster = new THREE.Raycaster();
+
+        const player = {
+            hp: 100,
+            maxHp: 100,
+            ammo: 30,
+            maxAmmo: 30,
+            reserveAmmo: 120,
+            isDead: false,
+            isReloading: false,
+            isADS: false,
+            isSprinting: false,
+            isCrouching: false,
+            isJumping: false,
+            isSliding: false,
+            isClimbing: false,
+            nearLadder: false,
+            currentLadder: null,
+            slideTimer: 0,
+            slideDir: new THREE.Vector3(),
+            velocityY: 0,
+            baseHeight: 1.7,
+            currentHeight: 1.7,
+            groundY: 0,
+            invincibleTimer: 0,
+            lastShootTime: 0,
+            velocity: new THREE.Vector3(),
+            moveForward: false,
+            moveBackward: false,
+            moveLeft: false,
+            moveRight: false
+        };
+
+        class SoundEngine {
+            constructor() { this.ctx = null; }
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                }
+                if (this.ctx.state === 'suspended') this.ctx.resume();
+            }
+            playShoot(type) {
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                if (type === 'Sniper') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(350, now);
+                    osc.frequency.exponentialRampToValueAtTime(12, now + 0.4);
+                    gain.gain.setValueAtTime(0.6, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+                } else if (type === 'Plasma') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(900, now);
+                    osc.frequency.exponentialRampToValueAtTime(150, now + 0.22);
+                    gain.gain.setValueAtTime(0.35, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.22);
+                } else {
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(480, now);
+                    osc.frequency.exponentialRampToValueAtTime(40, now + 0.11);
+                    gain.gain.setValueAtTime(0.25, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.11);
+                }
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.start(now); osc.stop(now + 0.4);
+            }
+            playHit() {
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(1300, now);
+                osc.frequency.exponentialRampToValueAtTime(450, now + 0.06);
+                gain.gain.setValueAtTime(0.35, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.06);
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.start(now); osc.stop(now + 0.06);
+            }
+            playKill() {
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(750, now);
+                osc.frequency.setValueAtTime(1500, now + 0.09);
+                gain.gain.setValueAtTime(0.4, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.start(now); osc.stop(now + 0.3);
+            }
+            playHeal() {
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(523.25, now);
+                osc.frequency.setValueAtTime(659.25, now + 0.08);
+                osc.frequency.setValueAtTime(783.99, now + 0.16);
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.start(now); osc.stop(now + 0.35);
+            }
+            playDamage() {
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(180, now);
+                osc.frequency.exponentialRampToValueAtTime(25, now + 0.2);
+                gain.gain.setValueAtTime(0.45, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.start(now); osc.stop(now + 0.2);
+            }
+            playSlide() {
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(220, now);
+                osc.frequency.exponentialRampToValueAtTime(60, now + 0.45);
+                gain.gain.setValueAtTime(0.25, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.45);
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.start(now); osc.stop(now + 0.45);
+            }
+        }
+        const audio = new SoundEngine();
+
+        let scene, camera, renderer, controls;
+        const arenaSize = 320;
+        let obstacleMeshes = [];
+        let climbableLadders = [];
+        let floorWalkables = [];
+        let createdMapObjects = [];
+        const activeParticles = [];
+
+        function onWindowResize() {
+            if (!camera || !renderer) return;
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function initScene() {
+            const container = document.getElementById('canvas-container');
+            scene = new THREE.Scene();
+
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.appendChild(renderer.domElement);
+
+            controls = new THREE.PointerLockControls(camera, document.body);
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+            scene.add(ambientLight);
+
+            const sunLight = new THREE.DirectionalLight(0xfff7ed, 1.6);
+            sunLight.position.set(100, 150, 80);
+            sunLight.castShadow = true;
+            sunLight.shadow.mapSize.width = 2048;
+            sunLight.shadow.mapSize.height = 2048;
+            sunLight.shadow.camera.near = 0.5;
+            sunLight.shadow.camera.far = 450;
+            const d = 180;
+            sunLight.shadow.camera.left = -d; sunLight.shadow.camera.right = d;
+            sunLight.shadow.camera.top = d; sunLight.shadow.camera.bottom = -d;
+            scene.add(sunLight);
+
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        function spawnImpactSpark(pos, normal) {
+            const particleGeo = new THREE.SphereGeometry(0.08, 6, 6);
+            const particleMat = new THREE.MeshBasicMaterial({ color: 0xfde047 });
+            for (let i = 0; i < 6; i++) {
+                const p = new THREE.Mesh(particleGeo, particleMat);
+                p.position.copy(pos);
+                const vel = normal.clone().add(new THREE.Vector3(
+                    (Math.random() - 0.5) * 1.5,
+                    (Math.random() - 0.5) * 1.5,
+                    (Math.random() - 0.5) * 1.5
+                )).normalize().multiplyScalar(4 + Math.random() * 6);
+                scene.add(p);
+                activeParticles.push({ mesh: p, vel: vel, life: 0.25 });
+            }
+        }
+
+        function createClimbableLadder(x, z, startY, height, facingAngle = 0) {
+            const ladderGroup = new THREE.Group();
+            
+            const railGeo = new THREE.CylinderGeometry(0.06, 0.06, height, 8);
+            const railMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.8, roughness: 0.3 });
+            
+            const railL = new THREE.Mesh(railGeo, railMat);
+            railL.position.set(-0.45, height / 2, 0);
+            const railR = new THREE.Mesh(railGeo, railMat);
+            railR.position.set(0.45, height / 2, 0);
+            ladderGroup.add(railL, railR);
+
+            const rungCount = Math.floor(height / 0.6);
+            const rungGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.9, 8);
+            const rungMat = new THREE.MeshStandardMaterial({ color: 0x06b6d4, emissive: 0x0891b2, emissiveIntensity: 0.5 });
+            
+            for (let i = 1; i <= rungCount; i++) {
+                const rung = new THREE.Mesh(rungGeo, rungMat);
+                rung.rotation.z = Math.PI / 2;
+                rung.position.set(0, i * 0.6, 0);
+                ladderGroup.add(rung);
+            }
+
+            ladderGroup.position.set(x, startY, z);
+            ladderGroup.rotation.y = facingAngle;
+
+            const triggerGeo = new THREE.BoxGeometry(1.4, height, 1.2);
+            const triggerMat = new THREE.MeshBasicMaterial({ visible: false });
+            const triggerBox = new THREE.Mesh(triggerGeo, triggerMat);
+            triggerBox.position.set(0, height / 2, 0);
+            ladderGroup.add(triggerBox);
+
+            scene.add(ladderGroup);
+            createdMapObjects.push(ladderGroup);
+
+            climbableLadders.push({
+                box: new THREE.Box3().setFromObject(triggerBox),
+                topY: startY + height,
+                bottomY: startY,
+                mesh: ladderGroup
+            });
+        }
+
+        function createClimbableBuilding(x, z, width, depth, floorCount, storyHeight = 6) {
+            const buildingGroup = new THREE.Group();
+            const bMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.6, metalness: 0.2 });
+            const glassMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.1, metalness: 0.9, transparent: true, opacity: 0.7 });
+
+            for (let f = 0; f < floorCount; f++) {
+                const curY = f * storyHeight;
+
+                const floorGeo = new THREE.BoxGeometry(width, 0.4, depth);
+                const floorMesh = new THREE.Mesh(floorGeo, bMat);
+                floorMesh.position.set(0, curY, 0);
+                floorMesh.receiveShadow = true; floorMesh.castShadow = true;
+                buildingGroup.add(floorMesh);
+                floorWalkables.push(floorMesh);
+                obstacleMeshes.push(floorMesh);
+
+                if (f < floorCount - 1) {
+                    const pillarGeo = new THREE.BoxGeometry(0.8, storyHeight, 0.8);
+                    const p1 = new THREE.Mesh(pillarGeo, bMat); p1.position.set(-width/2 + 0.4, curY + storyHeight/2, -depth/2 + 0.4);
+                    const p2 = new THREE.Mesh(pillarGeo, bMat); p2.position.set(width/2 - 0.4, curY + storyHeight/2, -depth/2 + 0.4);
+                    const p3 = new THREE.Mesh(pillarGeo, bMat); p3.position.set(-width/2 + 0.4, curY + storyHeight/2, depth/2 - 0.4);
+                    const p4 = new THREE.Mesh(pillarGeo, bMat); p4.position.set(width/2 - 0.4, curY + storyHeight/2, depth/2 - 0.4);
+                    buildingGroup.add(p1, p2, p3, p4);
+                    obstacleMeshes.push(p1, p2, p3, p4);
+
+                    const glassW = new THREE.Mesh(new THREE.BoxGeometry(width - 2, storyHeight * 0.7, 0.2), glassMat);
+                    glassW.position.set(0, curY + storyHeight/2, -depth/2 + 0.1);
+                    buildingGroup.add(glassW);
+                }
+            }
+
+            const topY = floorCount * storyHeight;
+            const roofGeo = new THREE.BoxGeometry(width, 0.4, depth);
+            const roofMesh = new THREE.Mesh(roofGeo, bMat);
+            roofMesh.position.set(0, topY, 0);
+            roofMesh.receiveShadow = true; roofMesh.castShadow = true;
+            buildingGroup.add(roofMesh);
+            floorWalkables.push(roofMesh);
+            obstacleMeshes.push(roofMesh);
+
+            const fenceMat = new THREE.MeshStandardMaterial({ color: 0x475569 });
+            const fenceN = new THREE.Mesh(new THREE.BoxGeometry(width, 1.2, 0.3), fenceMat); fenceN.position.set(0, topY + 0.6, -depth/2);
+            const fenceS = new THREE.Mesh(new THREE.BoxGeometry(width, 1.2, 0.3), fenceMat); fenceS.position.set(0, topY + 0.6, depth/2);
+            const fenceE = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1.2, depth), fenceMat); fenceE.position.set(width/2, topY + 0.6, 0);
+            const fenceW = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1.2, depth), fenceMat); fenceW.position.set(-width/2, topY + 0.6, 0);
+            buildingGroup.add(fenceN, fenceS, fenceE, fenceW);
+            obstacleMeshes.push(fenceN, fenceS, fenceE, fenceW);
+
+            buildingGroup.position.set(x, 0, z);
+            scene.add(buildingGroup);
+            createdMapObjects.push(buildingGroup);
+
+            createClimbableLadder(x + width/2 + 0.2, z, 0, topY, Math.PI / 2);
+        }
+
+        function buildSelectedMap() {
+            createdMapObjects.forEach(obj => scene.remove(obj));
+            createdMapObjects = [];
+            obstacleMeshes = [];
+            climbableLadders = [];
+            floorWalkables = [];
+
+            scene.background = new THREE.Color(selectedMap.bg);
+            scene.fog = new THREE.FogExp2(selectedMap.fog, selectedMap.id === 'cyber' ? 0.008 : 0.004);
+
+            const floorGeo = new THREE.PlaneGeometry(arenaSize, arenaSize);
+            const floorMat = new THREE.MeshStandardMaterial({ 
+                color: selectedMap.floor, 
+                roughness: selectedMap.id === 'cyber' ? 0.2 : 0.85,
+                metalness: selectedMap.id === 'cyber' ? 0.6 : 0.1
+            });
+            const floor = new THREE.Mesh(floorGeo, floorMat);
+            floor.rotation.x = -Math.PI / 2;
+            floor.receiveShadow = true;
+            scene.add(floor);
+            createdMapObjects.push(floor);
+            obstacleMeshes.push(floor);
+            floorWalkables.push(floor);
+
+            if (selectedMap.id === 'cyber') {
+                const gridHelper = new THREE.GridHelper(arenaSize, 80, 0x06b6d4, 0x1e293b);
+                gridHelper.position.y = 0.05;
+                scene.add(gridHelper);
+                createdMapObjects.push(gridHelper);
+            }
+
+            const wallMat = new THREE.MeshStandardMaterial({ 
+                color: selectedMap.id === 'cyber' ? 0x020617 : (selectedMap.id === 'bunker' ? 0x0f291e : 0x1e293b), 
+                roughness: 0.8 
+            });
+            const wallH = 22;
+            const wallN = new THREE.Mesh(new THREE.BoxGeometry(arenaSize, wallH, 2), wallMat); wallN.position.set(0, wallH/2, -arenaSize/2);
+            const wallS = new THREE.Mesh(new THREE.BoxGeometry(arenaSize, wallH, 2), wallMat); wallS.position.set(0, wallH/2, arenaSize/2);
+            const wallE = new THREE.Mesh(new THREE.BoxGeometry(2, wallH, arenaSize), wallMat); wallE.position.set(arenaSize/2, wallH/2, 0);
+            const wallW = new THREE.Mesh(new THREE.BoxGeometry(2, wallH, arenaSize), wallMat); wallW.position.set(-arenaSize/2, wallH/2, 0);
+
+            [wallN, wallS, wallE, wallW].forEach(w => {
+                w.userData = { penetrable: false };
+                scene.add(w); createdMapObjects.push(w); obstacleMeshes.push(w);
+            });
+
+            createClimbableBuilding(-70, -60, 20, 24, 3, 6);
+            createClimbableBuilding(70, -60, 20, 24, 3, 6);
+            createClimbableBuilding(-70, 60, 22, 22, 2, 7);
+            createClimbableBuilding(70, 60, 22, 22, 2, 7);
+            createClimbableBuilding(0, 0, 28, 28, 4, 5.5);
+
+            const bridgeMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.5 });
+            const b1 = new THREE.Mesh(new THREE.BoxGeometry(45, 0.4, 4), bridgeMat); b1.position.set(-35, 11, 0);
+            const b2 = new THREE.Mesh(new THREE.BoxGeometry(45, 0.4, 4), bridgeMat); b2.position.set(35, 11, 0);
+            [b1, b2].forEach(b => {
+                b.receiveShadow = true; b.castShadow = true;
+                scene.add(b); createdMapObjects.push(b); obstacleMeshes.push(b); floorWalkables.push(b);
+            });
+
+            const crateMatBlue = new THREE.MeshStandardMaterial({ color: 0x1e3a8a, roughness: 0.5 });
+            const crateMatRed = new THREE.MeshStandardMaterial({ color: 0x991b1b, roughness: 0.5 });
+            const crateMatWood = new THREE.MeshStandardMaterial({ color: 0x854d0e, roughness: 0.8 });
+
+            const coverPositions = [
+                { x: -40, z: -100, w: 10, h: 4, d: 18, mat: crateMatRed, penetrable: false },
+                { x: 40, z: -100, w: 10, h: 4, d: 18, mat: crateMatRed, penetrable: false },
+                { x: -40, z: 100, w: 10, h: 4, d: 18, mat: crateMatBlue, penetrable: false },
+                { x: 40, z: 100, w: 10, h: 4, d: 18, mat: crateMatBlue, penetrable: false },
+                { x: -110, z: 0, w: 14, h: 5, d: 14, mat: crateMatWood, penetrable: true },
+                { x: 110, z: 0, w: 14, h: 5, d: 14, mat: crateMatWood, penetrable: true },
+                { x: 0, z: -120, w: 24, h: 4, d: 4, mat: crateMatRed, penetrable: false },
+                { x: 0, z: 120, w: 24, h: 4, d: 4, mat: crateMatBlue, penetrable: false }
+            ];
+
+            coverPositions.forEach(p => {
+                const mesh = new THREE.Mesh(new THREE.BoxGeometry(p.w, p.h, p.d), p.mat);
+                mesh.position.set(p.x, p.h / 2, p.z);
+                mesh.castShadow = true; mesh.receiveShadow = true;
+                mesh.userData = { penetrable: p.penetrable };
+                scene.add(mesh); createdMapObjects.push(mesh); obstacleMeshes.push(mesh); floorWalkables.push(mesh);
+            });
+
+            if (selectedMode.id === 'hardpoint') {
+                const hpGeo = new THREE.CylinderGeometry(hardpointRadius, hardpointRadius, 0.2, 32);
+                const hpMat = new THREE.MeshBasicMaterial({ color: 0xf59e0b, transparent: true, opacity: 0.45, wireframe: true });
+                hardpointMesh = new THREE.Mesh(hpGeo, hpMat);
+                hardpointPos.set(0, 0.1, 0);
+                hardpointMesh.position.copy(hardpointPos);
+                scene.add(hardpointMesh);
+                createdMapObjects.push(hardpointMesh);
+            }
+        }
+
+        let gunGroup, muzzleFlashMesh;
+        let aiAgents = [];
+
+        function triggerSlide() {
+            if (player.isSliding || player.isDead || player.isClimbing) return;
+            if (!player.moveForward && !player.moveBackward && !player.moveLeft && !player.moveRight) return;
+
+            player.isSliding = true;
+            player.slideTimer = 0.55;
+
+            camera.getWorldDirection(_dir);
+            _dir.y = 0;
+            _dir.normalize();
+
+            if (player.moveBackward) _dir.negate();
+            
+            player.slideDir.copy(_dir);
+            audio.playSlide();
+        }
+
+        function triggerJump() {
+            if (player.isJumping || player.isDead) return;
+            if (player.isClimbing) {
+                player.isClimbing = false;
+                player.velocityY = 6.0;
+                player.isJumping = true;
+                return;
+            }
+            if (camera.position.y <= player.groundY + player.currentHeight + 0.3) {
+                player.velocityY = 8.8;
+                player.isJumping = true;
+            }
+        }
+
+        function setupInputs() {
+            document.addEventListener('keydown', (e) => {
+                switch (e.code) {
+                    case 'KeyW': player.moveForward = true; break;
+                    case 'KeyS': player.moveBackward = true; break;
+                    case 'KeyA': player.moveLeft = true; break;
+                    case 'KeyD': player.moveRight = true; break;
+                    case 'ShiftLeft': player.isSprinting = true; break;
+                    case 'Space': triggerJump(); break;
+                    case 'KeyC':
+                    case 'ControlLeft':
+                        if (player.isSprinting || player.moveForward) {
+                            triggerSlide();
+                        } else {
+                            player.isCrouching = true;
+                        }
+                        break;
+                    case 'KeyR': reloadWeapon(); break;
+                    case 'KeyP':
+                    case 'Escape':
+                        if (currentState === STATE.PLAYING) pauseGame();
+                        else if (currentState === STATE.PAUSE) resumeGame();
+                        break;
+                }
+            });
+
+            document.addEventListener('keyup', (e) => {
+                switch (e.code) {
+                    case 'KeyW': player.moveForward = false; break;
+                    case 'KeyS': player.moveBackward = false; break;
+                    case 'KeyA': player.moveLeft = false; break;
+                    case 'KeyD': player.moveRight = false; break;
+                    case 'ShiftLeft': player.isSprinting = false; break;
+                    case 'KeyC':
+                    case 'ControlLeft': player.isCrouching = false; break;
+                }
+            });
+
+            document.addEventListener('mousedown', (e) => {
+                if (currentState !== STATE.PLAYING) return;
+                if (e.button === 0) shootWeapon();
+                if (e.button === 2) setADS(true);
+            });
+
+            document.addEventListener('mouseup', (e) => {
+                if (e.button === 2) setADS(false);
+            });
+
+            document.addEventListener('contextmenu', e => e.preventDefault());
+
+            controls.addEventListener('unlock', () => {
+                if (currentState === STATE.PLAYING) pauseGame();
+            });
+        }
+
+        function setADS(active) {
+            player.isADS = active;
+            const scopeOverlay = document.getElementById('scope-overlay');
+            const crosshair = document.getElementById('crosshair');
+            if (active) {
+                if (scopeOverlay) scopeOverlay.style.opacity = '1';
+                if (crosshair) crosshair.style.opacity = '0';
+                if (gunGroup) gunGroup.position.set(0, -0.17, -0.32);
+            } else {
+                if (scopeOverlay) scopeOverlay.style.opacity = '0';
+                if (crosshair) crosshair.style.opacity = '1';
+                if (gunGroup) gunGroup.position.set(0.22, -0.22, -0.38);
+            }
+        }
+
+        function renderLoadoutUI() {
+            const modeList = document.getElementById('mode-list');
+            if (modeList) {
+                modeList.innerHTML = MODES.map(m => `
+                    <div class="tactical-card p-3 rounded-lg ${selectedMode.id === m.id ? 'selected' : ''}" onclick="selectMode('${m.id}')">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="font-bold text-sm font-orbitron text-white">${m.name}</span>
+                            <span class="text-[10px] font-mono px-2 py-0.5 bg-amber-900/50 text-amber-300 rounded border border-amber-500/30">${m.goal} ${m.goalType.toUpperCase()}</span>
+                        </div>
+                        <div class="text-xs text-slate-400">${m.desc}</div>
+                    </div>
+                `).join('');
+            }
+
+            const weaponList = document.getElementById('weapon-list');
+            if (weaponList) {
+                weaponList.innerHTML = WEAPONS.map(w => `
+                    <div class="tactical-card p-3 rounded-lg ${selectedWeapon.id === w.id ? 'selected' : ''}" onclick="selectWeapon('${w.id}')">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="font-bold text-sm font-orbitron text-white">${w.name}</span>
+                            <span class="text-[10px] font-mono px-2 py-0.5 bg-blue-900/50 text-blue-300 rounded border border-blue-500/30">${w.type}</span>
+                        </div>
+                        <div class="text-xs text-slate-400 mb-2">${w.desc}</div>
+                        <div class="grid grid-cols-3 gap-2 text-[10px] font-mono text-slate-300">
+                            <div>DMG: <b class="text-amber-400">${w.damage}</b></div>
+                            <div>AMMO: <b class="text-blue-400">${w.ammo}</b></div>
+                            <div>RANGE: <b class="text-emerald-400">${w.range}m</b></div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            const opList = document.getElementById('operator-list');
+            if (opList) {
+                opList.innerHTML = OPERATORS.map(o => `
+                    <div class="tactical-card p-3 rounded-lg ${selectedOperator.id === o.id ? 'selected' : ''}" onclick="selectOperator('${o.id}')">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="font-bold text-sm font-orbitron text-white">${o.name}</span>
+                            <span class="text-[10px] font-mono px-2 py-0.5 bg-emerald-900/50 text-emerald-300 rounded border border-emerald-500/30">HP: ${o.hp}</span>
+                        </div>
+                        <div class="text-xs text-slate-400 mb-1">${o.desc}</div>
+                        <div class="text-[10px] font-mono text-slate-300">SPEED: <b class="text-cyan-400">${o.speed} m/s</b></div>
+                    </div>
+                `).join('');
+            }
+
+            const mapList = document.getElementById('map-list');
+            if (mapList) {
+                mapList.innerHTML = MAPS.map(m => `
+                    <div class="tactical-card p-3 rounded-lg ${selectedMap.id === m.id ? 'selected' : ''}" onclick="selectMap('${m.id}')">
+                        <div class="font-bold text-sm font-orbitron text-white mb-1">${m.name}</div>
+                        <div class="text-xs text-slate-400">${m.desc}</div>
+                    </div>
+                `).join('');
+            }
+
+            const descEl = document.getElementById('mode-goal-desc');
+            if (descEl) {
+                descEl.innerHTML = `當前模式：<b class="text-amber-400 font-orbitron">${selectedMode.name}</b> —— ${selectedMode.desc}`;
+            }
+        }
+
+        window.selectMode = function(id) {
+            selectedMode = MODES.find(m => m.id === id) || MODES[0];
+            if (selectedMode.id === 'sniper') {
+                selectedWeapon = WEAPONS.find(w => w.id === 'barrett') || WEAPONS[4];
+            }
+            renderLoadoutUI();
+        };
+
+        window.selectWeapon = function(id) {
+            if (selectedMode.id === 'sniper') return;
+            selectedWeapon = WEAPONS.find(w => w.id === id) || WEAPONS[0];
+            renderLoadoutUI();
+        };
+
+        window.selectOperator = function(id) {
+            selectedOperator = OPERATORS.find(o => o.id === id) || OPERATORS[0];
+            renderLoadoutUI();
+        };
+
+        window.selectMap = function(id) {
+            selectedMap = MAPS.find(m => m.id === id) || MAPS[0];
+            renderLoadoutUI();
+        };
+
+        function reloadWeapon() {
+            if (player.isReloading || player.ammo === player.maxAmmo || player.reserveAmmo <= 0) return;
+            player.isReloading = true;
+            const msg = document.getElementById('reload-msg');
+            if (msg) msg.classList.remove('hidden');
+
+            setTimeout(() => {
+                const needed = player.maxAmmo - player.ammo;
+                const reloaded = Math.min(needed, player.reserveAmmo);
+                player.ammo += reloaded;
+                player.reserveAmmo -= reloaded;
+                player.isReloading = false;
+                if (msg) msg.classList.add('hidden');
+            }, 1500);
+        }
+
+        function spawnAIAgents() {
+            aiAgents.forEach(a => {
+                if (a.mesh) scene.remove(a.mesh);
+                if (a.nametag) a.nametag.remove();
+            });
+            aiAgents = [];
+
+            const container = document.getElementById('nametag-container');
+            if (container) container.innerHTML = '';
+
+            const count = 9;
+            for (let i = 0; i < count; i++) {
+                const isBlue = selectedMode.id === 'ffa' ? false : (i < 4); // 4 個友軍 5 個敵軍
+                const name = isBlue ? `ALLY-${i+1}` : `HOSTILE-${i+1}`;
+                const color = isBlue ? 0x3b82f6 : 0xef4444;
+
+                const bodyGroup = new THREE.Group();
+
+                const bodyGeo = new THREE.CylinderGeometry(0.5, 0.5, 1.8, 12);
+                const bodyMat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.5 });
+                const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
+                bodyMesh.position.y = 0.9;
+                bodyMesh.castShadow = true;
+                bodyGroup.add(bodyMesh);
+
+                const headGeo = new THREE.SphereGeometry(0.35, 12, 12);
+                const headMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc });
+                const headMesh = new THREE.Mesh(headGeo, headMat);
+                headMesh.position.y = 2.0;
+                bodyGroup.add(headMesh);
+
+                const spawnPos = getSpawnPoint(selectedMode.id === 'ffa' ? 'FFA' : (isBlue ? 'BLUE' : 'RED'));
+                bodyGroup.position.copy(spawnPos);
+                scene.add(bodyGroup);
+
+                const nametag = document.createElement('div');
+                nametag.className = 'nametag-overlay';
+                nametag.innerHTML = `
+                    <div class="text-[10px] font-bold ${isBlue ? 'text-blue-400' : 'text-red-400'} font-orbitron drop-shadow">${name}</div>
+                    <div class="w-12 h-1 bg-slate-900 rounded-full overflow-hidden border border-slate-700">
+                        <div class="hp-bar h-full ${isBlue ? 'bg-blue-500' : 'bg-red-500'} w-full"></div>
+                    </div>
+                `;
+                if (container) container.appendChild(nametag);
+
+                aiAgents.push({
+                    id: name,
+                    isBlue: isBlue,
+                    hp: 100,
+                    maxHp: 100,
+                    mesh: bodyGroup,
+                    bodyGroup: bodyGroup,
+                    nametag: nametag,
+                    invincibleTimer: 0,
+                    isDying: false,
+                    lastShootTime: 0,
+                    shootRate: 0.5 + Math.random() * 0.5,
+                    speed: 7 + Math.random() * 3
+                });
+            }
+        }
+
+        function startGame() {
+            audio.init();
+            currentState = STATE.PLAYING;
+
+            blueTeamScore = 0;
+            redTeamScore = 0;
+            playerKills = 0;
+            playerDeaths = 0;
+
+            player.hp = selectedOperator.hp;
+            player.maxHp = selectedOperator.hp;
+            player.ammo = selectedWeapon.ammo;
+            player.maxAmmo = selectedWeapon.ammo;
+            player.reserveAmmo = selectedWeapon.reserve;
+            player.isDead = false;
+            player.invincibleTimer = 2.0;
+
+            const targetScoreEl = document.getElementById('target-score');
+            if (targetScoreEl) targetScoreEl.innerText = selectedMode.goal;
+
+            const opTagEl = document.getElementById('operator-tag');
+            if (opTagEl) opTagEl.innerText = selectedOperator.name;
+
+            buildSelectedMap();
+            createWeaponMesh();
+            spawnAIAgents();
+
+            const spawnPos = getSpawnPoint(selectedMode.id === 'ffa' ? 'FFA' : 'BLUE');
+            camera.position.copy(spawnPos);
+            camera.position.y += player.baseHeight;
+
+            document.getElementById('start-screen').classList.add('hidden');
+            document.getElementById('pause-screen').classList.add('hidden');
+            document.getElementById('gameover-screen').classList.add('hidden');
+            document.getElementById('hud-layer').classList.remove('hidden');
+
+            const hardpointInd = document.getElementById('hardpoint-indicator');
+            if (hardpointInd) {
+                if (selectedMode.id === 'hardpoint') hardpointInd.classList.remove('hidden');
+                else hardpointInd.classList.add('hidden');
+            }
+
+            controls.lock();
+        }
+
+        function pauseGame() {
+            if (currentState !== STATE.PLAYING) return;
+            currentState = STATE.PAUSE;
+            document.getElementById('pause-screen').classList.remove('hidden');
+            controls.unlock();
+        }
+
+        function resumeGame() {
+            if (currentState !== STATE.PAUSE) return;
+            currentState = STATE.PLAYING;
+            document.getElementById('pause-screen').classList.add('hidden');
+            controls.lock();
+        }
+
+        function resetToMenu() {
+            currentState = STATE.INIT;
+            controls.unlock();
+            document.getElementById('hud-layer').classList.add('hidden');
+            document.getElementById('pause-screen').classList.add('hidden');
+            document.getElementById('gameover-screen').classList.add('hidden');
+            document.getElementById('start-screen').classList.remove('hidden');
+
+            aiAgents.forEach(a => {
+                if (a.mesh) scene.remove(a.mesh);
+                if (a.nametag) a.nametag.remove();
+            });
+            aiAgents = [];
+        }
+
+        // 觸發受傷動態方向指示 (360 Directional Hit Indicator)
+        function triggerDamageIndicator(attackerPos) {
+            camera.getWorldDirection(_dir);
+            const playerAngle = Math.atan2(_dir.x, _dir.z);
+
+            const dx = attackerPos.x - camera.position.x;
+            const dz = attackerPos.z - camera.position.z;
+            const attackerAngle = Math.atan2(dx, dz);
+
+            let relAngle = (attackerAngle - playerAngle) * (180 / Math.PI);
+            
+            const arcEl = document.getElementById('damage-arc');
+            if (arcEl) {
+                arcEl.style.transform = `rotate(${relAngle}deg)`;
+                arcEl.style.opacity = '1';
+                setTimeout(() => { arcEl.style.opacity = '0'; }, 700);
+            }
+        }
+
+        function handlePlayerDeath(killerName, attackerPos) {
+            if (player.isDead) return;
+            player.isDead = true;
+            playerDeaths++;
+            if (selectedMode.id !== 'ffa') redTeamScore++;
+
+            audio.playDamage();
+
+            const deathOverlay = document.getElementById('death-overlay');
+            const killerNameEl = document.getElementById('killer-name');
+            const killerDistEl = document.getElementById('killer-dist');
+            const timerEl = document.getElementById('respawn-timer');
+            const barEl = document.getElementById('respawn-bar');
+
+            const dist = attackerPos ? Math.floor(camera.position.distanceTo(attackerPos)) : 10;
+
+            if (killerNameEl) killerNameEl.innerText = killerName || 'HOSTILE';
+            if (killerDistEl) killerDistEl.innerText = `${dist}m`;
+            if (deathOverlay) deathOverlay.classList.remove('hidden');
+
+            let timeLeft = 3.0;
+            const interval = setInterval(() => {
+                timeLeft -= 0.1;
+                if (timerEl) timerEl.innerText = Math.max(0, timeLeft).toFixed(1);
+                if (barEl) barEl.style.width = `${(timeLeft / 3.0) * 100}%`;
+
+                if (timeLeft <= 0) {
+                    clearInterval(interval);
+                    if (deathOverlay) deathOverlay.classList.add('hidden');
+                    respawnPlayer();
+                }
+            }, 100);
+
+            checkMatchEnd();
+        }
+
+        function respawnPlayer() {
+            player.isDead = false;
+            player.hp = player.maxHp;
+            player.invincibleTimer = 2.0;
+
+            const spawnPos = getSpawnPoint(selectedMode.id === 'ffa' ? 'FFA' : 'BLUE');
+            camera.position.copy(spawnPos);
+            camera.position.y += player.baseHeight;
+        }
+
+        function addKillfeedEntry(killer, victim, weaponName, isBlueKiller) {
+            const feed = document.getElementById('killfeed-container');
+            if (!feed) return;
+
+            const entry = document.createElement('div');
+            entry.className = 'tactical-panel px-3 py-1 rounded border border-slate-700 flex items-center justify-between text-[11px] animate-fade-in';
+            entry.innerHTML = `
+                <span class="${isBlueKiller ? 'text-blue-400' : 'text-red-400'} font-bold">${killer}</span>
+                <span class="text-slate-400 font-mono text-[9px] px-1 bg-slate-800 rounded">[${weaponName}]</span>
+                <span class="${isBlueKiller ? 'text-red-400' : 'text-blue-400'} font-bold">${victim}</span>
+            `;
+
+            feed.prepend(entry);
+            if (feed.children.length > 5) feed.removeChild(feed.lastChild);
+        }
+
+        function checkMatchEnd() {
+            let ended = false;
+            let victory = false;
+
+            if (selectedMode.goalType === 'kills') {
+                if (playerKills >= selectedMode.goal || blueTeamScore >= selectedMode.goal) {
+                    ended = true; victory = true;
+                } else if (redTeamScore >= selectedMode.goal) {
+                    ended = true; victory = false;
+                }
+            } else if (selectedMode.goalType === 'score') {
+                if (blueTeamScore >= selectedMode.goal) {
+                    ended = true; victory = true;
+                } else if (redTeamScore >= selectedMode.goal) {
+                    ended = true; victory = false;
+                }
+            }
+
+            if (ended && currentState === STATE.PLAYING) {
+                currentState = STATE.GAMEOVER;
+                controls.unlock();
+
+                document.getElementById('hud-layer').classList.add('hidden');
+                const goScreen = document.getElementById('gameover-screen');
+                if (goScreen) goScreen.classList.remove('hidden');
+
+                const titleEl = document.getElementById('match-result-title');
+                if (titleEl) {
+                    titleEl.innerText = victory ? 'VICTORY' : 'DEFEAT';
+                    titleEl.className = `text-5xl font-black font-orbitron tracking-wider ${victory ? 'text-emerald-400' : 'text-red-500'}`;
+                }
+
+                const fk = document.getElementById('final-kills');
+                const fd = document.getElementById('final-deaths');
+                const fb = document.getElementById('final-blue-score');
+                const fr = document.getElementById('final-red-score');
+
+                if (fk) fk.innerText = playerKills;
+                if (fd) fd.innerText = playerDeaths;
+                if (fb) fb.innerText = Math.floor(blueTeamScore);
+                if (fr) fr.innerText = Math.floor(redTeamScore);
+            }
+        }
+
+        // 升級版：5v5 自動AI戰鬥與雙向目標選擇引擎
+        function updateAIBattle(delta, timeSec) {
+            if (player.invincibleTimer > 0) {
+                player.invincibleTimer -= delta;
+                const protectionTag = document.getElementById('spawn-protection-tag');
+                if (protectionTag) {
+                    if (player.invincibleTimer > 0) protectionTag.classList.remove('hidden');
+                    else protectionTag.classList.add('hidden');
+                }
+            }
+
+            aiAgents.forEach(agent => {
+                if (agent.isDying) return;
+
+                if (agent.invincibleTimer > 0) {
+                    agent.invincibleTimer -= delta;
+                }
+
+                // 搜尋最近的敵對目標 (AI 或玩家)
+                let bestTargetPos = null;
+                let bestTargetEntity = null;
+                let minDistance = 180.0;
+
+                if (selectedMode.id === 'ffa') {
+                    // FFA 模式：任何其他 AI 與玩家皆為敵人
+                    aiAgents.forEach(other => {
+                        if (other !== agent && !other.isDying && other.invincibleTimer <= 0) {
+                            const d = agent.mesh.position.distanceTo(other.mesh.position);
+                            if (d < minDistance) { minDistance = d; bestTargetPos = other.mesh.position; bestTargetEntity = other; }
+                        }
+                    });
+                    if (!player.isDead && player.invincibleTimer <= 0) {
+                        const dPlayer = agent.mesh.position.distanceTo(camera.position);
+                        if (dPlayer < minDistance) { minDistance = dPlayer; bestTargetPos = camera.position; bestTargetEntity = 'PLAYER'; }
+                    }
+                } else if (agent.isBlue) {
+                    // 藍隊 AI (友軍)：主動鎖定紅隊 (HOSTILE) AI 敵軍！
+                    aiAgents.forEach(other => {
+                        if (!other.isBlue && !other.isDying && other.invincibleTimer <= 0) {
+                            const d = agent.mesh.position.distanceTo(other.mesh.position);
+                            if (d < minDistance) { minDistance = d; bestTargetPos = other.mesh.position; bestTargetEntity = other; }
+                        }
+                    });
+                } else {
+                    // 紅隊 AI (敵軍)：鎖定藍隊 AI 友軍 或 玩家！
+                    aiAgents.forEach(other => {
+                        if (other.isBlue && !other.isDying && other.invincibleTimer <= 0) {
+                            const d = agent.mesh.position.distanceTo(other.mesh.position);
+                            if (d < minDistance) { minDistance = d; bestTargetPos = other.mesh.position; bestTargetEntity = other; }
+                        }
+                    });
+                    if (!player.isDead && player.invincibleTimer <= 0) {
+                        const dPlayer = agent.mesh.position.distanceTo(camera.position);
+                        if (dPlayer < minDistance) { minDistance = dPlayer; bestTargetPos = camera.position; bestTargetEntity = 'PLAYER'; }
+                    }
+                }
+
+                // 若有移動目標，朝目標移動並面對
+                const moveDest = bestTargetPos || ((selectedMode.id === 'hardpoint') ? hardpointPos : camera.position);
+                _v1.subVectors(moveDest, agent.mesh.position);
+                _v1.y = 0;
+                const distToDest = _v1.length();
+
+                if (distToDest > 6) {
+                    _v1.normalize().multiplyScalar(agent.speed * delta);
+                    agent.mesh.position.add(_v1);
+                    agent.mesh.lookAt(moveDest.x, agent.mesh.position.y, moveDest.z);
+                }
+
+                // 開火射擊邏輯
+                if (bestTargetEntity && timeSec - agent.lastShootTime > agent.shootRate) {
+                    agent.lastShootTime = timeSec;
+
+                    if (bestTargetEntity === 'PLAYER') {
+                        // 攻擊玩家
+                        const aiDamage = Math.floor(10 + Math.random() * 8);
+                        player.hp -= aiDamage;
+                        audio.playDamage();
+
+                        // 觸發方向受傷紅閃與 360 度弧形指示
+                        triggerDamageIndicator(agent.mesh.position);
+
+                        const dmgFlash = document.getElementById('damage-flash');
+                        if (dmgFlash) {
+                            dmgFlash.style.opacity = '0.8';
+                            setTimeout(() => dmgFlash.style.opacity = '0', 120);
+                        }
+
+                        if (player.hp <= 0) {
+                            handlePlayerDeath(agent.id, agent.mesh.position);
+                        }
+                    } else {
+                        // AI 互相交火 (友軍打敵軍 / 敵軍打友軍)
+                        const targetAI = bestTargetEntity;
+                        const aiDmg = Math.floor(16 + Math.random() * 12);
+                        targetAI.hp -= aiDmg;
+
+                        // 火花粒子 FX
+                        spawnImpactSpark(targetAI.mesh.position.clone().add(new THREE.Vector3(0, 1, 0)), new THREE.Vector3(0, 1, 0));
+
+                        if (targetAI.hp <= 0 && !targetAI.isDying) {
+                            targetAI.isDying = true;
+                            
+                            if (agent.isBlue) {
+                                blueTeamScore++;
+                            } else {
+                                redTeamScore++;
+                            }
+
+                            addKillfeedEntry(agent.id, targetAI.id, "TAC-RIFLE", agent.isBlue);
+                            checkMatchEnd();
+
+                            // 重生 AI
+                            setTimeout(() => {
+                                if (currentState === STATE.PLAYING) {
+                                    const spawnPos = getSpawnPoint(selectedMode.id === 'ffa' ? 'FFA' : (targetAI.isBlue ? 'BLUE' : 'RED'));
+                                    targetAI.mesh.position.copy(spawnPos);
+                                    targetAI.hp = targetAI.maxHp;
+                                    targetAI.invincibleTimer = 2.0;
+                                    targetAI.isDying = false;
+                                }
+                            }, 3000);
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateHardpointLogic(delta) {
+            if (selectedMode.id !== 'hardpoint') return;
+
+            hardpointTimer += delta;
+
+            let blueInZone = false;
+            let redInZone = false;
+
+            if (!player.isDead) {
+                const distP = camera.position.distanceTo(hardpointPos);
+                if (distP <= hardpointRadius) blueInZone = true;
+            }
+
+            aiAgents.forEach(a => {
+                if (!a.isDying) {
+                    const dist = a.mesh.position.distanceTo(hardpointPos);
+                    if (dist <= hardpointRadius) {
+                        if (a.isBlue) blueInZone = true;
+                        else redInZone = true;
+                    }
+                }
+            });
+
+            const progressEl = document.getElementById('hardpoint-progress');
+            const ownerEl = document.getElementById('hardpoint-owner');
+
+            if (blueInZone && !redInZone) {
+                hardpointOwner = 'BLUE';
+                blueTeamScore += delta * 2;
+                if (ownerEl) { ownerEl.innerText = 'ALLIED CONTROL'; ownerEl.className = 'text-xs font-mono font-bold text-blue-400'; }
+                if (progressEl) { progressEl.className = 'h-full bg-blue-500 transition-all duration-200'; progressEl.style.width = '100%'; }
+            } else if (redInZone && !blueInZone) {
+                hardpointOwner = 'RED';
+                redTeamScore += delta * 2;
+                if (ownerEl) { ownerEl.innerText = 'HOSTILE CONTROL'; ownerEl.className = 'text-xs font-mono font-bold text-red-400'; }
+                if (progressEl) { progressEl.className = 'h-full bg-red-500 transition-all duration-200'; progressEl.style.width = '100%'; }
+            } else if (blueInZone && redInZone) {
+                if (ownerEl) { ownerEl.innerText = 'CONTESTED'; ownerEl.className = 'text-xs font-mono font-bold text-amber-400'; }
+                if (progressEl) { progressEl.className = 'h-full bg-amber-400 transition-all duration-200'; progressEl.style.width = '50%'; }
+            } else {
+                if (ownerEl) { ownerEl.innerText = 'NEUTRAL'; ownerEl.className = 'text-xs font-mono font-bold text-slate-400'; }
+                if (progressEl) { progressEl.style.width = '0%'; }
+            }
+
+            checkMatchEnd();
+        }
+
+        function updateHUD() {
+            const hpBar = document.getElementById('hp-bar');
+            const hpText = document.getElementById('hp-text');
+            if (hpBar) hpBar.style.width = `${Math.max(0, (player.hp / player.maxHp) * 100)}%`;
+            if (hpText) hpText.innerText = `${Math.max(0, Math.ceil(player.hp))} / ${player.maxHp}`;
+
+            const ammoVal = document.getElementById('ammo-val');
+            const reserveVal = document.getElementById('reserve-ammo-val');
+            if (ammoVal) ammoVal.innerText = player.ammo;
+            if (reserveVal) reserveVal.innerText = player.reserveAmmo;
+
+            const blueScoreEl = document.getElementById('blue-score');
+            const redScoreEl = document.getElementById('red-score');
+            if (blueScoreEl) blueScoreEl.innerText = selectedMode.id === 'ffa' ? playerKills : Math.floor(blueTeamScore);
+            if (redScoreEl) redScoreEl.innerText = Math.floor(redTeamScore);
+
+            const kdaEl = document.getElementById('player-kda');
+            if (kdaEl) kdaEl.innerText = `${playerKills} / ${playerDeaths}`;
+
+            const mapRadar = document.getElementById('minimap-radar');
+            const mapPlayer = document.getElementById('minimap-player');
+            if (mapRadar && mapPlayer) {
+                const radarW = mapRadar.clientWidth;
+                const radarH = mapRadar.clientHeight;
+
+                const px = (camera.position.x / arenaSize + 0.5) * radarW;
+                const py = (camera.position.z / arenaSize + 0.5) * radarH;
+                mapPlayer.style.transform = `translate(${px - 3}px, ${py - 3}px)`;
+
+                aiAgents.forEach(agent => {
+                    if (agent.isDying) {
+                        if (agent.nametag) agent.nametag.style.opacity = '0';
+                        return;
+                    }
+
+                    _tempVec.copy(agent.mesh.position);
+                    _tempVec.y += 2.3;
+                    _tempVec.project(camera);
+
+                    const isBehind = _tempVec.z > 1;
+                    if (isBehind) {
+                        if (agent.nametag) agent.nametag.style.opacity = '0';
+                    } else {
+                        const screenX = (_tempVec.x * 0.5 + 0.5) * window.innerWidth;
+                        const screenY = ( -_tempVec.y * 0.5 + 0.5) * window.innerHeight;
+
+                        if (agent.nametag) {
+                            agent.nametag.style.opacity = '1';
+                            agent.nametag.style.transform = `translate(${screenX - 30}px, ${screenY - 10}px)`;
+
+                            const hpBarInTag = agent.nametag.querySelector('.hp-bar');
+                            if (hpBarInTag) hpBarInTag.style.width = `${Math.max(0, (agent.hp / agent.maxHp) * 100)}%`;
+                        }
+                    }
+                });
+            }
+        }
+
+        function createWeaponMesh() {
+            if (gunGroup) camera.remove(gunGroup);
+
+            gunGroup = new THREE.Group();
+
+            const bodyMat = new THREE.MeshStandardMaterial({ color: selectedWeapon.color, metalness: 0.8, roughness: 0.3 });
+            const bodyGeo = new THREE.BoxGeometry(0.08, 0.12, 0.45);
+            const body = new THREE.Mesh(bodyGeo, bodyMat);
+            gunGroup.add(body);
+
+            const barrelGeo = new THREE.CylinderGeometry(0.02, 0.02, 0.3, 12);
+            const barrelMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.9, roughness: 0.2 });
+            const barrel = new THREE.Mesh(barrelGeo, barrelMat);
+            barrel.rotation.x = Math.PI / 2;
+            barrel.position.set(0, 0.02, -0.3);
+            gunGroup.add(barrel);
+
+            const flashGeo = new THREE.OctahedronGeometry(0.08, 0);
+            const flashMat = new THREE.MeshBasicMaterial({ color: 0xfcb316, transparent: true, opacity: 0 });
+            muzzleFlashMesh = new THREE.Mesh(flashGeo, flashMat);
+            muzzleFlashMesh.position.set(0, 0.02, -0.48);
+            gunGroup.add(muzzleFlashMesh);
+
+            gunGroup.position.set(0.22, -0.22, -0.38);
+            camera.add(gunGroup);
+        }
+
+        function shootWeapon() {
+            if (player.isDead || player.isReloading || currentState !== STATE.PLAYING) return;
+
+            const now = performance.now() / 1000;
+            if (now - player.lastShootTime < selectedWeapon.rate) return;
+
+            if (player.ammo <= 0) {
+                reloadWeapon();
+                return;
+            }
+
+            player.ammo--;
+            player.lastShootTime = now;
+            audio.playShoot(selectedWeapon.type);
+
+            if (muzzleFlashMesh) {
+                muzzleFlashMesh.material.opacity = 0.9;
+                setTimeout(() => { if (muzzleFlashMesh) muzzleFlashMesh.material.opacity = 0; }, 40);
+            }
+
+            if (gunGroup) {
+                gunGroup.position.z += selectedWeapon.recoil * 2.5;
+                camera.rotation.x += selectedWeapon.recoil * 0.4;
+            }
+
+            camera.getWorldDirection(_dir);
+            _raycaster.set(camera.position, _dir);
+
+            const hitTargets = [];
+            aiAgents.forEach(a => {
+                if (!a.isDying) {
+                    a.bodyGroup.traverse(child => {
+                        if (child.isMesh) {
+                            child.userData = { agent: a };
+                            hitTargets.push(child);
+                        }
+                    });
+                }
+            });
+
+            const intersects = _raycaster.intersectObjects([...hitTargets, ...obstacleMeshes], true);
+
+            if (intersects.length > 0) {
+                const hit = intersects[0];
+
+                if (hit.point && hit.face) {
+                    spawnImpactSpark(hit.point, hit.face.normal);
+                }
+
+                if (hit.object.userData && hit.object.userData.agent) {
+                    const agent = hit.object.userData.agent;
+
+                    if (selectedMode.id !== 'ffa' && agent.isBlue) {
+                        return; // 友軍傷害關閉
+                    }
+
+                    if (agent.invincibleTimer <= 0) {
+                        agent.hp -= selectedWeapon.damage;
+
+                        const hitmarker = document.getElementById('hitmarker');
+                        if (hitmarker) {
+                            hitmarker.style.opacity = '1';
+                            setTimeout(() => { if (hitmarker) hitmarker.style.opacity = '0'; }, 80);
+                        }
+                        audio.playHit();
+
+                        if (agent.hp <= 0 && !agent.isDying) {
+                            agent.isDying = true;
+                            playerKills++;
+                            if (selectedMode.id !== 'ffa') blueTeamScore++;
+
+                            audio.playKill();
+
+                            player.hp = Math.min(player.maxHp, player.hp + 35);
+                            audio.playHeal();
+
+                            const healFlash = document.getElementById('heal-flash');
+                            const popup = document.getElementById('kill-heal-popup');
+                            if (healFlash) { healFlash.style.opacity = '1'; setTimeout(() => healFlash.style.opacity = '0', 200); }
+                            if (popup) { popup.classList.remove('hidden'); setTimeout(() => popup.classList.add('hidden'), 1200); }
+
+                            addKillfeedEntry("YOU", agent.id, selectedWeapon.name, true);
+                            checkMatchEnd();
+
+                            setTimeout(() => {
+                                if (currentState === STATE.PLAYING) {
+                                    const spawnPos = getSpawnPoint(selectedMode.id === 'ffa' ? 'FFA' : (agent.isBlue ? 'BLUE' : 'RED'));
+                                    agent.mesh.position.copy(spawnPos);
+                                    agent.hp = agent.maxHp;
+                                    agent.invincibleTimer = 2.0;
+                                    agent.isDying = false;
+                                    agent.bodyGroup.rotation.x = 0;
+                                }
+                            }, 3000);
+                        }
+                    }
+                }
+            }
+        }
+
+        function updatePhysicsAndMovement(delta, time) {
+            if (!controls.isLocked || player.isDead) return;
+
+            _raycaster.set(camera.position, new THREE.Vector3(0, -1, 0));
+            const floorHits = _raycaster.intersectObjects(floorWalkables, true);
+            if (floorHits.length > 0 && floorHits[0].distance < 30) {
+                player.groundY = floorHits[0].point.y;
+            } else {
+                player.groundY = 0;
+            }
+
+            const playerPos = camera.position;
+            const playerBox = new THREE.Box3().setFromCenterAndSize(playerPos, new THREE.Vector3(1.2, 2.0, 1.2));
+            let foundLadder = null;
+
+            for (let l of climbableLadders) {
+                if (l.box.intersectsBox(playerBox)) {
+                    foundLadder = l;
+                    break;
+                }
+            }
+
+            const promptEl = document.getElementById('climb-prompt');
+            if (foundLadder) {
+                player.nearLadder = true;
+                player.currentLadder = foundLadder;
+                if (promptEl) promptEl.classList.remove('opacity-0');
+
+                if (player.moveForward) {
+                    player.isClimbing = true;
+                }
+            } else {
+                player.nearLadder = false;
+                player.isClimbing = false;
+                if (promptEl) promptEl.classList.add('opacity-0');
+            }
+
+            if (player.isClimbing && player.currentLadder) {
+                player.velocityY = 0;
+                if (player.moveForward) {
+                    camera.position.y += 8.5 * delta;
+                    if (camera.position.y >= player.currentLadder.topY + 0.8) {
+                        player.isClimbing = false;
+                    }
+                } else if (player.moveBackward) {
+                    camera.position.y -= 7.0 * delta;
+                    if (camera.position.y <= player.currentLadder.bottomY + player.baseHeight) {
+                        player.isClimbing = false;
+                    }
+                }
+            } else {
+                const speed = selectedOperator.speed * (player.isSprinting ? 1.45 : (player.isCrouching ? 0.6 : 1.0));
+
+                player.velocity.x -= player.velocity.x * 10.0 * delta;
+                player.velocity.z -= player.velocity.z * 10.0 * delta;
+
+                _dir.z = Number(player.moveForward) - Number(player.moveBackward);
+                _dir.x = Number(player.moveRight) - Number(player.moveLeft);
+                _dir.normalize();
+
+                if (player.isSliding) {
+                    player.slideTimer -= delta;
+                    const slideSpeedBoost = 22.0 * (player.slideTimer / 0.55);
+
+                    controls.moveForward(player.slideDir.z * slideSpeedBoost * delta);
+                    controls.moveRight(player.slideDir.x * slideSpeedBoost * delta);
+
+                    player.currentHeight = 0.85;
+
+                    if (player.slideTimer <= 0) {
+                        player.isSliding = false;
+                    }
+                } else {
+                    if (player.moveForward || player.moveBackward) player.velocity.z -= _dir.z * speed * 8.0 * delta;
+                    if (player.moveLeft || player.moveRight) player.velocity.x -= _dir.x * speed * 8.0 * delta;
+
+                    controls.moveForward(-player.velocity.z * delta);
+                    controls.moveRight(-player.velocity.x * delta);
+
+                    player.currentHeight = player.isCrouching ? 0.95 : player.baseHeight;
+                }
+
+                const targetY = player.groundY + player.currentHeight;
+                if (camera.position.y > targetY || player.velocityY > 0) {
+                    player.velocityY -= 24.0 * delta;
+                    camera.position.y += player.velocityY * delta;
+
+                    if (camera.position.y <= targetY) {
+                        camera.position.y = targetY;
+                        player.velocityY = 0;
+                        player.isJumping = false;
+                    }
+                } else {
+                    camera.position.y = THREE.MathUtils.lerp(camera.position.y, targetY, delta * 14);
+                }
+            }
+
+            const bound = arenaSize / 2 - 2;
+            camera.position.x = Math.max(-bound, Math.min(bound, camera.position.x));
+            camera.position.z = Math.max(-bound, Math.min(bound, camera.position.z));
+
+            const targetFOV = player.isADS ? 40 : (player.isSliding ? 82 : (player.isSprinting ? 78 : 75));
+            camera.fov = THREE.MathUtils.lerp(camera.fov, targetFOV, delta * 14);
+            camera.updateProjectionMatrix();
+
+            camera.getWorldDirection(_dir);
+            let angle = Math.atan2(_dir.x, _dir.z) * (180 / Math.PI) + 180;
+            const degEl = document.getElementById('compass-deg');
+            const dirEl = document.getElementById('compass-dir');
+            if (degEl) degEl.innerText = `${Math.floor(angle).toString().padStart(3, '0')}°`;
+            if (dirEl) {
+                if (angle >= 337.5 || angle < 22.5) dirEl.innerText = 'N';
+                else if (angle >= 22.5 && angle < 67.5) dirEl.innerText = 'NE';
+                else if (angle >= 67.5 && angle < 112.5) dirEl.innerText = 'E';
+                else if (angle >= 112.5 && angle < 157.5) dirEl.innerText = 'SE';
+                else if (angle >= 157.5 && angle < 202.5) dirEl.innerText = 'S';
+                else if (angle >= 202.5 && angle < 247.5) dirEl.innerText = 'SW';
+                else if (angle >= 247.5 && angle < 292.5) dirEl.innerText = 'W';
+                else dirEl.innerText = 'NW';
+            }
+
+            if (gunGroup) {
+                const targetX = player.isADS ? 0.0 : 0.22;
+                const targetY = player.isADS ? -0.17 : -0.22;
+                const targetZ = player.isADS ? -0.32 : -0.38;
+
+                const swayX = Math.sin(time * 0.003) * (player.isADS ? 0.0006 : 0.004);
+                const swayY = Math.cos(time * 0.005) * (player.isADS ? 0.0006 : 0.004);
+
+                gunGroup.position.x = THREE.MathUtils.lerp(gunGroup.position.x, targetX + swayX, delta * 14);
+                gunGroup.position.y = THREE.MathUtils.lerp(gunGroup.position.y, targetY + swayY, delta * 14);
+                gunGroup.position.z = THREE.MathUtils.lerp(gunGroup.position.z, targetZ, delta * 14);
+            }
+        }
+
+        function updateParticles(delta) {
+            for (let i = activeParticles.length - 1; i >= 0; i--) {
+                const p = activeParticles[i];
+                p.mesh.position.addScaledVector(p.vel, delta);
+                p.life -= delta;
+                p.mesh.scale.multiplyScalar(0.92);
+                if (p.life <= 0) {
+                    scene.remove(p.mesh);
+                    activeParticles.splice(i, 1);
+                }
+            }
+        }
+
+        let prevTime = performance.now();
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const time = performance.now();
+            const delta = (time - prevTime) / 1000;
+            prevTime = time;
+
+            if (currentState === STATE.PLAYING) {
+                updatePhysicsAndMovement(delta, time);
+                updateAIBattle(delta, time / 1000);
+                updateHardpointLogic(delta);
+                updateParticles(delta);
+                updateHUD();
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        window.onload = () => {
+            initScene();
+            setupInputs();
+            renderLoadoutUI();
+
+            document.getElementById('start-btn').onclick = startGame;
+            document.getElementById('resume-btn').onclick = resumeGame;
+            document.getElementById('quit-btn').onclick = resetToMenu;
+            document.getElementById('restart-btn').onclick = resetToMenu;
+
+            animate();
+        };
+    </script>
+</body>
+</html>

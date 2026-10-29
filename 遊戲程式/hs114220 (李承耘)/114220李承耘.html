@@ -1,0 +1,1249 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3v3 Tactical Shooter - Extended Map</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Teko:wght@500;700&family=Noto+Sans+TC:wght@500;700;900&display=swap');
+        
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #080c14;
+            color: #f3f4f6;
+            user-select: none;
+            overflow: hidden;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .font-teko {
+            font-family: 'Teko', sans-serif;
+        }
+
+        canvas {
+            box-shadow: 0 0 35px rgba(0, 0, 0, 0.9), 0 0 20px rgba(59, 130, 246, 0.2);
+            border: 2px solid #1e293b;
+            border-radius: 12px;
+            cursor: crosshair;
+            background-color: #0f172a;
+        }
+
+        .hud-glass {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
+        .hud-glow-blue {
+            text-shadow: 0 0 10px rgba(59, 130, 246, 0.8);
+        }
+
+        .hud-glow-red {
+            text-shadow: 0 0 10px rgba(239, 68, 68, 0.8);
+        }
+
+        #killfeed::-webkit-scrollbar {
+            width: 4px;
+        }
+        #killfeed::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+        }
+
+        #vignette {
+            pointer-events: none;
+            transition: opacity 0.15s ease;
+        }
+
+        /* Pulse animation for minimap bomb ping */
+        @keyframes pulse-fast {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(1.3); }
+        }
+        .animate-pulse-fast {
+            animation: pulse-fast 0.8s infinite;
+        }
+    </style>
+</head>
+<body class="relative flex flex-col items-center justify-center min-h-screen select-none">
+
+    <!-- Red Screen Vignette for Damage -->
+    <div id="vignette" class="absolute inset-0 border-[16px] border-red-600/0 rounded-lg z-20 pointer-events-none transition-all duration-150"></div>
+
+    <!-- Main Game Container -->
+    <div class="relative flex flex-col items-center justify-center">
+
+        <!-- Top HUD Header Bar -->
+        <div class="w-[960px] mb-2 flex justify-between items-center hud-glass px-6 py-2 rounded-xl z-10 border-b-2 border-blue-500/30">
+            
+            <!-- Blue Team Score (3v3) -->
+            <div class="flex items-center space-x-4">
+                <div class="flex flex-col">
+                    <span class="text-xs uppercase tracking-widest text-blue-400 font-bold"><i class="fa-solid fa-shield-halved mr-1"></i> 藍隊 (3v3)</span>
+                    <span id="score-blue" class="text-4xl font-teko font-bold hud-glow-blue text-blue-400 leading-none">0</span>
+                </div>
+            </div>
+
+            <!-- Match Timer & Mode Title -->
+            <div class="flex flex-col items-center">
+                <span class="text-[10px] uppercase tracking-widest text-amber-400 font-bold">戰場戰術地圖 (滾動鏡頭)</span>
+                <span id="timer" class="text-3xl font-teko font-bold text-yellow-400 leading-none tracking-wider">120</span>
+            </div>
+
+            <!-- Red Team Score (3v3) -->
+            <div class="flex items-center space-x-4 text-right">
+                <div class="flex flex-col">
+                    <span class="text-xs uppercase tracking-widest text-red-400 font-bold">紅隊 (3v3) <i class="fa-solid fa-skull mr-1"></i></span>
+                    <span id="score-red" class="text-4xl font-teko font-bold hud-glow-red text-red-400 leading-none">0</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Canvas Viewport Game Screen -->
+        <div class="relative">
+            <canvas id="gameCanvas" width="960" height="600"></canvas>
+
+            <!-- Minimap HUD Radar (Top Right) -->
+            <div class="absolute top-4 right-4 w-44 h-32 hud-glass rounded-lg border-2 border-slate-700/80 overflow-hidden z-10 shadow-xl flex flex-col">
+                <div class="bg-slate-900/90 text-[10px] text-gray-300 px-2 py-0.5 flex justify-between font-bold border-b border-slate-700">
+                    <span><i class="fa-solid fa-radar text-emerald-400 mr-1 animate-spin"></i>戰術雷達</span>
+                    <span id="bomb-count-tag" class="text-amber-400">炸彈: 0</span>
+                </div>
+                <div class="relative flex-1 bg-slate-950/80">
+                    <canvas id="minimapCanvas" width="176" height="106" class="w-full h-full border-none shadow-none rounded-none"></canvas>
+                </div>
+            </div>
+
+            <!-- Kill Feed (Below Minimap) -->
+            <div id="killfeed" class="absolute top-40 right-4 w-52 max-h-36 overflow-y-auto flex flex-col-reverse space-y-1 space-y-reverse z-10 pointer-events-none"></div>
+
+            <!-- Player Status Overlay (Bottom Left) -->
+            <div class="absolute bottom-4 left-4 hud-glass p-3 rounded-xl flex items-center space-x-5 z-10 border border-slate-700/60 shadow-2xl">
+                <!-- Health Bar -->
+                <div class="flex flex-col w-32">
+                    <div class="flex justify-between items-center text-xs font-bold text-gray-300 mb-1">
+                        <span><i class="fa-solid fa-heart text-red-500 mr-1"></i> 生命值</span>
+                        <span id="hp-text" class="text-green-400">100</span>
+                    </div>
+                    <div class="w-full bg-slate-900 h-2.5 rounded-full overflow-hidden border border-slate-700">
+                        <div id="hp-bar" class="bg-gradient-to-r from-red-500 to-emerald-400 h-full w-full transition-all duration-150"></div>
+                    </div>
+                </div>
+
+                <!-- Ammo Gauge -->
+                <div class="flex flex-col">
+                    <div class="text-xs font-bold text-gray-300 mb-0.5">
+                        <i class="fa-solid fa-gun text-amber-400 mr-1"></i> 彈藥量
+                    </div>
+                    <div class="flex items-baseline space-x-1">
+                        <span id="ammo-text" class="text-2xl font-teko font-bold text-amber-400 leading-none">30</span>
+                        <span class="text-xs text-gray-400 font-bold">/ 30</span>
+                    </div>
+                </div>
+
+                <!-- Weapon / Reload / Bomb Status Indicator -->
+                <div class="flex flex-col items-center">
+                    <span id="reload-badge" class="hidden text-xs font-bold px-2 py-0.5 bg-amber-500/20 text-amber-400 rounded border border-amber-500/40 animate-pulse">
+                        裝填中 [R]
+                    </span>
+                    <span id="buff-badge" class="hidden text-xs font-bold px-2 py-0.5 bg-purple-500/20 text-purple-300 rounded border border-purple-500/40">
+                        雙倍威力!
+                    </span>
+                </div>
+
+                <!-- High-Drop Bomb Inventory Status -->
+                <div class="flex items-center space-x-2 border-l border-slate-700/80 pl-4">
+                    <div id="bomb-icon" class="w-9 h-9 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-gray-500 transition-all">
+                        <i class="fa-solid fa-bomb text-base"></i>
+                    </div>
+                    <div class="flex flex-col">
+                        <span class="text-[10px] text-amber-400 uppercase font-bold">高頻率手榴彈</span>
+                        <span id="bomb-status" class="text-xs font-bold text-gray-300">右鍵發射</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Controls Info Card (Bottom Right Canvas) -->
+            <div class="absolute bottom-4 right-4 hud-glass px-3 py-2 rounded-lg text-xs text-gray-300 z-10 flex space-x-3 border border-slate-700/50">
+                <div><span class="bg-slate-800 px-1.5 py-0.5 rounded border border-slate-600 font-mono text-amber-300">WASD</span> 移動鏡頭與角色</div>
+                <div><span class="bg-slate-800 px-1.5 py-0.5 rounded border border-slate-600 font-mono text-amber-300">右鍵</span> 高頻率丟炸彈</div>
+                <div><span class="bg-slate-800 px-1.5 py-0.5 rounded border border-slate-600 font-mono text-amber-300">R</span> 換彈</div>
+                <div><span class="bg-slate-800 px-1.5 py-0.5 rounded border border-slate-600 font-mono text-amber-300">M</span> 音效</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Over Result Screen Modal -->
+    <div id="game-over-modal" class="hidden fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center">
+        <div class="w-[500px] hud-glass border border-slate-700/80 rounded-2xl p-8 flex flex-col items-center shadow-2xl relative overflow-hidden">
+            <div id="result-header" class="text-4xl font-teko font-bold uppercase tracking-widest text-center mb-1">
+                藍隊 勝利！
+            </div>
+            <div id="result-subheader" class="text-sm text-gray-400 mb-6">3v3 戰術巨型地圖對戰結束</div>
+
+            <!-- Final Scores -->
+            <div class="flex items-center justify-around w-full bg-slate-900/60 p-4 rounded-xl mb-6 border border-slate-800">
+                <div class="flex flex-col items-center">
+                    <span class="text-xs text-blue-400 font-bold uppercase">藍隊總擊殺</span>
+                    <span id="final-blue-score" class="text-4xl font-teko font-bold text-blue-400">0</span>
+                </div>
+                <div class="text-2xl font-bold text-gray-600">:</div>
+                <div class="flex flex-col items-center">
+                    <span class="text-xs text-red-400 font-bold uppercase">紅隊總擊殺</span>
+                    <span id="final-red-score" class="text-4xl font-teko font-bold text-red-400">0</span>
+                </div>
+            </div>
+
+            <!-- Player MVP Stats -->
+            <div class="w-full space-y-2 mb-6">
+                <div class="flex justify-between items-center text-sm p-2.5 bg-slate-800/40 rounded-lg border border-slate-700/40">
+                    <span class="text-gray-300 font-bold"><i class="fa-solid fa-crosshairs text-amber-400 mr-2"></i>個人擊殺數</span>
+                    <span id="mvp-kills" class="font-teko text-2xl text-amber-400 font-bold">0</span>
+                </div>
+                <div class="flex justify-between items-center text-sm p-2.5 bg-slate-800/40 rounded-lg border border-slate-700/40">
+                    <span class="text-gray-300 font-bold"><i class="fa-solid fa-skull text-red-400 mr-2"></i>死亡次數</span>
+                    <span id="mvp-deaths" class="font-teko text-2xl text-red-400 font-bold">0</span>
+                </div>
+                <div class="flex justify-between items-center text-sm p-2.5 bg-slate-800/40 rounded-lg border border-slate-700/40">
+                    <span class="text-gray-300 font-bold"><i class="fa-solid fa-award text-yellow-400 mr-2"></i>戰術評分 (K/D)</span>
+                    <span id="mvp-kd" class="font-teko text-2xl text-yellow-400 font-bold">0.00</span>
+                </div>
+            </div>
+
+            <!-- Restart Button -->
+            <button id="btn-restart" class="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 font-bold rounded-xl text-white shadow-lg transition-all transform active:scale-95 flex items-center justify-center space-x-2">
+                <i class="fa-solid fa-rotate-right"></i>
+                <span>再戰一局 (重新開始)</span>
+            </button>
+        </div>
+    </div>
+
+    <script>
+    class SoundEngine {
+        constructor() {
+            this.ctx = null;
+            this.muted = false;
+        }
+
+        init() {
+            if (!this.ctx) {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                this.ctx = new AudioCtx();
+            }
+        }
+
+        playShoot(isPlayer = false) {
+            if (this.muted || !this.ctx) return;
+            const now = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(isPlayer ? 340 : 210, now);
+            osc.frequency.exponentialRampToValueAtTime(35, now + 0.08);
+
+            gain.gain.setValueAtTime(isPlayer ? 0.35 : 0.12, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(now);
+            osc.stop(now + 0.08);
+        }
+
+        playExplosion() {
+            if (this.muted || !this.ctx) return;
+            const now = this.ctx.currentTime;
+
+            const bufferSize = this.ctx.sampleRate * 0.5;
+            const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = Math.random() * 2 - 1;
+            }
+
+            const noise = this.ctx.createBufferSource();
+            noise.buffer = buffer;
+
+            const filter = this.ctx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(450, now);
+            filter.frequency.linearRampToValueAtTime(40, now + 0.5);
+
+            const gain = this.ctx.createGain();
+            gain.gain.setValueAtTime(0.75, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+
+            noise.connect(filter);
+            filter.connect(gain);
+            gain.connect(this.ctx.destination);
+
+            noise.start(now);
+            noise.stop(now + 0.5);
+        }
+
+        playReload() {
+            if (this.muted || !this.ctx) return;
+            const now = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(600, now);
+            osc.frequency.linearRampToValueAtTime(950, now + 0.12);
+
+            gain.gain.setValueAtTime(0.15, now);
+            gain.gain.linearRampToValueAtTime(0.01, now + 0.12);
+
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(now);
+            osc.stop(now + 0.12);
+        }
+
+        playHit() {
+            if (this.muted || !this.ctx) return;
+            const now = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(130, now);
+            osc.frequency.exponentialRampToValueAtTime(35, now + 0.05);
+
+            gain.gain.setValueAtTime(0.2, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(now);
+            osc.stop(now + 0.05);
+        }
+
+        playPickup() {
+            if (this.muted || !this.ctx) return;
+            const now = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(520, now);
+            osc.frequency.exponentialRampToValueAtTime(1040, now + 0.15);
+
+            gain.gain.setValueAtTime(0.3, now);
+            gain.gain.linearRampToValueAtTime(0.01, now + 0.15);
+
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(now);
+            osc.stop(now + 0.15);
+        }
+    }
+
+    const audio = new SoundEngine();
+
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const minimapCanvas = document.getElementById('minimapCanvas');
+    const minimapCtx = minimapCanvas.getContext('2d');
+
+    // Expanded Tactical World Map Dimensions (Much bigger than viewport)
+    const MAP_WIDTH = 2200;
+    const MAP_HEIGHT = 1500;
+
+    // Viewport Camera Engine
+    const camera = {
+        x: 0,
+        y: 0,
+        width: canvas.width,
+        height: canvas.height,
+        update(target) {
+            // Smooth Camera interpolation targeting player
+            let destX = target.x - this.width / 2;
+            let destY = target.y - this.height / 2;
+
+            // Clamp Camera within World Map Boundaries
+            this.x += (destX - this.x) * 0.1;
+            this.y += (destY - this.y) * 0.1;
+
+            this.x = Math.max(0, Math.min(MAP_WIDTH - this.width, this.x));
+            this.y = Math.max(0, Math.min(MAP_HEIGHT - this.height, this.y));
+        }
+    };
+
+    // Global Match State
+    let timeLeft = 120;
+    let scoreBlue = 0;
+    let scoreRed = 0;
+    let gameOver = false;
+    let timerInterval = null;
+
+    // Control Inputs
+    const keys = {};
+    let mouseWorldPos = { x: 0, y: 0 };
+    let isMouseDownLeft = false;
+
+    // Game Entities
+    let bullets = [];
+    let bombs = [];
+    let particles = [];
+    let bloodDecals = [];
+    let pickups = [];
+    let players = [];
+
+    // Screen Shake
+    let shakeMagnitude = 0;
+
+    const obstacles = [
+        // Central Compound
+        { x: 950, y: 650, width: 300, height: 200, type: 'concrete' },
+        { x: 1050, y: 550, width: 100, height: 100, type: 'crate' },
+        { x: 1050, y: 850, width: 100, height: 100, type: 'crate' },
+
+        // Left Base Defense Covers
+        { x: 300, y: 300, width: 180, height: 40, type: 'wall' },
+        { x: 300, y: 1100, width: 180, height: 40, type: 'wall' },
+        { x: 500, y: 600, width: 50, height: 300, type: 'concrete' },
+
+        // Right Base Defense Covers
+        { x: 1720, y: 300, width: 180, height: 40, type: 'wall' },
+        { x: 1720, y: 1100, width: 180, height: 40, type: 'wall' },
+        { x: 1650, y: 600, width: 50, height: 300, type: 'concrete' },
+
+        // Top Mid / Bottom Mid Bunkers
+        { x: 1000, y: 200, width: 200, height: 60, type: 'wall' },
+        { x: 1000, y: 1240, width: 200, height: 60, type: 'wall' },
+
+        // Scattered Tactical Boxes / Crates across map
+        { x: 750, y: 350, width: 80, height: 80, type: 'crate' },
+        { x: 1370, y: 350, width: 80, height: 80, type: 'crate' },
+        { x: 750, y: 1050, width: 80, height: 80, type: 'crate' },
+        { x: 1370, y: 1050, width: 80, height: 80, type: 'crate' }
+    ];
+
+    function checkCircleRectCollision(circle, rect) {
+        let closestX = Math.max(rect.x, Math.min(circle.x, rect.x + rect.width));
+        let closestY = Math.max(rect.y, Math.min(circle.y, rect.y + rect.height));
+
+        let distanceX = circle.x - closestX;
+        let distanceY = circle.y - closestY;
+
+        let distanceSquared = (distanceX * distanceX) + (distanceY * distanceY);
+        return {
+            collided: distanceSquared < (circle.radius * circle.radius),
+            closestX,
+            closestY,
+            distance: Math.sqrt(distanceSquared)
+        };
+    }
+
+    class Character {
+        constructor(id, x, y, team, isPlayer = false, name = "Operator") {
+            this.id = id;
+            this.x = x;
+            this.y = y;
+            this.radius = 16;
+            this.team = team;
+            this.isPlayer = isPlayer;
+            this.name = name;
+            this.speed = isPlayer ? 3.6 : 2.7;
+            this.hp = 100;
+            this.maxHp = 100;
+            this.ammo = 30;
+            this.maxAmmo = 30;
+            this.hasBomb = true; // Starts with bomb
+            this.isDead = false;
+            this.angle = 0;
+            this.isReloading = false;
+            this.lastShootTime = 0;
+            this.kills = 0;
+            this.deaths = 0;
+
+            this.doubleDamageTimer = 0;
+            this.aiTarget = { x: x, y: y };
+            this.aiStateTimer = 0;
+        }
+
+        update() {
+            if (this.isDead) return;
+
+            if (this.doubleDamageTimer > 0) this.doubleDamageTimer--;
+
+            if (this.isPlayer) {
+                // WASD Player Navigation
+                let dx = 0;
+                let dy = 0;
+
+                if (keys['w'] || keys['W']) dy -= 1;
+                if (keys['s'] || keys['S']) dy += 1;
+                if (keys['a'] || keys['A']) dx -= 1;
+                if (keys['d'] || keys['D']) dx += 1;
+
+                if (dx !== 0 && dy !== 0) {
+                    dx *= 0.7071;
+                    dy *= 0.7071;
+                }
+
+                let newX = this.x + dx * this.speed;
+                let newY = this.y + dy * this.speed;
+
+                // Restrict within full expanded map boundaries
+                newX = Math.max(this.radius, Math.min(MAP_WIDTH - this.radius, newX));
+                newY = Math.max(this.radius, Math.min(MAP_HEIGHT - this.radius, newY));
+
+                let nextPosCircleX = { x: newX, y: this.y, radius: this.radius };
+                let nextPosCircleY = { x: this.x, y: newY, radius: this.radius };
+
+                for (let obs of obstacles) {
+                    if (checkCircleRectCollision(nextPosCircleX, obs).collided) newX = this.x;
+                    if (checkCircleRectCollision(nextPosCircleY, obs).collided) newY = this.y;
+                }
+
+                this.x = newX;
+                this.y = newY;
+
+                // Mouse Aiming calculated from World coordinates
+                this.angle = Math.atan2(mouseWorldPos.y - this.y, mouseWorldPos.x - this.x);
+
+            } else {
+                // 3v3 Tactical AI Agent Movement
+                this.aiStateTimer--;
+
+                let enemies = players.filter(p => p.team !== this.team && !p.isDead);
+                let nearestEnemy = null;
+                let minDist = 99999;
+
+                enemies.forEach(e => {
+                    let d = Math.hypot(e.x - this.x, e.y - this.y);
+                    if (d < minDist) {
+                        minDist = d;
+                        nearestEnemy = e;
+                    }
+                });
+
+                if (nearestEnemy) {
+                    let dx = nearestEnemy.x - this.x;
+                    let dy = nearestEnemy.y - this.y;
+                    this.angle = Math.atan2(dy, dx);
+
+                    if (minDist > 180) {
+                        let moveX = this.x + (dx / minDist) * this.speed;
+                        let moveY = this.y + (dy / minDist) * this.speed;
+
+                        let canMoveX = true;
+                        let canMoveY = true;
+                        for (let obs of obstacles) {
+                            if (checkCircleRectCollision({ x: moveX, y: this.y, radius: this.radius }, obs).collided) canMoveX = false;
+                            if (checkCircleRectCollision({ x: this.x, y: moveY, radius: this.radius }, obs).collided) canMoveY = false;
+                        }
+
+                        if (canMoveX) this.x = moveX;
+                        if (canMoveY) this.y = moveY;
+                    }
+
+                    if (minDist < 420 && this.ammo > 0) {
+                        if (Math.random() < 0.05) this.shoot();
+                    } else if (this.ammo === 0) {
+                        this.reload();
+                    }
+
+                    // Higher chance for AI to throw bombs in 3v3
+                    if (this.hasBomb && minDist < 320 && Math.random() < 0.015) {
+                        this.throwBomb(nearestEnemy.x, nearestEnemy.y);
+                    }
+                } else {
+                    // Patrol dynamic map locations
+                    if (this.aiStateTimer <= 0) {
+                        this.aiTarget = {
+                            x: Math.random() * (MAP_WIDTH - 300) + 150,
+                            y: Math.random() * (MAP_HEIGHT - 300) + 150
+                        };
+                        this.aiStateTimer = 200 + Math.random() * 150;
+                    }
+
+                    let dx = this.aiTarget.x - this.x;
+                    let dy = this.aiTarget.y - this.y;
+                    let dist = Math.hypot(dx, dy);
+
+                    if (dist > 15) {
+                        this.angle = Math.atan2(dy, dx);
+                        let moveX = this.x + (dx / dist) * (this.speed * 0.7);
+                        let moveY = this.y + (dy / dist) * (this.speed * 0.7);
+
+                        this.x = Math.max(this.radius, Math.min(MAP_WIDTH - this.radius, moveX));
+                        this.y = Math.max(this.radius, Math.min(MAP_HEIGHT - this.radius, moveY));
+                    }
+                }
+            }
+
+            // Pickup Item Collection
+            pickups.forEach((p) => {
+                if (!p.collected && Math.hypot(p.x - this.x, p.y - this.y) < this.radius + 14) {
+                    p.collected = true;
+                    audio.playPickup();
+
+                    if (p.type === 'health') {
+                        this.hp = Math.min(this.maxHp, this.hp + 50);
+                    } else if (p.type === 'bomb') {
+                        this.hasBomb = true;
+                    } else if (p.type === 'damage') {
+                        this.doubleDamageTimer = 400;
+                    }
+                }
+            });
+        }
+
+        shoot() {
+            if (this.ammo > 0 && !this.isReloading && !this.isDead) {
+                const now = Date.now();
+                if (now - this.lastShootTime < 130) return;
+                this.lastShootTime = now;
+
+                this.ammo--;
+                audio.playShoot(this.isPlayer);
+
+                let muzzleX = this.x + Math.cos(this.angle) * 22;
+                let muzzleY = this.y + Math.sin(this.angle) * 22;
+
+                createMuzzleFlash(muzzleX, muzzleY, this.angle);
+
+                let damage = (this.doubleDamageTimer > 0) ? 55 : 25;
+                bullets.push({
+                    x: muzzleX,
+                    y: muzzleY,
+                    vx: Math.cos(this.angle + (Math.random() - 0.5) * 0.08) * 13,
+                    vy: Math.sin(this.angle + (Math.random() - 0.5) * 0.08) * 13,
+                    team: this.team,
+                    owner: this,
+                    damage: damage,
+                    toRemove: false
+                });
+            }
+        }
+
+        throwBomb(targetX = mouseWorldPos.x, targetY = mouseWorldPos.y) {
+            if (this.hasBomb && !this.isDead) {
+                this.hasBomb = false;
+                bombs.push({
+                    x: this.x,
+                    y: this.y,
+                    startX: this.x,
+                    startY: this.y,
+                    targetX: targetX,
+                    targetY: targetY,
+                    progress: 0,
+                    owner: this,
+                    team: this.team,
+                    radius: 125
+                });
+            }
+        }
+
+        reload() {
+            if (!this.isReloading && this.ammo < this.maxAmmo) {
+                this.isReloading = true;
+                audio.playReload();
+
+                if (this.isPlayer) {
+                    document.getElementById('reload-badge').classList.remove('hidden');
+                }
+
+                setTimeout(() => {
+                    this.ammo = this.maxAmmo;
+                    this.isReloading = false;
+                    if (this.isPlayer) {
+                        document.getElementById('reload-badge').classList.add('hidden');
+                    }
+                }, 1300);
+            }
+        }
+
+        takeDamage(amount, attacker) {
+            if (this.isDead) return;
+
+            this.hp -= amount;
+            audio.playHit();
+            createBloodSpill(this.x, this.y);
+
+            if (this.isPlayer) {
+                const v = document.getElementById('vignette');
+                v.style.borderColor = 'rgba(220, 38, 38, 0.6)';
+                setTimeout(() => { v.style.borderColor = 'rgba(220, 38, 38, 0)'; }, 150);
+            }
+
+            if (this.hp <= 0) {
+                this.die(attacker);
+            }
+        }
+
+        die(attacker) {
+            this.hp = 0;
+            this.isDead = true;
+            this.deaths++;
+
+            if (this.team === 'blue') scoreRed++;
+            else scoreBlue++;
+
+            if (attacker) {
+                attacker.kills++;
+                addKillFeed(attacker.name, this.name, attacker.team);
+            }
+
+            if (this.isPlayer) triggerScreenShake(12);
+
+            setTimeout(() => {
+                if (gameOver) return;
+                this.hp = this.maxHp;
+                this.ammo = this.maxAmmo;
+                this.isDead = false;
+                this.hasBomb = true; // Respawn with a bomb!
+                this.isReloading = false;
+                this.x = this.team === 'blue' ? 120 : MAP_WIDTH - 120;
+                this.y = Math.random() * (MAP_HEIGHT - 200) + 100;
+            }, 2500);
+        }
+
+        draw() {
+            if (this.isDead) return;
+
+            // Translate into Camera Screen Coordinates
+            let screenX = this.x - camera.x;
+            let screenY = this.y - camera.y;
+
+            // Viewport Frustum Culling
+            if (screenX < -40 || screenX > camera.width + 40 || screenY < -40 || screenY > camera.height + 40) return;
+
+            ctx.save();
+            ctx.translate(screenX, screenY);
+
+            if (this.isPlayer) {
+                ctx.beginPath();
+                ctx.arc(0, 0, this.radius + 6, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(234, 179, 8, 0.3)';
+                ctx.fill();
+            }
+
+            if (this.doubleDamageTimer > 0) {
+                ctx.beginPath();
+                ctx.arc(0, 0, this.radius + 4, 0, Math.PI * 2);
+                ctx.strokeStyle = '#a855f7';
+                ctx.lineWidth = 2.5;
+                ctx.stroke();
+            }
+
+            ctx.rotate(this.angle);
+
+            ctx.beginPath();
+            ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+            ctx.fillStyle = (this.team === 'blue') ? '#3b82f6' : '#ef4444';
+            ctx.fill();
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = this.isPlayer ? '#facc15' : '#ffffff';
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.rect(4, -3, 18, 6);
+            ctx.fillStyle = '#0f172a';
+            ctx.fill();
+            ctx.strokeStyle = '#475569';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            ctx.restore();
+
+            // Name & Health Bar
+            ctx.font = 'bold 11px sans-serif';
+            ctx.fillStyle = '#e2e8f0';
+            ctx.textAlign = 'center';
+            ctx.fillText(this.name, screenX, screenY - 26);
+
+            const barWidth = 32;
+            const barHeight = 4;
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.8)';
+            ctx.fillRect(screenX - barWidth / 2, screenY - 22, barWidth, barHeight);
+
+            const hpPercent = Math.max(0, this.hp / this.maxHp);
+            ctx.fillStyle = hpPercent > 0.5 ? '#10b981' : (hpPercent > 0.25 ? '#f59e0b' : '#ef4444');
+            ctx.fillRect(screenX - barWidth / 2, screenY - 22, barWidth * hpPercent, barHeight);
+        }
+    }
+
+    function createMuzzleFlash(x, y, angle) {
+        for (let i = 0; i < 5; i++) {
+            particles.push({
+                x: x,
+                y: y,
+                vx: Math.cos(angle + (Math.random() - 0.5)) * (2 + Math.random() * 3),
+                vy: Math.sin(angle + (Math.random() - 0.5)) * (2 + Math.random() * 3),
+                radius: 2 + Math.random() * 3,
+                color: '#fbbf24',
+                life: 1,
+                decay: 0.15
+            });
+        }
+    }
+
+    function createBloodSpill(x, y) {
+        for (let i = 0; i < 8; i++) {
+            bloodDecals.push({
+                x: x + (Math.random() - 0.5) * 16,
+                y: y + (Math.random() - 0.5) * 16,
+                radius: 2 + Math.random() * 4,
+                color: '#991b1b'
+            });
+        }
+    }
+
+    function createExplosionFX(x, y, radius) {
+        audio.playExplosion();
+        triggerScreenShake(14);
+
+        for (let i = 0; i < 45; i++) {
+            let angle = Math.random() * Math.PI * 2;
+            let speed = Math.random() * 7;
+            particles.push({
+                x: x,
+                y: y,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                radius: 4 + Math.random() * 7,
+                color: Math.random() > 0.35 ? '#f97316' : '#ef4444',
+                life: 1,
+                decay: 0.025 + Math.random() * 0.025
+            });
+        }
+    }
+
+    function triggerScreenShake(magnitude) {
+        shakeMagnitude = magnitude;
+    }
+
+    function addKillFeed(killer, victim, team) {
+        const killfeed = document.getElementById('killfeed');
+        const item = document.createElement('div');
+        const teamColor = (team === 'blue') ? 'text-blue-400' : 'text-red-400';
+        item.className = 'text-xs hud-glass px-2.5 py-1 rounded border border-slate-700/50 flex items-center justify-between animate-fade-in';
+        item.innerHTML = `<span class="${teamColor} font-bold">${killer}</span> <i class="fa-solid fa-bomb text-amber-400 mx-2"></i> <span class="text-gray-300 font-bold">${victim}</span>`;
+        killfeed.appendChild(item);
+
+        setTimeout(() => { item.remove(); }, 3500);
+    }
+
+    function initGame() {
+        players = [];
+        bullets = [];
+        bombs = [];
+        particles = [];
+        bloodDecals = [];
+        pickups = [];
+        timeLeft = 120;
+        scoreBlue = 0;
+        scoreRed = 0;
+        gameOver = false;
+
+        document.getElementById('game-over-modal').classList.add('hidden');
+
+        // 3v3 Team Setup: 3 Blue vs 3 Red
+        // Blue Team: 1 Player + 2 AI Teammates
+        players.push(new Character(1, 150, MAP_HEIGHT / 2, 'blue', true, "玩家 (Captain)"));
+        players.push(new Character(2, 120, MAP_HEIGHT / 2 - 180, 'blue', false, "藍隊 AI-01"));
+        players.push(new Character(3, 120, MAP_HEIGHT / 2 + 180, 'blue', false, "藍隊 AI-02"));
+
+        // Red Team: 3 AI Enemies
+        players.push(new Character(4, MAP_WIDTH - 150, MAP_HEIGHT / 2, 'red', false, "紅隊 AI-01"));
+        players.push(new Character(5, MAP_WIDTH - 120, MAP_HEIGHT / 2 - 180, 'red', false, "紅隊 AI-02"));
+        players.push(new Character(6, MAP_WIDTH - 120, MAP_HEIGHT / 2 + 180, 'red', false, "紅隊 AI-03"));
+
+        // Initial High Density Bomb Drop Spawns across Map
+        for (let i = 0; i < 8; i++) {
+            spawnBombPickup();
+        }
+
+        // Significantly INCREASED Bomb Drop Frequency Spawner (Every 2 seconds)
+        setInterval(() => {
+            if (pickups.length < 15 && !gameOver) {
+                spawnBombPickup();
+            }
+        }, 2000);
+
+        if (timerInterval) clearInterval(timerInterval);
+        timerInterval = setInterval(() => {
+            if (timeLeft > 0) {
+                timeLeft--;
+            } else {
+                endGame();
+            }
+        }, 1000);
+    }
+
+    function spawnBombPickup() {
+        const types = ['bomb', 'bomb', 'bomb', 'health', 'damage']; // Higher bomb ratio
+        const selectedType = types[Math.floor(Math.random() * types.length)];
+
+        let px = Math.random() * (MAP_WIDTH - 300) + 150;
+        let py = Math.random() * (MAP_HEIGHT - 300) + 150;
+
+        pickups.push({ x: px, y: py, type: selectedType, collected: false });
+    }
+
+    // Input listeners
+    window.addEventListener('keydown', e => {
+        keys[e.key] = true;
+        audio.init();
+
+        if (e.key === 'r' || e.key === 'R') players[0].reload();
+        if (e.key === 'm' || e.key === 'M') audio.muted = !audio.muted;
+    });
+
+    window.addEventListener('keyup', e => { keys[e.key] = false; });
+
+    canvas.addEventListener('mousemove', e => {
+        const rect = canvas.getBoundingClientRect();
+        let screenX = e.clientX - rect.left;
+        let screenY = e.clientY - rect.top;
+
+        // Convert Screen Cursor position to World Coordinates
+        mouseWorldPos.x = screenX + camera.x;
+        mouseWorldPos.y = screenY + camera.y;
+    });
+
+    canvas.addEventListener('mousedown', e => {
+        audio.init();
+        if (e.button === 0) {
+            isMouseDownLeft = true;
+            players[0].shoot();
+        } else if (e.button === 2) {
+            players[0].throwBomb();
+        }
+    });
+
+    canvas.addEventListener('mouseup', e => {
+        if (e.button === 0) isMouseDownLeft = false;
+    });
+
+    canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+    document.getElementById('btn-restart').addEventListener('click', () => {
+        initGame();
+    });
+
+    function endGame() {
+        gameOver = true;
+        clearInterval(timerInterval);
+
+        const modal = document.getElementById('game-over-modal');
+        const header = document.getElementById('result-header');
+
+        if (scoreBlue > scoreRed) {
+            header.innerText = "藍隊 獲得勝利！";
+            header.className = "text-4xl font-teko font-bold uppercase tracking-widest text-center mb-1 text-blue-400";
+        } else if (scoreRed > scoreBlue) {
+            header.innerText = "紅隊 獲得勝利！";
+            header.className = "text-4xl font-teko font-bold uppercase tracking-widest text-center mb-1 text-red-400";
+        } else {
+            header.innerText = "雙方戰成平手！";
+            header.className = "text-4xl font-teko font-bold uppercase tracking-widest text-center mb-1 text-yellow-400";
+        }
+
+        document.getElementById('final-blue-score').innerText = scoreBlue;
+        document.getElementById('final-red-score').innerText = scoreRed;
+
+        const player = players[0];
+        document.getElementById('mvp-kills').innerText = player.kills;
+        document.getElementById('mvp-deaths').innerText = player.deaths;
+
+        const kdRatio = player.deaths === 0 ? player.kills.toFixed(2) : (player.kills / player.deaths).toFixed(2);
+        document.getElementById('mvp-kd').innerText = kdRatio;
+
+        modal.classList.remove('hidden');
+    }
+
+    function drawMinimap() {
+        const mw = minimapCanvas.width;
+        const mh = minimapCanvas.height;
+
+        minimapCtx.fillStyle = '#090d16';
+        minimapCtx.fillRect(0, 0, mw, mh);
+
+        const scaleX = mw / MAP_WIDTH;
+        const scaleY = mh / MAP_HEIGHT;
+
+        // Draw Obstacles on Minimap
+        minimapCtx.fillStyle = '#334155';
+        obstacles.forEach(obs => {
+            minimapCtx.fillRect(obs.x * scaleX, obs.y * scaleY, obs.width * scaleX, obs.height * scaleY);
+        });
+
+        // Draw Pickups (Bombs as bright yellow dots)
+        let activeBombPickups = 0;
+        pickups.forEach(p => {
+            if (!p.collected) {
+                if (p.type === 'bomb') activeBombPickups++;
+                minimapCtx.fillStyle = (p.type === 'bomb') ? '#facc15' : '#10b981';
+                minimapCtx.beginPath();
+                minimapCtx.arc(p.x * scaleX, p.y * scaleY, 2, 0, Math.PI * 2);
+                minimapCtx.fill();
+            }
+        });
+        document.getElementById('bomb-count-tag').innerText = `地圖炸彈: ${activeBombPickups}`;
+
+        // Draw Players on Minimap
+        players.forEach(p => {
+            if (!p.isDead) {
+                minimapCtx.fillStyle = (p.team === 'blue') ? (p.isPlayer ? '#facc15' : '#60a5fa') : '#f87171';
+                minimapCtx.beginPath();
+                minimapCtx.arc(p.x * scaleX, p.y * scaleY, p.isPlayer ? 4 : 3, 0, Math.PI * 2);
+                minimapCtx.fill();
+            }
+        });
+
+        // Draw Camera Viewport Box on Minimap
+        minimapCtx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+        minimapCtx.lineWidth = 1;
+        minimapCtx.strokeRect(camera.x * scaleX, camera.y * scaleY, camera.width * scaleX, camera.height * scaleY);
+    }
+
+    function gameLoop() {
+        // Camera smooth tracking on Player
+        if (players[0]) {
+            camera.update(players[0]);
+        }
+
+        ctx.save();
+
+        // Screen Shake
+        if (shakeMagnitude > 0) {
+            let rx = (Math.random() - 0.5) * shakeMagnitude;
+            let ry = (Math.random() - 0.5) * shakeMagnitude;
+            ctx.translate(rx, ry);
+            shakeMagnitude *= 0.88;
+            if (shakeMagnitude < 0.3) shakeMagnitude = 0;
+        }
+
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // 1. Grid Pattern in World Coordinates
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+        ctx.lineWidth = 1;
+
+        let startGridX = Math.floor(camera.x / 50) * 50;
+        let startGridY = Math.floor(camera.y / 50) * 50;
+
+        for (let x = startGridX; x < camera.x + camera.width; x += 50) {
+            let screenX = x - camera.x;
+            ctx.beginPath();
+            ctx.moveTo(screenX, 0); ctx.lineTo(screenX, canvas.height);
+            ctx.stroke();
+        }
+        for (let y = startGridY; y < camera.y + camera.height; y += 50) {
+            let screenY = y - camera.y;
+            ctx.beginPath();
+            ctx.moveTo(0, screenY); ctx.lineTo(canvas.width, screenY);
+            ctx.stroke();
+        }
+
+        // World Border Wall Render
+        ctx.strokeStyle = '#ef4444';
+        ctx.lineWidth = 4;
+        ctx.strokeRect(-camera.x, -camera.y, MAP_WIDTH, MAP_HEIGHT);
+
+        // 2. Blood Decals
+        bloodDecals.forEach(b => {
+            let screenX = b.x - camera.x;
+            let screenY = b.y - camera.y;
+            if (screenX >= -20 && screenX <= canvas.width + 20 && screenY >= -20 && screenY <= canvas.height + 20) {
+                ctx.beginPath();
+                ctx.arc(screenX, screenY, b.radius, 0, Math.PI * 2);
+                ctx.fillStyle = b.color;
+                ctx.fill();
+            }
+        });
+
+        // 3. Obstacles
+        obstacles.forEach(obs => {
+            let screenX = obs.x - camera.x;
+            let screenY = obs.y - camera.y;
+
+            if (screenX + obs.width >= 0 && screenX <= canvas.width && screenY + obs.height >= 0 && screenY <= canvas.height) {
+                ctx.fillStyle = (obs.type === 'crate') ? '#78350f' : '#334155';
+                ctx.fillRect(screenX, screenY, obs.width, obs.height);
+
+                ctx.strokeStyle = (obs.type === 'crate') ? '#92400e' : '#475569';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(screenX, screenY, obs.width, obs.height);
+            }
+        });
+
+        if (!gameOver) {
+            if (isMouseDownLeft) players[0].shoot();
+
+            // 4. Render Pickups
+            pickups = pickups.filter(p => !p.collected);
+            pickups.forEach(p => {
+                let screenX = p.x - camera.x;
+                let screenY = p.y - camera.y;
+
+                if (screenX >= -20 && screenX <= canvas.width + 20 && screenY >= -20 && screenY <= canvas.height + 20) {
+                    ctx.beginPath();
+                    ctx.arc(screenX, screenY, 11, 0, Math.PI * 2);
+                    ctx.fillStyle = (p.type === 'health') ? '#10b981' : ((p.type === 'bomb') ? '#facc15' : '#a855f7');
+                    ctx.fill();
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
+
+                    ctx.fillStyle = '#1e293b';
+                    ctx.font = 'bold 9px sans-serif';
+                    ctx.textAlign = 'center';
+                    let label = (p.type === 'health') ? '醫藥' : ((p.type === 'bomb') ? '炸彈' : '雙倍');
+                    ctx.fillText(label, screenX, screenY - 14);
+                }
+            });
+
+            // 5. Update and Draw Players
+            players.forEach(p => {
+                p.update();
+                p.draw();
+            });
+
+            // 6. Bullets
+            bullets.forEach(b => {
+                b.x += b.vx;
+                b.y += b.vy;
+
+                if (b.x < 0 || b.x > MAP_WIDTH || b.y < 0 || b.y > MAP_HEIGHT) {
+                    b.toRemove = true;
+                }
+
+                for (let obs of obstacles) {
+                    if (checkCircleRectCollision({ x: b.x, y: b.y, radius: 3 }, obs).collided) {
+                        b.toRemove = true;
+                        particles.push({ x: b.x, y: b.y, vx: -b.vx * 0.2, vy: -b.vy * 0.2, radius: 2, color: '#fef08a', life: 1, decay: 0.2 });
+                        break;
+                    }
+                }
+
+                let screenX = b.x - camera.x;
+                let screenY = b.y - camera.y;
+
+                ctx.beginPath();
+                ctx.moveTo(screenX, screenY);
+                ctx.lineTo(screenX - b.vx * 1.5, screenY - b.vy * 1.5);
+                ctx.strokeStyle = '#fde047';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                players.forEach(p => {
+                    if (!p.isDead && p.team !== b.team && !b.toRemove) {
+                        if (Math.hypot(p.x - b.x, p.y - b.y) < p.radius) {
+                            p.takeDamage(b.damage, b.owner);
+                            b.toRemove = true;
+                        }
+                    }
+                });
+            });
+            bullets = bullets.filter(b => !b.toRemove);
+
+            // 7. Bombs Mechanics
+            bombs.forEach((bm, idx) => {
+                bm.progress += 0.038;
+
+                let currentX = bm.startX + (bm.targetX - bm.startX) * bm.progress;
+                let currentY = bm.startY + (bm.targetY - bm.startY) * bm.progress;
+                let arcHeight = Math.sin(bm.progress * Math.PI) * -40;
+
+                let targetScreenX = bm.targetX - camera.x;
+                let targetScreenY = bm.targetY - camera.y;
+                let currentScreenX = currentX - camera.x;
+                let currentScreenY = currentY - camera.y;
+
+                ctx.beginPath();
+                ctx.arc(targetScreenX, targetScreenY, bm.radius, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(239, 68, 68, 0.45)';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.arc(currentScreenX, currentScreenY + arcHeight, 7, 0, Math.PI * 2);
+                ctx.fillStyle = '#ea580c';
+                ctx.fill();
+
+                if (bm.progress >= 1) {
+                    createExplosionFX(bm.targetX, bm.targetY, bm.radius);
+
+                    players.forEach(p => {
+                        if (!p.isDead && Math.hypot(p.x - bm.targetX, p.y - bm.targetY) < bm.radius) {
+                            p.takeDamage(90, bm.owner);
+                        }
+                    });
+
+                    bombs.splice(idx, 1);
+                }
+            });
+
+            // 8. Particles
+            particles.forEach(pt => {
+                pt.x += pt.vx;
+                pt.y += pt.vy;
+                pt.life -= pt.decay;
+
+                let screenX = pt.x - camera.x;
+                let screenY = pt.y - camera.y;
+
+                ctx.beginPath();
+                ctx.arc(screenX, screenY, pt.radius, 0, Math.PI * 2);
+                ctx.fillStyle = pt.color;
+                ctx.globalAlpha = Math.max(0, pt.life);
+                ctx.fill();
+                ctx.globalAlpha = 1.0;
+            });
+            particles = particles.filter(pt => pt.life > 0);
+
+            // 9. Synchronize HUD
+            const player = players[0];
+            document.getElementById('timer').innerText = timeLeft;
+            document.getElementById('score-blue').innerText = scoreBlue;
+            document.getElementById('score-red').innerText = scoreRed;
+
+            document.getElementById('hp-text').innerText = Math.max(0, Math.ceil(player.hp));
+            document.getElementById('hp-bar').style.width = `${Math.max(0, (player.hp / player.maxHp) * 100)}%`;
+            document.getElementById('ammo-text').innerText = player.ammo;
+
+            if (player.hasBomb) {
+                document.getElementById('bomb-icon').className = "w-9 h-9 rounded-full bg-amber-500/20 border border-amber-500/60 flex items-center justify-center text-amber-400";
+                document.getElementById('bomb-status').innerText = "右鍵發射";
+            } else {
+                document.getElementById('bomb-icon').className = "w-9 h-9 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-gray-500";
+                document.getElementById('bomb-status').innerText = "缺彈(撿拾)";
+            }
+
+            if (player.doubleDamageTimer > 0) {
+                document.getElementById('buff-badge').classList.remove('hidden');
+            } else {
+                document.getElementById('buff-badge').classList.add('hidden');
+            }
+
+            // Draw Minimap
+            drawMinimap();
+        }
+
+        ctx.restore();
+        requestAnimationFrame(gameLoop);
+    }
+
+    window.onload = function() {
+        initGame();
+        gameLoop();
+    };
+    </script>
+</body>
+</html>

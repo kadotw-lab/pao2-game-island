@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>無限輪迴：第七號玩家</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Serif TC', serif;
+            background-color: #050608;
+            color: #d1d5db;
+            user-select: none;
+            overflow-x: hidden;
+        }
+        .mono-font {
+            font-family: 'Share Tech Mono', monospace;
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #111827;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #374151;
+            border-radius: 3px;
+        }
+        .vignette {
+            box-shadow: inset 0 0 120px rgba(0,0,0,0.95);
+        }
+        
+        /* Dark Neutral / Gray-Black Theme Background Styles */
+        .bg-dark-gray {
+            background: linear-gradient(180deg, #111318 0%, #07080a 100%);
+            border: 1px solid #1f2937;
+        }
+
+        /* Screen Shake Animation */
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            10% { transform: translate(-2px, -3px) rotate(-1deg); }
+            20% { transform: translate(-4px, 0px) rotate(1deg); }
+            30% { transform: translate(4px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 3px) rotate(-1deg); }
+            60% { transform: translate(-4px, 1px) rotate(0deg); }
+            70% { transform: translate(4px, 1px) rotate(-1deg); }
+            80% { transform: translate(-1px, -1px) rotate(1deg); }
+            90% { transform: translate(1px, 3px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
+        .animate-shake {
+            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+        }
+
+        /* Screen Melt & Vortex Transition */
+        @keyframes melt {
+            0% { transform: translateY(0) scaleY(1); opacity: 1; filter: blur(0px); }
+            50% { transform: translateY(20px) scaleY(1.3); opacity: 0.7; filter: blur(6px); }
+            100% { transform: translateY(100px) scaleY(2); opacity: 0; filter: blur(15px); }
+        }
+        .animate-melt {
+            animation: melt 2s forwards ease-in-out;
+        }
+
+        @keyframes vortex {
+            0% { transform: scale(0.1) rotate(0deg); opacity: 0; }
+            50% { opacity: 1; }
+            100% { transform: scale(2.5) rotate(1080deg); opacity: 0; }
+        }
+        .animate-vortex {
+            animation: vortex 1s forwards ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-gray-950 text-gray-200 min-h-screen flex flex-col justify-between relative overflow-y-auto vignette selection:bg-red-900 selection:text-white">
+
+    <!-- TOP-RIGHT PLAYER STATS HUD -->
+    <header id="hud" class="fixed top-3 right-4 z-40 transition-opacity duration-500 opacity-0 pointer-events-none">
+        <div class="flex items-center space-x-4 mono-font text-xs md:text-sm bg-gray-900/90 border border-gray-800 px-4 py-2.5 rounded-xl shadow-2xl backdrop-blur-md">
+            <div class="flex items-center space-x-1.5">
+                <span class="text-gray-400">玩家:</span>
+                <span id="hud-name" class="text-amber-400 font-bold">林知夏</span>
+            </div>
+            <div class="h-3 w-[1px] bg-gray-700"></div>
+            <div class="flex items-center space-x-1.5">
+                <span class="text-red-500 font-bold">HP:</span>
+                <span id="hud-hp" class="text-red-400 font-extrabold min-w-[28px]">100</span>
+            </div>
+            <div class="h-3 w-[1px] bg-gray-700"></div>
+            <div class="flex items-center space-x-1.5">
+                <span class="text-cyan-400 font-bold">SAN:</span>
+                <span id="hud-san" class="text-cyan-300 font-extrabold min-w-[28px]">100</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Screen Flashes & Overlay Effects -->
+    <div id="flash-red" class="fixed inset-0 bg-red-600/80 z-50 pointer-events-none opacity-0 transition-opacity ease-linear"></div>
+    <div id="flash-white" class="fixed inset-0 bg-white z-50 pointer-events-none opacity-0 transition-opacity ease-linear"></div>
+    <div id="vortex-overlay" class="fixed inset-0 bg-black z-50 pointer-events-none flex items-center justify-center opacity-0">
+        <div class="w-72 h-72 border-8 border-t-red-600 border-r-purple-600 border-b-cyan-600 border-l-emerald-600 rounded-full"></div>
+    </div>
+
+    <!-- MAIN GAME CONTAINER -->
+    <main id="main-container" class="flex-grow flex flex-col items-center justify-center p-4 md:p-8 max-w-4xl mx-auto w-full pt-16">
+        
+        <div id="game-card" class="w-full bg-dark-gray rounded-2xl shadow-2xl p-6 md:p-10 backdrop-blur-md transition-all duration-500 min-h-[480px] flex flex-col justify-between relative">
+            
+            <!-- Main Content Area -->
+            <div>
+                <!-- Story Text Box -->
+                <div id="text-container" class="space-y-4 mb-4 leading-relaxed text-base md:text-lg text-gray-200 min-h-[140px]">
+                    <!-- Typewriter text renders here -->
+                </div>
+
+                <!-- Page Indicator for multi-page text -->
+                <div id="page-indicator" class="text-right text-xs text-gray-500 hidden font-mono mb-2">
+                    頁碼 <span id="current-page">1</span> / <span id="total-pages">1</span>
+                </div>
+
+                <!-- Rule 8: Stat Update Toast Banner (Displayed directly UNDER the story text, clears next scene) -->
+                <div id="stat-toast" class="hidden my-3 p-3 rounded-xl text-xs md:text-sm font-medium flex items-center space-x-2 transition-all duration-300 shadow-md">
+                    <span id="stat-toast-icon">⚠️</span>
+                    <span id="stat-toast-msg">數值變更訊息</span>
+                </div>
+            </div>
+
+            <!-- Choice Options Container -->
+            <div id="choices-container" class="flex flex-col space-y-3 mt-4 pt-4 border-t border-gray-800/80">
+                <!-- Buttons rendered dynamically -->
+            </div>
+        </div>
+    </main>
+
+    <footer class="py-4 text-center text-xs text-gray-600">
+        《無限輪迴：第七號玩家》 &copy; 文字冒險遊戲
+    </footer>
+
+    <script>
+        // Web Audio Synthesizer for typewriter click and impact sound effects
+        class AudioSystem {
+            constructor() {
+                this.ctx = null;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioCtx();
+                }
+                if (this.ctx && this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            // Rule 1: Typewriter sound played for each character
+            playTypewriterSound() {
+                if (!this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(1100 + Math.random() * 500, this.ctx.currentTime);
+                    
+                    gain.gain.setValueAtTime(0.015, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + 0.025);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.025);
+                } catch(e) {}
+            }
+
+            playImpactSound() {
+                if (!this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(140, this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(25, this.ctx.currentTime + 0.35);
+                    gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.35);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.35);
+                } catch(e){}
+            }
+        }
+
+        const soundSystem = new AudioSystem();
+
+        const gameState = {
+            playerName: "林知夏",
+            hp: 100,
+            san: 100,
+            hasAskedPeople: false, // Choice 3-2 flag
+            hasSpecialInfo: false, // Choice 8-3 or 7-2 flag
+            currentSceneId: "COVER",
+            isTyping: false,
+            typingTimeout: null,
+            currentPageIndex: 0,
+            paginatedTexts: [],
+            pendingStatMessage: null
+        };
+
+        const elements = {
+            hud: document.getElementById('hud'),
+            hudName: document.getElementById('hud-name'),
+            hudHp: document.getElementById('hud-hp'),
+            hudSan: document.getElementById('hud-san'),
+            textContainer: document.getElementById('text-container'),
+            choicesContainer: document.getElementById('choices-container'),
+            statToast: document.getElementById('stat-toast'),
+            statToastMsg: document.getElementById('stat-toast-msg'),
+            statToastIcon: document.getElementById('stat-toast-icon'),
+            flashRed: document.getElementById('flash-red'),
+            flashWhite: document.getElementById('flash-white'),
+            vortexOverlay: document.getElementById('vortex-overlay'),
+            gameCard: document.getElementById('game-card'),
+            mainContainer: document.getElementById('main-container'),
+            pageIndicator: document.getElementById('page-indicator'),
+            currentPage: document.getElementById('current-page'),
+            totalPages: document.getElementById('total-pages')
+        };
+
+        // Rule 2: Dynamic HUD Updates
+        function updateHUD() {
+            elements.hudName.textContent = gameState.playerName;
+            elements.hudHp.textContent = gameState.hp;
+            elements.hudSan.textContent = gameState.san;
+        }
+
+        // Rule 8: Stat Toast displayed below text, cleared on next scene
+        function hideStatToast() {
+            elements.statToast.className = "hidden";
+            gameState.pendingStatMessage = null;
+        }
+
+        function showStatToast(message, type = 'info') {
+            gameState.pendingStatMessage = { message, type };
+            elements.statToastMsg.textContent = message;
+            
+            if (type === 'hp-down') {
+                elements.statToastIcon.textContent = '🩸';
+                elements.statToast.className = "my-3 p-3 rounded-xl text-xs md:text-sm font-semibold flex items-center space-x-2 bg-red-950/80 border border-red-800 text-red-200 shadow-md animate-fade-in";
+            } else if (type === 'san-down') {
+                elements.statToastIcon.textContent = '🧠';
+                elements.statToast.className = "my-3 p-3 rounded-xl text-xs md:text-sm font-semibold flex items-center space-x-2 bg-purple-950/80 border border-purple-800 text-purple-200 shadow-md animate-fade-in";
+            } else if (type === 'san-up') {
+                elements.statToastIcon.textContent = '✨';
+                elements.statToast.className = "my-3 p-3 rounded-xl text-xs md:text-sm font-semibold flex items-center space-x-2 bg-emerald-950/80 border border-emerald-800 text-emerald-200 shadow-md animate-fade-in";
+            } else {
+                elements.statToastIcon.textContent = '⚠️';
+                elements.statToast.className = "my-3 p-3 rounded-xl text-xs md:text-sm font-semibold flex items-center space-x-2 bg-gray-900 border border-gray-700 text-gray-200 shadow-md animate-fade-in";
+            }
+        }
+
+        function modifyHP(amount) {
+            gameState.hp += amount;
+            if (gameState.hp < 0) gameState.hp = 0;
+            updateHUD();
+            const sign = amount > 0 ? `+${amount}` : `${amount}`;
+            showStatToast(`生命值 (HP) 變更：${sign} (目前 HP: ${gameState.hp})`, amount < 0 ? 'hp-down' : 'info');
+        }
+
+        function modifySAN(amount) {
+            gameState.san += amount;
+            if (gameState.san < 0) gameState.san = 0;
+            updateHUD();
+            const sign = amount > 0 ? `+${amount}` : `${amount}`;
+            showStatToast(`理智值 (SAN) 變更：${sign} (目前 SAN: ${gameState.san})`, amount < 0 ? 'san-down' : 'san-up');
+        }
+
+        // Rule 7: Visual FX handlers before text rendering
+        function triggerRedFlash(durationSec, callback) {
+            elements.flashRed.style.transitionDuration = '300ms';
+            elements.flashRed.style.opacity = '1';
+            setTimeout(() => {
+                elements.flashRed.style.transitionDuration = '500ms';
+                elements.flashRed.style.opacity = '0';
+                setTimeout(() => {
+                    if (callback) callback();
+                }, 500);
+            }, (durationSec * 1000) - 500);
+        }
+
+        function triggerWhiteFlash(durationSec, callback) {
+            elements.flashWhite.style.transitionDuration = '300ms';
+            elements.flashWhite.style.opacity = '1';
+            setTimeout(() => {
+                elements.flashWhite.style.transitionDuration = '500ms';
+                elements.flashWhite.style.opacity = '0';
+                setTimeout(() => {
+                    if (callback) callback();
+                }, 500);
+            }, (durationSec * 1000) - 500);
+        }
+
+        function triggerScreenShake(callback) {
+            soundSystem.playImpactSound();
+            elements.gameCard.classList.add('animate-shake');
+            setTimeout(() => {
+                elements.gameCard.classList.remove('animate-shake');
+                if (callback) callback();
+            }, 600);
+        }
+
+        function triggerMeltAndVortex(callback) {
+            elements.gameCard.classList.add('animate-melt');
+            setTimeout(() => {
+                elements.vortexOverlay.style.opacity = '1';
+                elements.vortexOverlay.children[0].classList.add('animate-vortex');
+                setTimeout(() => {
+                    elements.gameCard.classList.remove('animate-melt');
+                    elements.vortexOverlay.style.opacity = '0';
+                    elements.vortexOverlay.children[0].classList.remove('animate-vortex');
+                    if (callback) callback();
+                }, 1000);
+            }, 2000);
+        }
+
+        // Rule 6: Automatic text pagination for long passages
+        function splitTextIntoPages(fullText, maxLength = 240) {
+            const paragraphs = fullText.split('\n');
+            const pages = [];
+            let currentPage = "";
+
+            for (let p of paragraphs) {
+                if ((currentPage + "\n" + p).length > maxLength && currentPage.trim() !== "") {
+                    pages.push(currentPage.trim());
+                    currentPage = p;
+                } else {
+                    currentPage += (currentPage ? "\n" : "") + p;
+                }
+            }
+            if (currentPage.trim() !== "") {
+                pages.push(currentPage.trim());
+            }
+            return pages.length > 0 ? pages : [fullText];
+        }
+
+        // Rule 1: Typewriter character output with sound trigger
+        function renderTypewriterText(text, onComplete, customClass = "") {
+            elements.textContainer.innerHTML = '';
+            gameState.isTyping = true;
+            let index = 0;
+
+            const p = document.createElement('p');
+            p.className = customClass ? customClass : "whitespace-pre-line leading-relaxed";
+            elements.textContainer.appendChild(p);
+
+            function typeNextChar() {
+                if (index < text.length) {
+                    const char = text.charAt(index);
+                    p.textContent += char;
+                    soundSystem.playTypewriterSound();
+                    index++;
+                    gameState.typingTimeout = setTimeout(typeNextChar, 35);
+                } else {
+                    gameState.isTyping = false;
+                    if (onComplete) onComplete();
+                }
+            }
+
+            typeNextChar();
+        }
+
+        function renderPageText(onAllPagesComplete, customClass = "") {
+            const textToRender = gameState.paginatedTexts[gameState.currentPageIndex];
+            
+            if (gameState.paginatedTexts.length > 1) {
+                elements.pageIndicator.classList.remove('hidden');
+                elements.currentPage.textContent = gameState.currentPageIndex + 1;
+                elements.totalPages.textContent = gameState.paginatedTexts.length;
+            } else {
+                elements.pageIndicator.classList.add('hidden');
+            }
+
+            renderTypewriterText(textToRender, () => {
+                if (gameState.currentPageIndex < gameState.paginatedTexts.length - 1) {
+                    elements.choicesContainer.innerHTML = '';
+                    const nextBtn = document.createElement('button');
+                    nextBtn.className = "w-full py-3.5 px-5 bg-gray-800 hover:bg-gray-700 text-gray-200 rounded-xl text-sm font-medium border border-gray-700 transition-all duration-200 text-left flex justify-between items-center shadow-lg";
+                    nextBtn.innerHTML = `<span>點擊繼續閱讀下一頁...</span> <span class="mono-font text-xs text-gray-400">NEXT ➔</span>`;
+                    nextBtn.onclick = () => {
+                        gameState.currentPageIndex++;
+                        renderPageText(onAllPagesComplete, customClass);
+                    };
+                    elements.choicesContainer.appendChild(nextBtn);
+                } else {
+                    if (onAllPagesComplete) onAllPagesComplete();
+                }
+            }, customClass);
+        }
+
+        function prepareSceneText(fullText, onComplete, customClass = "") {
+            gameState.paginatedTexts = splitTextIntoPages(fullText);
+            gameState.currentPageIndex = 0;
+            renderPageText(onComplete, customClass);
+        }
+
+        function loadScene(sceneId) {
+            gameState.currentSceneId = sceneId;
+            elements.choicesContainer.innerHTML = '';
+            
+            // Rule 8: Clear previous scene's stat notification toast
+            hideStatToast();
+
+            // Rule 3, 4, 7: Handle exact scene logic and text without parentheses
+            switch(sceneId) {
+                case "COVER":
+                    renderCover();
+                    break;
+
+                case "0-0":
+                    elements.hud.classList.remove('opacity-0');
+                    updateHUD();
+                    prepareSceneText("凌晨零點零三分，你收到了一封沒有寄件人的電子郵件。", () => {
+                        setTimeout(() => loadScene("1-0"), 2000);
+                    });
+                    break;
+
+                case "1-0":
+                    const emailText = `寄件人： 無\n郵件標題：你已經死過一次\n寄件時間：明天,凌晨00:03`;
+                    prepareSceneText(emailText, () => {
+                        renderOptions([
+                            { label: "[選項 A]查看郵件", target: "1-1" },
+                            { label: "[選項 B]刪除郵件", target: "1-2" }
+                        ]);
+                    });
+                    break;
+
+                case "1-1":
+                    const mailDetail = `「親愛的玩家${gameState.playerName}：\n歡迎回到無限遊戲。\n你將參與第一場試煉：午夜末班車。\n請牢記以下事項。\n一、列車共有十三節車廂，請勿進入第十三節。\n二、若有乘客向你詢問時間，請回答十一點五十九分。\n三、列車行駛期間，若聽見有人呼喚你的全名，請勿回頭。\n四、若車窗外出現熟悉的人，請確認對方是否有影子。\n五、抵達終點站後，請在列車停穩之前離開。\n六、請勿相信任何自稱工作人員的人。\n祝你好運。\n——無限遊戲管理局」`;
+                    prepareSceneText(mailDetail, () => {
+                        setTimeout(() => loadScene("2-0"), 10000);
+                    });
+                    break;
+
+                case "1-2":
+                    // Rule 4, 7: Red flash for 3s then text
+                    triggerRedFlash(3, () => {
+                        prepareSceneText("郵件已刪除", () => {
+                            setTimeout(() => loadScene("2-0"), 1000);
+                        });
+                    });
+                    break;
+
+                case "2-0":
+                    prepareSceneText(`「玩家${gameState.playerName} ，是否確認進入遊戲？」`, () => {
+                        renderOptions([
+                            { label: "[選項 A]否", target: "2-1" },
+                            { label: "[選項 B]是", target: "2-2" }
+                        ]);
+                    });
+                    break;
+
+                case "2-1":
+                    prepareSceneText("「很遺憾，您的拒絕申請已超過期限。」", () => {
+                        setTimeout(() => {
+                            triggerWhiteFlash(3, () => loadScene("3-0"));
+                        }, 3000);
+                    }, "text-2xl md:text-3xl font-black text-red-600 text-center py-6 tracking-wide");
+                    break;
+
+                case "2-2":
+                    prepareSceneText("「歡迎回來」", () => {
+                        setTimeout(() => {
+                            triggerWhiteFlash(3, () => loadScene("3-0"));
+                        }, 3000);
+                    }, "text-3xl md:text-4xl font-black text-red-600 text-center py-8 tracking-widest my-auto flex items-center justify-center min-h-[200px]");
+                    break;
+
+                case "3-0":
+                    const text30 = `你重重摔在冰冷的地板上。\n耳邊傳來列車行駛的轟鳴聲。\n噹——\n噹——\n噹——\n你坐在一列老舊列車的座位上。\n車廂裡亮著昏黃的燈，窗外沒有城市，也沒有月亮，只有一望無際的黑暗。座椅是褪色的深綠色絨布，空氣裡瀰漫著潮濕的鐵鏽味。\n身旁坐著七個人。\n一名穿西裝的中年男人，一個戴眼鏡的年輕女孩，一名穿著運動服的少年，一個滿臉疲憊的女人，一名沉默寡言的高個子男人，一位拄著拐杖的老太太，以及一個約莫十歲的小男孩。\n每個人手裡都拿著一張白色車票、低著頭。`;
+                    prepareSceneText(text30, () => {
+                        renderOptions([
+                            { label: "[選項 A]查看自己是否受傷", target: "3-1" },
+                            { label: "[選項 B]詢問周圍的人是誰，這裡是哪裡", target: "3-2" },
+                            { label: "[選項 C]嘗試推開車廂鐵門", target: "3-3" }
+                        ]);
+                    });
+                    break;
+
+                case "3-1":
+                    const text31 = `你低下頭檢查。\n發現自己的掌心也多了一張白色車票 。\n車票上印著一行字。\n【午夜末班車——第七號玩家】`;
+                    prepareSceneText(text31, () => {
+                        renderOptions([
+                            { label: "[選項 A]觀察車票", target: "3-1-1" },
+                            { label: "[選項 B]仔細收好車票，防止弄丟", target: "3-1-2" }
+                        ]);
+                    });
+                    break;
+
+                case "3-1-1":
+                    prepareSceneText("你翻到車票背面，上面有幾個字 。\n「規則不會說謊，但人會」", () => {
+                        modifySAN(5);
+                        setTimeout(() => loadScene("4-0"), 3000);
+                    });
+                    break;
+
+                case "3-1-2":
+                    loadScene("4-0");
+                    break;
+
+                case "3-2":
+                    gameState.hasAskedPeople = true;
+                    const text32 = `「你們是誰？ 這裡是哪裡？」\n無人回應，車廂裡仍然是一片寂靜，只有列車轟鳴不止。\n高個子男人看了你一眼，走到你旁邊，像是有什麼話要說，卻又默默低下頭，把玩著手裡的車票。`;
+                    prepareSceneText(text32, () => {
+                        setTimeout(() => loadScene("4-0"), 3000);
+                    });
+                    break;
+
+                case "3-3":
+                    // Rule 7: Effect before text rendering
+                    triggerScreenShake(() => {
+                        modifyHP(-10);
+                        prepareSceneText("你嘗試推開車廂鐵門，門紋絲不動，強大的反衝力震得你手腕發麻。", () => {
+                            setTimeout(() => loadScene("4-0"), 3000);
+                        });
+                    });
+                    break;
+
+                case "4-0":
+                    const text40 = `車廂前方的廣播突然響起，所有人抬起頭。\n「各位乘客，歡迎搭乘午夜末班車。」\n「本次列車即將抵達第一站：無名站。」\n「請各位乘客遵守乘車規則。」\n廣播停頓片刻。\n隨後，一個帶著笑意的聲音補充道：\n「祝各位旅途愉快。」\n「也祝各位……活得久一點。」`;
+                    prepareSceneText(text40, () => {
+                        setTimeout(() => loadScene("5-0"), 3000);
+                    });
+                    break;
+
+                case "5-0":
+                    const text50 = `車廂裡一片死寂。\n幾秒後，西裝男人猛地站起來。\n「這是什麼地方？誰在搞鬼！」\n他大步走向車門，伸手用力拉扯。`;
+                    prepareSceneText(text50, () => {
+                        renderOptions([
+                            { label: "[選項 A]過去幫忙", target: "5-1" },
+                            { label: "[選項 B]冷眼旁觀", target: "5-2" },
+                            { label: "[選項 C]告訴他這樣沒用，別白費力氣", target: "5-3" }
+                        ]);
+                    });
+                    break;
+
+                case "5-1":
+                    const text51 = `你走過去幫忙，覺得以兩個人的力量應該能成功。\n你們二人用盡全力，車門紋絲不動。`;
+                    prepareSceneText(text51, () => {
+                        modifyHP(-10);
+                        setTimeout(() => loadScene("6-0"), 3000);
+                    });
+                    break;
+
+                case "5-2":
+                    const text52 = `你看著西裝男用盡全力，車門卻紋絲不動。`;
+                    prepareSceneText(text52, () => {
+                        modifySAN(-3);
+                        setTimeout(() => loadScene("6-0"), 3000);
+                    });
+                    break;
+
+                case "5-3":
+                    if (gameState.hasAskedPeople) {
+                        const text53A = `你走了過去。\n「 這樣沒用的，別白費力氣了！  」\n前方動作停頓了一瞬，西裝男抄起不知哪來的鐵棍砸向車門，一點變形也沒有，毫髮無損。\n突然，棍子調轉方向，直直朝你的頭揮來 。\n「你個礙事的東西！閉嘴。」\n你眼睜睜看著鐵棍打向你。\n突然，那個一直站在身旁的高個子男人向前，一把抓住呼嘯而來的棍子。\n他聲音冷靜，沒有太多情緒： 「現在這裡只有8個人，與其自相殘殺，不如先搞清楚規則，再想辦法。`;
+                        prepareSceneText(text53A, () => {
+                            setTimeout(() => loadScene("6-0"), 3000);
+                        });
+                    } else {
+                        const text53B = `你走了過去。\n「 這樣沒用的，別白費力氣了！  」\n前方動作停頓了一瞬，西裝男抄起不知哪來的鐵棍砸向車門，一點變形也沒有，毫髮無損。\n突然，棍子調轉方向，直直朝你的頭揮來 。\n「你個礙事的東西！閉嘴。」`;
+                        prepareSceneText(text53B, () => {
+                            triggerRedFlash(5, () => {
+                                gameState.hp = 0;
+                                updateHUD();
+                                loadScene("ENDING_1");
+                            });
+                        });
+                    }
+                    break;
+
+                case "6-0":
+                    const text60 = `「開門！有人嗎！」\n沒有回應。\n運動服少年掏出手機，臉色迅速變得難看。\n「沒訊號……我的手機裡什麼都沒有了。」\n「你們也收到那封郵件了？」戴眼鏡的女孩突然問。\n所有人的目光瞬間集中到她身上。\n女孩推了推眼鏡，聲音發顫。\n「我叫許清禾。十分鐘前，我收到了一封郵件，說我已經死過一次……我以為是詐騙，結果一睜眼就在這裡。」\n你心裡一沉。\n你也收到了。`;
+                    prepareSceneText(text60, () => {
+                        setTimeout(() => loadScene("7-0"), 3000);
+                    });
+                    break;
+
+                case "7-0":
+                    const text70 = `「別慌。」\n高個子男人開口。\n他的聲音很沉，帶著一種不容置疑的冷靜。\n「既然我們都在這裡，就代表現在不是討論怎麼回去的時候。先搞清楚規則，再想辦法活下去。」\n「你憑什麼命令我們？」西裝男人怒道。\n高個子男人沒有理他。`;
+                    prepareSceneText(text70, () => {
+                        renderOptions([
+                            { label: "[選項 A]默默遠離這些看著不好惹的人", target: "7-1" },
+                            { label: "[選項 B]詢問高個子男人知道什麼", target: "7-2" }
+                        ]);
+                    });
+                    break;
+
+                case "7-1":
+                    loadScene("8-0");
+                    break;
+
+                case "7-2":
+                    gameState.hasSpecialInfo = true;
+                    const text72 = `「你是不是知道什麼？ 」 你看著高個子男人。\n他沉默了半晌，從口袋裡抽出一張紙。\n「我叫周既白。我的車票背面有一段話。」\n他將紙張攤開。`;
+                    prepareSceneText(text72, () => {
+                        renderOptions([
+                            { label: "查看紙條", target: "7-2-1" }
+                        ]);
+                    });
+                    break;
+
+                case "7-2-1":
+                    const text721 = `【新手副本存活條件：抵達終點站。】\n【副本時限：六十分鐘。】\n【剩餘玩家：8。】`;
+                    prepareSceneText(text721, () => {
+                        renderOptions([
+                            { label: "歸還紙條", target: "7-2-AFTER" }
+                        ]);
+                    });
+                    break;
+
+                case "7-2-AFTER":
+                    const text72After = `「八個人，六十分鐘。」周既白掃視眾人，「這應該是個生存遊戲。」`;
+                    prepareSceneText(text72After, () => {
+                        setTimeout(() => loadScene("8-0"), 3000);
+                    });
+                    break;
+
+                case "8-0":
+                    const text80 = `就在這時，列車忽然減速。\n窗外的黑暗中，浮現出一座荒涼的月台。\n月台上掛著一個破舊的時鐘。\n指針停在十一點五十九分。\n車廂廣播響起。\n「無名站到了。」\n「請需要下車的乘客，盡快下車。」\n「請注意，列車停靠時間為三分鐘。」\n「祝各位乘客……平安。」\n車門緩緩打開。\n月台上空無一人。`;
+                    prepareSceneText(text80, () => {
+                        renderOptions([
+                            { label: "[選項 A]閉上眼，默默祈禱什麼都別發生", target: "8-1" },
+                            { label: "[選項 B]專心目視月台深處，想看看到底有什麼東西在那裡", target: "8-2" },
+                            { label: "[選項 C]觀察月台", target: "8-3" }
+                        ]);
+                    });
+                    break;
+
+                case "8-1":
+                    const text81 = `你閉上了眼睛，希望什麼也別發生。\n你聽到了有人踱步的聲音，接著傳來細碎的交談聲。\n突然，一聲慘叫伴隨重物拖拽的聲音。\n再次睜眼，只看到一隻留在月台上的皮鞋和緩緩關閉的列車門。`;
+                    prepareSceneText(text81, () => {
+                        modifyHP(-10);
+                        setTimeout(() => loadScene("10-0"), 3000);
+                    });
+                    break;
+
+                case "8-2":
+                    modifySAN(-5);
+                    loadScene("9-0");
+                    break;
+
+                case "8-3":
+                    gameState.hasSpecialInfo = true;
+                    const text83 = `你仔細觀察著月台，它很普通，就像一般的無人車站。\n你死死盯著這個看似正常的月台。\n終於，在售票處的外牆看到一行慘白的字。\n「此站台暫不開放，要下車的旅客請前往最終站。」`;
+                    prepareSceneText(text83, () => {
+                        modifySAN(10);
+                        setTimeout(() => loadScene("9-0"), 3000);
+                    });
+                    break;
+
+                case "9-0":
+                    const text90 = `站台的深處，站著一個穿著紅色洋裝的小女孩。\n她低著頭，長髮遮住臉，雙手抱著一隻破舊的兔子玩偶。\n西裝男人看了一眼車外，突然鬆了口氣。\n「原來是密室逃脫！肯定是有人在整我們。只要下車，就能找到出口。」\n他第一個踏出車門。`;
+                    
+                    const choices90 = [
+                        { label: "[選項 A]跟著下去", target: "9-1" },
+                        { label: "[選項 B]跟著下去，拖他回車上", target: "9-2" },
+                        { label: "[選項 C]站在原地，尊重他人選擇", target: "9-3" }
+                    ];
+
+                    if (gameState.hasSpecialInfo) {
+                        choices90.push({ label: "[選項 D]大聲阻止他", target: "9-4" });
+                    }
+
+                    prepareSceneText(text90, () => {
+                        renderOptions(choices90);
+                    });
+                    break;
+
+                case "9-1":
+                    const text91 = `你跟了過去，想找到出口。\n紅衣小女孩緩緩抬起頭。\n那張臉上沒有眼睛。\n只有兩個深不見底的黑洞。\n「叔叔。」\n她笑了。\n「現在幾點了？」\n西裝男人下意識看向月台上的時鐘。\n斑駁的時鐘下，是一片片脫落的黑漆，顯得整個車站更加破舊。\n灰白的時針直指向十二點鐘。`;
+                    prepareSceneText(text91, () => {
+                        renderOptions([
+                            { label: "[選項 A]「十一點五十九分。」", target: "9-1-1" },
+                            { label: "[選項 B]「十二點。」", target: "9-1-2" },
+                            { label: "[選項 C]什麼也不說", target: "9-1-3" },
+                            { label: "[選項 D]什麼也不說，並且摀住西裝男的嘴，不讓他說話", target: "9-1-4" }
+                        ]);
+                    });
+                    break;
+
+                case "9-1-1":
+                    const text911 = `你不理會時鐘上的數字，對著小女孩說到：「十一點五十九分。」\n小女孩笑了，她的嘴角一直裂到耳根。\n「嘻嘻 ，答對了呢！」 \n「 那麼……就跟我回去聊聊天吧！ 」 \n下一秒，兩隻蒼白的手從她的身體裡伸出來，直接抓住你們二人的脖子。 \n你被拖進了月台下方的黑暗。`;
+                    triggerDeathSequence(text911);
+                    break;
+
+                case "9-1-2":
+                    const text912 = `你對著小女孩說到：「十二點……」 \n話音未落。\n小女孩猛地張開嘴。\n她的嘴角一直裂到耳根，無數細小的牙齒在黑暗裡蠕動。\n「答錯了。」\n下一秒，兩隻蒼白的手從她的身體裡伸出來，直接抓住你們二人的脖子。 \n你被拖進了月台下方的黑暗。`;
+                    triggerDeathSequence(text912);
+                    break;
+
+                case "9-1-3":
+                    const text913 = `你不理會小女孩的話，自顧自尋找著出口。\n西裝男人卻開了口。\n「十二點……」\n話音未落。\n小女孩猛地張開嘴。\n她的嘴角一直裂到耳根，無數細小的牙齒在黑暗裡蠕動。\n「答錯了。」\n下一秒，兩隻蒼白的手從她的身體裡伸出來，直接抓住你們二人的脖子。 \n你被拖進了月台下方的黑暗。`;
+                    triggerDeathSequence(text913);
+                    break;
+
+                case "9-1-4":
+                    const text914 = `你不理會小女孩的話，死死摀住西裝男的嘴，不讓他發出聲音，自顧自尋找著出口。 \n「為什麼不說話呢？」 \n小女孩歪了歪頭，猛地張開嘴。\n她的嘴角一直裂到耳根，無數細小的牙齒在黑暗裡蠕動。\n下一秒，兩隻蒼白的手從她的身體裡伸出來，直接抓住你們二人的脖子。 \n你被拖進了月台下方的黑暗。`;
+                    triggerDeathSequence(text914);
+                    break;
+
+                case "9-2":
+                    const text92 = `你跟了過去， 雙手死死抓住西裝男往回拖。\n「快上車！很危險！」 \n西裝男死命掙扎。\n「你放手！」 \n一陣涼風吹過。\n「為什麼剛來就要走了呢？」 \n小女孩歪了歪頭，猛地張開嘴。\n她的嘴角一直裂到耳根，無數細小的牙齒在黑暗裡蠕動。\n下一秒，兩隻蒼白的手從她的身體裡伸出來，直接抓住你們二人的脖子。 \n你被拖進了月台下方的黑暗。`;
+                    triggerDeathSequence(text92);
+                    break;
+
+                case "9-3":
+                    const text93 = `你靜靜站在原地，看著西裝男和小女孩。\n他剛站穩，紅衣小女孩便緩緩抬起頭。\n那張臉上沒有眼睛。\n只有兩個深不見底的黑洞。\n「叔叔。」\n她笑了。\n「現在幾點了？」\n西裝男人愣了一下。\n「什麼？」\n「我問你，現在幾點了？」\n男人下意識看向月台上的時鐘。\n「十二點……」\n話音未落。\n小女孩猛地張開嘴。\n她的嘴角一直裂到耳根，無數細小的牙齒在黑暗裡蠕動。\n「答錯了。」\n下一秒，一隻蒼白的手從她的身體裡伸出來，直接抓住男人的脖子。\n男人連慘叫都沒來得及發出，整個人便被拖進了月台下方的黑暗。\n只剩下一隻皮鞋留在原地。\n車門砰然關閉。`;
+                    prepareSceneText(text93, () => {
+                        setTimeout(() => loadScene("10-0"), 3000);
+                    });
+                    break;
+
+                case "9-4":
+                    const text94 = `「等等！」你喊道。\n男人不耐煩地回頭。\n「又怎麼了？」\n你指著月台。\n「規則裡說，抵達終點站後才能離開。現在只是第一站。」\n「你有病吧？這只是遊戲規則，誰知道是真是假？」\n男人冷笑一聲，走下月台。\n他剛站穩，紅衣小女孩便緩緩抬起頭。\n那張臉上沒有眼睛。\n只有兩個深不見底的黑洞。\n「叔叔。」\n她笑了。\n「現在幾點了？」\n西裝男人愣了一下。\n「什麼？」\n「我問你，現在幾點了？」\n男人下意識看向月台上的時鐘。\n「十二點……」\n話音未落。\n小女孩猛地張開嘴。\n她的嘴角一直裂到耳根，無數細小的牙齒在黑暗裡蠕動。\n「答錯了。」\n下一秒，一隻蒼白的手從她的身體裡伸出來，直接抓住男人的脖子。\n男人連慘叫都沒來得及發出，整個人便被拖進了月台下方的黑暗。\n只剩下一隻皮鞋留在原地。\n車門砰然關閉。`;
+                    prepareSceneText(text94, () => {
+                        modifySAN(-10);
+                        setTimeout(() => loadScene("10-0"), 3000);
+                    });
+                    break;
+
+                case "10-0":
+                    const text100 = `廣播再次響起。\n「乘客王志強，違反乘車規則。」\n「懲罰：即刻清除。」\n「剩餘玩家：7。」`;
+                    prepareSceneText(text100, () => {
+                        modifySAN(-10);
+                        setTimeout(() => {
+                            const finishMsg = document.createElement('div');
+                            finishMsg.className = "mt-8 text-xl md:text-2xl font-black text-red-600 tracking-widest text-center animate-pulse py-4 border-y border-red-900/50";
+                            finishMsg.textContent = "恭喜通過《無限輪迴：第七號玩家》午夜末班車--第一站";
+                            elements.textContainer.appendChild(finishMsg);
+                        }, 5000);
+                    });
+                    break;
+
+                case "ENDING_1":
+                    renderEnding1();
+                    break;
+
+                default:
+                    console.error("Unknown Scene ID: " + sceneId);
+            }
+        }
+
+        function renderOptions(optionsArr) {
+            elements.choicesContainer.innerHTML = '';
+            optionsArr.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.className = "w-full py-3.5 px-5 bg-gray-900/90 hover:bg-gray-800 text-gray-100 rounded-xl text-left text-xs md:text-sm font-medium border border-gray-800 hover:border-gray-600 transition-all duration-200 shadow-md hover:shadow-lg flex justify-between items-center group";
+                btn.innerHTML = `<span>${opt.label}</span> <span class="opacity-0 group-hover:opacity-100 transition-opacity text-xs font-mono text-amber-400">SELECT ➔</span>`;
+                btn.onclick = () => {
+                    soundSystem.init();
+                    loadScene(opt.target);
+                };
+                elements.choicesContainer.appendChild(btn);
+            });
+        }
+
+        function triggerDeathSequence(deathText) {
+            prepareSceneText(deathText, () => {
+                setTimeout(() => {
+                    elements.gameCard.style.filter = "blur(10px)";
+                    elements.gameCard.style.transition = "filter 3s ease";
+                    gameState.hp = 0;
+                    updateHUD();
+                    setTimeout(() => {
+                        elements.gameCard.style.filter = "none";
+                        loadScene("ENDING_1");
+                    }, 3000);
+                }, 3000);
+            });
+        }
+
+        function renderCover() {
+            elements.hud.classList.add('opacity-0');
+            elements.textContainer.innerHTML = `
+                <div class="text-center py-6 space-y-4">
+                    <h1 class="text-3xl md:text-5xl font-extrabold text-gray-100 tracking-wider mb-2">《無限輪迴：第七號玩家》</h1>
+                    <p class="text-xs md:text-sm text-gray-400 font-mono">無限遊戲管理局 ・ 試煉：午夜末班車</p>
+                </div>
+                <div class="max-w-xs mx-auto space-y-2 pt-4">
+                    <label class="block text-xs font-semibold text-gray-400 text-left">請輸入玩家姓名</label>
+                    <input type="text" id="player-name-input" value="林知夏" placeholder="預設姓名為林知夏" class="w-full px-4 py-2.5 bg-gray-950 border border-gray-700 rounded-xl text-center text-gray-200 focus:outline-none focus:border-amber-500 font-medium text-sm">
+                </div>
+            `;
+
+            elements.choicesContainer.innerHTML = '';
+            const startBtn = document.createElement('button');
+            startBtn.className = "w-full max-w-xs mx-auto py-3.5 px-6 bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold rounded-xl transition-all duration-200 shadow-xl text-center block mt-4 text-sm tracking-wide";
+            startBtn.textContent = "確認進入遊戲";
+            startBtn.onclick = () => {
+                soundSystem.init();
+                const inputVal = document.getElementById('player-name-input').value.trim();
+                gameState.playerName = inputVal !== "" ? inputVal : "林知夏";
+                gameState.hp = 100;
+                gameState.san = 100;
+                gameState.hasAskedPeople = false;
+                gameState.hasSpecialInfo = false;
+                loadScene("0-0");
+            };
+            elements.choicesContainer.appendChild(startBtn);
+        }
+
+        function renderEnding1() {
+            elements.textContainer.innerHTML = `
+                <div class="text-center py-8 space-y-4 my-auto flex flex-col justify-center min-h-[220px]">
+                    <div class="text-4xl md:text-6xl font-extrabold text-red-600 tracking-widest my-4 animate-pulse">死亡</div>
+                    <p class="text-gray-300 text-base md:text-lg font-medium">很遺憾，你未能成功通過第一站的試煉</p>
+                </div>
+            `;
+
+            elements.choicesContainer.innerHTML = '';
+            const retryBtn = document.createElement('button');
+            retryBtn.className = "w-full max-w-xs mx-auto py-3.5 px-6 bg-red-700 hover:bg-red-600 text-white font-bold rounded-xl transition-all duration-200 shadow-xl text-center block mt-6 text-sm tracking-wide";
+            retryBtn.textContent = "重來一次";
+            retryBtn.onclick = () => {
+                soundSystem.init();
+                triggerMeltAndVortex(() => {
+                    gameState.hp = 100;
+                    gameState.san = 100;
+                    gameState.hasAskedPeople = false;
+                    gameState.hasSpecialInfo = false;
+                    loadScene("0-0");
+                });
+            };
+            elements.choicesContainer.appendChild(retryBtn);
+        }
+
+        window.onload = function() {
+            loadScene("COVER");
+        };
+    </script>
+</body>
+</html>

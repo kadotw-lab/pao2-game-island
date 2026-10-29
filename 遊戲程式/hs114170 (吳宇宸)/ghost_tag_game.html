@@ -1,0 +1,1428 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>鬼抓人 - Ghost Tag Neon</title>
+    <style>
+        :root {
+            --bg-color: #0b0c10;
+            --grid-color: rgba(31, 40, 51, 0.6);
+            --neon-green: #66fcf1;
+            --neon-red: #ff2e63;
+            --neon-yellow: #f9ed69;
+            --neon-blue: #00adb5;
+            --neon-cyan: #45f3ff;
+            --panel-bg: rgba(15, 23, 42, 0.85);
+            --font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            margin: 0;
+            padding: 0;
+            touch-action: none;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: var(--bg-color);
+            font-family: var(--font-family);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #ffffff;
+        }
+
+        /* 遊戲容器 (保持 16:9 螢幕比例) */
+        #game-wrapper {
+            position: relative;
+            width: 100vw;
+            height: 56.25vw; /* 16:9 */
+            max-height: 100vh;
+            max-width: 177.78vh; /* 16:9 */
+            box-shadow: 0 0 30px rgba(102, 252, 241, 0.2);
+            border-radius: 12px;
+            overflow: hidden;
+            background: var(--bg-color);
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* UI Overlay 統一覆蓋層 */
+        .ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 16px;
+            z-index: 10;
+        }
+
+        /* HUD 頂部列 */
+        #hud {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            width: 100%;
+        }
+
+        .hud-card {
+            background: var(--panel-bg);
+            border: 1px solid rgba(102, 252, 241, 0.3);
+            backdrop-filter: blur(8px);
+            padding: 10px 18px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+            font-size: 0.95rem;
+            letter-spacing: 1px;
+            text-shadow: 0 0 5px var(--neon-green);
+        }
+
+        .hud-value {
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: var(--neon-green);
+            margin-top: 2px;
+        }
+
+        /* 狀態倒數條容器 */
+        #buff-container {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            align-items: flex-start;
+            margin-top: 10px;
+        }
+
+        .buff-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--panel-bg);
+            border-radius: 20px;
+            padding: 4px 12px;
+            font-size: 0.85rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.4);
+            min-width: 160px;
+        }
+
+        .buff-progress-bg {
+            flex-grow: 1;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .buff-progress-bar {
+            height: 100%;
+            width: 100%;
+            background: var(--neon-green);
+            transition: width 0.1s linear;
+        }
+
+        /* 暫停按鈕 (手機 UI) */
+        #btn-pause-ui {
+            pointer-events: auto;
+            background: var(--panel-bg);
+            border: 1px solid var(--neon-green);
+            color: #fff;
+            padding: 10px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s;
+            box-shadow: 0 0 10px rgba(102, 252, 241, 0.2);
+        }
+
+        #btn-pause-ui:active {
+            transform: scale(0.95);
+            background: var(--neon-green);
+            color: #000;
+        }
+
+        /* 視窗選單 overlay (Start, Pause, Game Over) */
+        .modal-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(11, 12, 16, 0.88);
+            backdrop-filter: blur(10px);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+            pointer-events: auto;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal-box {
+            background: var(--panel-bg);
+            border: 2px solid var(--neon-green);
+            box-shadow: 0 0 30px rgba(102, 252, 241, 0.3);
+            border-radius: 16px;
+            padding: 30px 40px;
+            text-align: center;
+            max-width: 90%;
+            width: 460px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 18px;
+            animation: popup 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes popup {
+            0% { transform: scale(0.8); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .modal-title {
+            font-size: 2.2rem;
+            font-weight: 900;
+            letter-spacing: 2px;
+            color: var(--neon-green);
+            text-shadow: 0 0 15px var(--neon-green);
+        }
+
+        .modal-title.danger {
+            color: var(--neon-red);
+            text-shadow: 0 0 15px var(--neon-red);
+        }
+
+        .instructions-list {
+            text-align: left;
+            font-size: 0.9rem;
+            color: #ccc;
+            line-height: 1.6;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 12px 16px;
+            border-radius: 8px;
+            width: 100%;
+            border-left: 3px solid var(--neon-green);
+        }
+
+        .btn-action {
+            background: linear-gradient(135deg, #1f4068, #162447);
+            border: 2px solid var(--neon-green);
+            color: #fff;
+            padding: 12px 32px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            box-shadow: 0 0 15px rgba(102, 252, 241, 0.3);
+            letter-spacing: 1px;
+            width: 100%;
+        }
+
+        .btn-action:hover {
+            background: var(--neon-green);
+            color: #0b0c10;
+            box-shadow: 0 0 25px var(--neon-green);
+            transform: translateY(-2px);
+        }
+
+        .btn-action:active {
+            transform: translateY(1px);
+        }
+
+        /* 虛擬搖桿 (行動端) */
+        #joystick-wrapper {
+            position: absolute;
+            bottom: 25px;
+            left: 25px;
+            width: 120px;
+            height: 120px;
+            pointer-events: auto;
+            display: none; /* 自動偵測顯示 */
+            z-index: 15;
+        }
+
+        #joystick-base {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.08);
+            border: 2px solid rgba(102, 252, 241, 0.4);
+            backdrop-filter: blur(4px);
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #joystick-stick {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: radial-gradient(circle, var(--neon-green), var(--neon-blue));
+            box-shadow: 0 0 15px var(--neon-green);
+            position: absolute;
+            transition: transform 0.05s ease-out;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            padding: 6px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 1rem;
+        }
+
+        .stat-label { color: #aaa; }
+        .stat-val { font-weight: bold; color: var(--neon-green); }
+
+        /* 響應式調整 */
+        @media (max-width: 768px) {
+            .modal-box { padding: 20px 24px; width: 90%; }
+            .modal-title { font-size: 1.8rem; }
+            .hud-card { padding: 6px 12px; font-size: 0.8rem; }
+            .hud-value { font-size: 1.1rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-wrapper">
+        <!-- Canvas 主畫布 -->
+        <canvas id="gameCanvas" width="1280" height="720"></canvas>
+
+        <!-- HUD 介面 -->
+        <div class="ui-layer">
+            <div id="hud">
+                <div class="hud-card">
+                    <div>得分 / SCORE</div>
+                    <div id="score-display" class="hud-value">0</div>
+                </div>
+                <div class="hud-card">
+                    <div>最高分 / HIGH SCORE</div>
+                    <div id="highscore-display" class="hud-value">0</div>
+                </div>
+                <div class="hud-card">
+                    <div>時間 / SURVIVED</div>
+                    <div id="time-display" class="hud-value">00:00</div>
+                </div>
+                <button id="btn-pause-ui">⏸ 暫停 (P)</button>
+            </div>
+
+            <!-- 動態狀態顯示 -->
+            <div id="buff-container"></div>
+        </div>
+
+        <!-- 虛擬搖桿 -->
+        <div id="joystick-wrapper">
+            <div id="joystick-base">
+                <div id="joystick-stick"></div>
+            </div>
+        </div>
+
+        <!-- 開頭選單 Modal -->
+        <div id="menu-overlay" class="modal-overlay active">
+            <div class="modal-box">
+                <div class="modal-title">👻 鬼抓人 : NEON</div>
+                <div style="color: #aaa; font-size: 0.95rem;">極速存活 2D 霓虹避障大作戰</div>
+                <div class="instructions-list">
+                    <strong>🎮 操作說明：</strong><br>
+                    • 電腦端：WASD 或 方向鍵 移動角色<br>
+                    • 行動端：使用左下角虛擬搖桿拖拽<br>
+                    • 按 P 或 ESC 可隨時暫停遊戲<br><br>
+                    <strong>✨ 道具說明：</strong><br>
+                    • ⚡ <span style="color:var(--neon-blue)">加速鞋</span>：速度 +50% (5秒)<br>
+                    • ❄️ <span style="color:var(--neon-yellow)">定身符</span>：惡鬼停止移動 (3秒)<br>
+                    • 🛡️ <span style="color:var(--neon-cyan)">聖光符</span>：抵擋一次鬼的抓捕
+                </div>
+                <button id="btn-start" class="btn-action">開始遊戲 START GAME</button>
+            </div>
+        </div>
+
+        <!-- 暫停選單 Modal -->
+        <div id="pause-overlay" class="modal-overlay">
+            <div class="modal-box">
+                <div class="modal-title">⏸ 遊戲暫停</div>
+                <div style="margin: 10px 0; color:#ccc;">調整呼吸，準備好繼續了嗎？</div>
+                <button id="btn-resume" class="btn-action">繼續遊戲 RESUME</button>
+                <button id="btn-restart-pause" class="btn-action" style="border-color: #888;">重新開始 RESTART</button>
+            </div>
+        </div>
+
+        <!-- Game Over Modal -->
+        <div id="gameover-overlay" class="modal-overlay">
+            <div class="modal-box">
+                <div class="modal-title danger">☠️ 遊戲結束</div>
+                <div style="width: 100%;">
+                    <div class="stat-row">
+                        <span class="stat-label">本次得分：</span>
+                        <span id="final-score" class="stat-val">0</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">存活時間：</span>
+                        <span id="final-time" class="stat-val">00:00</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">最高紀錄：</span>
+                        <span id="final-highscore" class="stat-val" style="color: var(--neon-yellow);">0</span>
+                    </div>
+                </div>
+                <button id="btn-replay" class="btn-action">再玩一次 PLAY AGAIN</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * 鬼抓人 (Ghost Tag) - Core Game Engine
+         * Fully encapsulated single-file Canvas Game
+         */
+
+        // --- 1. 全局配置與常數 ---
+        const CANVAS_WIDTH = 1280;
+        const CANVAS_HEIGHT = 720;
+
+        const STATE = {
+            MENU: 'MENU',
+            PLAYING: 'PLAYING',
+            PAUSED: 'PAUSED',
+            GAMEOVER: 'GAMEOVER'
+        };
+
+        const ITEM_TYPES = {
+            SPEED: { type: 'SPEED', name: '加速鞋', color: '#00adb5', icon: '⚡', duration: 5 },
+            FREEZE: { type: 'FREEZE', name: '定身符', color: '#f9ed69', icon: '❄️', duration: 3 },
+            SHIELD: { type: 'SHIELD', name: '聖光符', color: '#45f3ff', icon: '🛡️', duration: Infinity }
+        };
+
+        // --- 2. 音效合成器 (Web Audio API) ---
+        class SoundSynth {
+            constructor() {
+                this.ctx = null;
+                this.lastHeartbeatTime = 0;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    if (AudioCtx) {
+                        this.ctx = new AudioCtx();
+                    }
+                }
+                if (this.ctx && this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            // 吃道具：高頻漸升嗶嗶聲
+            playItem() {
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(440, now);
+                osc.frequency.exponentialRampToValueAtTime(880, now + 0.15);
+
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                osc.start(now);
+                osc.stop(now + 0.15);
+            }
+
+            // 護罩破裂音：劇烈破裂感
+            playShieldBreak() {
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(300, now);
+                osc.frequency.linearRampToValueAtTime(80, now + 0.25);
+
+                gain.gain.setValueAtTime(0.4, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                osc.start(now);
+                osc.stop(now + 0.25);
+            }
+
+            // 遊戲結束音：低沉驟降轟鳴
+            playGameOver() {
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(180, now);
+                osc.frequency.exponentialRampToValueAtTime(40, now + 0.8);
+
+                gain.gain.setValueAtTime(0.5, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.8);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                osc.start(now);
+                osc.stop(now + 0.8);
+            }
+
+            // 心跳警告音：距離鬼越近頻率越快
+            updateHeartbeat(closestDist) {
+                if (!this.ctx || closestDist > 180) return;
+
+                const now = performance.now();
+                // 距離越小，間隔越短 (從 700ms 縮短到 200ms)
+                const interval = Math.max(200, (closestDist / 180) * 700);
+
+                if (now - this.lastHeartbeatTime > interval) {
+                    this.lastHeartbeatTime = now;
+                    this.playThump();
+                }
+            }
+
+            playThump() {
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(70, now);
+                osc.frequency.exponentialRampToValueAtTime(30, now + 0.12);
+
+                gain.gain.setValueAtTime(0.35, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                osc.start(now);
+                osc.stop(now + 0.12);
+            }
+        }
+
+        const audio = new SoundSynth();
+
+        // --- 3. 遊戲核心類別與實體 ---
+
+        // 障礙物牆面
+        class Obstacle {
+            constructor(x, y, width, height) {
+                this.x = x;
+                this.y = y;
+                this.w = width;
+                this.h = height;
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.fillStyle = '#1e2029';
+                ctx.strokeStyle = '#45f3ff';
+                ctx.lineWidth = 2;
+                ctx.shadowColor = '#45f3ff';
+                ctx.shadowBlur = 8;
+
+                // 繪製圓角矩形障礙物
+                ctx.beginPath();
+                ctx.roundRect(this.x, this.y, this.w, this.h, 8);
+                ctx.fill();
+                ctx.stroke();
+
+                // 內部裝飾斜紋
+                ctx.clip();
+                ctx.strokeStyle = 'rgba(69, 243, 255, 0.15)';
+                ctx.lineWidth = 1;
+                for (let i = -this.h; i < this.w; i += 12) {
+                    ctx.beginPath();
+                    ctx.moveTo(this.x + i, this.y);
+                    ctx.lineTo(this.x + i + this.h, this.y + this.h);
+                    ctx.stroke();
+                }
+
+                ctx.restore();
+            }
+        }
+
+        // 玩家實體
+        class Player {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.radius = 18;
+                this.baseSpeed = 300; // px/sec
+                this.vx = 0;
+                this.vy = 0;
+                this.speedBoostTimer = 0;
+                this.hasShield = false;
+            }
+
+            update(dt, inputDir, obstacles) {
+                let speed = this.baseSpeed;
+                if (this.speedBoostTimer > 0) {
+                    speed *= 1.5;
+                    this.speedBoostTimer -= dt;
+                }
+
+                // 目標速度
+                const targetVx = inputDir.x * speed;
+                const targetVy = inputDir.y * speed;
+
+                // 平滑加速度 (Momentum)
+                this.vx += (targetVx - this.vx) * 15 * dt;
+                this.vy += (targetVy - this.vy) * 15 * dt;
+
+                // 嘗試更新座標並進行碰撞解算 (AABB Circle Pushout)
+                this.x += this.vx * dt;
+                resolveWallCollision(this, obstacles);
+
+                this.y += this.vy * dt;
+                resolveWallCollision(this, obstacles);
+
+                // 畫布邊界限制
+                this.x = Math.max(this.radius, Math.min(CANVAS_WIDTH - this.radius, this.x));
+                this.y = Math.max(this.radius, Math.min(CANVAS_HEIGHT - this.radius, this.y));
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+
+                // 聖光護罩視覺特效
+                if (this.hasShield) {
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.radius + 10, 0, Math.PI * 2);
+                    ctx.strokeStyle = '#45f3ff';
+                    ctx.lineWidth = 3;
+                    ctx.shadowColor = '#45f3ff';
+                    ctx.shadowBlur = 15;
+                    ctx.stroke();
+                }
+
+                // 加速拖尾氣場
+                if (this.speedBoostTimer > 0) {
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.radius + 5, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(0, 173, 181, 0.3)';
+                    ctx.fill();
+                }
+
+                // 玩家主體 (霓虹綠光圈)
+                ctx.beginPath();
+                ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = '#66fcf1';
+                ctx.shadowColor = '#66fcf1';
+                ctx.shadowBlur = 12;
+                ctx.fill();
+
+                // 中心核心
+                ctx.beginPath();
+                ctx.arc(0, 0, this.radius * 0.4, 0, Math.PI * 2);
+                ctx.fillStyle = '#ffffff';
+                ctx.fill();
+
+                ctx.restore();
+            }
+        }
+
+        // 惡鬼 AI 實體
+        class Ghost {
+            constructor(x, y, speedMult = 1.0) {
+                this.x = x;
+                this.y = y;
+                this.radius = 18;
+                this.baseSpeed = 170 * speedMult;
+                this.vx = 0;
+                this.vy = 0;
+                this.trail = []; // 殘影歷史紀錄
+            }
+
+            update(dt, player, obstacles, freezeTimer) {
+                // 記錄殘影軌跡
+                this.trail.push({ x: this.x, y: this.y });
+                if (this.trail.length > 8) this.trail.shift();
+
+                if (freezeTimer > 0) {
+                    // 被定身時停止移動
+                    return;
+                }
+
+                // 追逐目標方向向量
+                let dx = player.x - this.x;
+                let dy = player.y - this.y;
+                let dist = Math.hypot(dx, dy);
+
+                let dirX = dist > 0 ? dx / dist : 0;
+                let dirY = dist > 0 ? dy / dist : 0;
+
+                // 障礙物避障法 (Steering deflection)
+                for (let obs of obstacles) {
+                    // 若當前朝向會穿過障礙物，施加側向引導力
+                    if (isLineIntersectingRect(this.x, this.y, this.x + dirX * 40, this.y + dirY * 40, obs)) {
+                        // 旋轉 90 度嘗試繞行
+                        const altX = -dirY;
+                        const altY = dirX;
+                        dirX = altX;
+                        dirY = altY;
+                        break;
+                    }
+                }
+
+                this.vx = dirX * this.baseSpeed;
+                this.vy = dirY * this.baseSpeed;
+
+                this.x += this.vx * dt;
+                resolveWallCollision(this, obstacles);
+
+                this.y += this.vy * dt;
+                resolveWallCollision(this, obstacles);
+            }
+
+            draw(ctx, freezeTimer) {
+                ctx.save();
+
+                // 1. 繪製殘影
+                for (let i = 0; i < this.trail.length; i++) {
+                    const pt = this.trail[i];
+                    const alpha = (i + 1) / this.trail.length * 0.35;
+                    ctx.beginPath();
+                    ctx.arc(pt.x, pt.y, this.radius * (0.6 + i * 0.05), 0, Math.PI * 2);
+                    ctx.fillStyle = freezeTimer > 0 
+                        ? `rgba(249, 237, 105, ${alpha})` 
+                        : `rgba(255, 46, 99, ${alpha})`;
+                    ctx.fill();
+                }
+
+                // 2. 繪製主體
+                ctx.translate(this.x, this.y);
+                const color = freezeTimer > 0 ? '#f9ed69' : '#ff2e63';
+
+                ctx.beginPath();
+                ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = color;
+                ctx.shadowColor = color;
+                ctx.shadowBlur = 15;
+                ctx.fill();
+
+                // 惡鬼雙眼 (發光紅/冰藍)
+                ctx.fillStyle = '#0b0c10';
+                ctx.beginPath();
+                ctx.arc(-6, -3, 3.5, 0, Math.PI * 2);
+                ctx.arc(6, -3, 3.5, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.restore();
+            }
+        }
+
+        // 道具地圖實體
+        class PowerUp {
+            constructor(x, y, config) {
+                this.x = x;
+                this.y = y;
+                this.radius = 16;
+                this.config = config;
+                this.pulse = 0;
+            }
+
+            update(dt) {
+                this.pulse += dt * 5;
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+
+                const scale = 1 + Math.sin(this.pulse) * 0.12;
+                ctx.scale(scale, scale);
+
+                // 外發光環
+                ctx.beginPath();
+                ctx.arc(0, 0, this.radius + 4, 0, Math.PI * 2);
+                ctx.fillStyle = this.config.color + '33';
+                ctx.fill();
+
+                // 圖示背景底盤
+                ctx.beginPath();
+                ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = '#0f172a';
+                ctx.strokeStyle = this.config.color;
+                ctx.lineWidth = 2;
+                ctx.shadowColor = this.config.color;
+                ctx.shadowBlur = 10;
+                ctx.fill();
+                ctx.stroke();
+
+                // Emoji 圖示
+                ctx.font = '14px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(this.config.icon, 0, 1);
+
+                ctx.restore();
+            }
+        }
+
+        // 粒子特效
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                const angle = Math.random() * Math.PI * 2;
+                const speed = 50 + Math.random() * 200;
+                this.vx = Math.cos(angle) * speed;
+                this.vy = Math.sin(angle) * speed;
+                this.life = 0.5 + Math.random() * 0.4;
+                this.maxLife = this.life;
+                this.size = 3 + Math.random() * 4;
+            }
+
+            update(dt) {
+                this.x += this.vx * dt;
+                this.y += this.vy * dt;
+                this.life -= dt;
+            }
+
+            draw(ctx) {
+                if (this.life <= 0) return;
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, this.life / this.maxLife);
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.shadowColor = this.color;
+                ctx.shadowBlur = 6;
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        // 浮動得分與狀態文字特效
+        class FloatingText {
+            constructor(x, y, text, color) {
+                this.x = x;
+                this.y = y;
+                this.text = text;
+                this.color = color;
+                this.life = 1.0;
+                this.vy = -40;
+            }
+
+            update(dt) {
+                this.y += this.vy * dt;
+                this.life -= dt;
+            }
+
+            draw(ctx) {
+                if (this.life <= 0) return;
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, this.life);
+                ctx.font = 'bold 18px "Segoe UI", sans-serif';
+                ctx.fillStyle = this.color;
+                ctx.shadowColor = this.color;
+                ctx.shadowBlur = 8;
+                ctx.textAlign = 'center';
+                ctx.fillText(this.text, this.x, this.y);
+                ctx.restore();
+            }
+        }
+
+        // --- 4. 遊戲主控制器 (Game Engine) ---
+        class GameEngine {
+            constructor() {
+                this.canvas = document.getElementById('gameCanvas');
+                this.ctx = this.canvas.getContext('2d');
+
+                this.state = STATE.MENU;
+                this.score = 0;
+                this.highScore = parseInt(localStorage.getItem('ghost_tag_highscore')) || 0;
+                this.survivedTime = 0;
+
+                // 實體容器
+                this.player = null;
+                this.ghosts = [];
+                this.obstacles = [];
+                this.powerUps = [];
+                this.particles = [];
+                this.floatingTexts = [];
+
+                // 狀態計時器
+                this.freezeTimer = 0;
+                this.itemSpawnTimer = 0;
+                this.difficultyTimer = 0;
+                this.ghostSpeedMultiplier = 1.0;
+
+                // 輸入控制
+                this.keys = {};
+                this.joystickVector = { x: 0, y: 0 };
+                this.screenShakeTime = 0;
+
+                this.lastTime = 0;
+
+                this.initDOM();
+                this.initControls();
+                this.resizeCanvas();
+            }
+
+            initDOM() {
+                document.getElementById('highscore-display').innerText = this.highScore;
+
+                // UI 按鈕事件綁定
+                document.getElementById('btn-start').onclick = () => { audio.init(); this.startGame(); };
+                document.getElementById('btn-pause-ui').onclick = () => this.togglePause();
+                document.getElementById('btn-resume').onclick = () => this.togglePause();
+                document.getElementById('btn-restart-pause').onclick = () => { this.togglePause(); this.startGame(); };
+                document.getElementById('btn-replay').onclick = () => { this.startGame(); };
+            }
+
+            initControls() {
+                // 鍵盤輸入監聽
+                window.addEventListener('keydown', (e) => {
+                    this.keys[e.key.toLowerCase()] = true;
+                    if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') {
+                        if (this.state === STATE.PLAYING || this.state === STATE.PAUSED) {
+                            this.togglePause();
+                        }
+                    }
+                });
+
+                window.addEventListener('keyup', (e) => {
+                    this.keys[e.key.toLowerCase()] = false;
+                });
+
+                // 虛擬搖桿 (觸控裝置)
+                const joyWrapper = document.getElementById('joystick-wrapper');
+                const joyStick = document.getElementById('joystick-stick');
+                let joyTouchId = null;
+                let joyCenter = { x: 0, y: 0 };
+
+                // 偵測觸控裝置顯示搖桿
+                window.addEventListener('touchstart', (e) => {
+                    joyWrapper.style.display = 'block';
+                    audio.init();
+                }, { once: true });
+
+                joyWrapper.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    if (joyTouchId !== null) return;
+                    const touch = e.changedTouches[0];
+                    joyTouchId = touch.identifier;
+                    const rect = joyWrapper.getBoundingClientRect();
+                    joyCenter = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+                    this.handleJoystickMove(touch.clientX, touch.clientY, joyCenter, joyStick);
+                }, { passive: false });
+
+                window.addEventListener('touchmove', (e) => {
+                    if (joyTouchId === null) return;
+                    for (let touch of e.changedTouches) {
+                        if (touch.identifier === joyTouchId) {
+                            this.handleJoystickMove(touch.clientX, touch.clientY, joyCenter, joyStick);
+                            break;
+                        }
+                    }
+                }, { passive: false });
+
+                const resetJoystick = (e) => {
+                    if (joyTouchId === null) return;
+                    for (let touch of e.changedTouches) {
+                        if (touch.identifier === joyTouchId) {
+                            joyTouchId = null;
+                            joyStick.style.transform = 'translate(0px, 0px)';
+                            this.joystickVector = { x: 0, y: 0 };
+                            break;
+                        }
+                    }
+                };
+
+                window.addEventListener('touchend', resetJoystick);
+                window.addEventListener('touchcancel', resetJoystick);
+
+                window.addEventListener('resize', () => this.resizeCanvas());
+            }
+
+            handleJoystickMove(clientX, clientY, center, stickEl) {
+                const maxRadius = 45;
+                let dx = clientX - center.x;
+                let dy = clientY - center.y;
+                let dist = Math.hypot(dx, dy);
+
+                if (dist > maxRadius) {
+                    dx = (dx / dist) * maxRadius;
+                    dy = (dy / dist) * maxRadius;
+                    dist = maxRadius;
+                }
+
+                stickEl.style.transform = `translate(${dx}px, ${dy}px)`;
+                this.joystickVector = { x: dx / maxRadius, y: dy / maxRadius };
+            }
+
+            resizeCanvas() {
+                // 自動保持 16:9 繪圖區域
+                const wrapper = document.getElementById('game-wrapper');
+                this.scale = wrapper.clientWidth / CANVAS_WIDTH;
+            }
+
+            startGame() {
+                this.score = 0;
+                this.survivedTime = 0;
+                this.freezeTimer = 0;
+                this.itemSpawnTimer = 0;
+                this.difficultyTimer = 0;
+                this.ghostSpeedMultiplier = 1.0;
+
+                this.particles = [];
+                this.floatingTexts = [];
+                this.powerUps = [];
+
+                // 1. 地圖障礙物生成 (4-6個，避開地圖中央)
+                this.generateObstacles();
+
+                // 2. 初始化玩家於中央
+                this.player = new Player(CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2);
+
+                // 3. 初始化首隻惡鬼 (邊緣安全位置)
+                this.ghosts = [];
+                this.spawnGhost();
+
+                this.showOverlay(null);
+                this.state = STATE.PLAYING;
+                this.lastTime = performance.now();
+                requestAnimationFrame((t) => this.loop(t));
+            }
+
+            generateObstacles() {
+                this.obstacles = [];
+                const count = 4 + Math.floor(Math.random() * 3); // 4 - 6 個
+                const centerZone = { x1: 520, y1: 260, x2: 760, y2: 460 };
+
+                let safety = 0;
+                while (this.obstacles.length < count && safety < 100) {
+                    safety++;
+                    const w = 120 + Math.random() * 120;
+                    const h = 80 + Math.random() * 100;
+                    const x = 100 + Math.random() * (CANVAS_WIDTH - 200 - w);
+                    const y = 80 + Math.random() * (CANVAS_HEIGHT - 160 - h);
+
+                    // 檢查重疊與中央區域避讓
+                    const overlapCenter = !(x + w < centerZone.x1 || x > centerZone.x2 || y + h < centerZone.y1 || y > centerZone.y2);
+                    if (overlapCenter) continue;
+
+                    let overlapOther = false;
+                    for (let obs of this.obstacles) {
+                        if (x < obs.x + obs.w + 40 && x + w + 40 > obs.x && y < obs.y + obs.h + 40 && y + h + 40 > obs.y) {
+                            overlapOther = true;
+                            break;
+                        }
+                    }
+
+                    if (!overlapOther) {
+                        this.obstacles.push(new Obstacle(x, y, w, h));
+                    }
+                }
+            }
+
+            spawnGhost() {
+                // 於地圖角落生成鬼
+                const corners = [
+                    { x: 80, y: 80 },
+                    { x: CANVAS_WIDTH - 80, y: 80 },
+                    { x: 80, y: CANVAS_HEIGHT - 80 },
+                    { x: CANVAS_WIDTH - 80, y: CANVAS_HEIGHT - 80 }
+                ];
+                const corner = corners[Math.floor(Math.random() * corners.length)];
+                this.ghosts.push(new Ghost(corner.x, corner.y, this.ghostSpeedMultiplier));
+            }
+
+            spawnPowerUp() {
+                if (this.powerUps.length >= 3) return;
+
+                const keys = Object.keys(ITEM_TYPES);
+                const config = ITEM_TYPES[keys[Math.floor(Math.random() * keys.length)]];
+
+                let x, y, valid = false, safety = 0;
+                while (!valid && safety < 50) {
+                    safety++;
+                    x = 80 + Math.random() * (CANVAS_WIDTH - 160);
+                    y = 80 + Math.random() * (CANVAS_HEIGHT - 160);
+
+                    // 不生成在障礙物內
+                    valid = true;
+                    for (let obs of this.obstacles) {
+                        if (x > obs.x - 20 && x < obs.x + obs.w + 20 && y > obs.y - 20 && y < obs.y + obs.h + 20) {
+                            valid = false;
+                            break;
+                        }
+                    }
+                }
+
+                if (valid) {
+                    this.powerUps.push(new PowerUp(x, y, config));
+                }
+            }
+
+            togglePause() {
+                if (this.state === STATE.PLAYING) {
+                    this.state = STATE.PAUSED;
+                    this.showOverlay('pause-overlay');
+                } else if (this.state === STATE.PAUSED) {
+                    this.state = STATE.PLAYING;
+                    this.showOverlay(null);
+                    this.lastTime = performance.now();
+                    requestAnimationFrame((t) => this.loop(t));
+                }
+            }
+
+            showOverlay(id) {
+                document.querySelectorAll('.modal-overlay').forEach(el => el.classList.remove('active'));
+                if (id) {
+                    document.getElementById(id).classList.add('active');
+                }
+            }
+
+            triggerScreenShake(duration = 0.25) {
+                this.screenShakeTime = duration;
+            }
+
+            // --- 遊戲邏輯更新 ---
+            update(dt) {
+                if (this.state !== STATE.PLAYING) return;
+
+                this.survivedTime += dt;
+                this.difficultyTimer += dt;
+                this.itemSpawnTimer += dt;
+
+                // 每過 1 秒增加 10 分
+                this.score += dt * 10;
+
+                // 1. 每 15 秒升級難度：增加 1 隻鬼 或 提升全部鬼速 10%
+                if (this.difficultyTimer >= 15) {
+                    this.difficultyTimer = 0;
+                    if (Math.random() < 0.5 || this.ghosts.length >= 6) {
+                        this.ghostSpeedMultiplier *= 1.1;
+                        this.ghosts.forEach(g => g.baseSpeed *= 1.1);
+                        this.floatingTexts.push(new FloatingText(CANVAS_WIDTH / 2, 100, "⚠️ 惡鬼移動速度提升！", "#ff2e63"));
+                    } else {
+                        this.spawnGhost();
+                        this.floatingTexts.push(new FloatingText(CANVAS_WIDTH / 2, 100, "👻 新的惡鬼出現了！", "#ff2e63"));
+                    }
+                    this.triggerScreenShake(0.3);
+                }
+
+                // 2. 道具隨機刷新 (每 8-12 秒)
+                if (this.itemSpawnTimer >= 8) {
+                    this.itemSpawnTimer = 0;
+                    this.spawnPowerUp();
+                }
+
+                // 3. 處理玩家控制方向
+                let inputX = 0, inputY = 0;
+                if (this.keys['w'] || this.keys['arrowup']) inputY -= 1;
+                if (this.keys['s'] || this.keys['arrowdown']) inputY += 1;
+                if (this.keys['a'] || this.keys['arrowleft']) inputX -= 1;
+                if (this.keys['d'] || this.keys['arrowright']) inputX += 1;
+
+                // 結合虛擬搖桿向量
+                if (this.joystickVector.x !== 0 || this.joystickVector.y !== 0) {
+                    inputX = this.joystickVector.x;
+                    inputY = this.joystickVector.y;
+                } else {
+                    // 標準化鍵盤對角向量
+                    const len = Math.hypot(inputX, inputY);
+                    if (len > 0) { inputX /= len; inputY /= len; }
+                }
+
+                // 更新玩家
+                this.player.update(dt, { x: inputX, y: inputY }, this.obstacles);
+
+                // 更新定身狀態
+                if (this.freezeTimer > 0) {
+                    this.freezeTimer -= dt;
+                }
+
+                // 更新惡鬼 AI 及尋找最近鬼距離 (音效心跳用)
+                let closestDist = Infinity;
+                for (let ghost of this.ghosts) {
+                    ghost.update(dt, this.player, this.obstacles, this.freezeTimer);
+                    const d = Math.hypot(ghost.x - this.player.x, ghost.y - this.player.y);
+                    if (d < closestDist) closestDist = d;
+
+                    // 碰撞檢測：鬼與玩家
+                    if (d < ghost.radius + this.player.radius) {
+                        if (this.player.hasShield) {
+                            // 護盾破裂防禦
+                            this.player.hasShield = false;
+                            audio.playShieldBreak();
+                            this.triggerScreenShake(0.4);
+                            this.floatingTexts.push(new FloatingText(this.player.x, this.player.y - 20, "🛡️ 聖光護盾破裂！", "#45f3ff"));
+
+                            // 爆發粒子並擊退鬼
+                            for (let i = 0; i < 20; i++) {
+                                this.particles.push(new Particle(this.player.x, this.player.y, '#45f3ff'));
+                            }
+                            ghost.x += (ghost.x - this.player.x) * 3;
+                            ghost.y += (ghost.y - this.player.y) * 3;
+                        } else {
+                            // 被抓到 -> Game Over
+                            this.gameOver();
+                            return;
+                        }
+                    }
+                }
+
+                // 更新心跳音效頻率
+                audio.updateHeartbeat(closestDist);
+
+                // 4. 道具撿拾檢測
+                for (let i = this.powerUps.length - 1; i >= 0; i--) {
+                    const p = this.powerUps[i];
+                    p.update(dt);
+                    if (Math.hypot(p.x - this.player.x, p.y - this.player.y) < p.radius + this.player.radius) {
+                        // 觸發道具效果
+                        this.applyPowerUp(p.config);
+                        audio.playItem();
+                        this.score += 50;
+
+                        // 生成採集特效
+                        for (let k = 0; k < 12; k++) {
+                            this.particles.push(new Particle(p.x, p.y, p.config.color));
+                        }
+                        this.floatingTexts.push(new FloatingText(p.x, p.y - 15, `+50 ${p.config.name}!`, p.config.color));
+
+                        this.powerUps.splice(i, 1);
+                    }
+                }
+
+                // 5. 特效與浮動文字更新
+                for (let i = this.particles.length - 1; i >= 0; i--) {
+                    this.particles[i].update(dt);
+                    if (this.particles[i].life <= 0) this.particles.splice(i, 1);
+                }
+
+                for (let i = this.floatingTexts.length - 1; i >= 0; i--) {
+                    this.floatingTexts[i].update(dt);
+                    if (this.floatingTexts[i].life <= 0) this.floatingTexts.splice(i, 1);
+                }
+
+                // 更新 HUD 顯示
+                this.updateHUD();
+            }
+
+            applyPowerUp(config) {
+                if (config.type === 'SPEED') {
+                    this.player.speedBoostTimer = config.duration;
+                } else if (config.type === 'FREEZE') {
+                    this.freezeTimer = config.duration;
+                } else if (config.type === 'SHIELD') {
+                    this.player.hasShield = true;
+                }
+            }
+
+            updateHUD() {
+                document.getElementById('score-display').innerText = Math.floor(this.score);
+
+                // 格式化時間 mm:ss
+                const sec = Math.floor(this.survivedTime);
+                const m = String(Math.floor(sec / 60)).padStart(2, '0');
+                const s = String(sec % 60).padStart(2, '0');
+                document.getElementById('time-display').innerText = `${m}:${s}`;
+
+                // 更新 Buff 狀態條
+                const buffContainer = document.getElementById('buff-container');
+                buffContainer.innerHTML = '';
+
+                if (this.player.speedBoostTimer > 0) {
+                    this.renderBuffBadge(buffContainer, '⚡ 加速', this.player.speedBoostTimer / ITEM_TYPES.SPEED.duration, ITEM_TYPES.SPEED.color);
+                }
+                if (this.freezeTimer > 0) {
+                    this.renderBuffBadge(buffContainer, '❄️ 定身', this.freezeTimer / ITEM_TYPES.FREEZE.duration, ITEM_TYPES.FREEZE.color);
+                }
+                if (this.player.hasShield) {
+                    this.renderBuffBadge(buffContainer, '🛡️ 聖盾', 1.0, ITEM_TYPES.SHIELD.color);
+                }
+            }
+
+            renderBuffBadge(container, label, progress, color) {
+                const el = document.createElement('div');
+                el.className = 'buff-badge';
+                el.innerHTML = `
+                    <span>${label}</span>
+                    <div class="buff-progress-bg">
+                        <div class="buff-progress-bar" style="width: ${Math.max(0, progress * 100)}%; background: ${color}"></div>
+                    </div>
+                `;
+                container.appendChild(el);
+            }
+
+            gameOver() {
+                this.state = STATE.GAMEOVER;
+                audio.playGameOver();
+                this.triggerScreenShake(0.6);
+
+                const finalScoreVal = Math.floor(this.score);
+                if (finalScoreVal > this.highScore) {
+                    this.highScore = finalScoreVal;
+                    localStorage.setItem('ghost_tag_highscore', this.highScore);
+                    document.getElementById('highscore-display').innerText = this.highScore;
+                }
+
+                document.getElementById('final-score').innerText = finalScoreVal;
+                document.getElementById('final-time').innerText = document.getElementById('time-display').innerText;
+                document.getElementById('final-highscore').innerText = this.highScore;
+
+                this.showOverlay('gameover-overlay');
+            }
+
+            // --- 5. 渲染繪製 (Render Loop) ---
+            draw() {
+                this.ctx.save();
+
+                // 震動視覺效果 (Screen Shake)
+                if (this.screenShakeTime > 0) {
+                    this.screenShakeTime -= 0.016;
+                    const shakeX = (Math.random() - 0.5) * 12;
+                    const shakeY = (Math.random() - 0.5) * 12;
+                    this.ctx.translate(shakeX, shakeY);
+                }
+
+                // 畫布背景與暗黑網格渲染
+                this.ctx.fillStyle = '#0b0c10';
+                this.ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+                this.drawGrid();
+
+                // 繪製地圖障礙物
+                this.obstacles.forEach(obs => obs.draw(this.ctx));
+
+                // 繪製道具
+                this.powerUps.forEach(p => p.draw(this.ctx));
+
+                // 繪製玩家與惡鬼
+                if (this.player) this.player.draw(this.ctx);
+                this.ghosts.forEach(g => g.draw(this.ctx, this.freezeTimer));
+
+                // 繪製粒子特效
+                this.particles.forEach(p => p.draw(this.ctx));
+
+                // 繪製浮動文字
+                this.floatingTexts.forEach(ft => ft.draw(this.ctx));
+
+                this.ctx.restore();
+            }
+
+            drawGrid() {
+                this.ctx.save();
+                this.ctx.strokeStyle = 'rgba(31, 40, 51, 0.4)';
+                this.ctx.lineWidth = 1;
+                const gridSize = 40;
+
+                for (let x = 0; x < CANVAS_WIDTH; x += gridSize) {
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(x, 0);
+                    this.ctx.lineTo(x, CANVAS_HEIGHT);
+                    this.ctx.stroke();
+                }
+
+                for (let y = 0; y < CANVAS_HEIGHT; y += gridSize) {
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(0, y);
+                    this.ctx.lineTo(CANVAS_WIDTH, y);
+                    this.ctx.stroke();
+                }
+
+                this.ctx.restore();
+            }
+
+            loop(timestamp) {
+                const dt = Math.min((timestamp - this.lastTime) / 1000, 0.1); // 限制 dt 避免切換分頁跳幀
+                this.lastTime = timestamp;
+
+                this.update(dt);
+                this.draw();
+
+                if (this.state === STATE.PLAYING) {
+                    requestAnimationFrame((t) => this.loop(t));
+                }
+            }
+        }
+
+        // --- 6. 物理碰撞公用演算法 ---
+
+        // 圓形與矩形 AABB 牆面滑動碰撞解算
+        function resolveWallCollision(entity, obstacles) {
+            for (let obs of obstacles) {
+                // 尋找矩形上距離圓心最近的點
+                const closestX = Math.max(obs.x, Math.min(entity.x, obs.x + obs.w));
+                const closestY = Math.max(obs.y, Math.min(entity.y, obs.y + obs.h));
+
+                const dx = entity.x - closestX;
+                const dy = entity.y - closestY;
+                const distSq = dx * dx + dy * dy;
+
+                if (distSq < entity.radius * entity.radius && distSq > 0) {
+                    const dist = Math.sqrt(distSq);
+                    const overlap = entity.radius - dist;
+
+                    // 推出實體
+                    entity.x += (dx / dist) * overlap;
+                    entity.y += (dy / dist) * overlap;
+                }
+            }
+        }
+
+        // 線段與矩形相交檢測 (避障用)
+        function isLineIntersectingRect(x1, y1, x2, y2, rect) {
+            const minX = rect.x;
+            const maxX = rect.x + rect.w;
+            const minY = rect.y;
+            const maxY = rect.y + rect.h;
+
+            if ((x1 < minX && x2 < minX) || (x1 > maxX && x2 > maxX) ||
+                (y1 < minY && y2 < minY) || (y1 > maxY && y2 > maxY)) {
+                return false;
+            }
+            return true;
+        }
+
+        // --- 7. 遊戲啟動 ---
+        window.onload = () => {
+            window.game = new GameEngine();
+        };
+    </script>
+</body>
+</html>

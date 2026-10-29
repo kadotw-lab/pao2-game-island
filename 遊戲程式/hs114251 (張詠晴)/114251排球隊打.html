@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>排球低手傳接球（墊球）大作戰 Volleyball Bump Master</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700;800&family=Noto+Sans+TC:wght@500;700;900&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+        body {
+            font-family: 'Noto Sans TC', 'Fredoka', sans-serif;
+            background-color: #0b1329;
+            color: #f8fafc;
+            overflow-x: hidden;
+        }
+        .court-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            aspect-ratio: 4 / 3;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), 0 0 30px rgba(56, 189, 248, 0.2);
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            border-radius: 1.25rem;
+        }
+        .btn-bounce {
+            transition: transform 0.1s ease, box-shadow 0.1s ease;
+        }
+        .btn-bounce:active {
+            transform: scale(0.95);
+        }
+        @keyframes pulseGlow {
+            0%, 100% { opacity: 0.3; transform: scale(1); }
+            50% { opacity: 0.8; transform: scale(1.08); }
+        }
+        .pulse-target {
+            animation: pulseGlow 1.8s infinite ease-in-out;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-between p-2 md:p-6 bg-slate-950">
+
+    <!-- Header -->
+    <header class="w-full max-w-3xl text-center my-2">
+        <h1 class="text-2xl md:text-4xl font-black text-amber-400 tracking-wide flex items-center justify-center gap-2 drop-shadow-md">
+            <i class="fa-solid fa-volleyball text-sky-400"></i> 排球低手傳接球大作戰
+        </h1>
+        <p class="text-slate-400 text-xs md:text-sm mt-1">
+            瞄準前臂甜蜜點！動態低手墊球送往「舉球員目標區」
+        </p>
+    </header>
+
+    <!-- Top Dashboard -->
+    <div class="w-full max-w-3xl bg-slate-900/90 border-2 border-sky-500/40 rounded-2xl p-2.5 md:p-4 grid grid-cols-4 gap-2 mb-2 shadow-xl backdrop-blur-md">
+        <!-- Score -->
+        <div class="bg-slate-950/80 p-1.5 md:p-2 rounded-xl border border-slate-800 text-center">
+            <div class="text-[10px] md:text-xs text-slate-400 font-bold uppercase tracking-wider">目前得分</div>
+            <div id="scoreText" class="text-xl md:text-3xl font-black text-sky-400 font-mono">0</div>
+        </div>
+        <!-- Combo -->
+        <div class="bg-slate-950/80 p-1.5 md:p-2 rounded-xl border border-slate-800 text-center">
+            <div class="text-[10px] md:text-xs text-slate-400 font-bold uppercase tracking-wider">連續到位</div>
+            <div id="comboText" class="text-xl md:text-3xl font-black text-amber-400 font-mono">0x</div>
+        </div>
+        <!-- Lives -->
+        <div class="bg-slate-950/80 p-1.5 md:p-2 rounded-xl border border-slate-800 text-center">
+            <div class="text-[10px] md:text-xs text-slate-400 font-bold uppercase tracking-wider">容許失誤</div>
+            <div id="livesContainer" class="text-base md:text-2xl text-rose-500 font-bold mt-0.5 flex justify-center gap-1">
+                <i class="fa-solid fa-heart"></i>
+                <i class="fa-solid fa-heart"></i>
+                <i class="fa-solid fa-heart"></i>
+            </div>
+        </div>
+        <!-- High Score -->
+        <div class="bg-slate-950/80 p-1.5 md:p-2 rounded-xl border border-slate-800 text-center">
+            <div class="text-[10px] md:text-xs text-slate-400 font-bold uppercase tracking-wider">最高紀錄</div>
+            <div id="highScoreText" class="text-xl md:text-3xl font-black text-emerald-400 font-mono">0</div>
+        </div>
+    </div>
+
+    <!-- Game Canvas Wrapper -->
+    <div class="court-container rounded-2xl border-4 border-slate-800 overflow-hidden relative">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+        <!-- Start Overlay -->
+        <div id="startOverlay" class="absolute inset-0 bg-slate-950/90 backdrop-blur-sm z-30 flex flex-col items-center justify-center p-6 text-center">
+            <div class="w-16 h-16 bg-sky-500/20 text-sky-400 rounded-2xl flex items-center justify-center text-3xl mb-3 border border-sky-500/40">
+                <i class="fa-solid fa-hands-holding text-4xl"></i>
+            </div>
+            <h2 class="text-2xl md:text-4xl font-extrabold text-white mb-2">低手傳接球訓練</h2>
+            <p class="text-slate-300 text-xs md:text-sm max-w-md mb-6 leading-relaxed">
+                滑鼠/觸控移動手臂，於落球瞬間<span class="text-amber-400 font-bold">點擊或按空白鍵</span>發力向上墊球。<br>
+                用<span class="text-emerald-400 font-bold">前臂甜蜜點 (60% 中央區)</span>精準將球送到上方<span class="text-sky-300 font-bold">舉球員目標區</span>！
+            </p>
+            <button id="startBtn" class="btn-bounce bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-black text-lg md:text-xl px-10 py-3.5 rounded-2xl shadow-lg border-b-4 border-blue-800 flex items-center gap-2">
+                <i class="fa-solid fa-play"></i> 開始訓練
+            </button>
+        </div>
+
+        <!-- Pause Overlay -->
+        <div id="pauseOverlay" class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm z-30 hidden flex flex-col items-center justify-center p-6">
+            <h2 class="text-3xl font-black text-amber-400 mb-4">訓練暫停中</h2>
+            <button id="resumeBtn" class="btn-bounce bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-lg px-8 py-3 rounded-xl border-b-4 border-emerald-700">
+                <i class="fa-solid fa-play mr-2"></i>繼續遊戲 (P)
+            </button>
+        </div>
+
+        <!-- Game Over Modal Overlay -->
+        <div id="gameOverModal" class="absolute inset-0 bg-slate-950/90 backdrop-blur-md z-40 hidden flex flex-col items-center justify-center p-6 text-center">
+            <div class="bg-slate-900 border-2 border-sky-500/50 rounded-3xl p-6 md:p-8 max-w-sm w-full shadow-2xl relative">
+                <div id="newRecordBadge" class="hidden absolute -top-3 right-4 bg-amber-500 text-slate-950 font-black text-xs px-3 py-1 rounded-full shadow-md animate-bounce">
+                    NEW RECORD!
+                </div>
+                <h3 class="text-3xl font-black text-rose-500 mb-1">GAME OVER</h3>
+                <p class="text-slate-400 text-xs mb-4">失誤過多，訓練結束！</p>
+
+                <div class="bg-slate-950 rounded-2xl p-4 space-y-2 mb-6 border border-slate-800">
+                    <div class="flex justify-between items-center text-sm">
+                        <span class="text-slate-400 font-medium">最終得分：</span>
+                        <span id="finalScore" class="text-2xl font-black text-sky-400 font-mono">0</span>
+                    </div>
+                    <div class="flex justify-between items-center text-sm border-t border-slate-800 pt-2">
+                        <span class="text-slate-400 font-medium">最高 Combo：</span>
+                        <span id="finalCombo" class="text-lg font-bold text-amber-400 font-mono">0x</span>
+                    </div>
+                    <div class="flex justify-between items-center text-sm border-t border-slate-800 pt-2">
+                        <span class="text-slate-400 font-medium">歷史最高分：</span>
+                        <span id="finalHighScore" class="text-lg font-bold text-emerald-400 font-mono">0</span>
+                    </div>
+                </div>
+
+                <button id="restartBtn" class="btn-bounce w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-lg py-3 rounded-2xl border-b-4 border-amber-700 flex items-center justify-center gap-2 shadow-lg">
+                    <i class="fa-solid fa-rotate-right"></i> 再試一次
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Controls & Hints -->
+    <div class="w-full max-w-3xl flex justify-between items-center text-slate-400 text-xs md:text-sm px-2 my-2">
+        <div class="flex items-center gap-2">
+            <span class="bg-slate-800 px-2 py-1 rounded border border-slate-700">滑鼠/觸控</span> 移動位置
+            <span class="bg-slate-800 px-2 py-1 rounded border border-slate-700">點擊 / Space</span> 向上墊球
+        </div>
+        <button id="pauseBtn" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-xl border border-slate-700 text-xs font-bold flex items-center gap-1.5">
+            <i class="fa-solid fa-pause"></i> 暫停 (P)
+        </button>
+    </div>
+
+    <!-- Footer -->
+    <footer class="text-[10px] text-slate-600 text-center my-1">
+        Volleyball Bump Training Game &copy; Web Audio & Canvas Powered
+    </footer>
+
+    <script>
+        /* ============================================================
+         * Web Audio API Synthesizer (Zero External Dependencies)
+         * ============================================================ */
+        class VolleyballSoundEngine {
+            constructor() {
+                this.ctx = null;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            // 1. 低手墊球撞擊音效 (Triangular/Sine Drop)
+            playBumpSound(isSweetSpot = false) {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = isSweetSpot ? 'sine' : 'triangle';
+                const startFreq = isSweetSpot ? 380 : 260;
+                const endFreq = isSweetSpot ? 140 : 90;
+
+                osc.frequency.setValueAtTime(startFreq, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(endFreq, this.ctx.currentTime + 0.15);
+
+                gain.gain.setValueAtTime(isSweetSpot ? 0.8 : 0.6, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.15);
+            }
+
+            // 2. 甜蜜點清亮聲 (Sweet Spot Chime)
+            playSweetSpotChime() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(880, this.ctx.currentTime); // A5
+                osc.frequency.exponentialRampToValueAtTime(1760, this.ctx.currentTime + 0.12); // A6
+
+                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.18);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.18);
+            }
+
+            // 3. 舉球員完美得分哨音 (Whistle Sound)
+            playTargetScoreSound() {
+                if (!this.ctx) return;
+                // Double pulse whistle
+                [0, 0.08].forEach(delay => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(2400, this.ctx.currentTime + delay);
+                    osc.frequency.linearRampToValueAtTime(2600, this.ctx.currentTime + delay + 0.06);
+
+                    gain.gain.setValueAtTime(0.35, this.ctx.currentTime + delay);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + delay + 0.07);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(this.ctx.currentTime + delay);
+                    osc.stop(this.ctx.currentTime + delay + 0.07);
+                });
+            }
+
+            // 4. 失誤/落地音效 (Miss Sawtooth)
+            playMissSound() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(180, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(50, this.ctx.currentTime + 0.25);
+
+                gain.gain.setValueAtTime(0.5, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.25);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.25);
+            }
+        }
+
+        /* ============================================================
+         * Particle & Floating Feedback System
+         * ============================================================ */
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.vx = (Math.random() - 0.5) * 8;
+                this.vy = (Math.random() - 0.5) * 8 - 2;
+                this.radius = Math.random() * 4 + 2;
+                this.color = color;
+                this.alpha = 1;
+                this.decay = Math.random() * 0.03 + 0.02;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vy += 0.15; // Gravity on particles
+                this.alpha -= this.decay;
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, this.alpha);
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        class FloatingText {
+            constructor(x, y, text, color, scale = 1) {
+                this.x = x;
+                this.y = y;
+                this.text = text;
+                this.color = color;
+                this.alpha = 1;
+                this.vy = -2.5;
+                this.scale = scale;
+            }
+
+            update() {
+                this.y += this.vy;
+                this.alpha -= 0.02;
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, this.alpha);
+                ctx.font = `900 ${Math.round(22 * this.scale)}px "Fredoka", "Noto Sans TC"`;
+                ctx.textAlign = 'center';
+                ctx.fillStyle = this.color;
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 4;
+                ctx.strokeText(this.text, this.x, this.y);
+                ctx.fillText(this.text, this.x, this.y);
+                ctx.restore();
+            }
+        }
+
+        /* ============================================================
+         * Volleyball Bump Game Engine
+         * ============================================================ */
+        class VolleyballGame {
+            constructor() {
+                this.canvas = document.getElementById('gameCanvas');
+                this.ctx = this.canvas.getContext('2d');
+
+                // DOM Elements
+                this.scoreText = document.getElementById('scoreText');
+                this.comboText = document.getElementById('comboText');
+                this.highScoreText = document.getElementById('highScoreText');
+                this.livesContainer = document.getElementById('livesContainer');
+                
+                this.startOverlay = document.getElementById('startOverlay');
+                this.pauseOverlay = document.getElementById('pauseOverlay');
+                this.gameOverModal = document.getElementById('gameOverModal');
+                
+                this.finalScore = document.getElementById('finalScore');
+                this.finalCombo = document.getElementById('finalCombo');
+                this.finalHighScore = document.getElementById('finalHighScore');
+                this.newRecordBadge = document.getElementById('newRecordBadge');
+
+                // Audio
+                this.sound = new VolleyballSoundEngine();
+
+                // Game State
+                this.state = 'ready'; // ready | playing | paused | gameover
+                this.score = 0;
+                this.combo = 0;
+                this.maxCombo = 0;
+                this.lives = 3;
+                this.highScore = parseInt(localStorage.getItem('volleyball_pass_highscore')) || 0;
+
+                // Game Objects
+                this.particles = [];
+                this.floatTexts = [];
+
+                // Setter Target Zone (Top Area)
+                this.target = {
+                    x: 400,
+                    y: 110,
+                    radius: 42,
+                    pulse: 0,
+                    glowTimer: 0
+                };
+
+                // Player Character (Bottom Area)
+                this.player = {
+                    x: 400,
+                    y: 520,
+                    armWidth: 110,
+                    armHeight: 18,
+                    isBumping: false,
+                    bumpTimer: 0,
+                    squatY: 0
+                };
+
+                // Volleyball Ball Physics
+                this.ball = {
+                    x: 400,
+                    y: -30,
+                    vx: 0,
+                    vy: 0,
+                    radius: 18,
+                    gravity: 0.28,
+                    active: false,
+                    trail: [],
+                    type: 'normal', // normal | floater | spike
+                    typeLabel: ''
+                };
+
+                // Difficulty parameters
+                this.spawnDelay = 0;
+                this.difficultyLevel = 1;
+
+                this.initEvents();
+                this.updateUI();
+                this.loop();
+            }
+
+            initEvents() {
+                // Mouse Move
+                this.canvas.addEventListener('mousemove', (e) => {
+                    const rect = this.canvas.getBoundingClientRect();
+                    const scaleX = this.canvas.width / rect.width;
+                    this.player.x = (e.clientX - rect.left) * scaleX;
+                    this.clampPlayerPosition();
+                });
+
+                // Mouse Click / Bump
+                this.canvas.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                    this.sound.init();
+                    this.triggerBump();
+                });
+
+                // Touch Move & Bump
+                this.canvas.addEventListener('touchmove', (e) => {
+                    e.preventDefault();
+                    if (e.touches.length > 0) {
+                        const rect = this.canvas.getBoundingClientRect();
+                        const scaleX = this.canvas.width / rect.width;
+                        this.player.x = (e.touches[0].clientX - rect.left) * scaleX;
+                        this.clampPlayerPosition();
+                    }
+                }, { passive: false });
+
+                this.canvas.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    this.sound.init();
+                    this.triggerBump();
+                }, { passive: false });
+
+                // Keyboard controls
+                window.addEventListener('keydown', (e) => {
+                    if (e.code === 'Space') {
+                        e.preventDefault();
+                        this.sound.init();
+                        this.triggerBump();
+                    } else if (e.code === 'KeyP') {
+                        this.togglePause();
+                    }
+                });
+
+                // UI Buttons
+                document.getElementById('startBtn').addEventListener('click', () => {
+                    this.sound.init();
+                    this.startGame();
+                });
+
+                document.getElementById('pauseBtn').addEventListener('click', () => this.togglePause());
+                document.getElementById('resumeBtn').addEventListener('click', () => this.togglePause());
+                document.getElementById('restartBtn').addEventListener('click', () => {
+                    this.sound.init();
+                    this.gameOverModal.classList.add('hidden');
+                    this.startGame();
+                });
+            }
+
+            clampPlayerPosition() {
+                const halfW = this.player.armWidth / 2;
+                this.player.x = Math.max(halfW + 20, Math.min(800 - halfW - 20, this.player.x));
+            }
+
+            triggerBump() {
+                if (this.state !== 'playing') return;
+                this.player.isBumping = true;
+                this.player.bumpTimer = 10; // Frames of upward bump thrust
+            }
+
+            startGame() {
+                this.score = 0;
+                this.combo = 0;
+                this.maxCombo = 0;
+                this.lives = 3;
+                this.difficultyLevel = 1;
+                this.state = 'playing';
+
+                this.startOverlay.classList.add('hidden');
+                this.pauseOverlay.classList.add('hidden');
+                this.gameOverModal.classList.add('hidden');
+
+                this.particles = [];
+                this.floatTexts = [];
+
+                this.spawnBall();
+                this.updateUI();
+            }
+
+            togglePause() {
+                if (this.state === 'playing') {
+                    this.state = 'paused';
+                    this.pauseOverlay.classList.remove('hidden');
+                } else if (this.state === 'paused') {
+                    this.state = 'playing';
+                    this.pauseOverlay.classList.add('hidden');
+                }
+            }
+
+            updateUI() {
+                this.scoreText.textContent = this.score;
+                this.comboText.textContent = `${this.combo}x`;
+                this.highScoreText.textContent = this.highScore;
+
+                // Render Lives Hearts
+                let heartsHtml = '';
+                for (let i = 0; i < 3; i++) {
+                    if (i < this.lives) {
+                        heartsHtml += '<i class="fa-solid fa-heart text-rose-500"></i>';
+                    } else {
+                        heartsHtml += '<i class="fa-regular fa-heart text-slate-700"></i>';
+                    }
+                }
+                this.livesContainer.innerHTML = heartsHtml;
+            }
+
+            spawnBall() {
+                // Difficulty ramps up with score
+                this.difficultyLevel = 1 + Math.floor(this.score / 300) * 0.25;
+
+                // Random serve position from top
+                const spawnX = Math.random() * 500 + 150;
+                this.ball.x = spawnX;
+                this.ball.y = 20;
+
+                // Ball Type Logic
+                const rand = Math.random();
+                if (rand < 0.25 && this.score > 200) {
+                    this.ball.type = 'floater'; // Floating unpredictable horizontal curve
+                    this.ball.typeLabel = '飄球 FLOATER';
+                } else if (rand < 0.45 && this.score > 400) {
+                    this.ball.type = 'spike'; // Fast downward heavy serve
+                    this.ball.typeLabel = '強扣 SPIKE';
+                } else {
+                    this.ball.type = 'normal';
+                    this.ball.typeLabel = '標準發球 SERVE';
+                }
+
+                // Initial trajectory towards middle/bottom
+                const targetX = Math.random() * 400 + 200;
+                const angle = Math.atan2(this.player.y - this.ball.y, targetX - spawnX);
+                
+                let speed = (Math.random() * 2 + 5) * Math.min(1.5, this.difficultyLevel);
+                if (this.ball.type === 'spike') speed *= 1.35;
+
+                this.ball.vx = Math.cos(angle) * speed;
+                this.ball.vy = Math.sin(angle) * speed;
+                this.ball.trail = [];
+                this.ball.active = true;
+
+                this.floatTexts.push(new FloatingText(spawnX, 60, this.ball.typeLabel, '#f59e0b', 0.8));
+            }
+
+            update() {
+                if (this.state !== 'playing') return;
+
+                // Player bump animation physics
+                if (this.player.bumpTimer > 0) {
+                    this.player.bumpTimer--;
+                    this.player.squatY = -Math.sin((10 - this.player.bumpTimer) / 10 * Math.PI) * 14;
+                } else {
+                    this.player.isBumping = false;
+                    this.player.squatY = 0;
+                }
+
+                // Target ring pulse animation
+                this.target.pulse += 0.04;
+                if (this.target.glowTimer > 0) this.target.glowTimer--;
+
+                // Ball Movement
+                if (this.ball.active) {
+                    // Floater air resistance wobble
+                    if (this.ball.type === 'floater') {
+                        this.ball.vx += Math.sin(Date.now() * 0.01) * 0.35;
+                    }
+
+                    this.ball.vy += this.ball.gravity;
+                    this.ball.x += this.ball.vx;
+                    this.ball.y += this.ball.vy;
+
+                    // Ball trail
+                    this.ball.trail.push({ x: this.ball.x, y: this.ball.y });
+                    if (this.ball.trail.length > 8) this.ball.trail.shift();
+
+                    // 1. Check Collision with Player Arm Platform
+                    this.checkPlayerCollision();
+
+                    // 2. Check Target Setter Zone Score
+                    this.checkTargetCollision();
+
+                    // 3. Check Out of Bounds / Floor Miss
+                    if (this.ball.y > 620 || this.ball.x < -40 || this.ball.x > 840) {
+                        this.handleMiss("OUT / 漏球!");
+                    }
+                }
+
+                // Particle System Update
+                for (let i = this.particles.length - 1; i >= 0; i--) {
+                    this.particles[i].update();
+                    if (this.particles[i].alpha <= 0) this.particles.splice(i, 1);
+                }
+
+                // Floating Text Update
+                for (let i = this.floatTexts.length - 1; i >= 0; i--) {
+                    this.floatTexts[i].update();
+                    if (this.floatTexts[i].alpha <= 0) this.floatTexts.splice(i, 1);
+                }
+            }
+
+            checkPlayerCollision() {
+                const p = this.player;
+                const b = this.ball;
+
+                const armTop = p.y + p.squatY;
+                const armLeft = p.x - p.armWidth / 2;
+                const armRight = p.x + p.armWidth / 2;
+
+                // Check vertical intersection with forearms
+                if (b.y + b.radius >= armTop && b.y - b.radius <= armTop + p.armHeight) {
+                    if (b.x >= armLeft && b.x <= armRight && b.vy > 0) {
+                        
+                        // Relative contact point on forearm: -1 (left tip) to +1 (right tip)
+                        const relativeHit = (b.x - p.x) / (p.armWidth / 2);
+                        const absHit = Math.abs(relativeHit);
+
+                        // Timing Quality
+                        const isActivePush = p.isBumping;
+
+                        if (absHit <= 0.6) {
+                            // --- SWEET SPOT HIT (前臂甜蜜點) ---
+                            this.sound.playBumpSound(true);
+                            this.sound.playSweetSpotChime();
+
+                            // Calculate upward arc aimed towards Setter Target
+                            const targetAngle = Math.atan2(this.target.y - b.y, this.target.x - b.x);
+                            const power = isActivePush ? 13.5 : 11.0;
+
+                            b.vx = Math.cos(targetAngle) * power * 0.85 + (relativeHit * 1.5);
+                            b.vy = Math.sin(targetAngle) * power;
+
+                            // Feedback Text & Particles
+                            const qualityText = isActivePush ? "PERFECT!! PERFECT PASS" : "SWEET SPOT!";
+                            const txtColor = isActivePush ? "#38bdf8" : "#34d399";
+                            this.floatTexts.push(new FloatingText(b.x, b.y - 20, qualityText, txtColor, isActivePush ? 1.2 : 1));
+
+                            this.createParticles(b.x, b.y, "#38bdf8", 15);
+
+                        } else {
+                            // --- SHANK / OFF-CENTER HIT (偏折失控) ---
+                            this.sound.playBumpSound(false);
+
+                            // Deviation angle
+                            const shankAngle = relativeHit * 1.8;
+                            b.vx = Math.sin(shankAngle) * 9;
+                            b.vy = -Math.abs(Math.cos(shankAngle)) * 8 - 2;
+
+                            this.floatTexts.push(new FloatingText(b.x, b.y - 20, "SHANK! 手臂偏斜", "#f43f5e", 0.9));
+                            this.createParticles(b.x, b.y, "#f43f5e", 8);
+                        }
+
+                        // Reposition above arm
+                        b.y = armTop - b.radius - 2;
+                    }
+                }
+            }
+
+            checkTargetCollision() {
+                const b = this.ball;
+                const t = this.target;
+
+                const dx = b.x - t.x;
+                const dy = b.y - t.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (dist <= t.radius + b.radius && b.vy < 0) {
+                    // --- SUCCESSFUL SETTER PASS (入球得分) ---
+                    this.sound.playTargetScoreSound();
+
+                    this.combo++;
+                    if (this.combo > this.maxCombo) this.maxCombo = this.combo;
+
+                    const comboMult = Math.min(4, 1 + (this.combo - 1) * 0.25);
+                    const earnedScore = Math.round(100 * comboMult);
+                    this.score += earnedScore;
+
+                    t.glowTimer = 20; // Flash target glow
+
+                    this.floatTexts.push(new FloatingText(t.x, t.y, `+${earnedScore} 到位!`, "#fbbf24", 1.3));
+                    this.createParticles(t.x, t.y, "#fbbf24", 25);
+
+                    this.updateUI();
+
+                    // Reset for next serve
+                    this.ball.active = false;
+                    setTimeout(() => {
+                        if (this.state === 'playing') this.spawnBall();
+                    }, 600);
+                }
+            }
+
+            handleMiss(reason) {
+                this.sound.playMissSound();
+                this.lives--;
+                this.combo = 0; // Reset Combo
+
+                this.floatTexts.push(new FloatingText(this.ball.x, Math.min(540, this.ball.y), reason, "#ef4444", 1.1));
+                this.updateUI();
+
+                this.ball.active = false;
+
+                if (this.lives <= 0) {
+                    this.gameOver();
+                } else {
+                    setTimeout(() => {
+                        if (this.state === 'playing') this.spawnBall();
+                    }, 800);
+                }
+            }
+
+            createParticles(x, y, color, count) {
+                for (let i = 0; i < count; i++) {
+                    this.particles.push(new Particle(x, y, color));
+                }
+            }
+
+            gameOver() {
+                this.state = 'gameover';
+
+                let isNewRecord = false;
+                if (this.score > this.highScore) {
+                    this.highScore = this.score;
+                    localStorage.setItem('volleyball_pass_highscore', this.highScore);
+                    isNewRecord = true;
+                }
+
+                this.finalScore.textContent = this.score;
+                this.finalCombo.textContent = `${this.maxCombo}x`;
+                this.finalHighScore.textContent = this.highScore;
+
+                if (isNewRecord && this.score > 0) {
+                    this.newRecordBadge.classList.remove('hidden');
+                } else {
+                    this.newRecordBadge.classList.add('hidden');
+                }
+
+                this.gameOverModal.classList.remove('hidden');
+            }
+
+            draw() {
+                // Clear Canvas
+                this.ctx.clearRect(0, 0, 800, 600);
+
+                // 1. Draw Volleyball Court Background
+                this.drawCourt();
+
+                // 2. Draw Setter Target Zone (Top)
+                this.drawTargetZone();
+
+                // 3. Draw Player Character & Forearm Bump Platform (Bottom)
+                this.drawPlayer();
+
+                // 4. Draw Ball & Trail
+                if (this.ball.active) {
+                    this.drawBall();
+                }
+
+                // 5. Draw Particle Effects
+                this.particles.forEach(p => p.draw(this.ctx));
+
+                // 6. Draw Floating Text Animations
+                this.floatTexts.forEach(ft => ft.draw(this.ctx));
+            }
+
+            drawCourt() {
+                const ctx = this.ctx;
+
+                // Synthetic Blue Volleyball Court Flooring
+                const courtGrad = ctx.createLinearGradient(0, 0, 0, 600);
+                courtGrad.addColorStop(0, '#0284c7');
+                courtGrad.addColorStop(1, '#0369a1');
+                ctx.fillStyle = courtGrad;
+                ctx.fillRect(0, 0, 800, 600);
+
+                // Out of Bounds Border Lines (White)
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+                ctx.lineWidth = 6;
+                ctx.strokeRect(40, 30, 720, 540);
+
+                // Attack Line / Court Markings
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+                ctx.beginPath();
+                ctx.moveTo(40, 220);
+                ctx.lineTo(760, 220);
+                ctx.stroke();
+
+                // Floor grid pattern accent
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+                for (let x = 40; x < 800; x += 80) {
+                    ctx.beginPath();
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x, 600);
+                    ctx.stroke();
+                }
+            }
+
+            drawTargetZone() {
+                const ctx = this.ctx;
+                const t = this.target;
+
+                ctx.save();
+                ctx.translate(t.x, t.y);
+
+                // Pulse aura
+                const pulseRadius = t.radius + Math.sin(t.pulse) * 4;
+                ctx.beginPath();
+                ctx.arc(0, 0, pulseRadius + 8, 0, Math.PI * 2);
+                ctx.fillStyle = t.glowTimer > 0 ? 'rgba(251, 191, 36, 0.4)' : 'rgba(56, 189, 248, 0.25)';
+                ctx.fill();
+
+                // Outer Ring
+                ctx.beginPath();
+                ctx.arc(0, 0, pulseRadius, 0, Math.PI * 2);
+                ctx.lineWidth = 4;
+                ctx.strokeStyle = t.glowTimer > 0 ? '#f59e0b' : '#38bdf8';
+                ctx.setLineDash([8, 6]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // Inner Circle Target
+                ctx.beginPath();
+                ctx.arc(0, 0, 12, 0, Math.PI * 2);
+                ctx.fillStyle = t.glowTimer > 0 ? '#f59e0b' : '#38bdf8';
+                ctx.fill();
+
+                // Setter Icon & Text Label
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '900 13px "Noto Sans TC"';
+                ctx.textAlign = 'center';
+                ctx.fillText('舉球員目標區 SETTER', 0, -t.radius - 10);
+
+                ctx.restore();
+            }
+
+            drawPlayer() {
+                const ctx = this.ctx;
+                const p = this.player;
+
+                const armY = p.y + p.squatY;
+                const armW = p.armWidth;
+                const armH = p.armHeight;
+
+                ctx.save();
+                ctx.translate(p.x, armY);
+
+                // Player Body Silhouette (Lower Body Squat)
+                ctx.fillStyle = '#1e293b';
+                ctx.beginPath();
+                ctx.ellipse(0, 35, 28, 16, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Head
+                ctx.beginPath();
+                ctx.arc(0, 18, 12, 0, Math.PI * 2);
+                ctx.fillStyle = '#fde047'; // Hair/Head
+                ctx.fill();
+
+                // --- Forearm Platform (接球雙臂平面) ---
+                // Outer Arm Border
+                ctx.fillStyle = p.isBumping ? '#38bdf8' : '#334155';
+                ctx.beginPath();
+                ctx.roundRect(-armW / 2, -armH / 2, armW, armH, 8);
+                ctx.fill();
+
+                // Sweet Spot Zone Highlight (Middle 60%)
+                const sweetW = armW * 0.6;
+                ctx.fillStyle = '#10b981'; // Green Sweet Spot
+                ctx.beginPath();
+                ctx.roundRect(-sweetW / 2, -armH / 2 + 2, sweetW, armH - 4, 4);
+                ctx.fill();
+
+                // Hands Joined Together (Center)
+                ctx.fillStyle = '#f87171';
+                ctx.beginPath();
+                ctx.arc(0, 0, 8, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Sweet Spot Label
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '700 9px "Noto Sans TC"';
+                ctx.textAlign = 'center';
+                ctx.fillText('甜蜜點 (SWEET SPOT)', 0, 3);
+
+                ctx.restore();
+            }
+
+            drawBall() {
+                const ctx = this.ctx;
+                const b = this.ball;
+
+                // Draw Ball Motion Trail
+                for (let i = 0; i < b.trail.length; i++) {
+                    const pt = b.trail[i];
+                    const alpha = (i + 1) / b.trail.length * 0.4;
+                    ctx.beginPath();
+                    ctx.arc(pt.x, pt.y, b.radius * (0.5 + alpha * 0.5), 0, Math.PI * 2);
+                    ctx.fillStyle = b.type === 'spike' ? `rgba(239, 68, 68, ${alpha})` : `rgba(255, 255, 255, ${alpha})`;
+                    ctx.fill();
+                }
+
+                // Draw Volleyball Body (Classic Tricolor Lines: Blue/Yellow/White)
+                ctx.save();
+                ctx.translate(b.x, b.y);
+
+                // Shadow underneath
+                ctx.beginPath();
+                ctx.ellipse(0, 24, b.radius * 0.8, 6, 0, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+                ctx.fill();
+
+                // Outer Circle
+                ctx.beginPath();
+                ctx.arc(0, 0, b.radius, 0, Math.PI * 2);
+                ctx.fillStyle = '#ffffff';
+                ctx.fill();
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = '#1e293b';
+                ctx.stroke();
+
+                // Volleyball Panel Color Swashes
+                ctx.beginPath();
+                ctx.arc(0, 0, b.radius, -0.8, 0.8);
+                ctx.fillStyle = '#0284c7'; // Blue Panel
+                ctx.fill();
+
+                ctx.beginPath();
+                ctx.arc(0, 0, b.radius, 1.2, 2.8);
+                ctx.fillStyle = '#f59e0b'; // Yellow Panel
+                ctx.fill();
+
+                ctx.restore();
+            }
+
+            // Game Loop
+            loop() {
+                this.update();
+                this.draw();
+                requestAnimationFrame(() => this.loop());
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            window.gameApp = new VolleyballGame();
+        });
+    </script>
+</body>
+</html>

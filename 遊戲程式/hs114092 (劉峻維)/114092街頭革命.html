@@ -1,0 +1,1131 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>街頭槍戰：革命火種</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+
+        body {
+            background-color: #08090c;
+            color: #f0f4f8;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #game-wrapper {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            max-width: 1000px;
+            max-height: 800px;
+            background: #0f1219;
+            box-shadow: 0 0 50px rgba(0, 255, 204, 0.15);
+            border: 1px solid #1e2638;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            cursor: crosshair;
+        }
+
+        /* 霓虹特效 */
+        .neon-text-red {
+            text-shadow: 0 0 10px rgba(255, 51, 102, 0.8), 0 0 20px rgba(255, 51, 102, 0.4);
+        }
+
+        .neon-text-cyan {
+            text-shadow: 0 0 10px rgba(0, 255, 204, 0.8), 0 0 20px rgba(0, 255, 204, 0.4);
+        }
+
+        .hud-panel {
+            backdrop-filter: blur(8px);
+            background: rgba(15, 18, 25, 0.75);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* 虛擬搖桿 / 觸控控制項 */
+        .touch-zone {
+            display: none;
+            position: absolute;
+            bottom: 20px;
+            z-index: 30;
+            pointer-events: auto;
+        }
+
+        @media (max-width: 1024px) {
+            .touch-zone {
+                display: block;
+            }
+        }
+
+        #joystick-container {
+            left: 20px;
+            width: 120px;
+            height: 120px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 2px solid rgba(0, 255, 204, 0.3);
+            border-radius: 50%;
+            position: absolute;
+            bottom: 20px;
+        }
+
+        #joystick-stick {
+            width: 50px;
+            height: 50px;
+            background: radial-gradient(circle, #00ffcc, #009977);
+            border-radius: 50%;
+            position: absolute;
+            top: 35px;
+            left: 35px;
+            box-shadow: 0 0 15px rgba(0, 255, 204, 0.8);
+        }
+
+        #fire-btn-mobile {
+            right: 20px;
+            width: 90px;
+            height: 90px;
+            background: radial-gradient(circle, #ff0055, #990033);
+            border: 2px solid #ff3377;
+            border-radius: 50%;
+            position: absolute;
+            bottom: 25px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: 900;
+            color: #fff;
+            box-shadow: 0 0 20px rgba(255, 0, 85, 0.6);
+        }
+
+        #fever-btn-mobile {
+            right: 125px;
+            width: 70px;
+            height: 70px;
+            background: radial-gradient(circle, #ffcc00, #cc9900);
+            border: 2px solid #ffee66;
+            border-radius: 50%;
+            position: absolute;
+            bottom: 35px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: 900;
+            font-size: 13px;
+            color: #000;
+            box-shadow: 0 0 15px rgba(255, 204, 0, 0.6);
+        }
+
+        /* 彈出選單動畫 */
+        .overlay-screen {
+            background: rgba(8, 9, 12, 0.92);
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease-in-out;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-wrapper">
+    <!-- 頂部 HUD 資訊區塊 -->
+    <div class="absolute top-0 left-0 right-0 p-4 z-20 flex justify-between items-center hud-panel border-b border-gray-800 pointer-events-none">
+        <!-- 血量與武器 -->
+        <div class="flex items-center space-x-4">
+            <div>
+                <div class="text-xs text-gray-400 font-semibold mb-1 uppercase tracking-wider">革命戰士血量</div>
+                <div class="w-36 md:w-48 h-4 bg-gray-900 rounded-full border border-gray-700 overflow-hidden relative">
+                    <div id="hp-bar" class="h-full bg-gradient-to-r from-red-600 via-orange-500 to-green-400 transition-all duration-200" style="width: 100%;"></div>
+                </div>
+            </div>
+            <div class="pl-2 border-l border-gray-700">
+                <div class="text-xs text-gray-400 font-semibold">當前武裝</div>
+                <div id="weapon-name" class="text-sm font-bold text-cyan-400 neon-text-cyan">突擊步槍 (Rifle)</div>
+            </div>
+        </div>
+
+        <!-- 波次與分數 -->
+        <div class="text-center">
+            <div id="wave-badge" class="text-xs font-bold bg-red-900/60 text-red-400 px-3 py-1 rounded-full border border-red-500/40 uppercase tracking-widest inline-block mb-1">
+                WAVE 1
+            </div>
+            <div class="text-2xl font-black tracking-wider text-white font-mono" id="score-val">0</div>
+        </div>
+
+        <!-- 狂熱覺醒能量條 (Fever Gauge) -->
+        <div class="text-right">
+            <div class="text-xs text-amber-400 font-semibold mb-1 uppercase tracking-wider flex justify-end items-center gap-1">
+                <span>🔥 革命狂熱 (FEVER)</span>
+            </div>
+            <div class="w-32 md:w-44 h-4 bg-gray-900 rounded-full border border-gray-700 overflow-hidden relative">
+                <div id="fever-bar" class="h-full bg-gradient-to-r from-amber-500 via-yellow-400 to-cyan-300 transition-all duration-100" style="width: 0%;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 遊戲 Canvas -->
+    <div class="relative flex-1 w-full h-full">
+        <canvas id="gameCanvas"></canvas>
+
+        <!-- 畫面上方公告橫幅 -->
+        <div id="banner-text" class="absolute top-20 left-1/2 transform -translate-x-1/2 px-6 py-2 rounded-full font-black text-lg pointer-events-none opacity-0 transition-all duration-300 z-10 text-center">
+            WAVE START
+        </div>
+
+        <!-- 行動裝置虛擬控制器 Zone -->
+        <div class="touch-zone">
+            <div id="joystick-container">
+                <div id="joystick-stick"></div>
+            </div>
+            <div id="fever-btn-mobile">FEVER</div>
+            <div id="fire-btn-mobile">開火</div>
+        </div>
+    </div>
+
+    <!-- 開始介面 -->
+    <div id="start-screen" class="overlay-screen absolute inset-0 z-50 flex flex-col justify-center items-center p-6 text-center">
+        <h1 class="text-4xl md:text-6xl font-black mb-3 bg-clip-text text-transparent bg-gradient-to-r from-red-500 via-amber-400 to-cyan-400 neon-text-red">
+            街頭槍戰：革命火種
+        </h1>
+        <p class="text-gray-300 text-sm md:text-base max-w-lg mb-6 leading-relaxed">
+            權威鎮壓部隊已攻佔街頭！拿起武器發起槍戰反抗，擊退巡邏衛兵、防暴盾牌隊與武裝無人機，積攢革命熱血開啟狂熱無敵暴擊！
+        </p>
+
+        <div class="bg-gray-900/80 border border-gray-800 rounded-xl p-4 text-left max-w-md w-full mb-6 space-y-2 text-xs md:text-sm text-gray-300">
+            <div class="flex items-center gap-2"><span class="text-cyan-400 font-bold">⌨️ 移動：</span> WASD / 方向鍵</div>
+            <div class="flex items-center gap-2"><span class="text-cyan-400 font-bold">🖱️ 瞄準射擊：</span> 滑鼠移動瞄準 + 左鍵長按射擊</div>
+            <div class="flex items-center gap-2"><span class="text-amber-400 font-bold">🔥 狂熱爆發：</span> 能量滿時按 [ Space 空白鍵 ] 開啟無限彈藥與無敵模式</div>
+            <div class="flex items-center gap-2"><span class="text-red-400 font-bold">📱 手機玩家：</span> 使用左側虛擬搖桿與右側開火/Fever鍵</div>
+        </div>
+
+        <button id="start-btn" class="px-10 py-4 bg-gradient-to-r from-red-600 to-amber-500 hover:from-red-500 hover:to-amber-400 text-white font-black text-xl rounded-full shadow-lg shadow-red-600/40 transform hover:scale-105 active:scale-95 transition-all">
+            開火反抗！ (START)
+        </button>
+    </div>
+
+    <!-- 遊戲結束介面 -->
+    <div id="gameover-screen" class="overlay-screen absolute inset-0 z-50 flex flex-col justify-center items-center p-6 text-center hidden">
+        <h2 id="over-title" class="text-4xl md:text-5xl font-black text-red-500 neon-text-red mb-2">革命烈士犧牲！</h2>
+        <p class="text-gray-400 text-sm mb-6">你在強大的壓迫火網下奮戰至最後一刻...</p>
+
+        <div class="bg-gray-900/90 border border-gray-800 rounded-xl p-6 max-w-xs w-full mb-6 space-y-3">
+            <div>
+                <div class="text-xs text-gray-500 uppercase tracking-wider">本局革命戰果</div>
+                <div id="final-score" class="text-4xl font-black text-amber-400 font-mono">0</div>
+            </div>
+            <div class="pt-2 border-t border-gray-800">
+                <div class="text-xs text-gray-500">歷史最高戰力</div>
+                <div id="high-score" class="text-xl font-bold text-cyan-400 font-mono">0</div>
+            </div>
+        </div>
+
+        <button id="restart-btn" class="px-8 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-black text-lg rounded-full shadow-lg shadow-cyan-500/30 transform hover:scale-105 active:scale-95 transition-all">
+            再次挺身反抗 (RETRY)
+        </button>
+    </div>
+</div>
+
+<script>
+    /* ==========================================================================
+       Web Audio API 原生槍戰音效合成器
+       ========================================================================== */
+    class SoundEngine {
+        constructor() {
+            this.ctx = null;
+        }
+
+        init() {
+            if (!this.ctx) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                this.ctx = new AudioContext();
+            }
+            if (this.ctx.state === 'suspended') {
+                this.ctx.resume();
+            }
+        }
+
+        // 槍聲 (噪聲 + 降頻)
+        playPistol() {
+            if (!this.ctx) return;
+            const now = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(400, now);
+            osc.frequency.exponentialRampToValueAtTime(40, now + 0.1);
+
+            gain.gain.setValueAtTime(0.15, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+
+            osc.start(now);
+            osc.stop(now + 0.1);
+        }
+
+        // 散彈槍 / 重砲
+        playShotgun() {
+            if (!this.ctx) return;
+            const now = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(200, now);
+            osc.frequency.exponentialRampToValueAtTime(20, now + 0.2);
+
+            gain.gain.setValueAtTime(0.25, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+
+            osc.start(now);
+            osc.stop(now + 0.2);
+        }
+
+        // 敵軍爆破聲
+        playExplosion() {
+            if (!this.ctx) return;
+            const now = this.ctx.currentTime;
+            const bufferSize = this.ctx.sampleRate * 0.3;
+            const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+            const output = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                output[i] = Math.random() * 2 - 1;
+            }
+
+            const whiteNoise = this.ctx.createBufferSource();
+            whiteNoise.buffer = buffer;
+
+            const filter = this.ctx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(800, now);
+            filter.frequency.linearRampToValueAtTime(50, now + 0.3);
+
+            const gain = this.ctx.createGain();
+            gain.gain.setValueAtTime(0.3, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+
+            whiteNoise.connect(filter);
+            filter.connect(gain);
+            gain.connect(this.ctx.destination);
+
+            whiteNoise.start(now);
+        }
+
+        // FEVER 狂熱啟動音效
+        playFever() {
+            if (!this.ctx) return;
+            const now = this.ctx.currentTime;
+            const freqs = [300, 450, 600, 900];
+            freqs.forEach((f, i) => {
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(f, now + i * 0.08);
+                gain.gain.setValueAtTime(0.15, now + i * 0.08);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.08 + 0.2);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now + i * 0.08);
+                osc.stop(now + i * 0.08 + 0.2);
+            });
+        }
+    }
+
+    const sound = new SoundEngine();
+
+    /* ==========================================================================
+       遊戲核心變數與 entities
+       ========================================================================== */
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // UI Elements
+    const hpBar = document.getElementById('hp-bar');
+    const feverBar = document.getElementById('fever-bar');
+    const scoreVal = document.getElementById('score-val');
+    const weaponNameEl = document.getElementById('weapon-name');
+    const waveBadge = document.getElementById('wave-badge');
+    const bannerText = document.getElementById('banner-text');
+
+    const startScreen = document.getElementById('start-screen');
+    const gameoverScreen = document.getElementById('gameover-screen');
+    const startBtn = document.getElementById('start-btn');
+    const restartBtn = document.getElementById('restart-btn');
+
+    // 遊戲狀態: 'START', 'PLAYING', 'GAMEOVER'
+    let gameState = 'START';
+    let score = 0;
+    let highScore = localStorage.getItem('spark_gunfight_highscore') || 0;
+    document.getElementById('high-score').textContent = highScore;
+
+    let currentWave = 1;
+    let waveEnemiesToSpawn = 0;
+    let waveSpawnTimer = 0;
+
+    // 震動機制
+    let screenShake = 0;
+
+    // 玩家實體
+    const player = {
+        x: 0,
+        y: 0,
+        radius: 18,
+        speed: 4.5,
+        hp: 100,
+        maxHp: 100,
+        angle: 0,
+        weapon: 'rifle', // rifle, shotgun, laser
+        shootCooldown: 0,
+        isFever: false,
+        feverGauge: 0, // 0 - 100
+        feverTimeLeft: 0
+    };
+
+    // 鍵盤與滑鼠狀態
+    const keys = {};
+    const mouse = { x: 0, y: 0, isDown: false };
+
+    // 實體容器
+    let bullets = [];
+    let enemyBullets = [];
+    let enemies = [];
+    let particles = [];
+    let powerups = [];
+    let floatingTexts = [];
+
+    // 調整 Canvas 尺寸
+    function resizeCanvas() {
+        const container = canvas.parentElement;
+        canvas.width = container.clientWidth;
+        canvas.height = container.clientHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    /* ==========================================================================
+       輸入控制系統 (Keyboard, Mouse, Touch Joystick)
+       ========================================================================== */
+    window.addEventListener('keydown', (e) => {
+        keys[e.code] = true;
+        if (e.code === 'Space' && gameState === 'PLAYING') {
+            triggerFever();
+        }
+    });
+
+    window.addEventListener('keyup', (e) => {
+        keys[e.code] = false;
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        mouse.x = e.clientX - rect.left;
+        mouse.y = e.clientY - rect.top;
+    });
+
+    canvas.addEventListener('mousedown', (e) => {
+        if (e.button === 0) mouse.isDown = true;
+        sound.init();
+    });
+
+    window.addEventListener('mouseup', () => {
+        mouse.isDown = false;
+    });
+
+    // 手機觸控搖桿
+    const joystickContainer = document.getElementById('joystick-container');
+    const joystickStick = document.getElementById('joystick-stick');
+    const fireBtnMobile = document.getElementById('fire-btn-mobile');
+    const feverBtnMobile = document.getElementById('fever-btn-mobile');
+
+    let joystickActive = false;
+    let joystickVector = { x: 0, y: 0 };
+
+    joystickContainer.addEventListener('touchstart', (e) => {
+        joystickActive = true;
+        sound.init();
+        updateJoystick(e.touches[0]);
+    }, { passive: false });
+
+    window.addEventListener('touchmove', (e) => {
+        if (joystickActive) {
+            updateJoystick(e.touches[0]);
+        }
+    }, { passive: false });
+
+    window.addEventListener('touchend', () => {
+        joystickActive = false;
+        joystickVector = { x: 0, y: 0 };
+        joystickStick.style.top = '35px';
+        joystickStick.style.left = '35px';
+    });
+
+    function updateJoystick(touch) {
+        const rect = joystickContainer.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        let dx = touch.clientX - centerX;
+        let dy = touch.clientY - centerY;
+        const dist = Math.hypot(dx, dy);
+        const maxDist = 40;
+
+        if (dist > maxDist) {
+            dx = (dx / dist) * maxDist;
+            dy = (dy / dist) * maxDist;
+        }
+
+        joystickStick.style.left = `${35 + dx}px`;
+        joystickStick.style.top = `${35 + dy}px`;
+
+        joystickVector.x = dx / maxDist;
+        joystickVector.y = dy / maxDist;
+    }
+
+    fireBtnMobile.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        mouse.isDown = true;
+        sound.init();
+    });
+    fireBtnMobile.addEventListener('touchend', () => mouse.isDown = false);
+
+    feverBtnMobile.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        triggerFever();
+    });
+
+    startBtn.addEventListener('click', startGame);
+    restartBtn.addEventListener('click', startGame);
+
+    /* ==========================================================================
+       武器與開火邏輯
+       ========================================================================== */
+    function shootWeapon() {
+        if (player.shootCooldown > 0) return;
+
+        const isFever = player.isFever;
+
+        if (player.weapon === 'rifle') {
+            player.shootCooldown = isFever ? 4 : 8;
+            const spread = (Math.random() - 0.5) * (isFever ? 0.2 : 0.08);
+            const angle = player.angle + spread;
+
+            bullets.push({
+                x: player.x + Math.cos(player.angle) * player.radius,
+                y: player.y + Math.sin(player.angle) * player.radius,
+                vx: Math.cos(angle) * 14,
+                vy: Math.sin(angle) * 14,
+                radius: 4,
+                color: isFever ? '#00ffcc' : '#ffcc00',
+                damage: isFever ? 40 : 25,
+                life: 60
+            });
+            sound.playPistol();
+
+        } else if (player.weapon === 'shotgun') {
+            player.shootCooldown = isFever ? 10 : 20;
+            const pelletCount = isFever ? 10 : 6;
+
+            for (let i = 0; i < pelletCount; i++) {
+                const spread = (Math.random() - 0.5) * 0.45;
+                const angle = player.angle + spread;
+                bullets.push({
+                    x: player.x + Math.cos(player.angle) * player.radius,
+                    y: player.y + Math.sin(player.angle) * player.radius,
+                    vx: Math.cos(angle) * (11 + Math.random() * 3),
+                    vy: Math.sin(angle) * (11 + Math.random() * 3),
+                    radius: 3,
+                    color: '#ff5500',
+                    damage: 20,
+                    life: 40
+                });
+            }
+            sound.playShotgun();
+
+        } else if (player.weapon === 'laser') {
+            player.shootCooldown = isFever ? 3 : 5;
+            bullets.push({
+                x: player.x + Math.cos(player.angle) * player.radius,
+                y: player.y + Math.sin(player.angle) * player.radius,
+                vx: Math.cos(player.angle) * 22,
+                vy: Math.sin(player.angle) * 22,
+                radius: 5,
+                color: '#ff00ff',
+                damage: 32,
+                life: 70
+            });
+            sound.playPistol();
+        }
+
+        // 開火後座力微小震動
+        screenShake = Math.max(screenShake, 2);
+    }
+
+    function triggerFever() {
+        if (player.feverGauge >= 100 && !player.isFever) {
+            player.isFever = true;
+            player.feverTimeLeft = 6.0; // 6秒狂熱時間
+            player.hp = Math.min(player.maxHp, player.hp + 25); // 回復部分血量
+            sound.playFever();
+            showBanner('🔥 革命狂熱 (FEVER) 爆發！無敵 + 雙倍火力和性！', 'bg-amber-500 text-black');
+            screenShake = 10;
+        }
+    }
+
+    /* ==========================================================================
+       波次與敵軍生成系統 (微調敵軍強度與難度曲線)
+       ========================================================================== */
+    function startNextWave() {
+        currentWave++;
+        waveEnemiesToSpawn = 5 + currentWave * 3;
+        waveBadge.textContent = `WAVE ${currentWave}`;
+        showBanner(`⚠️ 第 ${currentWave} 波權威鎮壓部隊襲來！`, 'bg-red-600 text-white');
+    }
+
+    function spawnEnemy() {
+        // 從螢幕邊緣外隨機生成
+        let x, y;
+        if (Math.random() < 0.5) {
+            x = Math.random() < 0.5 ? -30 : canvas.width + 30;
+            y = Math.random() * canvas.height;
+        } else {
+            x = Math.random() * canvas.width;
+            y = Math.random() < 0.5 ? -30 : canvas.height + 30;
+        }
+
+        const rand = Math.random();
+        let type = 'soldier';
+        // 優化敵軍 HP 與移動速度之平滑成長算式
+        let hp = 40 + currentWave * 6;
+        let speed = 1.9 + Math.min(currentWave * 0.08, 1.2);
+        let radius = 16;
+        let color = '#ff3355';
+        let bulletSpeed = 5.5 + Math.min(currentWave * 0.15, 2.5);
+
+        if (rand > 0.7) {
+            type = 'drone';
+            hp = 25 + currentWave * 4;
+            speed = 3.2 + Math.min(currentWave * 0.1, 1.5); // 高速衝鋒無人機
+            radius = 12;
+            color = '#00e5ff';
+        } else if (rand > 0.45 && currentWave >= 2) {
+            type = 'shield';
+            hp = 95 + currentWave * 12; // 護盾兵高血量坦度
+            speed = 1.1 + Math.min(currentWave * 0.05, 0.5);
+            radius = 20;
+            color = '#3366ff';
+        }
+
+        // 每 5 波生成的大 Boss
+        if (waveEnemiesToSpawn === 1 && currentWave % 5 === 0) {
+            type = 'boss';
+            hp = 450 + currentWave * 90;
+            speed = 1.0;
+            radius = 35;
+            color = '#ff0055';
+            showBanner('🚨 警告：權威總指揮官親自上場！', 'bg-red-700 text-yellow-300');
+        }
+
+        enemies.push({
+            x, y, type, hp, maxHp: hp, speed, radius, color, bulletSpeed,
+            shootTimer: Math.random() * 40 + (type === 'drone' ? 30 : 50),
+            angle: 0
+        });
+    }
+
+    function showBanner(text, styleClass) {
+        bannerText.textContent = text;
+        bannerText.className = `absolute top-20 left-1/2 transform -translate-x-1/2 px-6 py-2 rounded-full font-black text-sm md:text-lg pointer-events-none transition-all duration-300 z-10 text-center shadow-lg ${styleClass}`;
+        bannerText.style.opacity = '1';
+        setTimeout(() => {
+            bannerText.style.opacity = '0';
+        }, 2500);
+    }
+
+    function startGame() {
+        score = 0;
+        currentWave = 1;
+        waveEnemiesToSpawn = 8;
+        player.x = canvas.width / 2;
+        player.y = canvas.height / 2;
+        player.hp = 100;
+        player.weapon = 'rifle';
+        player.feverGauge = 0;
+        player.isFever = false;
+
+        bullets = [];
+        enemyBullets = [];
+        enemies = [];
+        particles = [];
+        powerups = [];
+        floatingTexts = [];
+
+        startScreen.classList.add('hidden');
+        gameoverScreen.classList.add('hidden');
+        gameState = 'PLAYING';
+
+        waveBadge.textContent = 'WAVE 1';
+        showBanner('🔥 革命槍戰開始！消滅所有敵人！', 'bg-cyan-500 text-black');
+    }
+
+    function gameOver() {
+        gameState = 'GAMEOVER';
+        sound.playExplosion();
+        screenShake = 20;
+
+        if (score > highScore) {
+            highScore = score;
+            localStorage.setItem('spark_gunfight_highscore', highScore);
+        }
+
+        document.getElementById('final-score').textContent = score;
+        document.getElementById('high-score').textContent = highScore;
+        gameoverScreen.classList.remove('hidden');
+    }
+
+    /* ==========================================================================
+       遊戲主邏輯更新 (Update Engine)
+       ========================================================================== */
+    let lastTime = performance.now();
+
+    function update(dt) {
+        if (gameState !== 'PLAYING') return;
+
+        // 畫面震動遞減
+        if (screenShake > 0) screenShake -= 0.5;
+
+        // 1. 玩家移動與方向算式
+        let moveX = 0;
+        let moveY = 0;
+
+        if (keys['KeyW'] || keys['ArrowUp']) moveY -= 1;
+        if (keys['KeyS'] || keys['ArrowDown']) moveY += 1;
+        if (keys['KeyA'] || keys['ArrowLeft']) moveX -= 1;
+        if (keys['KeyD'] || keys['ArrowRight']) moveX += 1;
+
+        if (joystickActive) {
+            moveX = joystickVector.x;
+            moveY = joystickVector.y;
+        }
+
+        // 向量正規化
+        const len = Math.hypot(moveX, moveY);
+        if (len > 0) {
+            player.x += (moveX / (len > 1 ? len : 1)) * player.speed;
+            player.y += (moveY / (len > 1 ? len : 1)) * player.speed;
+        }
+
+        // 玩家邊界限制
+        player.x = Math.max(player.radius, Math.min(canvas.width - player.radius, player.x));
+        player.y = Math.max(player.radius, Math.min(canvas.height - player.radius, player.y));
+
+        // 玩家瞄準角度 (滑鼠或移動方向)
+        if (!joystickActive) {
+            player.angle = Math.atan2(mouse.y - player.y, mouse.x - player.x);
+        } else if (Math.hypot(moveX, moveY) > 0.2) {
+            player.angle = Math.atan2(moveY, moveX);
+        }
+
+        // 開火冷卻與自動連射
+        if (player.shootCooldown > 0) player.shootCooldown--;
+        if (mouse.isDown) shootWeapon();
+
+        // Fever 狂熱倒數
+        if (player.isFever) {
+            player.feverTimeLeft -= dt;
+            player.feverGauge = (player.feverTimeLeft / 6.0) * 100;
+            if (player.feverTimeLeft <= 0) {
+                player.isFever = false;
+                player.feverGauge = 0;
+            }
+        }
+
+        // 2. 波次與敵人生成 (生成頻率平滑化)
+        waveSpawnTimer -= dt * 1000;
+        if (waveEnemiesToSpawn > 0 && waveSpawnTimer <= 0) {
+            spawnEnemy();
+            waveEnemiesToSpawn--;
+            waveSpawnTimer = Math.max(250, 750 - currentWave * 35);
+        } else if (waveEnemiesToSpawn <= 0 && enemies.length === 0) {
+            startNextWave();
+        }
+
+        // 3. 更新玩家子彈
+        for (let i = bullets.length - 1; i >= 0; i--) {
+            const b = bullets[i];
+            b.x += b.vx;
+            b.y += b.vy;
+            b.life--;
+
+            if (b.life <= 0 || b.x < 0 || b.x > canvas.width || b.y < 0 || b.y > canvas.height) {
+                bullets.splice(i, 1);
+            }
+        }
+
+        // 4. 更新敵軍子彈
+        for (let i = enemyBullets.length - 1; i >= 0; i--) {
+            const eb = enemyBullets[i];
+            eb.x += eb.vx;
+            eb.y += eb.vy;
+
+            // 碰撞玩家
+            const dist = Math.hypot(eb.x - player.x, eb.y - player.y);
+            if (dist < player.radius + eb.radius) {
+                if (!player.isFever) {
+                    player.hp -= eb.damage;
+                    screenShake = 6;
+                    createParticles(player.x, player.y, '#ff0000', 8);
+                    if (player.hp <= 0) {
+                        gameOver();
+                        return;
+                    }
+                }
+                enemyBullets.splice(i, 1);
+                continue;
+            }
+
+            if (eb.x < 0 || eb.x > canvas.width || eb.y < 0 || eb.y > canvas.height) {
+                enemyBullets.splice(i, 1);
+            }
+        }
+
+        // 5. 更新敵軍 AI 邏輯
+        for (let i = enemies.length - 1; i >= 0; i--) {
+            const e = enemies[i];
+            const dx = player.x - e.x;
+            const dy = player.y - e.y;
+            const dist = Math.hypot(dx, dy);
+            e.angle = Math.atan2(dy, dx);
+
+            // 敵軍移動
+            if (dist > (e.type === 'drone' ? 10 : 80)) {
+                e.x += Math.cos(e.angle) * e.speed;
+                e.y += Math.sin(e.angle) * e.speed;
+            }
+
+            // 敵軍開火機制微調
+            e.shootTimer--;
+            if (e.shootTimer <= 0 && dist < 550) {
+                const baseCooldown = e.type === 'drone' ? 35 : (e.type === 'boss' ? 20 : 65);
+                e.shootTimer = Math.max(12, baseCooldown - currentWave * 1.5);
+
+                if (e.type === 'boss') {
+                    // Boss 複合散彈與環狀彈幕
+                    const mode = Math.random();
+                    if (mode < 0.6) {
+                        for (let a = -0.5; a <= 0.5; a += 0.25) {
+                            enemyBullets.push({
+                                x: e.x, y: e.y,
+                                vx: Math.cos(e.angle + a) * (e.bulletSpeed || 6),
+                                vy: Math.sin(e.angle + a) * (e.bulletSpeed || 6),
+                                radius: 5, damage: 15
+                            });
+                        }
+                    } else {
+                        for (let a = 0; a < Math.PI * 2; a += Math.PI / 4) {
+                            enemyBullets.push({
+                                x: e.x, y: e.y,
+                                vx: Math.cos(a) * 5,
+                                vy: Math.sin(a) * 5,
+                                radius: 4, damage: 12
+                            });
+                        }
+                    }
+                } else if (e.type === 'drone') {
+                    // 無人機高速點射
+                    enemyBullets.push({
+                        x: e.x, y: e.y,
+                        vx: Math.cos(e.angle) * (e.bulletSpeed + 1),
+                        vy: Math.sin(e.angle) * (e.bulletSpeed + 1),
+                        radius: 3.5, damage: 8
+                    });
+                } else {
+                    // 一般步兵與護盾兵點射
+                    enemyBullets.push({
+                        x: e.x, y: e.y,
+                        vx: Math.cos(e.angle) * e.bulletSpeed,
+                        vy: Math.sin(e.angle) * e.bulletSpeed,
+                        radius: 4, damage: 10
+                    });
+                }
+            }
+
+            // 子彈與敵軍碰撞檢測 (包含護盾兵前方減傷/抵擋機制)
+            for (let j = bullets.length - 1; j >= 0; j--) {
+                const b = bullets[j];
+                const bDist = Math.hypot(b.x - e.x, b.y - e.y);
+
+                if (bDist < e.radius + b.radius) {
+                    let actualDamage = b.damage;
+
+                    // 護盾兵前方防守減傷
+                    if (e.type === 'shield') {
+                        const bulletAngle = Math.atan2(b.vy, b.vx);
+                        const angleDiff = Math.abs(normalizeAngle(bulletAngle - (e.angle + Math.PI)));
+                        if (angleDiff < Math.PI / 3) {
+                            actualDamage *= 0.3; // 前方命中盾牌僅承受 30% 傷害
+                            createParticles(b.x, b.y, '#0099ff', 3);
+                        }
+                    }
+
+                    e.hp -= actualDamage;
+                    createParticles(b.x, b.y, b.color, 4);
+
+                    // 增加 Fever 熱血值
+                    if (!player.isFever) {
+                        player.feverGauge = Math.min(100, player.feverGauge + 1.2);
+                    }
+
+                    bullets.splice(j, 1);
+
+                    // 敵軍死亡處理
+                    if (e.hp <= 0) {
+                        score += e.type === 'boss' ? 1000 : (e.type === 'shield' ? 220 : (e.type === 'drone' ? 120 : 100));
+                        createParticles(e.x, e.y, e.color, 18);
+                        sound.playExplosion();
+
+                        // 掉落寶物
+                        if (Math.random() < 0.22) {
+                            const pTypes = ['shotgun', 'laser', 'heal'];
+                            powerups.push({
+                                x: e.x, y: e.y,
+                                type: pTypes[Math.floor(Math.random() * pTypes.length)],
+                                life: 400
+                            });
+                        }
+
+                        enemies.splice(i, 1);
+                        break;
+                    }
+                }
+            }
+        }
+
+        // 6. 更新掉落寶物撿取
+        for (let i = powerups.length - 1; i >= 0; i--) {
+            const p = powerups[i];
+            p.life--;
+            const dist = Math.hypot(p.x - player.x, p.y - player.y);
+
+            if (dist < player.radius + 15) {
+                if (p.type === 'heal') {
+                    player.hp = Math.min(player.maxHp, player.hp + 35);
+                    floatingTexts.push({ x: player.x, y: player.y - 20, text: '+35 HP', color: '#00ffcc', life: 40 });
+                } else if (p.type === 'shotgun') {
+                    player.weapon = 'shotgun';
+                    weaponNameEl.textContent = '霰彈槍 (Shotgun)';
+                    weaponNameEl.className = 'text-sm font-bold text-orange-400';
+                } else if (p.type === 'laser') {
+                    player.weapon = 'laser';
+                    weaponNameEl.textContent = '雷射砲 (Laser)';
+                    weaponNameEl.className = 'text-sm font-bold text-pink-400';
+                }
+                sound.playFever();
+                powerups.splice(i, 1);
+            } else if (p.life <= 0) {
+                powerups.splice(i, 1);
+            }
+        }
+
+        // 7. 更新粒子特效
+        for (let i = particles.length - 1; i >= 0; i--) {
+            const pt = particles[i];
+            pt.x += pt.vx;
+            pt.y += pt.vy;
+            pt.alpha -= 0.03;
+            if (pt.alpha <= 0) particles.splice(i, 1);
+        }
+
+        updateUI();
+    }
+
+    function normalizeAngle(angle) {
+        while (angle > Math.PI) angle -= Math.PI * 2;
+        while (angle < -Math.PI) angle += Math.PI * 2;
+        return angle;
+    }
+
+    function createParticles(x, y, color, count) {
+        for (let i = 0; i < count; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = Math.random() * 5 + 1;
+            particles.push({
+                x, y,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                radius: Math.random() * 3 + 2,
+                color, alpha: 1.0
+            });
+        }
+    }
+
+    function updateUI() {
+        hpBar.style.width = `${Math.max(0, player.hp)}%`;
+        feverBar.style.width = `${Math.max(0, player.feverGauge)}%`;
+        scoreVal.textContent = score;
+    }
+
+    /* ==========================================================================
+       畫布繪製 (Render Engine)
+       ========================================================================== */
+    function render() {
+        ctx.save();
+
+        // 螢幕震動偏移
+        if (screenShake > 0) {
+            ctx.translate((Math.random() - 0.5) * screenShake, (Math.random() - 0.5) * screenShake);
+        }
+
+        // 背景
+        ctx.fillStyle = player.isFever ? '#11001a' : '#08090c';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // 網格底圖
+        ctx.strokeStyle = player.isFever ? '#330044' : '#121824';
+        ctx.lineWidth = 1;
+        const grid = 40;
+        for (let x = 0; x < canvas.width; x += grid) {
+            ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+        }
+        for (let y = 0; y < canvas.height; y += grid) {
+            ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+        }
+
+        // 1. 繪製掉落寶物
+        powerups.forEach(p => {
+            ctx.save();
+            ctx.translate(p.x, p.y);
+            ctx.fillStyle = p.type === 'heal' ? '#00ffcc' : (p.type === 'shotgun' ? '#ff5500' : '#ff00ff');
+            ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = 10;
+            ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#000'; ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center';
+            ctx.fillText(p.type[0].toUpperCase(), 0, 3);
+            ctx.restore();
+        });
+
+        // 2. 繪製玩家子彈
+        bullets.forEach(b => {
+            ctx.save();
+            ctx.fillStyle = b.color;
+            ctx.shadowColor = b.color; ctx.shadowBlur = 8;
+            ctx.beginPath(); ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2); ctx.fill();
+            ctx.restore();
+        });
+
+        // 3. 繪製敵軍子彈
+        enemyBullets.forEach(eb => {
+            ctx.save();
+            ctx.fillStyle = '#ff0044';
+            ctx.shadowColor = '#ff0044'; ctx.shadowBlur = 6;
+            ctx.beginPath(); ctx.arc(eb.x, eb.y, eb.radius, 0, Math.PI * 2); ctx.fill();
+            ctx.restore();
+        });
+
+        // 4. 繪製敵軍
+        enemies.forEach(e => {
+            ctx.save();
+            ctx.translate(e.x, e.y);
+            ctx.rotate(e.angle);
+
+            // 敵軍本體
+            ctx.fillStyle = e.color;
+            ctx.shadowColor = e.color; ctx.shadowBlur = e.type === 'boss' ? 20 : 8;
+            ctx.beginPath();
+            ctx.arc(0, 0, e.radius, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 繪製槍口
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, -3, e.radius + 8, 6);
+
+            // 盾牌兵專屬盾牌繪製
+            if (e.type === 'shield') {
+                ctx.fillStyle = '#0099ff';
+                ctx.fillRect(e.radius - 2, -18, 6, 36);
+            }
+
+            ctx.restore();
+
+            // 血條
+            if (e.hp < e.maxHp) {
+                ctx.fillStyle = '#222';
+                ctx.fillRect(e.x - 20, e.y - e.radius - 10, 40, 4);
+                ctx.fillStyle = '#ff0055';
+                ctx.fillRect(e.x - 20, e.y - e.radius - 10, (e.hp / e.maxHp) * 40, 4);
+            }
+        });
+
+        // 5. 繪製玩家
+        if (gameState === 'PLAYING') {
+            ctx.save();
+            ctx.translate(player.x, player.y);
+            ctx.rotate(player.angle);
+
+            // 狂熱模式發光光環
+            if (player.isFever) {
+                ctx.strokeStyle = '#00ffcc';
+                ctx.shadowColor = '#00ffcc'; ctx.shadowBlur = 15;
+                ctx.lineWidth = 3;
+                ctx.beginPath(); ctx.arc(0, 0, player.radius + 6, 0, Math.PI * 2); ctx.stroke();
+            }
+
+            // 玩家角色身體
+            ctx.fillStyle = player.isFever ? '#00ffcc' : '#ffcc00';
+            ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = 10;
+            ctx.beginPath(); ctx.arc(0, 0, player.radius, 0, Math.PI * 2); ctx.fill();
+
+            // 槍管
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, -4, player.radius + 10, 8);
+
+            ctx.restore();
+        }
+
+        // 6. 繪製爆破粒子
+        particles.forEach(pt => {
+            ctx.save();
+            ctx.globalAlpha = pt.alpha;
+            ctx.fillStyle = pt.color;
+            ctx.beginPath(); ctx.arc(pt.x, pt.y, pt.radius, 0, Math.PI * 2); ctx.fill();
+            ctx.restore();
+        });
+
+        ctx.restore();
+    }
+
+    /* ==========================================================================
+       遊戲主迴圈
+       ========================================================================== */
+    function gameLoop(now) {
+        const dt = (now - lastTime) / 1000;
+        lastTime = now;
+
+        update(dt);
+        render();
+
+        requestAnimationFrame(gameLoop);
+    }
+
+    requestAnimationFrame(gameLoop);
+</script>
+</body>
+</html>

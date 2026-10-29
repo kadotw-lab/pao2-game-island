@@ -1,0 +1,1154 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>砰砰法師 - PunBall RPG</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        body {
+            background-color: #0d0f18;
+            color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        #game-container {
+            position: relative;
+            width: 100%;
+            max-width: 480px;
+            height: 100vh;
+            max-height: 800px;
+            background: radial-gradient(circle at center, #1a1c2e 0%, #0a0c14 100%);
+            box-shadow: 0 0 30px rgba(0, 240, 255, 0.15);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            border-radius: 12px;
+        }
+        /* 頂部 UI 資訊欄 */
+        #top-ui {
+            height: 60px;
+            background: rgba(15, 20, 35, 0.85);
+            backdrop-filter: blur(8px);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 16px;
+            border-bottom: 1px solid rgba(0, 240, 255, 0.2);
+            z-index: 10;
+        }
+        .ui-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .ui-label {
+            font-size: 10px;
+            color: #8a99ad;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .ui-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #00f0ff;
+            text-shadow: 0 0 8px rgba(0, 240, 255, 0.5);
+        }
+        .hp-bar-container {
+            width: 100px;
+            height: 10px;
+            background: #1e2538;
+            border-radius: 5px;
+            overflow: hidden;
+            margin-top: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .hp-bar-fill {
+            height: 100%;
+            width: 100%;
+            background: linear-gradient(90deg, #ff0055, #ff5500);
+            transition: width 0.3s ease;
+            box-shadow: 0 0 8px rgba(255, 0, 85, 0.6);
+        }
+        /* 遊戲畫布 */
+        #canvas-wrapper {
+            flex: 1;
+            position: relative;
+            width: 100%;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        /* 彈出視窗遮罩 (Skill Choice & Game Over) */
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(8, 10, 18, 0.88);
+            backdrop-filter: blur(10px);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            padding: 20px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        .overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .overlay-title {
+            font-size: 26px;
+            font-weight: 800;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #00f0ff, #7000ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        .overlay-subtitle {
+            font-size: 14px;
+            color: #a0aec0;
+            margin-bottom: 24px;
+        }
+        /* 技能卡牌三選一 */
+        .card-container {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            width: 100%;
+            max-width: 340px;
+        }
+        .skill-card {
+            background: linear-gradient(135deg, rgba(25, 32, 56, 0.9), rgba(15, 20, 38, 0.9));
+            border: 1px solid rgba(0, 240, 255, 0.3);
+            border-radius: 12px;
+            padding: 16px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+        .skill-card:hover {
+            transform: translateY(-2px);
+            border-color: #00f0ff;
+            box-shadow: 0 0 20px rgba(0, 240, 255, 0.4);
+            background: linear-gradient(135deg, rgba(35, 45, 78, 0.9), rgba(20, 28, 52, 0.9));
+        }
+        .skill-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 10px;
+            background: rgba(0, 240, 255, 0.1);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            border: 1px solid rgba(0, 240, 255, 0.2);
+            flex-shrink: 0;
+        }
+        .skill-info {
+            flex: 1;
+        }
+        .skill-name {
+            font-size: 16px;
+            font-weight: bold;
+            color: #ffffff;
+            margin-bottom: 4px;
+        }
+        .skill-desc {
+            font-size: 12px;
+            color: #94a3b8;
+            line-height: 1.3;
+        }
+        /* 通用按鈕 */
+        .btn {
+            background: linear-gradient(135deg, #00f0ff, #0072ff);
+            color: #ffffff;
+            font-weight: bold;
+            font-size: 16px;
+            padding: 12px 36px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.4);
+            transition: all 0.2s ease;
+            margin-top: 15px;
+        }
+        .btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 25px rgba(0, 240, 255, 0.7);
+        }
+        /* 浮動訊息 */
+        #speed-up-btn {
+            position: absolute;
+            bottom: 15px;
+            right: 15px;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(0, 240, 255, 0.4);
+            color: #00f0ff;
+            padding: 6px 12px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            z-index: 20;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <!-- 頂部資訊 UI -->
+    <div id="top-ui">
+        <div class="ui-item">
+            <span class="ui-label">關卡 Stage</span>
+            <span class="ui-value" id="ui-stage">1</span>
+        </div>
+        <div class="ui-item">
+            <span class="ui-label">分數 Score</span>
+            <span class="ui-value" id="ui-score">0</span>
+        </div>
+        <div class="ui-item">
+            <span class="ui-label">玩家血量 HP</span>
+            <div class="hp-bar-container">
+                <div class="hp-bar-fill" id="ui-hp-fill"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Canvas 遊戲區 -->
+    <div id="canvas-wrapper">
+        <canvas id="gameCanvas"></canvas>
+        <button id="speed-up-btn">加速 2x</button>
+    </div>
+
+    <!-- 技能選擇視窗 (Roguelite 三選一) -->
+    <div class="overlay" id="skill-overlay">
+        <div class="overlay-title">戰術升級</div>
+        <div class="overlay-subtitle">挑選一項魔法技能強化彈珠</div>
+        <div class="card-container" id="skill-cards-container">
+            <!-- 動態生成卡牌 -->
+        </div>
+    </div>
+
+    <!-- 遊戲結束視窗 -->
+    <div class="overlay" id="gameover-overlay">
+        <div class="overlay-title" id="gameover-title">遊戲結束</div>
+        <div class="overlay-subtitle" id="gameover-subtitle">你被怪物軍團淹沒了！</div>
+        <div style="font-size: 20px; color: #00f0ff; margin-bottom: 20px;">
+            最終得分: <span id="final-score">0</span>
+        </div>
+        <button class="btn" id="restart-btn">再次挑戰</button>
+    </div>
+</div>
+
+<script>
+/**
+ * 砰砰法師 (PunBall RPG) - 單檔遊戲引擎
+ */
+
+// --- 二維向量類別 ---
+class Vector2 {
+    constructor(x = 0, y = 0) {
+        this.x = x;
+        this.y = y;
+    }
+    set(x, y) { this.x = x; this.y = y; return this; }
+    clone() { return new Vector2(this.x, this.y); }
+    add(v) { this.x += v.x; this.y += v.y; return this; }
+    sub(v) { this.x -= v.x; this.y -= v.y; return this; }
+    mult(n) { this.x *= n; this.y *= n; return this; }
+    div(n) { this.x /= n; this.y /= n; return this; }
+    mag() { return Math.sqrt(this.x * this.x + this.y * this.y); }
+    normalize() {
+        let m = this.mag();
+        if (m !== 0) this.div(m);
+        return this;
+    }
+    dist(v) { return Math.sqrt((this.x - v.x) ** 2 + (this.y - v.y) ** 2); }
+}
+
+// --- 遊戲常量配置 ---
+const GRID_COLS = 7;
+const GRID_ROWS = 9;
+const BALL_RADIUS = 6;
+const BALL_SPEED = 9;
+
+// --- 技能庫定義 ---
+const SKILL_DATABASE = [
+    { id: 'fireball', name: '火球術', desc: '碰撞時造成小範圍爆炸火焰傷害', icon: '🔥' },
+    { id: 'lightning', name: '雷霆連環', desc: '碰撞時對附近另外2個目標造成電擊', icon: '⚡' },
+    { id: 'laser', name: '貫穿彈', desc: '彈珠有 25% 機率直接穿透怪物', icon: '💫' },
+    { id: 'freeze', name: '冰霜凍結', desc: '擊中怪物時有機率冰凍一回合', icon: '❄️' },
+    { id: 'split', name: '分裂彈', desc: '首次擊中怪物時分裂成 2 顆微型彈珠', icon: '🔱' },
+    { id: 'power', name: '攻擊強化', desc: '所有彈珠基礎傷害 +1', icon: '⚔️' },
+    { id: 'holy', name: '神聖光芒', desc: '回合結束時對第一排怪物造成大量傷害', icon: '✨' }
+];
+
+// --- 彈珠類別 ---
+class Ball {
+    constructor(x, y, dir, skills, damage = 1) {
+        this.pos = new Vector2(x, y);
+        this.vel = dir.clone().normalize().mult(BALL_SPEED);
+        this.radius = BALL_RADIUS;
+        this.active = true;
+        this.skills = { ...skills };
+        this.damage = damage;
+        this.isSplit = false;
+        this.hasSplit = false;
+        this.stuckTimer = 0; // 防卡死計時器
+    }
+
+    update(game) {
+        if (!this.active) return;
+
+        // 防卡死機制：若水平速度過大而垂直速度極小
+        if (Math.abs(this.vel.y) < 0.5) {
+            this.stuckTimer++;
+            if (this.stuckTimer > 60) { // 連續60幀水平微動
+                this.vel.y += (this.vel.y >= 0 ? 1 : -1) * 2; // 強制給予垂直分量
+                this.vel.normalize().mult(BALL_SPEED);
+                this.stuckTimer = 0;
+            }
+        } else {
+            this.stuckTimer = 0;
+        }
+
+        let nextPos = this.pos.clone().add(this.vel);
+
+        // 1. 牆壁邊界碰撞 (左、右、頂)
+        if (nextPos.x - this.radius < 0) {
+            this.pos.x = this.radius;
+            this.vel.x *= -1;
+            game.addSpark(this.pos.x, this.pos.y, '#00f0ff');
+        } else if (nextPos.x + this.radius > game.width) {
+            this.pos.x = game.width - this.radius;
+            this.vel.x *= -1;
+            game.addSpark(this.pos.x, this.pos.y, '#00f0ff');
+        }
+
+        if (nextPos.y - this.radius < 0) {
+            this.pos.y = this.radius;
+            this.vel.y *= -1;
+            game.addSpark(this.pos.x, this.pos.y, '#00f0ff');
+        }
+
+        // 2. 底邊回收處理
+        if (nextPos.y + this.radius >= game.height - 20) {
+            this.active = false;
+            if (!game.firstReturnedBallX) {
+                game.firstReturnedBallX = Math.max(20, Math.min(game.width - 20, this.pos.x));
+            }
+            return;
+        }
+
+        // 3. 與怪物/道具之 Circle-to-AABB 精準碰撞檢測
+        let hitGrid = null;
+        let closestDist = Infinity;
+        let hitNormal = new Vector2(0, 0);
+
+        for (let r = 0; r < GRID_ROWS; r++) {
+            for (let c = 0; c < GRID_COLS; c++) {
+                let entity = game.grid[r][c];
+                if (!entity) continue;
+
+                // 檢查是否碰撞
+                let rect = entity.getBounds();
+                let closestX = Math.max(rect.x, Math.min(this.pos.x, rect.x + rect.w));
+                let closestY = Math.max(rect.y, Math.min(this.pos.y, rect.y + rect.h));
+
+                let distX = this.pos.x - closestX;
+                let distY = this.pos.y - closestY;
+                let distance = Math.sqrt(distX * distX + distY * distY);
+
+                if (distance < this.radius) {
+                    if (distance < closestDist) {
+                        closestDist = distance;
+                        hitGrid = { entity, r, c, rect, closestX, closestY };
+                        
+                        // 計算法向量 (碰撞方向)
+                        if (distance === 0) {
+                            hitNormal.set(0, -1);
+                        } else {
+                            hitNormal.set(distX, distY).normalize();
+                        }
+                    }
+                }
+            }
+        }
+
+        // 處理碰撞反應
+        if (hitGrid) {
+            let { entity, r, c, rect } = hitGrid;
+
+            // 如果是怪物或障礙物
+            if (entity.type === 'monster' || entity.type === 'obstacle') {
+                // 貫穿彈技能處理
+                let isPenetrate = this.skills.laser && Math.random() < 0.25;
+
+                if (!isPenetrate) {
+                    // 計算 AABB 碰撞反彈邊（上/下/左/右）
+                    let overlapLeft = Math.abs((this.pos.x + this.radius) - rect.x);
+                    let overlapRight = Math.abs((rect.x + rect.w) - (this.pos.x - this.radius));
+                    let overlapTop = Math.abs((this.pos.y + this.radius) - rect.y);
+                    let overlapBottom = Math.abs((rect.y + rect.h) - (this.pos.y - this.radius));
+
+                    let minOverlap = Math.min(overlapLeft, overlapRight, overlapTop, overlapBottom);
+
+                    if (minOverlap === overlapLeft || minOverlap === overlapRight) {
+                        this.vel.x *= -1;
+                    } else {
+                        this.vel.y *= -1;
+                    }
+                }
+
+                // 觸發扣血與技能特效
+                game.damageMonster(r, c, this.damage);
+                game.addSpark(this.pos.x, this.pos.y, '#ff0055');
+
+                // 技能特效：火球術 (範圍爆炸)
+                if (this.skills.fireball) {
+                    game.triggerAreaDamage(r, c, 1, '#ff5500');
+                }
+
+                // 技能特效：雷霆連環
+                if (this.skills.lightning) {
+                    game.triggerChainLightning(r, c, 2);
+                }
+
+                // 技能特效：冰霜凍結
+                if (this.skills.freeze && entity.type === 'monster' && Math.random() < 0.3) {
+                    entity.frozen = true;
+                    game.addFloatingText('FREEZE!', entity.x + rect.w/2, entity.y, '#00ffff');
+                }
+
+                // 技能特效：分裂彈
+                if (this.skills.split && !this.hasSplit) {
+                    this.hasSplit = true;
+                    game.spawnSubBalls(this.pos.x, this.pos.y, this.vel);
+                }
+
+            } else if (entity.type === 'item_ball') {
+                // 吃到「加球道具」
+                game.extraBallCount++;
+                game.grid[r][c] = null;
+                game.addFloatingText('+1 彈珠', entity.x + rect.w/2, entity.y, '#00ff88');
+                game.addSpark(entity.x + rect.w/2, entity.y + rect.h/2, '#00ff88');
+
+            } else if (entity.type === 'item_bomb') {
+                // 吃到「炸彈」
+                game.grid[r][c] = null;
+                game.triggerAreaDamage(r, c, 3, '#ffff00', 2);
+                game.addFloatingText('BOOM!', entity.x + rect.w/2, entity.y, '#ffff00');
+            }
+        }
+
+        // 更新位置
+        this.pos.add(this.vel);
+    }
+
+    draw(ctx) {
+        if (!this.active) return;
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(this.pos.x, this.pos.y, this.radius, 0, Math.PI * 2);
+        
+        // 根據技能改變彈珠顏色光暈
+        if (this.skills.fireball) {
+            ctx.fillStyle = '#ff5500';
+            ctx.shadowColor = '#ff3300';
+        } else if (this.skills.lightning) {
+            ctx.fillStyle = '#ffff00';
+            ctx.shadowColor = '#ffff00';
+        } else {
+            ctx.fillStyle = '#00f0ff';
+            ctx.shadowColor = '#00f0ff';
+        }
+
+        ctx.shadowBlur = 10;
+        ctx.fill();
+        ctx.restore();
+    }
+}
+
+// --- 怪物/障礙物實體類別 ---
+class Entity {
+    constructor(type, hp = 1, maxHp = 1) {
+        this.type = type; // 'monster', 'obstacle', 'item_ball', 'item_bomb'
+        this.hp = hp;
+        this.maxHp = maxHp;
+        this.frozen = false;
+        this.x = 0;
+        this.y = 0;
+        this.size = 0;
+        this.isBoss = false;
+    }
+
+    getBounds() {
+        return { x: this.x + 2, y: this.y + 2, w: this.size - 4, h: this.size - 4 };
+    }
+
+    draw(ctx, x, y, size) {
+        this.x = x;
+        this.y = y;
+        this.size = size;
+
+        let padding = 3;
+        let drawX = x + padding;
+        let drawY = y + padding;
+        let drawSize = size - padding * 2;
+        let radius = 8;
+
+        ctx.save();
+
+        if (this.type === 'monster') {
+            // 怪物渲染
+            let hpRatio = Math.max(0, this.hp / this.maxHp);
+            ctx.beginPath();
+            ctx.roundRect(drawX, drawY, drawSize, drawSize, radius);
+
+            // 漸層色彩 (血量高低改變顏色的暗度)
+            let gradient = ctx.createLinearGradient(drawX, drawY, drawX + drawSize, drawY + drawSize);
+            if (this.isBoss) {
+                gradient.addColorStop(0, '#9900ff');
+                gradient.addColorStop(1, '#440088');
+            } else {
+                gradient.addColorStop(0, '#ff0055');
+                gradient.addColorStop(1, '#88002d');
+            }
+            ctx.fillStyle = gradient;
+            ctx.fill();
+
+            // 邊框光暈
+            ctx.strokeStyle = this.frozen ? '#00ffff' : (this.isBoss ? '#d400ff' : '#ff4488');
+            ctx.lineWidth = this.frozen ? 3 : 1.5;
+            ctx.shadowColor = ctx.strokeStyle;
+            ctx.shadowBlur = 8;
+            ctx.stroke();
+
+            // 顯示血量數字
+            ctx.fillStyle = '#ffffff';
+            ctx.font = `bold ${drawSize * 0.4}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.shadowBlur = 0;
+            ctx.fillText(this.hp, drawX + drawSize / 2, drawY + drawSize / 2);
+
+            if (this.frozen) {
+                ctx.fillStyle = 'rgba(0, 255, 255, 0.3)';
+                ctx.fill();
+            }
+
+        } else if (this.type === 'obstacle') {
+            // 牆壁障礙物
+            ctx.beginPath();
+            ctx.roundRect(drawX, drawY, drawSize, drawSize, 4);
+            ctx.fillStyle = '#3a445e';
+            ctx.fill();
+            ctx.strokeStyle = '#64748b';
+            ctx.stroke();
+
+        } else if (this.type === 'item_ball') {
+            // 加球道具
+            ctx.beginPath();
+            ctx.arc(x + size / 2, y + size / 2, size / 4, 0, Math.PI * 2);
+            ctx.fillStyle = '#00ff88';
+            ctx.shadowColor = '#00ff88';
+            ctx.shadowBlur = 12;
+            ctx.fill();
+
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+        } else if (this.type === 'item_bomb') {
+            // 炸彈道具
+            ctx.beginPath();
+            ctx.arc(x + size / 2, y + size / 2, size / 3, 0, Math.PI * 2);
+            ctx.fillStyle = '#ffcc00';
+            ctx.shadowColor = '#ffcc00';
+            ctx.shadowBlur = 12;
+            ctx.fill();
+
+            ctx.fillStyle = '#000000';
+            ctx.font = 'bold 12px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('💣', x + size / 2, y + size / 2);
+        }
+
+        ctx.restore();
+    }
+}
+
+// --- 特效與粒子 ---
+class Particle {
+    constructor(x, y, color) {
+        this.x = x;
+        this.y = y;
+        this.color = color;
+        this.vx = (Math.random() - 0.5) * 4;
+        this.vy = (Math.random() - 0.5) * 4;
+        this.life = 1.0;
+        this.decay = Math.random() * 0.03 + 0.02;
+        this.size = Math.random() * 3 + 2;
+    }
+    update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.life -= this.decay;
+    }
+    draw(ctx) {
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, this.life);
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+}
+
+class FloatingText {
+    constructor(text, x, y, color) {
+        this.text = text;
+        this.x = x;
+        this.y = y;
+        this.color = color;
+        this.vy = -1.2;
+        this.life = 1.0;
+    }
+    update() {
+        this.y += this.vy;
+        this.life -= 0.02;
+    }
+    draw(ctx) {
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, this.life);
+        ctx.fillStyle = this.color;
+        ctx.font = 'bold 14px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(this.text, this.x, this.y);
+        ctx.restore();
+    }
+}
+
+// --- 遊戲核心引擎 ---
+class GameEngine {
+    constructor() {
+        this.canvas = document.getElementById('gameCanvas');
+        this.ctx = this.canvas.getContext('2d');
+        this.wrapper = document.getElementById('canvas-wrapper');
+
+        this.stage = 1;
+        this.score = 0;
+        this.playerHp = 100;
+        this.maxPlayerHp = 100;
+
+        this.ballCount = 5;
+        this.extraBallCount = 0;
+        this.ballDamage = 1;
+
+        this.launchPos = new Vector2();
+        this.firstReturnedBallX = null;
+
+        this.aimAngle = -Math.PI / 2; // 預設向上發射
+        this.isAiming = false;
+        this.isShooting = false;
+
+        this.balls = [];
+        this.shootQueue = 0;
+        this.shootTimer = 0;
+
+        this.grid = Array(GRID_ROWS).fill(null).map(() => Array(GRID_COLS).fill(null));
+        this.cellSize = 0;
+
+        this.particles = [];
+        this.floatingTexts = [];
+        this.acquiredSkills = {};
+
+        this.speedMultiplier = 1;
+        this.turnTimer = 0;
+
+        this.initCanvasSize();
+        this.bindEvents();
+        this.startNewGame();
+    }
+
+    initCanvasSize() {
+        this.width = this.wrapper.clientWidth;
+        this.height = this.wrapper.clientHeight;
+        this.canvas.width = this.width;
+        this.canvas.height = this.height;
+
+        this.cellSize = Math.floor(this.width / GRID_COLS);
+        this.launchPos.set(this.width / 2, this.height - 30);
+    }
+
+    bindEvents() {
+        window.addEventListener('resize', () => this.initCanvasSize());
+
+        // 瞄準與發射控制 (滑鼠與觸控)
+        const handleStart = (x, y) => {
+            if (this.isShooting) return;
+            this.isAiming = true;
+            this.updateAim(x, y);
+        };
+
+        const handleMove = (x, y) => {
+            if (!this.isAiming || this.isShooting) return;
+            this.updateAim(x, y);
+        };
+
+        const handleEnd = () => {
+            if (!this.isAiming || this.isShooting) return;
+            this.isAiming = false;
+            this.startShooting();
+        };
+
+        // Touch events
+        this.canvas.addEventListener('touchstart', (e) => {
+            let rect = this.canvas.getBoundingClientRect();
+            handleStart(e.touches[0].clientX - rect.left, e.touches[0].clientY - rect.top);
+        });
+        this.canvas.addEventListener('touchmove', (e) => {
+            let rect = this.canvas.getBoundingClientRect();
+            handleMove(e.touches[0].clientX - rect.left, e.touches[0].clientY - rect.top);
+        });
+        this.canvas.addEventListener('touchend', () => handleEnd());
+
+        // Mouse events
+        this.canvas.addEventListener('mousedown', (e) => {
+            let rect = this.canvas.getBoundingClientRect();
+            handleStart(e.clientX - rect.left, e.clientY - rect.top);
+        });
+        this.canvas.addEventListener('mousemove', (e) => {
+            let rect = this.canvas.getBoundingClientRect();
+            handleMove(e.clientX - rect.left, e.clientY - rect.top);
+        });
+        this.canvas.addEventListener('mouseup', () => handleEnd());
+
+        // 加速按鈕
+        const speedBtn = document.getElementById('speed-up-btn');
+        speedBtn.addEventListener('click', () => {
+            this.speedMultiplier = this.speedMultiplier === 1 ? 2.5 : 1;
+            speedBtn.innerText = `加速 ${this.speedMultiplier}x`;
+        });
+
+        // 重新開始按鈕
+        document.getElementById('restart-btn').addEventListener('click', () => {
+            document.getElementById('gameover-overlay').classList.remove('active');
+            this.startNewGame();
+        });
+    }
+
+    updateAim(touchX, touchY) {
+        let dx = touchX - this.launchPos.x;
+        let dy = touchY - this.launchPos.y;
+
+        // 避免向下方或平射角度過低
+        if (dy > -20) dy = -20;
+
+        this.aimAngle = Math.atan2(dy, dx);
+    }
+
+    startNewGame() {
+        this.stage = 1;
+        this.score = 0;
+        this.playerHp = 100;
+        this.ballCount = 5;
+        this.ballDamage = 1;
+        this.acquiredSkills = {};
+        this.grid = Array(GRID_ROWS).fill(null).map(() => Array(GRID_COLS).fill(null));
+        this.launchPos.set(this.width / 2, this.height - 30);
+
+        this.spawnMonsterRow();
+        this.updateUI();
+    }
+
+    spawnMonsterRow() {
+        // 將現有網頁元素向下移一格
+        for (let r = GRID_ROWS - 1; r > 0; r--) {
+            for (let c = 0; c < GRID_COLS; c++) {
+                this.grid[r][c] = this.grid[r - 1][c];
+            }
+        }
+
+        // 檢查底部是否堆疊到玩家防線 (Game Over / 扣血)
+        for (let c = 0; c < GRID_COLS; c++) {
+            let bottomEntity = this.grid[GRID_ROWS - 1][c];
+            if (bottomEntity && bottomEntity.type === 'monster') {
+                this.playerHp -= 20;
+                this.grid[GRID_ROWS - 1][c] = null;
+                this.addFloatingText('-20 HP', this.width / 2, this.height - 60, '#ff0055');
+
+                if (this.playerHp <= 0) {
+                    this.playerHp = 0;
+                    this.gameOver();
+                    return;
+                }
+            }
+        }
+
+        // 頂部生成新一排怪物與道具
+        let emptyCols = [];
+        for (let c = 0; c < GRID_COLS; c++) emptyCols.push(c);
+
+        let monsterCount = Math.floor(Math.random() * 3) + 2; // 每排 2~4 個怪物
+        let hpBase = Math.floor(this.stage * 2.5);
+
+        for (let i = 0; i < monsterCount; i++) {
+            if (emptyCols.length === 0) break;
+            let randIdx = Math.floor(Math.random() * emptyCols.length);
+            let col = emptyCols.splice(randIdx, 1)[0];
+
+            let hp = hpBase + Math.floor(Math.random() * 3);
+            let monster = new Entity('monster', hp, hp);
+            
+            // 每5關出現 Boss 怪物
+            if (this.stage % 5 === 0 && i === 0) {
+                monster.hp *= 2.5;
+                monster.maxHp = monster.hp;
+                monster.isBoss = true;
+            }
+
+            this.grid[0][col] = monster;
+        }
+
+        // 隨機生成 1 個加球道具
+        if (emptyCols.length > 0 && Math.random() < 0.7) {
+            let col = emptyCols.splice(Math.floor(Math.random() * emptyCols.length), 1)[0];
+            this.grid[0][col] = new Entity('item_ball');
+        }
+
+        // 隨機生成 1 個炸彈道具
+        if (emptyCols.length > 0 && Math.random() < 0.3) {
+            let col = emptyCols.splice(Math.floor(Math.random() * emptyCols.length), 1)[0];
+            this.grid[0][col] = new Entity('item_bomb');
+        }
+    }
+
+    startShooting() {
+        this.isShooting = true;
+        this.shootQueue = this.ballCount;
+        this.shootTimer = 0;
+        this.firstReturnedBallX = null;
+        this.extraBallCount = 0;
+        document.getElementById('speed-up-btn').style.display = 'block';
+    }
+
+    spawnSubBalls(x, y, parentVel) {
+        let leftDir = new Vector2(parentVel.x - 2, parentVel.y).normalize();
+        let rightDir = new Vector2(parentVel.x + 2, parentVel.y).normalize();
+
+        let b1 = new Ball(x, y, leftDir, this.acquiredSkills, this.ballDamage);
+        let b2 = new Ball(x, y, rightDir, this.acquiredSkills, this.ballDamage);
+        b1.isSplit = true;
+        b2.isSplit = true;
+
+        this.balls.push(b1, b2);
+    }
+
+    damageMonster(r, c, dmg) {
+        let entity = this.grid[r][c];
+        if (!entity || entity.type !== 'monster') return;
+
+        entity.hp -= dmg;
+        this.score += dmg * 10;
+        this.addFloatingText(`-${dmg}`, entity.x + this.cellSize/2, entity.y + 10, '#ffffff');
+
+        if (entity.hp <= 0) {
+            this.grid[r][c] = null;
+            this.score += 50;
+            this.addSpark(entity.x + this.cellSize/2, entity.y + this.cellSize/2, '#ff0055', 12);
+        }
+        this.updateUI();
+    }
+
+    triggerAreaDamage(centerR, centerC, radius, color, damage = 2) {
+        for (let r = Math.max(0, centerR - radius); r <= Math.min(GRID_ROWS - 1, centerR + radius); r++) {
+            for (let c = Math.max(0, centerC - radius); c <= Math.min(GRID_COLS - 1, centerC + radius); c++) {
+                if (this.grid[r][c] && this.grid[r][c].type === 'monster') {
+                    this.damageMonster(r, c, damage);
+                    this.addSpark(c * this.cellSize + this.cellSize/2, r * this.cellSize + this.cellSize/2, color, 6);
+                }
+            }
+        }
+    }
+
+    triggerChainLightning(startR, startC, count) {
+        let targets = [];
+        for (let r = 0; r < GRID_ROWS; r++) {
+            for (let c = 0; c < GRID_COLS; c++) {
+                if ((r !== startR || c !== startC) && this.grid[r][c] && this.grid[r][c].type === 'monster') {
+                    targets.push({ r, c });
+                }
+            }
+        }
+
+        // 隨機選取 targets
+        for (let i = 0; i < Math.min(count, targets.length); i++) {
+            let t = targets[Math.floor(Math.random() * targets.length)];
+            this.damageMonster(t.r, t.c, 2);
+            this.addSpark(t.c * this.cellSize + this.cellSize/2, t.r * this.cellSize + this.cellSize/2, '#ffff00', 8);
+        }
+    }
+
+    addSpark(x, y, color, count = 5) {
+        for (let i = 0; i < count; i++) {
+            this.particles.push(new Particle(x, y, color));
+        }
+    }
+
+    addFloatingText(text, x, y, color) {
+        this.floatingTexts.push(new FloatingText(text, x, y, color));
+    }
+
+    onTurnEnd() {
+        this.isShooting = false;
+        this.speedMultiplier = 1;
+        document.getElementById('speed-up-btn').innerText = '加速 2x';
+        document.getElementById('speed-up-btn').style.display = 'none';
+
+        // 更新發射起點為第一顆返回的彈珠位置
+        if (this.firstReturnedBallX) {
+            this.launchPos.x = this.firstReturnedBallX;
+        }
+
+        // 結算加球
+        if (this.extraBallCount > 0) {
+            this.ballCount += this.extraBallCount;
+            this.addFloatingText(`+${this.extraBallCount} 彈珠上限!`, this.launchPos.x, this.launchPos.y - 30, '#00ff88');
+            this.extraBallCount = 0;
+        }
+
+        // 解除冰凍狀態
+        for (let r = 0; r < GRID_ROWS; r++) {
+            for (let c = 0; c < GRID_COLS; c++) {
+                if (this.grid[r][c]) this.grid[r][c].frozen = false;
+            }
+        }
+
+        // 技能：神聖光芒 (回合結束時對首排傷害)
+        if (this.acquiredSkills.holy) {
+            for (let c = 0; c < GRID_COLS; c++) {
+                for (let r = 0; r < GRID_ROWS; r++) {
+                    if (this.grid[r][c] && this.grid[r][c].type === 'monster') {
+                        this.damageMonster(r, c, 3);
+                        break;
+                    }
+                }
+            }
+        }
+
+        this.stage++;
+        this.updateUI();
+
+        // 每 3 關獲得一次 Roguelite 三選一升級卡牌
+        if (this.stage % 3 === 0) {
+            this.showSkillChoice();
+        } else {
+            this.spawnMonsterRow();
+        }
+    }
+
+    showSkillChoice() {
+        const container = document.getElementById('skill-cards-container');
+        container.innerHTML = '';
+
+        // 隨機抽 3 張卡牌
+        let shuffled = [...SKILL_DATABASE].sort(() => 0.5 - Math.random());
+        let choices = shuffled.slice(0, 3);
+
+        choices.forEach(skill => {
+            let card = document.createElement('div');
+            card.className = 'skill-card';
+            card.innerHTML = `
+                <div class="skill-icon">${skill.icon}</div>
+                <div class="skill-info">
+                    <div class="skill-name">${skill.name}</div>
+                    <div class="skill-desc">${skill.desc}</div>
+                </div>
+            `;
+            card.onclick = () => {
+                this.acquireSkill(skill.id);
+                document.getElementById('skill-overlay').classList.remove('active');
+                this.spawnMonsterRow();
+            };
+            container.appendChild(card);
+        });
+
+        document.getElementById('skill-overlay').classList.add('active');
+    }
+
+    acquireSkill(skillId) {
+        this.acquiredSkills[skillId] = true;
+        if (skillId === 'power') {
+            this.ballDamage += 1;
+        }
+    }
+
+    gameOver() {
+        document.getElementById('final-score').innerText = this.score;
+        document.getElementById('gameover-overlay').classList.add('active');
+    }
+
+    updateUI() {
+        document.getElementById('ui-stage').innerText = this.stage;
+        document.getElementById('ui-score').innerText = this.score;
+        let hpPercent = Math.max(0, (this.playerHp / this.maxPlayerHp) * 100);
+        document.getElementById('ui-hp-fill').style.width = `${hpPercent}%`;
+    }
+
+    // --- 繪製瞄準預測線 ---
+    drawAimLine() {
+        if (!this.isAiming || this.isShooting) return;
+
+        let dir = new Vector2(Math.cos(this.aimAngle), Math.sin(this.aimAngle));
+        let curr = this.launchPos.clone();
+
+        this.ctx.save();
+        this.ctx.beginPath();
+        this.ctx.setLineDash([6, 6]);
+        this.ctx.moveTo(curr.x, curr.y);
+
+        // 模擬反射 2 次預測線
+        let simSteps = 0;
+        while (simSteps < 300) {
+            curr.x += dir.x * 4;
+            curr.y += dir.y * 4;
+
+            if (curr.x <= 0 || curr.x >= this.width) {
+                dir.x *= -1;
+                this.ctx.lineTo(curr.x, curr.y);
+            }
+            if (curr.y <= 0) {
+                dir.y *= -1;
+                this.ctx.lineTo(curr.x, curr.y);
+            }
+            simSteps++;
+        }
+
+        this.ctx.strokeStyle = '#00f0ff';
+        this.ctx.lineWidth = 2;
+        this.ctx.shadowColor = '#00f0ff';
+        this.ctx.shadowBlur = 8;
+        this.ctx.stroke();
+        this.ctx.restore();
+    }
+
+    update() {
+        // 多重速度更新 (用於 2x 加速功能)
+        for (let loop = 0; loop < this.speedMultiplier; loop++) {
+            // 連續發射彈珠佇列
+            if (this.isShooting && this.shootQueue > 0) {
+                this.shootTimer++;
+                if (this.shootTimer >= 5) { // 每 5 幀發射一顆
+                    let dir = new Vector2(Math.cos(this.aimAngle), Math.sin(this.aimAngle));
+                    this.balls.push(new Ball(this.launchPos.x, this.launchPos.y, dir, this.acquiredSkills, this.ballDamage));
+                    this.shootQueue--;
+                    this.shootTimer = 0;
+                }
+            }
+
+            // 更新所有彈珠
+            this.balls.forEach(ball => ball.update(this));
+
+            // 清理消失的彈珠
+            this.balls = this.balls.filter(ball => ball.active);
+
+            // 回合結束判定
+            if (this.isShooting && this.shootQueue === 0 && this.balls.length === 0) {
+                this.onTurnEnd();
+                break;
+            }
+
+            // 更新粒子與浮動文字
+            this.particles.forEach(p => p.update());
+            this.particles = this.particles.filter(p => p.life > 0);
+
+            this.floatingTexts.forEach(t => t.update());
+            this.floatingTexts = this.floatingTexts.filter(t => t.life > 0);
+        }
+    }
+
+    render() {
+        this.ctx.clearRect(0, 0, this.width, this.height);
+
+        // 1. 繪製底部玩家砲台發射點
+        this.ctx.save();
+        this.ctx.beginPath();
+        this.ctx.arc(this.launchPos.x, this.launchPos.y, 10, 0, Math.PI * 2);
+        this.ctx.fillStyle = '#00f0ff';
+        this.ctx.shadowColor = '#00f0ff';
+        this.ctx.shadowBlur = 15;
+        this.ctx.fill();
+
+        // 顯示剩餘彈珠數量
+        if (!this.isShooting) {
+            this.ctx.fillStyle = '#ffffff';
+            this.ctx.font = 'bold 12px Arial';
+            this.ctx.textAlign = 'center';
+            this.ctx.fillText(`x${this.ballCount}`, this.launchPos.x, this.launchPos.y + 22);
+        }
+        this.ctx.restore();
+
+        // 2. 繪製網格上的怪物與道具
+        for (let r = 0; r < GRID_ROWS; r++) {
+            for (let c = 0; c < GRID_COLS; c++) {
+                let entity = this.grid[r][c];
+                if (entity) {
+                    entity.draw(this.ctx, c * this.cellSize, r * this.cellSize, this.cellSize);
+                }
+            }
+        }
+
+        // 3. 繪製瞄準預測線
+        this.drawAimLine();
+
+        // 4. 繪製所有彈珠
+        this.balls.forEach(ball => ball.draw(this.ctx));
+
+        // 5. 繪製特效粒子與數字
+        this.particles.forEach(p => p.draw(this.ctx));
+        this.floatingTexts.forEach(t => t.draw(this.ctx));
+    }
+
+    loop() {
+        this.update();
+        this.render();
+        requestAnimationFrame(() => this.loop());
+    }
+}
+
+// 頁面載入後啟動遊戲
+window.onload = () => {
+    const game = new GameEngine();
+    game.loop();
+};
+</script>
+</body>
+</html>

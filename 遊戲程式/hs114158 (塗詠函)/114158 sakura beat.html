@@ -1,0 +1,1114 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Sakura Beat - サクラビート</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700;900&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --sakura-pink: #ffb7c5;
+      --sakura-deep: #ff69b4;
+      --soft-cyan: #a0e7e5;
+      --gold-accent: #ffd166;
+      --purple-dark: #1a0f24;
+      --lane-border: rgba(255, 183, 197, 0.25);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: var(--purple-dark);
+      font-family: 'M PLUS Rounded 1c', sans-serif;
+      color: #ffffff;
+    }
+
+    #app-container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: radial-gradient(circle at center, #2c163b 0%, #12081c 100%);
+    }
+
+    .game-viewport {
+      position: relative;
+      width: 100%;
+      max-width: 480px;
+      height: 100%;
+      max-height: 960px;
+      background: #180c24;
+      box-shadow: 0 0 40px rgba(255, 105, 180, 0.25);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* HUD Header Area */
+    .hud-layer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      padding: 12px 16px;
+      pointer-events: none;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      background: linear-gradient(180deg, rgba(24, 12, 36, 0.9) 0%, rgba(24, 12, 36, 0) 100%);
+    }
+
+    .hud-top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .hud-badge {
+      background: rgba(255, 255, 255, 0.12);
+      border: 1.5px solid var(--sakura-pink);
+      border-radius: 12px;
+      padding: 4px 12px;
+      backdrop-filter: blur(8px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .hud-label {
+      font-size: 9px;
+      font-weight: 700;
+      color: var(--sakura-pink);
+      letter-spacing: 1px;
+    }
+
+    .hud-value {
+      font-size: 15px;
+      font-weight: 900;
+      color: #ffffff;
+    }
+
+    /* HP Bar */
+    .hp-bar-bg {
+      width: 110px;
+      height: 12px;
+      background: rgba(0, 0, 0, 0.5);
+      border-radius: 6px;
+      border: 1px solid var(--sakura-pink);
+      overflow: hidden;
+    }
+
+    .hp-bar-fill {
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, var(--sakura-pink), var(--sakura-deep));
+      transition: width 0.15s ease-out;
+    }
+
+    /* Score Rank Progress Bar */
+    .score-progress-wrapper {
+      position: relative;
+      width: 100%;
+      margin-top: 4px;
+    }
+
+    .score-progress-bg {
+      width: 100%;
+      height: 8px;
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 4px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 183, 197, 0.3);
+    }
+
+    .score-progress-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--soft-cyan), var(--gold-accent));
+      transition: width 0.2s ease-out;
+    }
+
+    .rank-nodes {
+      position: absolute;
+      top: -6px;
+      left: 0;
+      width: 100%;
+      height: 20px;
+      display: flex;
+      justify-content: space-between;
+      pointer-events: none;
+      padding: 0 5%;
+    }
+
+    .rank-badge {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #2a163a;
+      border: 1.5px solid rgba(255, 255, 255, 0.3);
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 10px;
+      font-weight: 900;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.25s ease;
+    }
+
+    .rank-badge.achieved {
+      background: var(--gold-accent);
+      color: #000;
+      border-color: #fff;
+      box-shadow: 0 0 10px var(--gold-accent);
+      transform: scale(1.2);
+    }
+
+    /* Screen Overlays */
+    .screen-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(20, 10, 30, 0.94);
+      backdrop-filter: blur(12px);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 100;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+      padding: 20px;
+      text-align: center;
+      overflow-y: auto;
+    }
+
+    .screen-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .game-title {
+      font-size: 32px;
+      font-weight: 900;
+      color: var(--sakura-pink);
+      text-shadow: 0 0 16px rgba(255, 105, 180, 0.7);
+      margin-bottom: 2px;
+    }
+
+    .game-subtitle {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--soft-cyan);
+      letter-spacing: 3px;
+      margin-bottom: 14px;
+    }
+
+    /* Game Guide / Introduction Box */
+    .intro-box {
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid rgba(255, 183, 197, 0.35);
+      border-radius: 16px;
+      padding: 12px 14px;
+      width: 100%;
+      max-width: 310px;
+      margin-bottom: 16px;
+      text-align: left;
+      font-size: 12px;
+      line-height: 1.5;
+      color: #eaeaea;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    }
+
+    .intro-title {
+      font-size: 13px;
+      font-weight: 900;
+      color: var(--sakura-pink);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      border-bottom: 1px solid rgba(255, 183, 197, 0.2);
+      padding-bottom: 4px;
+    }
+
+    .intro-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .intro-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .intro-tag {
+      font-weight: 900;
+      padding: 2px 7px;
+      border-radius: 6px;
+      font-size: 10px;
+      white-space: nowrap;
+      min-width: 62px;
+      text-align: center;
+    }
+
+    /* Difficulty Selector Buttons */
+    .diff-selector {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      width: 100%;
+      max-width: 310px;
+      margin-bottom: 18px;
+    }
+
+    .btn-diff {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1.5px solid var(--sakura-pink);
+      color: #ffffff;
+      padding: 10px 14px;
+      border-radius: 14px;
+      font-weight: 900;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .btn-diff.selected {
+      background: linear-gradient(135deg, var(--sakura-pink), var(--sakura-deep));
+      border-color: #ffffff;
+      box-shadow: 0 0 15px rgba(255, 105, 180, 0.5);
+      transform: scale(1.02);
+    }
+
+    .btn-main {
+      background: linear-gradient(135deg, var(--sakura-pink) 0%, var(--sakura-deep) 100%);
+      color: #ffffff;
+      border: none;
+      padding: 13px 46px;
+      font-size: 16px;
+      font-weight: 900;
+      border-radius: 30px;
+      cursor: pointer;
+      box-shadow: 0 6px 20px rgba(255, 105, 180, 0.4);
+      transition: all 0.2s ease;
+      letter-spacing: 1px;
+    }
+
+    .btn-main:active {
+      transform: scale(0.96);
+    }
+
+    /* Mobile Track Touch Area Indicator */
+    .touch-hints {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 120px;
+      display: flex;
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    .touch-zone {
+      flex: 1;
+      border-right: 1px dashed rgba(255, 183, 197, 0.15);
+      display: flex;
+      justify-content: center;
+      align-items: flex-end;
+      padding-bottom: 16px;
+      font-size: 14px;
+      font-weight: 900;
+      color: rgba(255, 255, 255, 0.3);
+    }
+
+    .touch-zone:last-child {
+      border-right: none;
+    }
+
+    /* Result Stats */
+    .result-box {
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--sakura-pink);
+      border-radius: 16px;
+      padding: 16px;
+      width: 100%;
+      max-width: 280px;
+      margin-bottom: 20px;
+    }
+
+    .result-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 0;
+      font-size: 13px;
+      border-bottom: 1px dashed rgba(255, 255, 255, 0.1);
+    }
+    .result-row:last-child { border-bottom: none; }
+  </style>
+</head>
+<body>
+
+<div id="app-container">
+  <div class="game-viewport" id="viewport">
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- Touch Zone Hints for Mobile -->
+    <div class="touch-hints">
+      <div class="touch-zone">D</div>
+      <div class="touch-zone">F</div>
+      <div class="touch-zone">J</div>
+      <div class="touch-zone">K</div>
+    </div>
+
+    <!-- HUD Overlay -->
+    <div class="hud-layer">
+      <div class="hud-top-bar">
+        <div class="hud-badge">
+          <span class="hud-label">SCORE</span>
+          <span class="hud-value" id="score-val">0</span>
+        </div>
+
+        <div class="hud-badge">
+          <span class="hud-label">COMBO</span>
+          <span class="hud-value" id="combo-val">0</span>
+        </div>
+
+        <div class="hp-bar-bg">
+          <div class="hp-bar-fill" id="hp-bar"></div>
+        </div>
+      </div>
+
+      <!-- Score Progress Bar with Rank Milestones -->
+      <div class="score-progress-wrapper">
+        <div class="score-progress-bg">
+          <div class="score-progress-fill" id="rank-progress-fill"></div>
+        </div>
+        <div class="rank-nodes">
+          <div class="rank-badge" id="badge-C">C</div>
+          <div class="rank-badge" id="badge-B">B</div>
+          <div class="rank-badge" id="badge-A">A</div>
+          <div class="rank-badge" id="badge-S">S</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- START SCREEN -->
+    <div class="screen-overlay active" id="start-screen">
+      <div style="font-size: 36px; margin-bottom: 2px;">🌸</div>
+      <h1 class="game-title">Sakura Beat</h1>
+      <div class="game-subtitle">サクラビート - RHYTHM ACTION</div>
+
+      <!-- Game Introduction / Guide Box -->
+      <div class="intro-box">
+        <div class="intro-title">🌸 玩法與操作說明</div>
+        <div class="intro-item">
+          <span class="intro-tag" style="background: rgba(255, 183, 197, 0.25); color: var(--sakura-pink);">單點音符</span>
+          <span>到達判定線時點擊對應軌道。</span>
+        </div>
+        <div class="intro-item">
+          <span class="intro-tag" style="background: rgba(160, 231, 229, 0.25); color: var(--soft-cyan);">長音彩帶</span>
+          <span>頭部到達時按住，至尾部離開時放開。</span>
+        </div>
+        <div class="intro-item">
+          <span class="intro-tag" style="background: rgba(255, 209, 102, 0.25); color: var(--gold-accent);">2X 雙擊</span>
+          <span>標有 2X，須在 0.22s 內連續點擊兩次。</span>
+        </div>
+        <div class="intro-item" style="margin-top: 8px; border-top: 1px dashed rgba(255,255,255,0.15); padding-top: 6px; font-size: 11px; color: rgba(255,255,255,0.85);">
+          🎮 <b>操作指南</b>：電腦 <b>[D] [F] [J] [K]</b> 鍵 / 手機直接點擊下方 4 個軌道區域。
+        </div>
+      </div>
+
+      <div class="diff-selector">
+        <div class="btn-diff" data-diff="EASY">
+          <span>EASY (輕鬆)</span>
+          <span style="font-size: 11px; color: var(--soft-cyan);">單音專注</span>
+        </div>
+        <div class="btn-diff selected" data-diff="NORMAL">
+          <span>NORMAL (一般)</span>
+          <span style="font-size: 11px; color: var(--gold-accent);">漸進律動</span>
+        </div>
+        <div class="btn-diff" data-diff="HARD">
+          <span>HARD (困難)</span>
+          <span style="font-size: 11px; color: var(--sakura-pink);">雙鍵連擊</span>
+        </div>
+        <div class="btn-diff" data-diff="EXTREME">
+          <span>EXTREME (鬼神)</span>
+          <span style="font-size: 11px; color: #ff4d4d;">挑戰極限</span>
+        </div>
+      </div>
+
+      <button class="btn-main" id="btn-start">開始演奏 🌸</button>
+    </div>
+
+    <!-- GAME OVER / RESULT SCREEN -->
+    <div class="screen-overlay" id="result-screen">
+      <div id="res-icon" style="font-size: 40px;">🌸</div>
+      <h2 class="game-title" id="res-title">STAGE CLEAR</h2>
+      <div class="game-subtitle" id="res-subtitle">PERFORMANCE SUMMARY</div>
+
+      <div class="result-box">
+        <div class="result-row">
+          <span style="color: var(--sakura-pink);">最終評級</span>
+          <span id="res-rank" style="font-weight: 900; color: var(--gold-accent); font-size: 18px;">S</span>
+        </div>
+        <div class="result-row">
+          <span>最終得分</span>
+          <span id="res-score" style="font-weight: 900;">0</span>
+        </div>
+        <div class="result-row">
+          <span>最高 Combo</span>
+          <span id="res-maxcombo" style="font-weight: 900;">0</span>
+        </div>
+        <div class="result-row">
+          <span>PERFECT / GREAT</span>
+          <span id="res-accuracy">0 / 0</span>
+        </div>
+        <div class="result-row">
+          <span>MISS 次數</span>
+          <span id="res-miss" style="color: #ff6b6b;">0</span>
+        </div>
+      </div>
+
+      <button class="btn-main" id="btn-restart">再次挑戰</button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(function() {
+  const TRACK_LABELS = ['D', 'F', 'J', 'K'];
+
+  const DIFFICULTY_SETTINGS = {
+    EASY: { speed: 3.2, chordRate: 0.0, doubleRate: 0.0, holdRate: 0.10, hpLoss: 5, targetScore: 12000 },
+    NORMAL: { speed: 4.2, chordRate: 0.08, doubleRate: 0.08, holdRate: 0.15, hpLoss: 6, targetScore: 14000 },
+    HARD: { speed: 5.0, chordRate: 0.12, doubleRate: 0.12, holdRate: 0.20, hpLoss: 8, targetScore: 16000 },
+    EXTREME: { speed: 5.8, chordRate: 0.18, doubleRate: 0.16, holdRate: 0.22, hpLoss: 10, targetScore: 18000 }
+  };
+
+  const RANK_THRESHOLDS = { C: 3000, B: 6750, A: 10500, S: 13800 };
+
+  let currentDiff = 'NORMAL';
+  let gameState = 'START';
+
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+  let cw = 0, ch = 0;
+  let laneWidth = 0;
+  let hitLineY = 0;
+
+  function resize() {
+    const viewport = document.getElementById('viewport');
+    cw = viewport.clientWidth;
+    ch = viewport.clientHeight;
+    canvas.width = cw;
+    canvas.height = ch;
+    laneWidth = cw / 4;
+    hitLineY = ch - 110;
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  class SoundSynth {
+    constructor() {
+      this.ctx = null;
+    }
+    init() {
+      if (!this.ctx) {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        this.ctx = new AudioCtx();
+      }
+      if (this.ctx.state === 'suspended') this.ctx.resume();
+    }
+    playHit(pitch = 523.25) {
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(pitch, now);
+      gain.gain.setValueAtTime(0.2, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.12);
+    }
+    playMiss() {
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(120, now);
+      gain.gain.setValueAtTime(0.15, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.15);
+    }
+  }
+  const sound = new SoundSynth();
+
+  let score = 0;
+  let combo = 0;
+  let maxCombo = 0;
+  let hp = 100;
+  let perfectCount = 0;
+  let greatCount = 0;
+  let missCount = 0;
+
+  let notes = [];
+  let particles = [];
+  let judgments = [];
+
+  let gameTime = 0;
+  const songDuration = 60;
+
+  const keyToLane = { 'KeyD': 0, 'KeyF': 1, 'KeyJ': 2, 'KeyK': 3 };
+  let lanePressed = [false, false, false, false];
+
+  function spawnHitParticles(x, y, color) {
+    for (let i = 0; i < 12; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const spd = Math.random() * 5 + 2;
+      particles.push({
+        x, y,
+        vx: Math.cos(angle) * spd,
+        vy: Math.sin(angle) * spd - 1,
+        r: Math.random() * 4 + 2,
+        color,
+        alpha: 1.0,
+        decay: 0.04 + Math.random() * 0.02
+      });
+    }
+  }
+
+  function spawnJudgmentText(lane, text, color) {
+    judgments.push({
+      x: (lane + 0.5) * laneWidth,
+      y: hitLineY - 30,
+      text,
+      color,
+      alpha: 1.0,
+      scale: 1.3
+    });
+  }
+
+  function generateChart() {
+    notes = [];
+    const cfg = DIFFICULTY_SETTINGS[currentDiff];
+    const bpm = 132;
+    const beatInterval = 60 / bpm;
+    const totalBeats = Math.floor(songDuration / beatInterval);
+
+    let laneHoldEndTime = [0, 0, 0, 0];
+
+    for (let i = 8; i < totalBeats; i++) {
+      const time = i * beatInterval;
+
+      let availableLanes = [];
+      for (let l = 0; l < 4; l++) {
+        if (time >= laneHoldEndTime[l]) {
+          availableLanes.push(l);
+        }
+      }
+
+      if (availableLanes.length === 0) continue;
+
+      const rand = Math.random();
+      let isHold = rand < cfg.holdRate && availableLanes.length > 0;
+      let isDouble = !isHold && rand < (cfg.holdRate + cfg.doubleRate);
+      let isChord = !isHold && !isDouble && rand < (cfg.holdRate + cfg.doubleRate + cfg.chordRate);
+
+      if (isHold) {
+        const lane = availableLanes[Math.floor(Math.random() * availableLanes.length)];
+        const holdDuration = beatInterval * (Math.floor(Math.random() * 2) + 1.5);
+        laneHoldEndTime[lane] = time + holdDuration;
+
+        notes.push({
+          type: 'hold',
+          lane,
+          time,
+          duration: holdDuration,
+          holding: false,
+          completed: false,
+          missed: false
+        });
+      } else if (isDouble) {
+        const lane = availableLanes[Math.floor(Math.random() * availableLanes.length)];
+        notes.push({
+          type: 'double',
+          lane,
+          time,
+          firstHit: false,
+          firstHitTime: 0,
+          missed: false
+        });
+      } else if (isChord && availableLanes.length >= 2) {
+        const shuffled = [...availableLanes].sort(() => 0.5 - Math.random());
+        notes.push({ type: 'tap', lane: shuffled[0], time, missed: false });
+        notes.push({ type: 'tap', lane: shuffled[1], time, missed: false });
+      } else {
+        const lane = availableLanes[Math.floor(Math.random() * availableLanes.length)];
+        notes.push({ type: 'tap', lane, time, missed: false });
+      }
+    }
+  }
+
+  function handleHit(lane) {
+    sound.init();
+    lanePressed[lane] = true;
+
+    const cfg = DIFFICULTY_SETTINGS[currentDiff];
+    const speed = cfg.speed;
+
+    let closestNote = null;
+    let minDelta = Infinity;
+
+    notes.forEach(n => {
+      if (n.lane !== lane || n.missed || n.completed) return;
+
+      const noteY = hitLineY - (n.time - gameTime) * speed * 120;
+      const delta = Math.abs(noteY - hitLineY);
+
+      if (delta < minDelta && delta < 85) {
+        minDelta = delta;
+        closestNote = n;
+      }
+    });
+
+    if (!closestNote) return;
+
+    if (closestNote.type === 'tap') {
+      applyJudgment(closestNote, minDelta);
+      closestNote.completed = true;
+    } else if (closestNote.type === 'double') {
+      if (!closestNote.firstHit) {
+        closestNote.firstHit = true;
+        closestNote.firstHitTime = performance.now();
+        sound.playHit(659.25);
+        spawnHitParticles((lane + 0.5) * laneWidth, hitLineY, '#ffd166');
+      } else {
+        const timeDiff = (performance.now() - closestNote.firstHitTime) / 1000;
+        if (timeDiff <= 0.22) {
+          applyJudgment(closestNote, minDelta);
+          closestNote.completed = true;
+        }
+      }
+    } else if (closestNote.type === 'hold') {
+      if (!closestNote.holding) {
+        closestNote.holding = true;
+        sound.playHit(783.99);
+        spawnHitParticles((lane + 0.5) * laneWidth, hitLineY, '#a0e7e5');
+      }
+    }
+  }
+
+  function applyJudgment(note, delta) {
+    let judgeText = 'PERFECT';
+    let color = '#ffd166';
+    let pts = 300;
+
+    if (delta < 28) {
+      judgeText = 'PERFECT';
+      color = '#ffd166';
+      pts = 300;
+      perfectCount++;
+    } else if (delta < 55) {
+      judgeText = 'GREAT';
+      color = '#ffb7c5';
+      pts = 180;
+      greatCount++;
+    } else {
+      judgeText = 'GOOD';
+      color = '#a0e7e5';
+      pts = 90;
+    }
+
+    combo++;
+    if (combo > maxCombo) maxCombo = combo;
+    score += pts + Math.floor(combo * 1.5);
+    hp = Math.min(100, hp + 2);
+
+    sound.playHit(523.25 + combo * 2);
+    spawnHitParticles((note.lane + 0.5) * laneWidth, hitLineY, color);
+    spawnJudgmentText(note.lane, judgeText, color);
+  }
+
+  function triggerMiss(lane) {
+    const cfg = DIFFICULTY_SETTINGS[currentDiff];
+    combo = 0;
+    missCount++;
+    hp -= cfg.hpLoss;
+    sound.playMiss();
+    spawnJudgmentText(lane, 'MISS', '#ff4d4d');
+
+    if (hp <= 0) {
+      hp = 0;
+      endGame(false);
+    }
+  }
+
+  window.addEventListener('keydown', e => {
+    if (gameState !== 'PLAYING') return;
+    if (keyToLane[e.code] !== undefined && !e.repeat) {
+      handleHit(keyToLane[e.code]);
+    }
+  });
+
+  window.addEventListener('keyup', e => {
+    if (keyToLane[e.code] !== undefined) {
+      const lane = keyToLane[e.code];
+      lanePressed[lane] = false;
+      checkHoldRelease(lane);
+    }
+  });
+
+  canvas.addEventListener('touchstart', e => {
+    if (gameState !== 'PLAYING') return;
+    e.preventDefault();
+    const rect = canvas.getBoundingClientRect();
+
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const t = e.changedTouches[i];
+      const x = t.clientX - rect.left;
+      const lane = Math.floor(x / laneWidth);
+      if (lane >= 0 && lane < 4) {
+        handleHit(lane);
+      }
+    }
+  }, { passive: false });
+
+  canvas.addEventListener('touchend', e => {
+    if (gameState !== 'PLAYING') return;
+    const rect = canvas.getBoundingClientRect();
+
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const t = e.changedTouches[i];
+      const x = t.clientX - rect.left;
+      const lane = Math.floor(x / laneWidth);
+      if (lane >= 0 && lane < 4) {
+        lanePressed[lane] = false;
+        checkHoldRelease(lane);
+      }
+    }
+  });
+
+  function checkHoldRelease(lane) {
+    notes.forEach(n => {
+      if (n.lane === lane && n.type === 'hold' && n.holding && !n.completed) {
+        const speed = DIFFICULTY_SETTINGS[currentDiff].speed;
+        const tailY = hitLineY - (n.time + n.duration - gameTime) * speed * 120;
+
+        if (tailY < hitLineY - 30) {
+          n.missed = true;
+          n.holding = false;
+          triggerMiss(lane);
+        } else {
+          n.completed = true;
+          applyJudgment(n, 15);
+        }
+      }
+    });
+  }
+
+  let lastFrameTime = performance.now();
+  function gameLoop(now) {
+    const dt = (now - lastFrameTime) / 1000;
+    lastFrameTime = now;
+
+    if (gameState === 'PLAYING') {
+      gameTime += dt;
+      update(dt);
+    }
+
+    render();
+    requestAnimationFrame(gameLoop);
+  }
+
+  function update(dt) {
+    const cfg = DIFFICULTY_SETTINGS[currentDiff];
+    const speed = cfg.speed;
+
+    notes.forEach(n => {
+      if (n.completed || n.missed) return;
+
+      const headY = hitLineY - (n.time - gameTime) * speed * 120;
+
+      if (n.type === 'hold') {
+        const tailY = hitLineY - (n.time + n.duration - gameTime) * speed * 120;
+
+        if (n.holding) {
+          score += Math.floor(120 * dt);
+          if (tailY >= hitLineY) {
+            n.completed = true;
+            n.holding = false;
+            applyJudgment(n, 10);
+          }
+        } else if (headY > hitLineY + 60) {
+          n.missed = true;
+          triggerMiss(n.lane);
+        }
+      } else if (n.type === 'double') {
+        if (n.firstHit) {
+          const timePassed = (performance.now() - n.firstHitTime) / 1000;
+          if (timePassed > 0.22) {
+            n.missed = true;
+            triggerMiss(n.lane);
+          }
+        } else if (headY > hitLineY + 50) {
+          n.missed = true;
+          triggerMiss(n.lane);
+        }
+      } else {
+        if (headY > hitLineY + 50) {
+          n.missed = true;
+          triggerMiss(n.lane);
+        }
+      }
+    });
+
+    for (let i = particles.length - 1; i >= 0; i--) {
+      let p = particles[i];
+      p.x += p.vx;
+      p.y += p.vy;
+      p.alpha -= p.decay;
+      if (p.alpha <= 0) particles.splice(i, 1);
+    }
+
+    for (let i = judgments.length - 1; i >= 0; i--) {
+      let j = judgments[i];
+      j.y -= 0.8;
+      j.alpha -= 0.03;
+      if (j.alpha <= 0) judgments.splice(i, 1);
+    }
+
+    updateHUD();
+
+    if (gameTime >= songDuration + 2) {
+      endGame(true);
+    }
+  }
+
+  function updateHUD() {
+    document.getElementById('score-val').innerText = score;
+    document.getElementById('combo-val').innerText = combo;
+    document.getElementById('hp-bar').style.width = `${hp}%`;
+
+    const progressFill = document.getElementById('rank-progress-fill');
+    const maxRankVal = RANK_THRESHOLDS.S;
+    const pct = Math.min(100, (score / maxRankVal) * 100);
+    progressFill.style.width = `${pct}%`;
+
+    Object.keys(RANK_THRESHOLDS).forEach(rankKey => {
+      const badge = document.getElementById(`badge-${rankKey}`);
+      if (score >= RANK_THRESHOLDS[rankKey]) {
+        badge.classList.add('achieved');
+      } else {
+        badge.classList.remove('achieved');
+      }
+    });
+  }
+
+  function render() {
+    ctx.clearRect(0, 0, cw, ch);
+
+    for (let i = 0; i < 4; i++) {
+      ctx.strokeStyle = 'rgba(255, 183, 197, 0.15)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(i * laneWidth, 0);
+      ctx.lineTo(i * laneWidth, ch);
+      ctx.stroke();
+
+      if (lanePressed[i]) {
+        ctx.fillStyle = 'rgba(255, 183, 197, 0.08)';
+        ctx.fillRect(i * laneWidth, 0, laneWidth, ch);
+      }
+    }
+
+    ctx.save();
+    ctx.shadowBlur = 12;
+    ctx.shadowColor = '#ff69b4';
+    ctx.strokeStyle = '#ffb7c5';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(0, hitLineY);
+    ctx.lineTo(cw, hitLineY);
+    ctx.stroke();
+    ctx.restore();
+
+    if (gameState === 'PLAYING') {
+      const speed = DIFFICULTY_SETTINGS[currentDiff].speed;
+
+      notes.forEach(n => {
+        if (n.completed || n.missed) return;
+
+        const x = n.lane * laneWidth + laneWidth / 2;
+        const headY = hitLineY - (n.time - gameTime) * speed * 120;
+
+        if (n.type === 'hold') {
+          const tailY = hitLineY - (n.time + n.duration - gameTime) * speed * 120;
+
+          ctx.fillStyle = n.holding ? 'rgba(160, 231, 229, 0.65)' : 'rgba(255, 183, 197, 0.45)';
+          const holdTop = Math.min(headY, tailY);
+          const holdHeight = Math.abs(headY - tailY);
+          ctx.fillRect(n.lane * laneWidth + 12, holdTop, laneWidth - 24, holdHeight);
+
+          drawBlossomNode(x, headY, '#a0e7e5', 18);
+        } else if (n.type === 'double') {
+          drawBlossomNode(x, headY, n.firstHit ? '#ffffff' : '#ffd166', 20);
+
+          ctx.save();
+          ctx.strokeStyle = '#ffd166';
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.arc(x, headY, 26, 0, Math.PI * 2);
+          ctx.stroke();
+
+          ctx.fillStyle = '#000';
+          ctx.font = 'bold 10px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('2X', x, headY);
+          ctx.restore();
+        } else {
+          drawBlossomNode(x, headY, '#ffb7c5', 18);
+        }
+      });
+    }
+
+    particles.forEach(p => {
+      ctx.save();
+      ctx.globalAlpha = p.alpha;
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    });
+
+    judgments.forEach(j => {
+      ctx.save();
+      ctx.globalAlpha = j.alpha;
+      ctx.fillStyle = j.color;
+      ctx.font = '900 20px "M PLUS Rounded 1c", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.shadowBlur = 8;
+      ctx.shadowColor = j.color;
+      ctx.fillText(j.text, j.x, j.y);
+      ctx.restore();
+    });
+  }
+
+  function drawBlossomNode(x, y, color, radius) {
+    ctx.save();
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = color;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(x, y, radius * 0.45, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function calculateRank() {
+    if (score >= RANK_THRESHOLDS.S) return 'S';
+    if (score >= RANK_THRESHOLDS.A) return 'A';
+    if (score >= RANK_THRESHOLDS.B) return 'B';
+    if (score >= RANK_THRESHOLDS.C) return 'C';
+    return 'D';
+  }
+
+  function endGame(cleared) {
+    gameState = 'RESULT';
+
+    document.getElementById('res-icon').innerText = cleared ? '🌸' : '💔';
+    document.getElementById('res-title').innerText = cleared ? 'STAGE CLEAR' : 'FAILED';
+    document.getElementById('res-title').style.color = cleared ? 'var(--sakura-pink)' : '#ff4d4d';
+
+    document.getElementById('res-rank').innerText = calculateRank();
+    document.getElementById('res-score').innerText = score;
+    document.getElementById('res-maxcombo').innerText = maxCombo;
+    document.getElementById('res-accuracy').innerText = `${perfectCount} / ${greatCount}`;
+    document.getElementById('res-miss').innerText = missCount;
+
+    document.querySelectorAll('.screen-overlay').forEach(s => s.classList.remove('active'));
+    document.getElementById('result-screen').classList.add('active');
+  }
+
+  function startGame() {
+    score = 0;
+    combo = 0;
+    maxCombo = 0;
+    hp = 100;
+    perfectCount = 0;
+    greatCount = 0;
+    missCount = 0;
+    gameTime = 0;
+    particles = [];
+    judgments = [];
+
+    generateChart();
+    sound.init();
+
+    document.querySelectorAll('.screen-overlay').forEach(s => s.classList.remove('active'));
+    gameState = 'PLAYING';
+  }
+
+  document.querySelectorAll('.btn-diff').forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll('.btn-diff').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      currentDiff = btn.getAttribute('data-diff');
+    };
+  });
+
+  document.getElementById('btn-start').onclick = startGame;
+  document.getElementById('btn-restart').onclick = () => {
+    document.querySelectorAll('.screen-overlay').forEach(s => s.classList.remove('active'));
+    document.getElementById('start-screen').classList.add('active');
+  };
+
+  requestAnimationFrame(gameLoop);
+})();
+</script>
+</body>
+</html>

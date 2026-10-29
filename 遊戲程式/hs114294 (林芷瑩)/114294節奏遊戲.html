@@ -1,0 +1,1255 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>NEON PULSE 2077 - Cyberpunk Rhythm Game</title>
+  
+  <!-- Tailwind CSS & Google Fonts for Cyberpunk Aesthetic -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <style>
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #030108;
+      font-family: 'Rajdhani', sans-serif;
+      color: #fff;
+    }
+
+    .font-orbitron {
+      font-family: 'Orbitron', sans-serif;
+    }
+
+    #game-container {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: radial-gradient(circle at center, #13092b 0%, #030108 100%);
+    }
+
+    canvas {
+      display: block;
+      box-shadow: 0 0 40px rgba(0, 240, 255, 0.25);
+    }
+
+    .glow-cyan {
+      text-shadow: 0 0 10px #00f0ff, 0 0 20px #00f0ff;
+    }
+
+    .glow-pink {
+      text-shadow: 0 0 10px #ff007f, 0 0 20px #ff007f;
+    }
+
+    .glow-yellow {
+      text-shadow: 0 0 10px #ffe600, 0 0 20px #ffe600;
+    }
+
+    .box-glow-cyan {
+      box-shadow: 0 0 20px rgba(0, 240, 255, 0.4), inset 0 0 15px rgba(0, 240, 255, 0.15);
+      border: 1px solid #00f0ff;
+    }
+
+    .box-glow-pink {
+      box-shadow: 0 0 20px rgba(255, 0, 127, 0.4), inset 0 0 15px rgba(255, 0, 127, 0.15);
+      border: 1px solid #ff007f;
+    }
+
+    /* Custom Scanline Overlay */
+    .scanline {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(
+        to bottom,
+        rgba(255,255,255,0),
+        rgba(255,255,255,0) 50%,
+        rgba(0, 0, 0, 0.3) 50%,
+        rgba(0, 0, 0, 0.3)
+      );
+      background-size: 100% 4px;
+      pointer-events: none;
+      z-index: 5;
+      opacity: 0.6;
+    }
+
+    #hud {
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100%;
+      max-width: 520px;
+      padding: 15px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    #hp-bar-container {
+      width: 100%;
+      height: 12px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 6px;
+      overflow: hidden;
+      border: 1px solid rgba(0, 240, 255, 0.4);
+      position: relative;
+    }
+
+    #hp-bar {
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, #ff0055, #ff007f 50%, #00f0ff);
+      box-shadow: 0 0 12px #00f0ff;
+      transition: width 0.15s ease-out;
+    }
+
+    .screen-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(5, 2, 14, 0.88);
+      backdrop-filter: blur(10px);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 20;
+      opacity: 1;
+      transition: opacity 0.3s ease;
+    }
+
+    .screen-overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .cyber-btn {
+      padding: 12px 24px;
+      background: rgba(10, 5, 25, 0.8);
+      border: 1px solid #00f0ff;
+      color: #00f0ff;
+      font-family: 'Orbitron', sans-serif;
+      font-weight: 700;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      transition: all 0.2s ease;
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.25);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .cyber-btn:hover, .cyber-btn.active {
+      background: #00f0ff;
+      color: #030108;
+      box-shadow: 0 0 25px #00f0ff;
+    }
+
+    .cyber-btn.btn-pink {
+      border-color: #ff007f;
+      color: #ff007f;
+      box-shadow: 0 0 12px rgba(255, 0, 127, 0.25);
+    }
+
+    .cyber-btn.btn-pink:hover, .cyber-btn.btn-pink.active {
+      background: #ff007f;
+      color: #fff;
+      box-shadow: 0 0 25px #ff007f;
+    }
+
+    .song-card {
+      background: rgba(20, 10, 40, 0.6);
+      border: 1px solid rgba(0, 240, 255, 0.3);
+      border-radius: 8px;
+      padding: 12px 16px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .song-card:hover, .song-card.selected {
+      border-color: #ff007f;
+      background: rgba(40, 15, 60, 0.8);
+      box-shadow: 0 0 15px rgba(255, 0, 127, 0.4);
+    }
+
+    .theme-btn {
+      cursor: pointer;
+      transition: all 0.2s ease;
+      opacity: 0.75;
+    }
+
+    .theme-btn.active, .theme-btn:hover {
+      opacity: 1;
+      transform: scale(1.05);
+      box-shadow: 0 0 10px currentColor;
+    }
+
+    #mobile-controls {
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100%;
+      max-width: 500px;
+      height: 110px;
+      display: none;
+      z-index: 15;
+    }
+
+    .touch-btn {
+      flex: 1;
+      height: 100%;
+      background: rgba(255, 255, 255, 0.03);
+      border-right: 1px solid rgba(0, 240, 255, 0.15);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 26px;
+      font-weight: 900;
+      color: rgba(255, 255, 255, 0.3);
+      touch-action: manipulation;
+    }
+
+    .touch-btn:last-child {
+      border-right: none;
+    }
+
+    .touch-btn:active, .touch-btn.pressed {
+      background: rgba(0, 240, 255, 0.25);
+      color: #00f0ff;
+      text-shadow: 0 0 10px #00f0ff;
+    }
+
+    @media (max-width: 768px) {
+      #mobile-controls {
+        display: flex;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="game-container">
+    <div class="scanline"></div>
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- HUD Overlay -->
+    <div id="hud">
+      <div class="flex justify-between items-center text-xs tracking-wider text-slate-400 font-orbitron">
+        <div>
+          <div class="text-slate-400">SCORE</div>
+          <div id="hud-score" class="text-2xl font-black text-cyan-400 glow-cyan">000000</div>
+        </div>
+        <div class="text-center">
+          <div class="text-slate-400">COMBO</div>
+          <div id="hud-combo" class="text-2xl font-black text-yellow-300 glow-yellow">0</div>
+        </div>
+        <div class="text-right">
+          <div class="text-slate-400">ACCURACY</div>
+          <div id="hud-accuracy" class="text-2xl font-black text-pink-500 glow-pink">100%</div>
+        </div>
+      </div>
+      <div id="hp-bar-container">
+        <div id="hp-bar"></div>
+      </div>
+      <div class="flex justify-between items-center text-[10px] text-cyan-300 tracking-widest font-orbitron uppercase">
+        <span id="hud-song-title">CYBER CITY 2077</span>
+        <span id="hud-difficulty">NORMAL</span>
+      </div>
+    </div>
+
+    <!-- Mobile Touch Controls -->
+    <div id="mobile-controls">
+      <div class="touch-btn" data-lane="0">D</div>
+      <div class="touch-btn" data-lane="1">F</div>
+      <div class="touch-btn" data-lane="2">J</div>
+      <div class="touch-btn" data-lane="3">K</div>
+    </div>
+
+    <!-- Main Menu Overlay -->
+    <div id="menu-screen" class="screen-overlay">
+      <div class="text-center mb-6">
+        <h1 class="font-orbitron text-5xl md:text-6xl font-black italic tracking-wider text-white glow-cyan mb-1">
+          NEON PULSE
+        </h1>
+        <div class="font-orbitron text-sm md:text-base text-pink-500 tracking-[0.3em] font-bold glow-pink">
+          CYBERPUNK RHYTHM 2077
+        </div>
+      </div>
+
+      <div class="box-glow-cyan bg-slate-950/80 p-6 rounded-2xl flex flex-col gap-5 max-w-md w-[92%]">
+        
+        <!-- Song Selection -->
+        <div>
+          <div class="text-xs font-orbitron text-cyan-400 tracking-wider mb-2 flex justify-between">
+            <span>SELECT TRACK</span>
+            <span id="high-score-display" class="text-yellow-400">BEST: 0</span>
+          </div>
+          <div class="flex flex-col gap-2">
+            <div class="song-card selected" data-song="0">
+              <div class="flex justify-between items-center">
+                <span class="font-bold text-white font-orbitron text-sm">CYBER CITY 2077</span>
+                <span class="text-xs text-pink-400 font-mono">120 BPM</span>
+              </div>
+              <div class="text-xs text-slate-400 mt-1">Classic Synthwave Beat</div>
+            </div>
+            <div class="song-card" data-song="1">
+              <div class="flex justify-between items-center">
+                <span class="font-bold text-white font-orbitron text-sm">NEON HORIZON</span>
+                <span class="text-xs text-pink-400 font-mono">138 BPM</span>
+              </div>
+              <div class="text-xs text-slate-400 mt-1">Fast Darksynth & High Octane Bass</div>
+            </div>
+            <div class="song-card" data-song="2">
+              <div class="flex justify-between items-center">
+                <span class="font-bold text-white font-orbitron text-sm">QUANTUM DRIFT</span>
+                <span class="text-xs text-pink-400 font-mono">150 BPM</span>
+              </div>
+              <div class="text-xs text-slate-400 mt-1">Extreme Speed Cyber Trance</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Difficulty Selection -->
+        <div>
+          <div class="text-xs font-orbitron text-cyan-400 tracking-wider mb-2">SELECT DIFFICULTY</div>
+          <div class="grid grid-cols-3 gap-2">
+            <button class="cyber-btn difficulty-btn text-xs py-2" data-diff="EASY">EASY</button>
+            <button class="cyber-btn difficulty-btn active text-xs py-2" data-diff="NORMAL">NORMAL</button>
+            <button class="cyber-btn difficulty-btn btn-pink text-xs py-2" data-diff="HARD">HARD</button>
+          </div>
+        </div>
+
+        <!-- Color Theme Selection -->
+        <div>
+          <div class="text-xs font-orbitron text-amber-400 tracking-wider mb-2">COLOR THEME</div>
+          <div class="grid grid-cols-4 gap-1.5" id="theme-selector">
+            <button class="theme-btn text-[10px] py-1.5 rounded font-orbitron border border-cyan-400 text-cyan-300 bg-cyan-950/40" data-theme="cyan">CYAN</button>
+            <button class="theme-btn active text-[10px] py-1.5 rounded font-orbitron border border-amber-400 text-amber-300 bg-amber-950/40" data-theme="sunset">SUNSET</button>
+            <button class="theme-btn text-[10px] py-1.5 rounded font-orbitron border border-emerald-400 text-emerald-300 bg-emerald-950/40" data-theme="matrix">TOXIC</button>
+            <button class="theme-btn text-[10px] py-1.5 rounded font-orbitron border border-purple-400 text-purple-300 bg-purple-950/40" data-theme="violet">VIOLET</button>
+          </div>
+        </div>
+
+        <!-- Speed Multiplier -->
+        <div class="flex justify-between items-center text-xs font-orbitron">
+          <span class="text-cyan-400">NOTE SPEED:</span>
+          <div class="flex gap-2 items-center">
+            <button id="speed-down" class="cyber-btn px-2 py-1 text-xs">-</button>
+            <span id="speed-value" class="text-yellow-300 font-bold font-mono">1.0x</span>
+            <button id="speed-up" class="cyber-btn px-2 py-1 text-xs">+</button>
+          </div>
+        </div>
+
+        <!-- Start Button -->
+        <button id="start-btn" class="cyber-btn btn-pink w-full py-4 text-lg mt-2">
+          <i class="fa-solid fa-play"></i> START SYSTEM
+        </button>
+
+        <div class="text-center text-xs text-slate-400 border-t border-slate-800 pt-3 leading-relaxed">
+          KEYBOARD: <span class="px-2 py-0.5 bg-slate-800 border border-cyan-400 text-cyan-400 rounded font-mono font-bold">D</span>
+          <span class="px-2 py-0.5 bg-slate-800 border border-cyan-400 text-cyan-400 rounded font-mono font-bold">F</span>
+          <span class="px-2 py-0.5 bg-slate-800 border border-cyan-400 text-cyan-400 rounded font-mono font-bold">J</span>
+          <span class="px-2 py-0.5 bg-slate-800 border border-cyan-400 text-cyan-400 rounded font-mono font-bold">K</span>
+          <br>Press <span class="px-1.5 py-0.5 bg-slate-800 border border-pink-500 text-pink-400 rounded font-mono">ESC</span> to Pause
+        </div>
+      </div>
+    </div>
+
+    <!-- Pause Screen -->
+    <div id="pause-screen" class="screen-overlay hidden">
+      <h1 class="font-orbitron text-4xl font-black text-cyan-400 glow-cyan mb-6">SYSTEM PAUSED</h1>
+      <div class="box-glow-cyan bg-slate-950/90 p-6 rounded-2xl flex flex-col gap-3 max-w-xs w-full">
+        <button id="resume-btn" class="cyber-btn btn-pink w-full py-3"><i class="fa-solid fa-play"></i> CONTINUE</button>
+        <button id="restart-btn" class="cyber-btn w-full py-3"><i class="fa-solid fa-rotate-right"></i> RESTART</button>
+        <button id="quit-btn" class="cyber-btn w-full py-3"><i class="fa-solid fa-house"></i> MAIN MENU</button>
+      </div>
+    </div>
+
+    <!-- Result / Victory Screen -->
+    <div id="result-screen" class="screen-overlay hidden">
+      <div class="text-center mb-4">
+        <h1 id="result-title" class="font-orbitron text-5xl font-black text-cyan-400 glow-cyan mb-1">VICTORY!</h1>
+        <div id="result-grade" class="font-orbitron text-6xl font-black text-yellow-300 glow-yellow my-2">S</div>
+        <div id="new-high-score-tag" class="text-yellow-400 font-bold font-orbitron text-sm hidden animate-pulse">
+          <i class="fa-solid fa-crown"></i> NEW HIGH SCORE!
+        </div>
+      </div>
+
+      <div class="box-glow-pink bg-slate-950/90 p-6 rounded-2xl max-w-sm w-[90%] flex flex-col gap-4">
+        <table class="w-full text-sm font-orbitron">
+          <tr class="border-b border-slate-800"><td class="py-2 text-slate-400">FINAL SCORE</td><td id="res-score" class="text-right text-cyan-400 font-bold font-mono text-lg">0</td></tr>
+          <tr class="border-b border-slate-800"><td class="py-2 text-slate-400">MAX COMBO</td><td id="res-combo" class="text-right text-yellow-400 font-bold font-mono">0</td></tr>
+          <tr class="border-b border-slate-800"><td class="py-2 text-slate-400">ACCURACY</td><td id="res-accuracy" class="text-right text-pink-400 font-bold font-mono">100%</td></tr>
+          <tr class="border-b border-slate-800"><td class="py-2 text-emerald-400">PERFECT</td><td id="res-perfect" class="text-right font-mono">0</td></tr>
+          <tr class="border-b border-slate-800"><td class="py-2 text-cyan-400">GREAT</td><td id="res-great" class="text-right font-mono">0</td></tr>
+          <tr class="border-b border-slate-800"><td class="py-2 text-yellow-400">GOOD</td><td id="res-good" class="text-right font-mono">0</td></tr>
+          <tr><td class="py-2 text-rose-500">MISS</td><td id="res-miss" class="text-right font-mono">0</td></tr>
+        </table>
+
+        <div class="flex gap-3">
+          <button id="retry-btn" class="cyber-btn btn-pink flex-1 py-3 text-sm"><i class="fa-solid fa-rotate-right"></i> RETRY</button>
+          <button id="menu-btn" class="cyber-btn flex-1 py-3 text-sm"><i class="fa-solid fa-house"></i> MENU</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    const STATES = { INIT: 0, MENU: 1, PLAYING: 2, PAUSED: 3, GAMEOVER: 4, VICTORY: 5 };
+    let gameState = STATES.INIT;
+
+    // Canvas setup
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    let canvasWidth = 450;
+    let canvasHeight = 800;
+
+    // Track Lane Configuration (4 Tracks)
+    const LANE_COUNT = 4;
+    const LANE_KEYS = ['d', 'f', 'j', 'k'];
+    
+    // Color Themes
+    const THEMES = {
+      cyan: {
+        background: 'radial-gradient(circle at center, #13092b 0%, #030108 100%)',
+        laneColors: ['#00f0ff', '#ff007f', '#ffe600', '#00ff66'],
+        primary: '#00f0ff',
+        secondary: '#ff007f'
+      },
+      sunset: {
+        background: 'radial-gradient(circle at center, #2b091e 0%, #080105 100%)',
+        laneColors: ['#ff8800', '#ff0055', '#a855f7', '#facc15'],
+        primary: '#ff8800',
+        secondary: '#ff0055'
+      },
+      matrix: {
+        background: 'radial-gradient(circle at center, #052b12 0%, #010803 100%)',
+        laneColors: ['#10b981', '#a3e635', '#06b6d4', '#eab308'],
+        primary: '#10b981',
+        secondary: '#a3e635'
+      },
+      violet: {
+        background: 'radial-gradient(circle at center, #1e0938 0%, #05010a 100%)',
+        laneColors: ['#c084fc', '#38bdf8', '#f43f5e', '#a855f7'],
+        primary: '#c084fc',
+        secondary: '#f43f5e'
+      }
+    };
+
+    let currentThemeKey = 'sunset';
+    let LANE_COLORS = THEMES.sunset.laneColors;
+    let laneWidth = canvasWidth / LANE_COUNT;
+    let hitLineY = canvasHeight - 120;
+
+    // Song Track Definitions
+    const SONGS = [
+      { id: 'song1', name: 'CYBER CITY 2077', bpm: 120, bassFreq: [110, 110, 130.81, 97.99] },
+      { id: 'song2', name: 'NEON HORIZON', bpm: 138, bassFreq: [130.81, 146.83, 110.00, 97.99] },
+      { id: 'song3', name: 'QUANTUM DRIFT', bpm: 150, bassFreq: [146.83, 164.81, 130.81, 110.00] }
+    ];
+
+    // Gameplay parameters
+    let selectedSongIndex = 0;
+    let selectedDifficulty = 'NORMAL';
+    let speedMultiplier = 1.0;
+
+    let score = 0;
+    let combo = 0;
+    let maxCombo = 0;
+    let hp = 100;
+    let stats = { perfect: 0, great: 0, good: 0, miss: 0, totalNotes: 0 };
+
+    // Notes and Time engine
+    let notes = [];
+    let baseNoteSpeed = 650; // pixels per second
+    let currentNoteSpeed = 650;
+    let gameStartTime = 0;
+    let pauseStartTime = 0;
+
+    // Visual particles and floating texts
+    let particles = [];
+    let popupTexts = [];
+    let lanePressState = [false, false, false, false];
+
+    let audioCtx = null;
+    let noiseBuffer = null;
+    let bgmEvents = [];
+    let bgmEventIndex = 0;
+
+    function initAudio() {
+      if (!audioCtx) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContext();
+        
+        // Create noise buffer for snare and hi-hat synthesizers
+        const bufferSize = audioCtx.sampleRate * 1.0;
+        noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const output = noiseBuffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          output[i] = Math.random() * 2 - 1;
+        }
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    /* Synth Instrument Functions */
+    function playKick(time) {
+      if (!audioCtx) return;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.frequency.setValueAtTime(140, time);
+      osc.frequency.exponentialRampToValueAtTime(0.01, time + 0.15);
+      gain.gain.setValueAtTime(0.8, time);
+      gain.gain.exponentialRampToValueAtTime(0.01, time + 0.15);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(time);
+      osc.stop(time + 0.15);
+    }
+
+    function playSnare(time) {
+      if (!audioCtx || !noiseBuffer) return;
+      const noise = audioCtx.createBufferSource();
+      noise.buffer = noiseBuffer;
+      const filter = audioCtx.createBiquadFilter();
+      filter.type = 'highpass';
+      filter.frequency.value = 800;
+      const gain = audioCtx.createGain();
+      gain.gain.setValueAtTime(0.35, time);
+      gain.gain.exponentialRampToValueAtTime(0.01, time + 0.2);
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(audioCtx.destination);
+      noise.start(time);
+      noise.stop(time + 0.2);
+    }
+
+    function playHiHat(time) {
+      if (!audioCtx || !noiseBuffer) return;
+      const noise = audioCtx.createBufferSource();
+      noise.buffer = noiseBuffer;
+      const filter = audioCtx.createBiquadFilter();
+      filter.type = 'highpass';
+      filter.frequency.value = 6000;
+      const gain = audioCtx.createGain();
+      gain.gain.setValueAtTime(0.12, time);
+      gain.gain.exponentialRampToValueAtTime(0.01, time + 0.05);
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(audioCtx.destination);
+      noise.start(time);
+      noise.stop(time + 0.05);
+    }
+
+    function playBassNote(time, freq, duration) {
+      if (!audioCtx) return;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      const filter = audioCtx.createBiquadFilter();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(freq, time);
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(700, time);
+      filter.frequency.exponentialRampToValueAtTime(120, time + duration);
+      gain.gain.setValueAtTime(0.22, time);
+      gain.gain.exponentialRampToValueAtTime(0.01, time + duration);
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(time);
+      osc.stop(time + duration);
+    }
+
+    function playLeadNote(time, freq, duration) {
+      if (!audioCtx) return;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(freq, time);
+      gain.gain.setValueAtTime(0.12, time);
+      gain.gain.exponentialRampToValueAtTime(0.01, time + duration);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(time);
+      osc.stop(time + duration);
+    }
+
+    /* Dynamic Hit Sound Effects */
+    function playHitSound(type) {
+      if (!audioCtx) return;
+      const now = audioCtx.currentTime;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+
+      if (type === 'PERFECT') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, now);
+        osc.frequency.exponentialRampToValueAtTime(1760, now + 0.08);
+        gain.gain.setValueAtTime(0.35, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+      } else if (type === 'GREAT') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(660, now);
+        osc.frequency.exponentialRampToValueAtTime(1100, now + 0.08);
+        gain.gain.setValueAtTime(0.25, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+      } else if (type === 'GOOD') {
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(440, now);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+      } else { // MISS
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(140, now);
+        osc.frequency.exponentialRampToValueAtTime(40, now + 0.15);
+        gain.gain.setValueAtTime(0.25, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+      }
+
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(now);
+      osc.stop(now + 0.15);
+    }
+
+    function generateChartAndBGM(song, diff) {
+      notes = [];
+      bgmEvents = [];
+      bgmEventIndex = 0;
+
+      const bpm = song.bpm;
+      const secondsPerBeat = 60 / bpm;
+      const sixteenth = secondsPerBeat / 4;
+      const totalBars = 32; // ~60 seconds track
+      const baseDelay = 2.0;
+
+      let speedMap = { EASY: 520, NORMAL: 680, HARD: 850 };
+      baseNoteSpeed = speedMap[diff];
+      currentNoteSpeed = baseNoteSpeed * speedMultiplier;
+
+      const leadScale = [220, 261.63, 293.66, 329.63, 392.00, 440.00, 523.25];
+
+      for (let bar = 0; bar < totalBars; bar++) {
+        const barStartTime = baseDelay + bar * 4 * secondsPerBeat;
+
+        for (let step = 0; step < 16; step++) {
+          const t = barStartTime + step * sixteenth;
+
+          // Synth Accompaniment Timeline
+          if (step % 4 === 0) bgmEvents.push({ time: t, type: 'kick' });
+          if (step % 8 === 4) bgmEvents.push({ time: t, type: 'snare' });
+          if (step % 2 === 0) bgmEvents.push({ time: t, type: 'hihat' });
+          if (step % 2 === 0) {
+            const bassFreq = song.bassFreq[Math.floor(bar / 8) % song.bassFreq.length];
+            bgmEvents.push({ time: t, type: 'bass', freq: bassFreq, duration: sixteenth * 1.8 });
+          }
+
+          // Rhythm Note Charting Logic
+          let spawnNote = false;
+          let lane = 0;
+
+          if (diff === 'EASY') {
+            if (step % 4 === 0) {
+              spawnNote = true;
+              lane = Math.floor((bar * 4 + step / 4) % 4);
+            }
+          } else if (diff === 'NORMAL') {
+            if (step % 2 === 0 && (step % 4 === 0 || Math.random() < 0.65)) {
+              spawnNote = true;
+              lane = (step / 2) % 4;
+            }
+          } else if (diff === 'HARD') {
+            if (step % 2 === 0 || (bar > 4 && step % 4 === 3)) {
+              spawnNote = true;
+              lane = Math.floor(Math.random() * 4);
+            }
+          }
+
+          if (spawnNote) {
+            const freq = leadScale[(lane * 2 + (bar % 3)) % leadScale.length];
+            notes.push({
+              time: t,
+              lane: lane,
+              hit: false,
+              missed: false,
+              freq: freq
+            });
+            bgmEvents.push({ time: t, type: 'lead', freq: freq, duration: sixteenth * 1.5 });
+          }
+        }
+      }
+
+      stats.totalNotes = notes.length;
+      bgmEvents.sort((a, b) => a.time - b.time);
+    }
+
+    class Particle {
+      constructor(x, y, color) {
+        this.x = x;
+        this.y = y;
+        this.vx = (Math.random() - 0.5) * 12;
+        this.vy = (Math.random() - 0.7) * 12;
+        this.color = color;
+        this.alpha = 1;
+        this.size = Math.random() * 6 + 3;
+        this.decay = Math.random() * 0.035 + 0.02;
+      }
+      update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.vy += 0.35;
+        this.alpha -= this.decay;
+      }
+      draw(ctx) {
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, this.alpha);
+        ctx.fillStyle = this.color;
+        ctx.shadowBlur = 12;
+        ctx.shadowColor = this.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    class PopupText {
+      constructor(text, color, x, y) {
+        this.text = text;
+        this.color = color;
+        this.x = x;
+        this.y = y;
+        this.alpha = 1;
+        this.scale = 0.5;
+      }
+      update() {
+        if (this.scale < 1.1) this.scale += 0.09;
+        this.alpha -= 0.025;
+        this.y -= 0.6;
+      }
+      draw(ctx) {
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, this.alpha);
+        ctx.font = `900 ${Math.floor(28 * this.scale)}px Orbitron, sans-serif`;
+        ctx.fillStyle = this.color;
+        ctx.shadowBlur = 18;
+        ctx.shadowColor = this.color;
+        ctx.textAlign = 'center';
+        ctx.fillText(this.text, this.x, this.y);
+        ctx.restore();
+      }
+    }
+
+    function createHitParticles(lane) {
+      const x = lane * laneWidth + laneWidth / 2;
+      const y = hitLineY;
+      const color = LANE_COLORS[lane];
+      for (let i = 0; i < 20; i++) {
+        particles.push(new Particle(x, y, color));
+      }
+    }
+
+    function createPopupText(text, color, lane) {
+      const x = lane !== undefined ? (lane * laneWidth + laneWidth / 2) : canvasWidth / 2;
+      const y = hitLineY - 50;
+      popupTexts.push(new PopupText(text, color, x, y));
+    }
+
+    function handleHit(lane) {
+      if (gameState !== STATES.PLAYING || !audioCtx) return;
+
+      const currentTime = audioCtx.currentTime - gameStartTime;
+      let targetNote = null;
+      let minDelta = Infinity;
+
+      for (let note of notes) {
+        if (note.lane === lane && !note.hit && !note.missed) {
+          const delta = Math.abs(note.time - currentTime);
+          if (delta < minDelta) {
+            minDelta = delta;
+            targetNote = note;
+          }
+        }
+      }
+
+      if (targetNote && minDelta <= 0.130) {
+        targetNote.hit = true;
+        createHitParticles(lane);
+
+        let rating = '';
+        let pts = 0;
+        let color = '';
+
+        if (minDelta <= 0.045) { // PERFECT ±45ms
+          rating = 'PERFECT';
+          pts = 100;
+          color = '#00ff66';
+          hp = Math.min(100, hp + 2.5);
+          stats.perfect++;
+        } else if (minDelta <= 0.085) { // GREAT ±85ms
+          rating = 'GREAT';
+          pts = 70;
+          color = '#00f0ff';
+          hp = Math.min(100, hp + 1.2);
+          stats.great++;
+        } else { // GOOD ±130ms
+          rating = 'GOOD';
+          pts = 40;
+          color = '#ffe600';
+          stats.good++;
+        }
+
+        combo++;
+        if (combo > maxCombo) maxCombo = combo;
+        let multiplier = combo >= 50 ? 2.0 : (combo >= 20 ? 1.5 : (combo >= 10 ? 1.2 : 1.0));
+
+        score += Math.floor(pts * multiplier);
+        playHitSound(rating);
+        createPopupText(rating, color, lane);
+        updateHUD();
+      }
+    }
+
+    function checkAutoMiss() {
+      if (!audioCtx) return;
+      const currentTime = audioCtx.currentTime - gameStartTime;
+
+      for (let note of notes) {
+        if (!note.hit && !note.missed && (currentTime - note.time) > 0.130) {
+          note.missed = true;
+          combo = 0;
+          hp = Math.max(0, hp - 12);
+          stats.miss++;
+          playHitSound('MISS');
+          createPopupText('MISS', '#ff0055', note.lane);
+          updateHUD();
+
+          if (hp <= 0) {
+            triggerGameOver();
+            break;
+          }
+        }
+      }
+    }
+
+    function resizeCanvas() {
+      const container = document.getElementById('game-container');
+      canvasWidth = Math.min(container.clientWidth, 480);
+      canvasHeight = container.clientHeight;
+
+      canvas.width = canvasWidth;
+      canvas.height = canvasHeight;
+
+      laneWidth = canvasWidth / LANE_COUNT;
+      hitLineY = canvasHeight - 110;
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+
+      // 1. Cyberpunk Lanes & Background Grid
+      for (let i = 0; i < LANE_COUNT; i++) {
+        const x = i * laneWidth;
+
+        ctx.fillStyle = i % 2 === 0 ? 'rgba(255, 255, 255, 0.015)' : 'rgba(0, 0, 0, 0.2)';
+        ctx.fillRect(x, 0, laneWidth, canvasHeight);
+
+        // Pressed Glow Beam
+        if (lanePressState[i]) {
+          const grad = ctx.createLinearGradient(0, hitLineY, 0, 0);
+          grad.addColorStop(0, LANE_COLORS[i]);
+          grad.addColorStop(1, 'transparent');
+          ctx.fillStyle = grad;
+          ctx.globalAlpha = 0.3;
+          ctx.fillRect(x, 0, laneWidth, hitLineY);
+          ctx.globalAlpha = 1.0;
+        }
+
+        // Lane Separators
+        ctx.strokeStyle = 'rgba(0, 240, 255, 0.15)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvasHeight);
+        ctx.stroke();
+      }
+
+      // 2. Laser Judgment Line
+      const primaryColor = THEMES[currentThemeKey].primary;
+      ctx.strokeStyle = primaryColor;
+      ctx.lineWidth = 3;
+      ctx.shadowBlur = 18;
+      ctx.shadowColor = primaryColor;
+      ctx.beginPath();
+      ctx.moveTo(0, hitLineY);
+      ctx.lineTo(canvasWidth, hitLineY);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      // Target Buttons at Bottom
+      for (let i = 0; i < LANE_COUNT; i++) {
+        const x = i * laneWidth;
+        const btnSize = 42;
+        const btnX = x + (laneWidth - btnSize) / 2;
+        const btnY = hitLineY + 15;
+
+        ctx.strokeStyle = lanePressState[i] ? LANE_COLORS[i] : 'rgba(255, 255, 255, 0.3)';
+        ctx.lineWidth = lanePressState[i] ? 3 : 1;
+        ctx.shadowBlur = lanePressState[i] ? 15 : 0;
+        ctx.shadowColor = LANE_COLORS[i];
+        ctx.strokeRect(btnX, btnY, btnSize, btnSize);
+
+        ctx.fillStyle = lanePressState[i] ? LANE_COLORS[i] : 'rgba(255, 255, 255, 0.6)';
+        ctx.font = 'bold 16px Orbitron, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(LANE_KEYS[i].toUpperCase(), x + laneWidth / 2, btnY + 26);
+        ctx.shadowBlur = 0;
+      }
+
+      // 3. Falling Notes
+      if (gameState === STATES.PLAYING || gameState === STATES.PAUSED) {
+        const currentTime = audioCtx ? (audioCtx.currentTime - gameStartTime) : 0;
+
+        for (let note of notes) {
+          if (!note.hit && !note.missed) {
+            const y = hitLineY - (note.time - currentTime) * currentNoteSpeed;
+
+            if (y > -50 && y < canvasHeight + 50) {
+              const x = note.lane * laneWidth + 8;
+              const w = laneWidth - 16;
+              const h = 20;
+
+              ctx.save();
+              ctx.fillStyle = LANE_COLORS[note.lane];
+              ctx.shadowBlur = 15;
+              ctx.shadowColor = LANE_COLORS[note.lane];
+
+              // Capsule Note Body
+              ctx.beginPath();
+              ctx.roundRect(x, y - h / 2, w, h, 8);
+              ctx.fill();
+
+              // Glowing White Core
+              ctx.fillStyle = '#ffffff';
+              ctx.beginPath();
+              ctx.roundRect(x + 4, y - h / 2 + 3, w - 8, h - 6, 4);
+              ctx.fill();
+
+              ctx.restore();
+            }
+          }
+        }
+      }
+
+      // 4. Particles & Floating Texts
+      for (let i = particles.length - 1; i >= 0; i--) {
+        particles[i].update();
+        particles[i].draw(ctx);
+        if (particles[i].alpha <= 0) particles.splice(i, 1);
+      }
+
+      for (let i = popupTexts.length - 1; i >= 0; i--) {
+        popupTexts[i].update();
+        popupTexts[i].draw(ctx);
+        if (popupTexts[i].alpha <= 0) popupTexts.splice(i, 1);
+      }
+    }
+
+    function gameLoop() {
+      if (gameState === STATES.PLAYING && audioCtx) {
+        const now = audioCtx.currentTime;
+
+        // BGM Synth Event Scheduler
+        while (bgmEventIndex < bgmEvents.length && bgmEvents[bgmEventIndex].time <= (now - gameStartTime + 0.25)) {
+          const ev = bgmEvents[bgmEventIndex];
+          const t = gameStartTime + ev.time;
+
+          if (ev.type === 'kick') playKick(t);
+          else if (ev.type === 'snare') playSnare(t);
+          else if (ev.type === 'hihat') playHiHat(t);
+          else if (ev.type === 'bass') playBassNote(t, ev.freq, ev.duration);
+          else if (ev.type === 'lead') playLeadNote(t, ev.freq, ev.duration);
+
+          bgmEventIndex++;
+        }
+
+        checkAutoMiss();
+
+        // Victory Condition Check
+        const lastNoteTime = notes.length > 0 ? notes[notes.length - 1].time : 0;
+        if ((now - gameStartTime) > lastNoteTime + 1.5 && hp > 0) {
+          triggerVictory();
+        }
+      }
+
+      draw();
+      requestAnimationFrame(gameLoop);
+    }
+
+    function updateHUD() {
+      document.getElementById('hud-score').innerText = String(score).padStart(6, '0');
+      document.getElementById('hud-combo').innerText = combo;
+
+      const processed = stats.perfect + stats.great + stats.good + stats.miss;
+      const accuracy = processed > 0 ? (((stats.perfect + stats.great * 0.7 + stats.good * 0.4) / processed) * 100).toFixed(1) : 100.0;
+      document.getElementById('hud-accuracy').innerText = `${accuracy}%`;
+
+      document.getElementById('hp-bar').style.width = `${Math.max(0, hp)}%`;
+    }
+
+    function getStorageKey() {
+      return `neon_pulse_hs_${SONGS[selectedSongIndex].id}_${selectedDifficulty}`;
+    }
+
+    function updateMenuHighScore() {
+      const saved = localStorage.getItem(getStorageKey()) || '0';
+      document.getElementById('high-score-display').innerText = `BEST: ${saved}`;
+    }
+
+    function startGame() {
+      initAudio();
+      score = 0;
+      combo = 0;
+      maxCombo = 0;
+      hp = 100;
+      stats = { perfect: 0, great: 0, good: 0, miss: 0, totalNotes: 0 };
+      particles = [];
+      popupTexts = [];
+
+      const currentSong = SONGS[selectedSongIndex];
+      document.getElementById('hud-song-title').innerText = currentSong.name;
+      document.getElementById('hud-difficulty').innerText = selectedDifficulty;
+
+      generateChartAndBGM(currentSong, selectedDifficulty);
+      updateHUD();
+
+      gameStartTime = audioCtx.currentTime + 0.5;
+      gameState = STATES.PLAYING;
+
+      hideAllScreens();
+    }
+
+    function pauseGame() {
+      if (gameState === STATES.PLAYING) {
+        gameState = STATES.PAUSED;
+        pauseStartTime = audioCtx.currentTime;
+        if (audioCtx) audioCtx.suspend();
+        document.getElementById('pause-screen').classList.remove('hidden');
+      }
+    }
+
+    function resumeGame() {
+      if (gameState === STATES.PAUSED) {
+        const pauseDuration = audioCtx.currentTime - pauseStartTime;
+        gameStartTime += pauseDuration;
+        if (audioCtx) audioCtx.resume();
+        gameState = STATES.PLAYING;
+        document.getElementById('pause-screen').classList.add('hidden');
+      }
+    }
+
+    function triggerGameOver() {
+      gameState = STATES.GAMEOVER;
+      document.getElementById('result-title').innerText = 'GAME OVER';
+      document.getElementById('result-title').className = 'font-orbitron text-5xl font-black text-rose-500 glow-pink mb-1';
+      document.getElementById('result-grade').innerText = 'F';
+      document.getElementById('result-grade').className = 'font-orbitron text-6xl font-black text-rose-500 glow-pink my-2';
+      showResultScreen();
+    }
+
+    function triggerVictory() {
+      gameState = STATES.VICTORY;
+      document.getElementById('result-title').innerText = 'VICTORY!';
+      document.getElementById('result-title').className = 'font-orbitron text-5xl font-black text-cyan-400 glow-cyan mb-1';
+
+      const processed = stats.perfect + stats.great + stats.good + stats.miss;
+      const acc = processed > 0 ? ((stats.perfect + stats.great * 0.7 + stats.good * 0.4) / processed) * 100 : 100;
+
+      let grade = 'S';
+      let gradeClass = 'text-yellow-300 glow-yellow';
+      if (acc < 70) { grade = 'C'; gradeClass = 'text-cyan-400 glow-cyan'; }
+      else if (acc < 85) { grade = 'B'; gradeClass = 'text-emerald-400 glow-cyan'; }
+      else if (acc < 95) { grade = 'A'; gradeClass = 'text-pink-500 glow-pink'; }
+
+      document.getElementById('result-grade').innerText = grade;
+      document.getElementById('result-grade').className = `font-orbitron text-6xl font-black my-2 ${gradeClass}`;
+
+      showResultScreen();
+    }
+
+    function showResultScreen() {
+      const storageKey = getStorageKey();
+      const previousHigh = parseInt(localStorage.getItem(storageKey) || '0');
+      let isNewHigh = false;
+
+      if (score > previousHigh) {
+        localStorage.setItem(storageKey, score);
+        isNewHigh = true;
+      }
+
+      document.getElementById('new-high-score-tag').style.display = isNewHigh ? 'block' : 'none';
+      document.getElementById('res-score').innerText = score;
+      document.getElementById('res-combo').innerText = maxCombo;
+
+      const processed = stats.perfect + stats.great + stats.good + stats.miss;
+      const accuracy = processed > 0 ? (((stats.perfect + stats.great * 0.7 + stats.good * 0.4) / processed) * 100).toFixed(1) : 100.0;
+      document.getElementById('res-accuracy').innerText = `${accuracy}%`;
+
+      document.getElementById('res-perfect').innerText = stats.perfect;
+      document.getElementById('res-great').innerText = stats.great;
+      document.getElementById('res-good').innerText = stats.good;
+      document.getElementById('res-miss').innerText = stats.miss;
+
+      updateHUD();
+      document.getElementById('result-screen').classList.remove('hidden');
+    }
+
+    function hideAllScreens() {
+      document.getElementById('menu-screen').classList.add('hidden');
+      document.getElementById('pause-screen').classList.add('hidden');
+      document.getElementById('result-screen').classList.add('hidden');
+    }
+
+    function showMainMenu() {
+      gameState = STATES.MENU;
+      updateMenuHighScore();
+      hideAllScreens();
+      document.getElementById('menu-screen').classList.remove('hidden');
+    }
+
+    window.addEventListener('keydown', (e) => {
+      const key = e.key.toLowerCase();
+
+      if (key === 'escape') {
+        if (gameState === STATES.PLAYING) pauseGame();
+        else if (gameState === STATES.PAUSED) resumeGame();
+        return;
+      }
+
+      const laneIndex = LANE_KEYS.indexOf(key);
+      if (laneIndex !== -1 && !lanePressState[laneIndex]) {
+        lanePressState[laneIndex] = true;
+        handleHit(laneIndex);
+
+        // Highlight mobile button matching key
+        const btn = document.querySelectorAll('.touch-btn')[laneIndex];
+        if (btn) btn.classList.add('pressed');
+      }
+    });
+
+    window.addEventListener('keyup', (e) => {
+      const key = e.key.toLowerCase();
+      const laneIndex = LANE_KEYS.indexOf(key);
+      if (laneIndex !== -1) {
+        lanePressState[laneIndex] = false;
+        const btn = document.querySelectorAll('.touch-btn')[laneIndex];
+        if (btn) btn.classList.remove('pressed');
+      }
+    });
+
+    function applyTheme(themeKey) {
+      if (!THEMES[themeKey]) return;
+      currentThemeKey = themeKey;
+      const theme = THEMES[themeKey];
+      LANE_COLORS = theme.laneColors;
+      
+      const container = document.getElementById('game-container');
+      if (container) {
+        container.style.background = theme.background;
+      }
+
+      document.querySelectorAll('.theme-btn').forEach(btn => {
+        if (btn.getAttribute('data-theme') === themeKey) {
+          btn.classList.add('active');
+        } else {
+          btn.classList.remove('active');
+        }
+      });
+    }
+
+    // Menu Controls Binding
+    document.querySelectorAll('.song-card').forEach(card => {
+      card.addEventListener('click', () => {
+        document.querySelectorAll('.song-card').forEach(c => c.classList.remove('selected'));
+        card.classList.add('selected');
+        selectedSongIndex = parseInt(card.getAttribute('data-song'));
+        updateMenuHighScore();
+      });
+    });
+
+    document.querySelectorAll('.difficulty-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.difficulty-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        selectedDifficulty = btn.getAttribute('data-diff');
+        updateMenuHighScore();
+      });
+    });
+
+    document.querySelectorAll('.theme-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const selectedTheme = btn.getAttribute('data-theme');
+        applyTheme(selectedTheme);
+      });
+    });
+
+    document.getElementById('speed-down').addEventListener('click', () => {
+      speedMultiplier = Math.max(0.7, parseFloat((speedMultiplier - 0.1).toFixed(1)));
+      document.getElementById('speed-value').innerText = `${speedMultiplier}x`;
+    });
+
+    document.getElementById('speed-up').addEventListener('click', () => {
+      speedMultiplier = Math.min(2.0, parseFloat((speedMultiplier + 0.1).toFixed(1)));
+      document.getElementById('speed-value').innerText = `${speedMultiplier}x`;
+    });
+
+    document.getElementById('start-btn').addEventListener('click', startGame);
+    document.getElementById('resume-btn').addEventListener('click', resumeGame);
+    document.getElementById('restart-btn').addEventListener('click', startGame);
+    document.getElementById('quit-btn').addEventListener('click', showMainMenu);
+    document.getElementById('retry-btn').addEventListener('click', startGame);
+    document.getElementById('menu-btn').addEventListener('click', showMainMenu);
+
+    window.addEventListener('resize', resizeCanvas);
+
+    // Initial Engine Bootstrap
+    window.onload = () => {
+      resizeCanvas();
+      applyTheme('sunset');
+      showMainMenu();
+      requestAnimationFrame(gameLoop);
+    };
+  </script>
+</body>
+</html>
