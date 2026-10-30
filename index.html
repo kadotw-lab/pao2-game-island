@@ -577,6 +577,15 @@ const specs = DATA.map((isl, i) => {
 
 /* ---------- 排列：自然散布（有近有遠） ---------- */
 const HUB_R = 80 / 3;   // 主城半徑（遊樂園，約 26.7）
+// 遊樂園島的不規則外形（半徑 1.06～1.5 倍的有機輪廓，設施都在半徑 1 以內）
+const HUB_PTS = (() => { const r = mulberry(31), n = 11, pts = [];
+  for (let i = 0; i < n; i++){ const a = i / n * Math.PI * 2 + (r() - 0.5) * 0.35, rr = 1.08 + Math.pow(r(), 1.4) * 0.45;
+    pts.push(new THREE.Vector2(Math.cos(a) * rr, Math.sin(a) * rr)); }
+  const sh = new THREE.Shape(); sh.moveTo(pts[0].x, pts[0].y); sh.splineThru([...pts.slice(1), pts[0].clone()]);
+  return sh.getSpacedPoints(80).slice(0, -1); })();
+const HUB_RMAX = Math.max(...HUB_PTS.map(p => p.length()));
+const insidePoly = (pts, x, y) => { let c = false; for (let i = 0, j = pts.length - 1; i < pts.length; j = i++){
+  const a = pts[i], b = pts[j]; if (((a.y > y) !== (b.y > y)) && (x < (b.x - a.x) * (y - a.y) / (b.y - a.y) + a.x)) c = !c; } return c; };
 // 每個班級一個群島：跑二在左、跑六在右（班級多時平均分布在主城四周）
 const CLUSTER = CLASSES.map((c, ci) => {
   const idx = DATA.map((d, i) => d.cls === c.key ? i : -1).filter(i => i >= 0);
@@ -599,7 +608,7 @@ const P = specs.map((s, i) => { const j = rank[i];
 function relax(iter, gravity){
   for (let it = 0; it < iter; it++){
     for (let i = 0; i < P.length; i++){
-      const d0 = P[i].length() || 0.01, minH = HUB_R + specs[i].R + 1.0 * GAP_X;
+      const d0 = P[i].length() || 0.01, minH = HUB_R * HUB_RMAX + specs[i].R + 1.0 * GAP_X;
       if (d0 < minH) P[i].multiplyScalar(minH / d0);
       for (let j = i + 1; j < P.length; j++){
         const v = P[j].clone().sub(P[i]), dd = v.length() || 0.01;
@@ -738,7 +747,7 @@ const hubPads = [];
 {
   const g = new THREE.Group(); g.position.set(0, HUB_Y, 0); g.scale.setScalar(HUB_SCALE); world.add(g);
   const rnd = mulberry(2026);
-  const hubPts = outline('round', mulberry(7)).map(p => p.multiplyScalar(HUB_R0));
+  const hubPts = HUB_PTS.map(p => p.clone().multiplyScalar(HUB_R0));
   const shell = new THREE.Group(); shell.scale.set(1, 2, 1); g.add(shell);
   hubTop = new THREE.Mesh(slabFrom(hubPts, 0.97, 0.16, 0.06), M(0xa9d48a)); hubTop.position.y = 0.34;
   const soil = new THREE.Mesh(slabFrom(hubPts, 0.965, 0.34, 0.04), M(SOIL));
@@ -1011,9 +1020,11 @@ const hubPads = [];
   }
   // --- 樹木（點綴） ---
   let trees = 0;
-  for (let tries = 0; tries < 1500 && trees < 70; tries++){
-    const a = rnd()*Math.PI*2, rr = 2.9 + rnd() * (HUB_R0*0.94 - 2.9), x = Math.cos(a)*rr, z = Math.sin(a)*rr, s = 0.9 + rnd()*0.7;
-    if (!free(x, z, 0.25*s) || onRoad(x, z, 0.15)) continue;
+  const inner = hubPts.map(p => p.clone().multiplyScalar(0.9));
+  for (let tries = 0; tries < 3000 && trees < 150; tries++){
+    const a = rnd()*Math.PI*2, rr = 2.9 + rnd() * (HUB_R0*HUB_RMAX - 2.9), x = Math.cos(a)*rr, z = Math.sin(a)*rr, s = 0.9 + rnd()*0.8;
+    if (!insidePoly(inner, x, -z)) continue;            // 島面座標：形狀的 y 對應世界的 -z
+    if (!free(x, z, 0.25*s) || (rr < HUB_R0 && onRoad(x, z, 0.15))) continue;
     tree(d, x, z, s, (rnd()*3)|0); used.push([x, z, 0.2*s]); trees++;
   }
   // 廣場上的樹與長椅
@@ -1345,6 +1356,44 @@ function makeBroom(){
   for (let q = 0; q < 4; q++) put(b, G.ball, neonMats[q % 4], (Math.random()-0.5)*0.2, (Math.random()-0.5)*0.1, -0.85 - q*0.12, 0.025);
   g.userData = { body: b }; return g;
 }
+function makeSkyPirate(){
+  const g = new THREE.Group(), b = new THREE.Group(); g.add(b);
+  const wood = M(0x9a6b45), dark = M(0x6b4a2c);
+  put(b, G.box, wood, 0, 0, 0, 0.5, 0.32, 1.3);
+  put(b, G.box, wood, 0, 0.12, 0.72, 0.42, 0.42, 0.3, 0, 0.5);
+  put(b, G.box, wood, 0, 0.18, -0.68, 0.48, 0.5, 0.32, 0, -0.35);
+  put(b, G.box, M(0xf4c35a), 0, 0.17, 0, 0.52, 0.04, 1.32);
+  for (let q = 0; q < 4; q++) put(b, G.cyl, M(0x3b3550), 0.26, 0.02, -0.4 + q*0.26, 0.04, 0.02, 0.04, 0, 0, Math.PI/2);
+  for (let q = 0; q < 4; q++) put(b, G.cyl, M(0x3b3550), -0.26, 0.02, -0.4 + q*0.26, 0.04, 0.02, 0.04, 0, 0, Math.PI/2);
+  for (const [z, h] of [[0.25, 1.2], [-0.35, 0.95]]){
+    put(b, G.cyl, dark, 0, 0.17 + h/2, z, 0.025, h, 0.025);
+    put(b, G.box, M(0xfff8ec), 0, 0.3 + h*0.5, z + 0.03, 0.55, h*0.55, 0.03);
+    put(b, G.box, dark, 0, 0.22 + h*0.82, z, 0.6, 0.025, 0.025); }
+  put(b, G.box, M(0x2b2838), 0, 1.45, 0.25, 0.01, 0.16, 0.24);
+  put(b, G.ball, M(0xfff8ec), 0.008, 1.47, 0.25, 0.006, 0.04, 0.04);
+  const wings = [];
+  for (const s of [-1, 1]){ const w = new THREE.Group(); w.position.set(0.25*s, 0.12, 0.05); b.add(w);
+    for (let q = 0; q < 3; q++) put(w, G.box, M(0xfff8ec), 0.32*s, 0, -0.1 + q*0.12, 0.62 - q*0.12, 0.025, 0.14);
+    wings.push({ w, s }); }
+  g.userData = { body: b, anim: t => wings.forEach(o => o.w.rotation.z = o.s * (0.25 + Math.sin(t * 3) * 0.45)) };
+  return g;
+}
+function makeSkyOctopus(){
+  const g = new THREE.Group(), b = new THREE.Group(); g.add(b);
+  const skin = M(0xe58fb5), spot = M(0xf7c6da);
+  put(b, G.ball, skin, 0, 0.35, -0.05, 0.42, 0.52, 0.46);
+  put(b, G.ball, spot, 0.2, 0.62, -0.1, 0.07); put(b, G.ball, spot, -0.15, 0.7, -0.2, 0.06); put(b, G.ball, spot, 0.05, 0.5, -0.38, 0.08);
+  for (const s of [-1, 1]){ put(b, G.ball, M(0xfff8ec), 0.17*s, 0.3, 0.33, 0.1); put(b, G.ball, M(0x2b2838), 0.17*s, 0.3, 0.41, 0.05); }
+  put(b, G.ball, M(0xf29bb5), 0, 0.15, 0.38, 0.06, 0.04, 0.04);
+  const tents = [];
+  for (let q = 0; q < 8; q++){ const a = q/8*Math.PI*2, root = new THREE.Group(); root.position.set(Math.cos(a)*0.25, 0, Math.sin(a)*0.25); root.rotation.y = -a; b.add(root);
+    let parent = root; const segs = [];
+    for (let k = 0; k < 4; k++){ const seg = new THREE.Group(); seg.position.y = k ? -0.16 : 0; parent.add(seg);
+      put(seg, G.ball, skin, 0, -0.08, 0, 0.09 - k*0.016, 0.11, 0.09 - k*0.016); segs.push(seg); parent = seg; }
+    tents.push({ segs, ph: q * 0.8 }); }
+  g.userData = { body: b, anim: t => tents.forEach(o => o.segs.forEach((sg, k) => { sg.rotation.z = Math.sin(t * 2.4 + o.ph + k * 0.6) * (0.25 + k*0.08); })) };
+  return g;
+}
 function makeBalloonV(col, col2){
   const g = new THREE.Group(), b = new THREE.Group(); g.add(b);
   put(b, G.ball, M(col), 0, 0.55, 0, 0.42, 0.5, 0.42); put(b, G.cyl, M(col2), 0, 0.5, 0, 0.43, 0.1, 0.43);
@@ -1352,7 +1401,7 @@ function makeBalloonV(col, col2){
   for (const [x, z] of [[-1,-1],[1,-1],[-1,1],[1,1]]) put(b, G.cyl, M(0x3b3550), x*0.08, 0.0, z*0.08, 0.005, 0.32, 0.005);
   g.userData = { body: b, upright: true }; return g;
 }
-const AIR_TYPES = {   // 共 9 架
+const AIR_TYPES = {   // 共 11 架
   whale:   { make: () => makeSkyWhale(),   speed: 1.0, h: [9, 12], n: 1, scale: 2.4 },
   paper:   { make: () => makePaperPlane(), speed: 2.6, h: [5, 8],  n: 1, scale: 1.8 },
   broom:   { make: () => makeBroom(),      speed: 2.4, h: [6, 9],  n: 1, scale: 1.7 },
@@ -1361,6 +1410,8 @@ const AIR_TYPES = {   // 共 9 架
   heli:    { make: () => makeHeli(TOY[(Math.random()*7)|0]),    speed: 2.3, h: [5, 7], n: 1, scale: 1.4 },
   blimp:   { make: () => makeBlimp(TOY[(Math.random()*7)|0]),   speed: 1.2, h: [8.5, 11], n: 1, scale: 1.8 },
   balloon: { make: () => makeBalloonV(TOY[(Math.random()*7)|0], TOY[(Math.random()*7)|0]), speed: 0.8, h: [6, 9], n: 1, scale: 1.5 },
+  pirate:  { make: () => makeSkyPirate(),  speed: 1.4, h: [9, 12], n: 1, scale: 2.2 },
+  octopus: { make: () => makeSkyOctopus(), speed: 1.2, h: [7, 10], n: 1, scale: 1.9 },
 };
 const vehicles = [];
 const BZ = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
@@ -1384,7 +1435,7 @@ function planTrip(v){
   v.p = [from, from.clone().add(side), to.clone().add(side), to];
   // 航線經過遊樂園上空時拉高，避開雲霄飛車、自由落體塔與招牌
   const q = new THREE.Vector3(); let overHub = false;
-  for (let k = 0; k <= 20 && !overHub; k++){ bez(v.p, k/20, q); if (Math.hypot(q.x, q.z) < HUB_R + 4) overHub = true; }
+  for (let k = 0; k <= 20 && !overHub; k++){ bez(v.p, k/20, q); if (Math.hypot(q.x, q.z) < HUB_R * HUB_RMAX + 4) overHub = true; }
   if (overHub) h = Math.max(h, HUB_Y + (HUB_TOP + 9.8) * HUB_SCALE - Math.min(from.y, to.y) + T.h[0] * 0.3);
   v.p[1].y += h; v.p[2].y += h;
   let len = 0, prev = from.clone(); for (let k = 1; k <= 12; k++){ const q = bez(v.p, k/12, new THREE.Vector3()); len += q.distanceTo(prev); prev = q; }
@@ -1408,6 +1459,7 @@ const _tan = new THREE.Vector3(), _look = new THREE.Vector3();
 function updateVehicles(dt, t){
   for (const v of vehicles){
     const T = AIR_TYPES[v.type], u = v.obj.userData;
+    if (u.anim) u.anim(t + v.phase);
     if (v.at){                                             // 停靠中
       v.wait -= dt;
       if (u.spin) [].concat(u.spin).forEach(sp => sp.rotation[u.axis] += dt * (v.type === 'heli' ? 6 : 3));
