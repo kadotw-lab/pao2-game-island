@@ -937,8 +937,57 @@ const hubPads = [];
     for (let q = 0; q < 5; q++){ const bx = x + Math.cos(a+0.3)*0.45 + (q%3)*0.06, bz = z + Math.sin(a+0.3)*0.45 + (q>2?0.07:0), by = 1.0 + (q%3)*0.15;
       put(d, G.box, M(0x3b3550), bx, by/2, bz, 0.006, by, 0.006); put(d, G.ball, M(TOY[(k+q)%7]), bx, by + 0.08, bz, 0.08, 0.1, 0.08); }
   }
-  // --- 入口拱門（沒有停機坪的三條路） ---
-  for (let k = 1; k < ROADS; k += 2){ const a = roadA(k), rr = HUB_R0 * 0.93, x = Math.cos(a)*rr, z = Math.sin(a)*rr, px = -Math.sin(a)*0.5, pz = Math.cos(a)*0.5;
+  // --- 遊樂園大門口（參考文興高中校門：紅磚方柱＋紅瓦四角屋頂） ---
+  { const a = roadA(1), rr = HUB_R0 * 0.9, x = Math.cos(a)*rr, z = Math.sin(a)*rr;
+    const GT = new THREE.Group(); GT.position.set(x, HUB_TOP, z); GT.rotation.y = Math.PI/2 - a; g.add(GT);   // 本地 +z 朝外
+    const brick = M(0xa0553c), brick2 = M(0x8f4a34), stone = M(0xc9c3ba), stone2 = M(0xb3aca2), tile = M(0xc8483a, {flat:true}), white = M(0xfbf8f2);
+    const roofCap = (px, top, w) => {           // 頂部：灰框＋四根磚柱＋灰板＋紅瓦四角屋頂
+      put(GT, G.box, stone2, px, top + 0.05, 0, w + 0.1, 0.1, w + 0.1);
+      for (const [cx, cz] of [[-1,-1],[1,-1],[-1,1],[1,1]]) put(GT, G.box, brick, px + cx*(w/2 - 0.04), top + 0.26, cz*(w/2 - 0.04), 0.08, 0.32, 0.08);
+      put(GT, G.box, stone, px, top + 0.47, 0, w + 0.2, 0.1, w + 0.2);
+      put(GT, G.cone4, tile, px, top + 0.7, 0, (w + 0.3) * 0.72, 0.38, (w + 0.3) * 0.72, Math.PI/4);
+      put(GT, G.box, tile, px, top + 0.9, 0, 0.05, 0.05, 0.05);
+      put(GT, G.ball, lampMat, px, top + 0.27, 0, 0.06); };
+    // 右側高柱（直式校名牌）
+    put(GT, G.box, brick, 0.78, 1.15, 0, 0.44, 2.3, 0.44);
+    for (let q = 0; q < 9; q++) put(GT, G.box, brick2, 0.78, 0.15 + q*0.25, 0.222, 0.44, 0.012, 0.005);
+    put(GT, G.box, stone, 0.78, 0.18, 0, 0.5, 0.36, 0.5);
+    put(GT, G.box, white, 0.78, 1.2, 0.226, 0.2, 1.45, 0.02);
+    roofCap(0.78, 2.3, 0.44);
+    // 左側矮柱（灰色石板）
+    put(GT, G.box, brick, -0.78, 0.68, 0, 0.36, 1.36, 0.36);
+    put(GT, G.box, stone, -0.78, 0.15, 0, 0.42, 0.3, 0.42);
+    put(GT, G.box, stone2, -0.78, 0.78, 0.183, 0.13, 0.9, 0.02);
+    roofCap(-0.78, 1.36, 0.36);
+    // 警衛室（左側）
+    put(GT, G.box, brick, -1.75, 0.38, -0.1, 1.05, 0.76, 0.75);
+    put(GT, G.box, stone, -1.75, 0.8, -0.1, 1.12, 0.07, 0.82);
+    put(GT, G.box, winMat, -1.95, 0.42, 0.28, 0.32, 0.28, 0.02); put(GT, G.box, M(0x8a8aa0), -1.5, 0.3, 0.28, 0.22, 0.5, 0.02);
+    put(GT, G.cone4, tile, -1.75, 1.0, -0.1, 0.84, 0.36, 0.64, Math.PI/4);
+    // 右側矮牆與花台
+    put(GT, G.box, brick, 1.55, 0.2, 0, 1.0, 0.4, 0.16); put(GT, G.box, stone, 1.55, 0.42, 0, 1.04, 0.05, 0.2);
+    put(GT, G.box, M(0x4f9e6a, {flat:true}), 1.55, 0.52, 0, 0.95, 0.15, 0.12);
+    // 伸縮門軌道
+    put(GT, G.box, M(0x8a8aa0), -0.25, 0.02, 0.05, 0.6, 0.02, 0.04);
+    // 門內：白色雕像＋圓形台座＋綠籬
+    put(GT, G.cyl, stone2, 0, 0.08, -1.1, 0.42, 0.16, 0.42); put(GT, G.cyl, stone, 0, 0.24, -1.1, 0.18, 0.18, 0.18);
+    put(GT, G.cyl, white, 0, 0.5, -1.1, 0.07, 0.36, 0.07); put(GT, G.ball, white, 0, 0.73, -1.1, 0.06);
+    put(GT, G.box, white, 0.09, 0.62, -1.1, 0.14, 0.03, 0.03, 0, 0, -0.6); put(GT, G.box, white, -0.09, 0.62, -1.1, 0.14, 0.03, 0.03, 0, 0, 0.6);
+    for (const s of [-1, 1]) put(GT, G.box, M(0x4f9e6a, {flat:true}), 0.85*s, 0.1, -1.1, 0.8, 0.2, 0.32);
+    GT.traverse(m => { if (m.isMesh){ m.castShadow = true; m.receiveShadow = true; } });
+    // 校名直書（Canvas 文字）
+    const cv = document.createElement('canvas'); cv.width = 128; cv.height = 900; const cx = cv.getContext('2d');
+    const drawName = () => { cx.fillStyle = '#fbf8f2'; cx.fillRect(0, 0, 128, 900); cx.fillStyle = '#4a4440';
+      cx.font = '900 104px "Noto Serif TC","Noto Sans TC","Microsoft JhengHei",serif'; cx.textAlign = 'center'; cx.textBaseline = 'middle';
+      [...'文興高級中學'].forEach((ch, q) => cx.fillText(ch, 64, 85 + q * 146)); };
+    drawName();
+    const nameTex = new THREE.CanvasTexture(cv); nameTex.colorSpace = THREE.SRGBColorSpace; nameTex.anisotropy = 8;
+    const name = new THREE.Mesh(new THREE.PlaneGeometry(0.17, 1.38), new THREE.MeshBasicMaterial({ map: nameTex, toneMapped: false }));
+    name.position.set(0.78, 1.2, 0.238); GT.add(name);
+    document.fonts.load('900 64px "Noto Sans TC"').then(() => { drawName(); nameTex.needsUpdate = true; }).catch(() => {});
+    used.push([x, z, 1.4]); }
+  // --- 其他入口拱門 ---
+  for (let k = 3; k < ROADS; k += 2){ const a = roadA(k), rr = HUB_R0 * 0.93, x = Math.cos(a)*rr, z = Math.sin(a)*rr, px = -Math.sin(a)*0.5, pz = Math.cos(a)*0.5;
     for (const s of [-1, 1]){ put(d, G.cyl, M(0xfff1dc), x + px*s, 0.75, z + pz*s, 0.09, 1.5, 0.09); put(d, G.ball, M(TOY[k]), x + px*s, 1.55, z + pz*s, 0.12); }
     put(d, G.box, M(0xef6f53), x, 1.4, z, 0.12, 0.28, 1.15, -a);
     put(d, G.box, M(0xf4c35a), x, 1.62, z, 0.1, 0.12, 0.8, -a);
