@@ -1722,6 +1722,131 @@ function makeSkyOctopus(){
   g.userData = { body: b, anim: t => tents.forEach(o => o.segs.forEach((sg, k) => { sg.rotation.z = Math.sin(t * 2.4 + o.ph + k * 0.6) * (0.25 + k*0.08); })) };
   return g;
 }
+// ---- 9 台趣味飛行器 ----
+function makeBathtub(){
+  const g = new THREE.Group(), b = new THREE.Group(); g.add(b);
+  const tub = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.4, 0.4, 20, 1, true), M(0xffffff, {extra:{side:THREE.DoubleSide}})); tub.scale.set(1, 1, 1.6); tub.position.y = 0.2; b.add(tub);
+  put(b, G.cyl, M(0xffffff), 0, 0.02, 0, 0.42, 0.04, 0.42).scale.set(0.42, 0.04, 0.66);
+  put(b, G.cyl, M(0x9fd8f0, {extra:{roughness:0.15}}), 0, 0.3, 0, 0.47, 0.02, 0.47).scale.set(0.47, 0.02, 0.75);
+  for (const [x, z] of [[-0.3,-0.55],[0.3,-0.55],[-0.3,0.55],[0.3,0.55]]) put(b, G.ball, M(0xf4c35a), x, -0.08, z, 0.07);
+  const duck = new THREE.Group(); duck.position.set(0.15, 0.36, 0.2); b.add(duck);
+  put(duck, G.ball, M(0xf7d23a), 0, 0, 0, 0.12, 0.09, 0.15); put(duck, G.ball, M(0xf7d23a), 0, 0.11, 0.08, 0.07); put(duck, G.cone, M(0xef8a3a), 0, 0.1, 0.17, 0.03, 0.06, 0.03, 0, Math.PI/2);
+  const bubbles = []; for (let q = 0; q < 6; q++){ const m = put(b, G.ball, M(0xe8f7ff, {extra:{transparent:true, opacity:0.8}}), (q%3-1)*0.25, 0.35, -0.3 + q*0.1, 0.06 + (q%3)*0.02); bubbles.push(m); }
+  put(b, G.cyl, M(0xb0b6bd, {extra:{metalness:0.5}}), 0, 0.55, -0.68, 0.02, 0.5, 0.02); put(b, G.cyl, M(0xb0b6bd), 0, 0.8, -0.6, 0.02, 0.2, 0.02, 0, Math.PI/2);
+  const prop = new THREE.Group(); prop.position.set(0, 0.2, -0.82); b.add(prop);
+  put(prop, G.box, M(0xef6f53), 0, 0, 0, 0.5, 0.05, 0.02); put(prop, G.box, M(0xef6f53), 0, 0, 0, 0.05, 0.5, 0.02);
+  g.userData = { body: b, spin: prop, axis: 'z', anim: t => { duck.rotation.z = Math.sin(t * 3) * 0.2; bubbles.forEach((m, q) => { const k = (t * 0.6 + q / 6) % 1; m.position.y = 0.35 + k * 0.6; m.scale.setScalar((0.06 + (q%3)*0.02) * (1 - k * 0.5)); }); } };
+  return g;
+}
+function makeRocketDesk(){
+  const g = new THREE.Group(), b = new THREE.Group(); g.add(b);
+  const wood = M(0xc89058), metal = M(0x8a8aa0);
+  put(b, G.box, wood, 0, 0.42, 0.05, 0.6, 0.04, 0.42);
+  for (const [x, z] of [[-0.27,-0.15],[0.27,-0.15],[-0.27,0.25],[0.27,0.25]]) put(b, G.box, metal, x, 0.2, z, 0.03, 0.42, 0.03);
+  put(b, G.box, wood, 0, 0.36, 0.05, 0.56, 0.08, 0.38);
+  put(b, G.box, wood, 0, 0.25, -0.4, 0.4, 0.04, 0.3); put(b, G.box, wood, 0, 0.45, -0.56, 0.4, 0.4, 0.04);
+  for (const [x, z] of [[-0.18,-0.28],[0.18,-0.28],[-0.18,-0.52],[0.18,-0.52]]) put(b, G.box, metal, x, 0.12, z, 0.025, 0.25, 0.025);
+  put(b, G.box, M(0xfffdf8), 0.08, 0.455, 0.05, 0.22, 0.02, 0.28, 0.2); put(b, G.box, M(0xef6f53), -0.15, 0.455, 0.1, 0.03, 0.02, 0.2, -0.3);
+  put(b, G.ball, M(0xffd9b8), 0, 0.68, -0.38, 0.1); put(b, G.box, M(0xf2d43a), 0, 0.46, -0.38, 0.2, 0.22, 0.14);
+  const flames = [];
+  for (const x of [-0.22, 0.22]){ put(b, G.cyl, M(0xd8dde6, {extra:{metalness:0.4}}), x, 0.15, -0.72, 0.07, 0.4, 0.07, 0, Math.PI/2); put(b, G.cone, M(0xef6f53), x, 0.15, -0.5, 0.07, 0.12, 0.07, 0, Math.PI/2);
+    const f = put(b, G.cone, M(0xffb347, {extra:{emissive:0xff8a00, emissiveIntensity:1.2}}), x, 0.15, -1.0, 0.06, 0.2, 0.06, 0, -Math.PI/2); flames.push(f); }
+  g.userData = { body: b, anim: t => flames.forEach((f, q) => f.scale.set(0.06, 0.18 + Math.abs(Math.sin(t * 20 + q)) * 0.15, 0.06)) };
+  return g;
+}
+function makeMagicCarpet(){
+  const g = new THREE.Group(), b = new THREE.Group(); g.add(b);
+  const segs = [];
+  for (let q = 0; q < 8; q++){ const s = new THREE.Group(); s.position.z = -0.6 + q * 0.17; b.add(s);
+    put(s, G.box, M(q % 2 ? 0xb83a4a : 0xc94a5a), 0, 0, 0, 0.8, 0.025, 0.17);
+    put(s, G.box, M(0xf4c35a), 0, 0.014, 0, 0.6, 0.004, 0.06); for (const x of [-0.39, 0.39]) put(s, G.box, M(0x2b5d8a), x, 0.014, 0, 0.03, 0.004, 0.17);
+    segs.push(s); }
+  for (const z of [-0.69, 0.69]) for (let q = 0; q < 5; q++) put(b, G.box, M(0xf4c35a), -0.32 + q * 0.16, -0.005, z, 0.02, 0.01, 0.08);
+  put(b, G.box, M(0x6f5fb8), 0, 0.15, 0.05, 0.2, 0.22, 0.16); put(b, G.ball, M(0xffd9b8), 0, 0.32, 0.05, 0.09);
+  put(b, G.ball, M(0xffffff), 0, 0.42, 0.05, 0.12, 0.08, 0.12); put(b, G.ball, M(0xef6f53), 0, 0.42, 0.14, 0.03);
+  g.userData = { body: b, anim: t => segs.forEach((s, q) => s.position.y = Math.sin(t * 4 - q * 0.7) * 0.04) };
+  return g;
+}
+function makePaperCrane(){
+  const g = new THREE.Group(), b = new THREE.Group(); g.add(b);
+  const pap = M(0xf29bb5, {flat:true, extra:{side:THREE.DoubleSide}});
+  const tri = (pts) => { const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3)); geo.computeVertexNormals(); return new THREE.Mesh(geo, pap); };
+  b.add(tri([0,0,0.25, 0,0.15,0, 0,0,-0.25,  0,0,0.25, 0,0,-0.25, 0,-0.12,0]));
+  b.add(tri([0,0,0.2, 0,0.3,0.55, 0,0.05,0.1])); b.add(tri([0,0,-0.2, 0,0.25,-0.55, 0,0.05,-0.1]));
+  b.add(tri([0,0.3,0.55, 0,0.24,0.62, 0,0.27,0.5]));
+  const wings = [];
+  for (const s of [-1, 1]){ const w = new THREE.Group(); w.position.y = 0.05; b.add(w); w.add(tri([0,0,0.18, s*0.7,0.05,0, 0,0,-0.18])); wings.push({ w, s }); }
+  g.userData = { body: b, anim: t => wings.forEach(o => o.w.rotation.z = o.s * Math.sin(t * 2.5) * 0.6) };
+  return g;
+}
+function makeTeapot(){
+  const g = new THREE.Group(), b = new THREE.Group(); g.add(b);
+  const c = M(0x7cc3a0), w = M(0xffffff);
+  put(b, G.ball, c, 0, 0, 0, 0.42, 0.36, 0.42);
+  put(b, G.cyl, c, 0, 0.32, 0, 0.22, 0.08, 0.22); put(b, G.ball, w, 0, 0.42, 0, 0.07);
+  for (let q = 0; q < 8; q++){ const a = q/8*Math.PI*2; put(b, G.ball, w, Math.cos(a)*0.4, 0.05, Math.sin(a)*0.4, 0.04); }
+  put(b, G.cyl, c, 0, 0.1, 0.5, 0.06, 0.4, 0.06, 0, 0.9);
+  put(b, G.torus, c, 0, 0.05, -0.42, 0.18, 0.18, 0.2, Math.PI/2);
+  for (const s of [-1, 1]) put(b, G.ball, M(0x2b2838), 0.2*s, 0.1, 0.33, 0.04);
+  put(b, G.box, M(0xc9785f), 0, -0.02, 0.38, 0.1, 0.02, 0.01);
+  const steam = []; for (let q = 0; q < 4; q++){ steam.push(put(b, G.ball, M(0xffffff, {extra:{transparent:true, opacity:0.7}}), 0, 0.3, 0.68, 0.06)); }
+  const wings = []; for (const s of [-1, 1]){ const wg = new THREE.Group(); wg.position.set(0.38*s, 0.12, -0.05); b.add(wg);
+    for (let q = 0; q < 3; q++) put(wg, G.box, w, 0.22*s, 0.02 - q*0.04, -q*0.05, 0.42 - q*0.08, 0.02, 0.12); wings.push({ wg, s }); }
+  g.userData = { body: b, anim: t => { wings.forEach(o => o.wg.rotation.z = o.s * (0.2 + Math.sin(t * 5) * 0.5));
+    steam.forEach((m, q) => { const k = (t * 0.8 + q / 4) % 1; m.position.set(Math.sin(k * 6 + q) * 0.05, 0.3 + k * 0.5, 0.68 + k * 0.15); m.scale.setScalar(0.04 + k * 0.08); }); } };
+  return g;
+}
+function makeFlyingBook(){
+  const g = new THREE.Group(), b = new THREE.Group(); g.add(b);
+  const covers = [];
+  for (const s of [-1, 1]){ const cv = new THREE.Group(); b.add(cv);
+    put(cv, G.box, M(0x3a6ab0), 0.3*s, 0, 0, 0.6, 0.03, 0.8);
+    put(cv, G.box, M(0xfffdf8), 0.28*s, 0.03, 0, 0.54, 0.04, 0.74);
+    for (let q = 0; q < 5; q++) put(cv, G.box, M(0x9aa0aa), 0.28*s, 0.052, -0.25 + q*0.12, 0.4, 0.004, 0.015);
+    covers.push({ cv, s }); }
+  put(b, G.box, M(0x2b4f8a), 0, -0.01, 0, 0.06, 0.06, 0.8);
+  put(b, G.box, M(0xef6f53), 0.05, 0.06, 0.3, 0.02, 0.005, 0.3);
+  const page = new THREE.Group(); b.add(page); put(page, G.box, M(0xfffdf8), 0.27, 0.06, 0, 0.52, 0.006, 0.72);
+  g.userData = { body: b, anim: t => { covers.forEach(o => o.cv.rotation.z = o.s * (0.3 + Math.sin(t * 3) * 0.35)); page.rotation.z = Math.PI * ((t * 0.5) % 1); } };
+  return g;
+}
+function makeWingedSneaker(){
+  const g = new THREE.Group(), b = new THREE.Group(); g.add(b);
+  put(b, G.box, M(0xffffff), 0, 0, 0, 0.38, 0.1, 0.9);
+  put(b, G.box, M(0xef6f53), 0, 0.16, -0.08, 0.36, 0.24, 0.62);
+  put(b, G.ball, M(0xef6f53), 0, 0.12, 0.25, 0.18, 0.12, 0.22);
+  put(b, G.box, M(0xffffff), 0, 0.28, -0.32, 0.3, 0.22, 0.16);
+  for (let q = 0; q < 4; q++) put(b, G.box, M(0xffffff), 0, 0.29 - q * 0.0, 0.0 - q * 0.08, 0.34, 0.015, 0.025);
+  put(b, G.box, M(0x3b3550), 0.185, 0.14, -0.05, 0.005, 0.06, 0.4, 0, 0, 0);
+  const wings = []; for (const s of [-1, 1]){ const wg = new THREE.Group(); wg.position.set(0.19*s, 0.2, -0.15); b.add(wg);
+    for (let q = 0; q < 4; q++) put(wg, G.box, M(0xfffdf8), 0.2*s, 0.06 - q*0.05, -q*0.06, 0.4 - q*0.06, 0.02, 0.11); wings.push({ wg, s }); }
+  g.userData = { body: b, anim: t => wings.forEach(o => o.wg.rotation.z = o.s * (0.3 + Math.sin(t * 7) * 0.55)) };
+  return g;
+}
+function makeWatermelonBalloon(){
+  const g = new THREE.Group(), b = new THREE.Group(); g.add(b);
+  put(b, G.ball, M(0x3f9a4a), 0, 0.55, 0, 0.45, 0.5, 0.45);
+  for (let q = 0; q < 8; q++){ const s = put(b, G.ball, M(0x2b6e35), 0, 0.55, 0, 0.455, 0.505, 0.06); s.rotation.y = q / 8 * Math.PI; }
+  put(b, G.cyl, M(0x9a6b45), 0, 0.03, 0, 0.12, 0.12, 0.12);
+  put(b, G.box, M(0xef4a5a), 0, -0.22, 0, 0.32, 0.16, 0.2); put(b, G.box, M(0x5fae5a), 0, -0.3, 0, 0.34, 0.04, 0.22);
+  for (let q = 0; q < 4; q++) put(b, G.ball, M(0x2b2838), -0.1 + q*0.07, -0.18, 0.101, 0.015, 0.02, 0.005);
+  for (const [x, z] of [[-1,-1],[1,-1],[-1,1],[1,1]]) put(b, G.cyl, M(0x3b3550), x*0.12, -0.07, z*0.08, 0.005, 0.25, 0.005);
+  g.userData = { body: b, upright: true }; return g;
+}
+function makeMiniRocket(){
+  const g = new THREE.Group(), b = new THREE.Group(); g.add(b);
+  put(b, G.cyl, M(0xfffdf8), 0, 0, 0, 0.18, 0.8, 0.18, 0, Math.PI/2);
+  put(b, G.cone, M(0xef6f53), 0, 0, 0.55, 0.18, 0.3, 0.18, 0, Math.PI/2);
+  put(b, G.cyl, M(0x6fb7e0, {extra:{roughness:0.2}}), 0, 0.1, 0.15, 0.08, 0.02, 0.08, 0, 0, 0).rotation.set(Math.PI/2, 0, 0);
+  put(b, G.cyl, M(0x6fb7e0), 0, 0.17, 0.15, 0.07, 0.02, 0.07);
+  for (let q = 0; q < 4; q++){ const f = put(b, G.box, M(0xef6f53), 0, 0, -0.35, 0.02, 0.22, 0.2); f.rotation.z = q * Math.PI / 2; f.position.set(Math.sin(q*Math.PI/2)*0.2, Math.cos(q*Math.PI/2)*0.2, -0.35); }
+  put(b, G.cyl, M(0x8a8aa0), 0, 0, -0.44, 0.12, 0.08, 0.12, 0, Math.PI/2);
+  const flame = put(b, G.cone, M(0xffb347, {extra:{emissive:0xff8a00, emissiveIntensity:1.2}}), 0, 0, -0.65, 0.11, 0.35, 0.11, 0, -Math.PI/2);
+  const sparks = []; for (let q = 0; q < 5; q++) sparks.push(put(b, G.ball, M(0xffe066, {extra:{emissive:0xffd000, emissiveIntensity:1}}), 0, 0, -0.8, 0.03));
+  g.userData = { body: b, anim: t => { flame.scale.set(0.11, 0.3 + Math.abs(Math.sin(t * 25)) * 0.2, 0.11); b.rotation.z = t * 1.5;
+    sparks.forEach((s, q) => { const k = (t * 1.5 + q / 5) % 1; s.position.set(Math.sin(q * 2.3) * k * 0.2, Math.cos(q * 1.7) * k * 0.2, -0.8 - k * 0.6); s.scale.setScalar(0.03 * (1 - k)); }); } };
+  return g;
+}
 function makeBalloonV(col, col2){
   const g = new THREE.Group(), b = new THREE.Group(); g.add(b);
   put(b, G.ball, M(col), 0, 0.55, 0, 0.42, 0.5, 0.42); put(b, G.cyl, M(col2), 0, 0.5, 0, 0.43, 0.1, 0.43);
@@ -1729,7 +1854,16 @@ function makeBalloonV(col, col2){
   for (const [x, z] of [[-1,-1],[1,-1],[-1,1],[1,1]]) put(b, G.cyl, M(0x3b3550), x*0.08, 0.0, z*0.08, 0.005, 0.32, 0.005);
   g.userData = { body: b, upright: true }; return g;
 }
-const AIR_TYPES = {   // 共 11 架
+const AIR_TYPES = {   // 共 20 架
+  bathtub: { make: () => makeBathtub(),          speed: 1.3, h: [6, 9],   n: 1, scale: 1.8 },
+  desk:    { make: () => makeRocketDesk(),       speed: 2.6, h: [5, 8],   n: 1, scale: 1.9 },
+  carpet:  { make: () => makeMagicCarpet(),      speed: 2.0, h: [5.5, 8], n: 1, scale: 2.0 },
+  crane:   { make: () => makePaperCrane(),       speed: 1.8, h: [6, 9.5], n: 1, scale: 2.2 },
+  teapot:  { make: () => makeTeapot(),           speed: 1.5, h: [7, 10],  n: 1, scale: 1.8 },
+  book:    { make: () => makeFlyingBook(),       speed: 1.7, h: [6, 9],   n: 1, scale: 1.8 },
+  sneaker: { make: () => makeWingedSneaker(),    speed: 2.4, h: [5, 8],   n: 1, scale: 1.8 },
+  melon:   { make: () => makeWatermelonBalloon(),speed: 0.8, h: [7, 10],  n: 1, scale: 1.8 },
+  rocket:  { make: () => makeMiniRocket(),       speed: 3.4, h: [8, 12],  n: 1, scale: 1.9 },
   whale:   { make: () => makeSkyWhale(),   speed: 1.0, h: [9, 12], n: 1, scale: 2.4 },
   paper:   { make: () => makePaperPlane(), speed: 2.6, h: [5, 8],  n: 1, scale: 1.8 },
   broom:   { make: () => makeBroom(),      speed: 2.4, h: [6, 9],  n: 1, scale: 1.7 },
