@@ -582,7 +582,7 @@ const HUB_PTS = (() => { const r = mulberry(31), n = 13, pts = [];
   for (let i = 0; i < n; i++){                       // i = 0 對準正前方（世界 +z），前方凸出一塊校園區
     const a = -Math.PI / 2 + i / n * Math.PI * 2 + (i ? (r() - 0.5) * 0.3 : 0);
     let rr = 1.08 + Math.pow(r(), 1.4) * 0.45;
-    if (i === 0) rr = 2.05; else if (i === 1 || i === n - 1) rr = 1.85; else if (i === 2 || i === n - 2) rr = Math.max(rr, 1.2);
+    if (i === 0) rr = 2.25; else if (i === 1 || i === n - 1) rr = 1.95; else if (i === 2 || i === n - 2) rr = Math.max(rr, 1.2);
     pts.push(new THREE.Vector2(Math.cos(a) * rr, Math.sin(a) * rr)); }
   const sh = new THREE.Shape(); sh.moveTo(pts[0].x, pts[0].y); sh.splineThru([...pts.slice(1), pts[0].clone()]);
   return sh.getSpacedPoints(80).slice(0, -1); })();
@@ -941,105 +941,106 @@ const hubPads = [];
       put(d, G.box, M(0x3b3550), bx, by/2, bz, 0.006, by, 0.006); put(d, G.ball, M(TOY[(k+q)%7]), bx, by + 0.08, bz, 0.08, 0.1, 0.08); }
   }
   // --- 遊樂園大門口（參考文興高中校門：紅磚方柱＋紅瓦四角屋頂） ---
-  // --- 行政大樓＋前廣場＋操場（參考文興高中空拍：兩翼約 120 度張開朝向大門、左翼沿操場較長、內角白色山牆紅十字窗＋綠玻璃塔樓） ---
-  const CAMPUS_B = 11.0, CAMPUS_G = 16.9;            // 大樓兩翼交會點、大門的半徑位置（主城座標）
+  // --- 行政大樓＋前廣場＋操場（參考文興高中衛星圖：V 字形、頂點在後方、兩翼夾角約 55 度、開口朝大門） ---
+  const CAMPUS_B = 10.7, CAMPUS_G = 19.4;            // V 字頂點、大門的半徑位置（主城座標）
   { const a = roadA(1), x = Math.cos(a)*CAMPUS_B, z = Math.sin(a)*CAMPUS_B;
     const CB = new THREE.Group(); CB.position.set(x, HUB_TOP, z); CB.rotation.y = Math.PI/2 - a;   // 本地 +z 朝大門
     const brickO = M(0xd88a52), brickO2 = M(0xc2733f), roofG = M(0x6f747b, {flat:true}), roofG2 = M(0x62676e, {flat:true}),
           whiteF = M(0xf4f1ea), redF = M(0xc0392b), glass = M(0x7fb6d6, {extra:{roughness:0.2}}), green = M(0x4f9e8a, {extra:{roughness:0.25}}),
-          dark = M(0x5a4a40), pave = M(0xc98a6a), pave2 = M(0xb97b5c), hedge = M(0x5f9e4a, {flat:true});
+          dark = M(0x5a4a40), pave = M(0xc98a6a), pave2 = M(0xb97b5c), tan = M(0xd9c7a6), hedge = M(0x5f9e4a, {flat:true});
     const gable = (parent, len, w, h, mat, alongX = true) => { const sh = new THREE.Shape(); sh.moveTo(-w/2, 0); sh.lineTo(w/2, 0); sh.lineTo(0, h); sh.closePath();
       const geo = new THREE.ExtrudeGeometry(sh, { depth: len, bevelEnabled: false }); geo.translate(0, 0, -len/2); if (alongX) geo.rotateY(Math.PI/2);
       const m = new THREE.Mesh(geo, mat); parent.add(m); return m; };
     const triWall = (parent, w, h, mat) => { const tri = new THREE.Shape(); tri.moveTo(-w/2, 0); tri.lineTo(w/2, 0); tri.lineTo(0, h); tri.closePath();
       const m = new THREE.Mesh(new THREE.ShapeGeometry(tri), mat); parent.add(m); return m; };
-    const FLOORS = 4, FH = 0.36, WD = 1.5, H = FLOORS * FH + 0.12, ANG = 30 * Math.PI / 180;
-    // 一翼：W 本地 +x 沿翼方向，+z 為面向廣場的內側
-    const wing = (dirX, dirZ, L, dormers) => {
-      const W = new THREE.Group(); W.rotation.y = Math.atan2(-dirZ, dirX); CB.add(W);
-      const inner = dirX < 0 ? -1 : 1;           // 讓內側（面向廣場）統一判斷
+    const FLOORS = 4, FH = 0.36, WD = 1.5, H = FLOORS * FH + 0.12, HALF = 27.5 * Math.PI / 180;
+    const wings = [];
+    // 一翼：從 (ox, oz) 出發，方向 (dx, dz)；inner = 朝向 V 字內側的本地 z 方向
+    const wing = (ox, oz, dx, dz, L, dormers, inner) => {
+      const W = new THREE.Group(); W.position.set(ox, 0, oz); W.rotation.y = Math.atan2(-dz, dx); CB.add(W);
       put(W, G.box, brickO, L/2, H/2, 0, L, H, WD);
       for (let f = 1; f < FLOORS; f++) for (const zf of [WD/2 + 0.003, -WD/2 - 0.003]) put(W, G.box, brickO2, L/2, f*FH + 0.06, zf, L, 0.03, 0.01);
-      for (let f = 0; f < FLOORS; f++) for (let w = 0.9; w <= L - 0.3; w += 0.28) for (const zf of [WD/2 + 0.006, -WD/2 - 0.006]){
+      for (let f = 0; f < FLOORS; f++) for (let w = 0.5; w <= L - 0.3; w += 0.28) for (const zf of [WD/2 + 0.006, -WD/2 - 0.006]){
         put(W, G.box, winMat, w, 0.2 + f*FH, zf, 0.16, 0.15, 0.012); put(W, G.box, whiteF, w, 0.115 + f*FH, zf, 0.19, 0.022, 0.02); }
       gable(W, L + 0.2, WD + 0.35, 0.8, roofG).position.set(L/2, H, 0);
       const end = triWall(W, WD, 0.75, brickO); end.position.set(L + 0.002, H, 0); end.rotation.y = Math.PI/2;
-      put(W, G.box, brickO, L + 0.001, H/2, 0, 0.004, H, WD);
       for (let f = 0; f < FLOORS; f++) put(W, G.box, winMat, L + 0.008, 0.2 + f*FH, 0, 0.012, 0.15, 0.5);
       put(W, G.box, winMat, L + 0.008, H + 0.25, 0, 0.012, 0.18, 0.18);
-      // 內側（面向廣場）的白色小山牆老虎窗
-      const side = inner;                          // 翼的內側（面向廣場）在 W 本地 z 的哪一邊
       for (let q = 0; q < dormers; q++){
-        const dm = new THREE.Group(); dm.position.set(1.4 + q * ((L - 1.9) / Math.max(1, dormers - 1)), H + 0.12, (WD/2 - 0.1) * side); dm.rotation.y = side > 0 ? 0 : Math.PI; W.add(dm);
+        const dm = new THREE.Group(); dm.position.set(1.6 + q * ((L - 2.2) / Math.max(1, dormers - 1)), H + 0.12, (WD/2 - 0.1) * inner); dm.rotation.y = inner > 0 ? 0 : Math.PI; W.add(dm);
         put(dm, G.box, whiteF, 0, 0.1, 0, 0.32, 0.26, 0.24); gable(dm, 0.32, 0.4, 0.2, roofG2, false).position.set(0, 0.23, 0);
         put(dm, G.box, winMat, 0, 0.1, 0.122, 0.16, 0.14, 0.01); }
-      return W;
+      wings.push({ ox, oz, dx, dz, L });
     };
-    wing(-Math.cos(ANG), Math.sin(ANG), 6.4, 4);    // 左翼（沿操場，較長）
-    wing( Math.cos(ANG), Math.sin(ANG), 5.4, 3);    // 右翼
-    // 後棟（交會點往後）
-    put(CB, G.box, brickO, 0, H/2 - 0.1, -1.6, 1.4, H - 0.2, 2.4);
-    gable(CB, 2.5, 1.75, 0.7, roofG2, false).position.set(0, H - 0.2, -1.6);
-    for (let f = 0; f < FLOORS - 1; f++) for (let w = -2.6; w <= -0.7; w += 0.28) for (const xs of [0.703, -0.703]) put(CB, G.box, winMat, xs, 0.2 + f*FH, w, 0.012, 0.15, 0.16);
-    // 交會內角：白色山牆＋紅十字窗（入口），左側細長綠玻璃塔樓＋黃色小尖頂
-    put(CB, G.box, brickO, 0, H/2, 0.35, 1.5, H, 1.3);
-    put(CB, G.box, whiteF, 0, H*0.62, 1.006, 1.2, H*0.7, 0.02);
-    gable(CB, 1.5, 1.75, 0.75, roofG, false).position.set(0, H, 0.35);
-    triWall(CB, 1.6, 0.7, whiteF).position.set(0, H, 1.008);
-    for (const [gx, gy] of [[-0.27, H*0.78], [0.27, H*0.78], [-0.27, H*0.5], [0.27, H*0.5]]) put(CB, G.box, glass, gx, gy, 1.02, 0.42, 0.3, 0.01);
-    put(CB, G.box, redF, 0, H*0.64, 1.028, 0.08, H*0.62, 0.015);
-    put(CB, G.box, redF, 0, H*0.78, 1.028, 1.0, 0.07, 0.015);
-    put(CB, G.box, redF, 0, H + 0.08, 1.028, 1.15, 0.05, 0.015);
-    put(CB, G.box, dark, 0, 0.22, 1.012, 0.6, 0.44, 0.02); put(CB, G.box, whiteF, 0, 0.46, 1.03, 0.7, 0.04, 0.04);
-    put(CB, G.box, brickO, -0.9, H/2 + 0.25, 1.75, 0.42, H + 0.5, 0.42);
-    put(CB, G.box, green, -0.9, H/2 + 0.2, 1.966, 0.2, H + 0.2, 0.01);
-    put(CB, G.box, whiteF, -0.9, H + 0.55, 1.75, 0.5, 0.12, 0.5);
-    for (const [cx, cz] of [[-1,-1],[1,-1],[-1,1],[1,1]]) put(CB, G.box, whiteF, -0.9 + cx*0.18, H + 0.75, 1.75 + cz*0.18, 0.05, 0.3, 0.05);
-    put(CB, G.cone4, M(0xd9c25a, {flat:true}), -0.9, H + 1.05, 1.75, 0.36, 0.34, 0.36, Math.PI/4);
-    // 前廣場：交會點延伸出的紅磚步道 → 靠近大門的圓形花園
-    put(CB, G.box, pave, 0, 0.02, 2.2, 1.3, 0.04, 2.6);
-    put(CB, G.cyl, pave, 0, 0.02, 4.3, 1.9, 0.04, 1.9);
-    put(CB, G.box, pave, 0, 0.02, 5.6, 1.2, 0.04, 1.0);
-    put(CB, G.box, pave, 0, 0.02, -3.3, 0.8, 0.04, 1.0);
-    put(CB, G.cyl, hedge, 0, 0.06, 4.3, 1.15, 0.06, 1.15);
-    put(CB, G.cyl, pave2, 0, 0.08, 4.3, 0.92, 0.06, 0.92);
-    for (let q = 0; q < 4; q++){ const b = q * Math.PI/2 + Math.PI/4;
-      put(CB, G.box, hedge, Math.cos(b)*0.5, 0.12, 4.3 + Math.sin(b)*0.5, 0.46, 0.1, 0.46, -b);
-      put(CB, G.box, M(0xf08a3c), Math.cos(b)*0.5, 0.18, 4.3 + Math.sin(b)*0.5, 0.32, 0.04, 0.32, -b); }
-    put(CB, G.cyl, M(0xb3aca2), 0, 0.12, 4.3, 0.22, 0.1, 0.22); put(CB, G.cyl, M(0x7fc6e8, {extra:{roughness:0.15}}), 0, 0.17, 4.3, 0.18, 0.02, 0.18);
-    put(CB, G.cyl, whiteF, 0, 0.36, 4.3, 0.045, 0.3, 0.045); put(CB, G.ball, whiteF, 0, 0.55, 4.3, 0.05);
-    for (const s of [-1, 1]) for (let q = 0; q < 3; q++){ put(CB, G.cyl, M(0x3b3550), 0.85*s, 0.2, 1.4 + q*0.8, 0.015, 0.4, 0.015); put(CB, G.ball, lampMat, 0.85*s, 0.42, 1.4 + q*0.8, 0.04); }
-    // 兩翼與廣場之間的濃密樹林
-    const tr = mulberry(55);
-    for (const s of [-1, 1]) for (let q = 0; q < 16; q++){
-      const tx = (1.3 + tr() * 3.6) * s, tz = 1.0 + tr() * 4.4;
-      const wx = Math.abs(tx), lim = Math.tan(ANG) * wx + 1.25;      // 不要種進大樓裡
-      if (tz < lim || Math.hypot(tx, tz - 4.3) < 2.1) continue;
-      tree(CB, tx, tz, 1.5 + tr() * 0.9, tr() < 0.35 ? 0 : 1); }
-    // 操場：在左翼外側後方，與左翼平行
-    { const dx = -Math.cos(ANG), dz = Math.sin(ANG), nx = -Math.sin(ANG), nz = -Math.cos(ANG);
-      const T = new THREE.Group(); T.position.set(dx * 3.4 + nx * 2.75, 0, dz * 3.4 + nz * 2.75); T.rotation.y = Math.atan2(-dz, dx); CB.add(T);
+    // 左翼（沿操場，較長）、右翼（靠馬路）
+    const LX = -Math.sin(HALF), LZ = Math.cos(HALF), RX = Math.sin(HALF), RZ = Math.cos(HALF);
+    // W 的本地 +z 在世界中為 (sinθ, cosθ)，θ = atan2(-dz, dx)；左翼的內側在本地 -z，右翼在本地 +z
+    wing(-0.85, 0.15, LX, LZ, 7.2, 5, -1);
+    wing( 0.85, 0.15, RX, RZ, 6.4, 4, 1);
+    // V 字頂點：轉角棟（四角錐屋頂）＋朝內的白色山牆紅十字窗入口
+    put(CB, G.box, brickO, 0, H/2, -0.1, 2.6, H, 1.8);
+    put(CB, G.cone4, roofG, 0, H + 0.45, -0.1, 1.95, 0.9, 1.55, Math.PI/4);
+    put(CB, G.box, brickO, 0, H/2, 1.05, 1.3, H, 0.8);
+    put(CB, G.box, whiteF, 0, H*0.62, 1.456, 1.05, H*0.7, 0.02);
+    gable(CB, 0.9, 1.5, 0.65, roofG, false).position.set(0, H, 1.05);
+    triWall(CB, 1.35, 0.6, whiteF).position.set(0, H, 1.458);
+    for (const [gx, gy] of [[-0.24, H*0.78], [0.24, H*0.78], [-0.24, H*0.5], [0.24, H*0.5]]) put(CB, G.box, glass, gx, gy, 1.47, 0.38, 0.3, 0.01);
+    put(CB, G.box, redF, 0, H*0.64, 1.478, 0.08, H*0.62, 0.015);
+    put(CB, G.box, redF, 0, H*0.78, 1.478, 0.9, 0.07, 0.015);
+    put(CB, G.box, redF, 0, H + 0.08, 1.478, 1.0, 0.05, 0.015);
+    put(CB, G.box, dark, 0, 0.22, 1.462, 0.55, 0.44, 0.02); put(CB, G.box, whiteF, 0, 0.46, 1.48, 0.65, 0.04, 0.04);
+    // 綠玻璃塔樓（入口左側）＋黃色小尖頂
+    const TX = -0.62, TZ = 1.6;
+    put(CB, G.box, brickO, TX, H/2 + 0.25, TZ, 0.38, H + 0.5, 0.38);
+    put(CB, G.box, green, TX, H/2 + 0.2, TZ + 0.196, 0.18, H + 0.2, 0.01);
+    put(CB, G.box, whiteF, TX, H + 0.55, TZ, 0.46, 0.12, 0.46);
+    for (const [cx, cz] of [[-1,-1],[1,-1],[-1,1],[1,1]]) put(CB, G.box, whiteF, TX + cx*0.16, H + 0.75, TZ + cz*0.16, 0.05, 0.3, 0.05);
+    put(CB, G.cone4, M(0xd9c25a, {flat:true}), TX, H + 1.05, TZ, 0.33, 0.32, 0.33, Math.PI/4);
+    // 頂點前的淺色前庭、步道、靠近開口的圓形噴水池廣場
+    put(CB, G.box, tan, 0, 0.02, 2.6, 1.6, 0.04, 2.0);
+    put(CB, G.box, pave, 0, 0.02, 4.3, 1.0, 0.04, 1.6);
+    put(CB, G.cyl, pave, 0, 0.02, 6.2, 1.9, 0.04, 1.9);
+    put(CB, G.box, pave, 0.35, 0.02, 7.9, 1.3, 0.04, 1.5);
+    put(CB, G.cyl, hedge, 0, 0.06, 6.2, 1.1, 0.06, 1.1);
+    put(CB, G.cyl, pave2, 0, 0.08, 6.2, 0.9, 0.06, 0.9);
+    put(CB, G.cyl, M(0xb3aca2), 0, 0.12, 6.2, 0.45, 0.1, 0.45); put(CB, G.cyl, M(0x7fc6e8, {extra:{roughness:0.15}}), 0, 0.17, 6.2, 0.38, 0.02, 0.38);
+    put(CB, G.cone, M(0xb3aca2, {flat:true}), 0, 0.3, 6.2, 0.16, 0.26, 0.16);
+    for (let q = 0; q < 6; q++){ const b = q / 6 * Math.PI * 2; put(CB, G.box, M(0xf08a3c), Math.cos(b)*0.68, 0.14, 6.2 + Math.sin(b)*0.68, 0.32, 0.05, 0.14, -b + Math.PI/2); }
+    for (const s of [-1, 1]) for (let q = 0; q < 2; q++){ put(CB, G.cyl, M(0x3b3550), 0.65*s, 0.2, 3.6 + q*1.2, 0.015, 0.4, 0.015); put(CB, G.ball, lampMat, 0.65*s, 0.42, 3.6 + q*1.2, 0.04); }
+    // V 字內側沿著兩翼的大片樹林
+    const tr = mulberry(55), innerOK = (tx, tz) => {
+      for (const w of wings){ const px = tx - w.ox, pz = tz - w.oz, along = px*w.dx + pz*w.dz, perp = Math.abs(-px*w.dz + pz*w.dx);
+        if (along > -0.6 && along < w.L + 0.5 && perp < WD/2 + 0.35) return false; }
+      return Math.hypot(tx, tz - 6.2) > 2.15 && !(Math.abs(tx) < 1.0 && tz < 5.0) && !(Math.abs(tx) < 1.1 && tz < 2.2) && tz > 1.2;
+    };
+    let nt = 0;
+    for (let k = 0; k < 400 && nt < 34; k++){ const tz = 1.6 + tr() * 6.4, wmax = 0.85 + tz * Math.tan(HALF) - 0.2, tx = (tr() * 2 - 1) * wmax;
+      if (!innerOK(tx, tz)) continue; tree(CB, tx, tz, 1.4 + tr() * 0.9, tr() < 0.3 ? 0 : 1); nt++; }
+    // 操場：在左翼外側，與左翼平行
+    { const nx = -Math.cos(HALF), nz = -Math.sin(HALF);
+      const T = new THREE.Group(); T.position.set(-0.85 + LX * 3.9 + nx * 2.85, 0, 0.15 + LZ * 3.9 + nz * 2.85); T.rotation.y = Math.atan2(-LZ, LX); CB.add(T);
       const stadium = (L, R) => { const sh = new THREE.Shape(); sh.moveTo(-L/2, -R); sh.lineTo(L/2, -R); sh.absarc(L/2, 0, R, -Math.PI/2, Math.PI/2, false); sh.lineTo(-L/2, R); sh.absarc(-L/2, 0, R, Math.PI/2, Math.PI*1.5, false); return sh; };
-      const outer = stadium(2.8, 1.5), inner = stadium(2.8, 1.1); outer.holes.push(inner);
+      const outer = stadium(2.9, 1.5), inner = stadium(2.9, 1.1); outer.holes.push(inner);
       const tg = new THREE.ShapeGeometry(outer, 24); tg.rotateX(-Math.PI/2);
       { const m = new THREE.Mesh(tg, M(0xb84a3a)); m.position.y = 0.03; T.add(m); }
-      const ig = new THREE.ShapeGeometry(stadium(2.8, 1.1), 24); ig.rotateX(-Math.PI/2);
+      const ig = new THREE.ShapeGeometry(stadium(2.9, 1.1), 24); ig.rotateX(-Math.PI/2);
       { const m = new THREE.Mesh(ig, M(0x6fa85a)); m.position.y = 0.025; T.add(m); }
-      put(T, G.box, M(0x5fae7a), 0, 0.034, 0, 2.6, 0.01, 1.7);
-      for (const cx of [-0.62, 0.62]){ put(T, G.box, M(0x4a68b8), cx, 0.04, 0, 1.1, 0.01, 1.5);
-        put(T, G.box, M(0xffffff), cx, 0.046, 0, 1.1, 0.004, 0.02); put(T, G.cyl, M(0xffffff), cx, 0.046, 0, 0.17, 0.004, 0.17);
+      put(T, G.box, M(0x5fae7a), 0, 0.034, 0, 2.7, 0.01, 1.7);
+      for (const cx of [-0.64, 0.64]){ put(T, G.box, M(0x4a68b8), cx, 0.04, 0, 1.12, 0.01, 1.5);
+        put(T, G.box, M(0xffffff), cx, 0.046, 0, 1.12, 0.004, 0.02); put(T, G.cyl, M(0xffffff), cx, 0.046, 0, 0.17, 0.004, 0.17);
         for (const e of [-1, 1]) put(T, G.box, M(0x3b3550), cx, 0.18, e*0.72, 0.02, 0.3, 0.02); }
-      for (let q = 0; q < 5; q++) put(T, G.box, M(0xfff8ec), -1.4 + q*0.7, 0.032, -1.3, 0.01, 0.005, 0.38);
-      T.userData.pos = [T.position.x, T.position.z]; CB.userData.track = T; }
+      for (let q = 0; q < 5; q++) put(T, G.box, M(0xfff8ec), -1.45 + q*0.72, 0.032, -1.3, 0.01, 0.005, 0.38);
+      CB.userData.track = [T.position.x, T.position.z]; }
     g.add(bake(CB));
     // 佔用範圍（讓遊樂園的樹木避開）
     const rot = CB.rotation.y, toWorld = (lx, lz) => [x + lx*Math.cos(rot) + lz*Math.sin(rot), z - lx*Math.sin(rot) + lz*Math.cos(rot)];
-    const tp = CB.userData.track.userData.pos;
-    for (const [lx, lz, r] of [[0, 0, 1.6], [0, -1.8, 1.3], [0, 2.4, 1.0], [0, 4.3, 2.0], [tp[0], tp[1], 2.6], [tp[0] - 1.2, tp[1] + 0.7, 1.8], [tp[0] + 1.2, tp[1] - 0.7, 1.8]]) used.push([...toWorld(lx, lz), r]);
-    for (const [s, L] of [[-1, 6.4], [1, 5.4]]) for (let k = 0; k <= 6; k++){ const t = k * L / 6; used.push([...toWorld(s*Math.cos(ANG)*t, Math.sin(ANG)*t), 1.0]); }
-    for (const s of [-1, 1]) used.push([...toWorld(2.6*s, 3.2), 2.0]);
-    // 主要道路接到後棟
-    { const L = CAMPUS_B - 3.2 - 9.0, mid = 9.0 + L/2; if (L > 0.2) put(d, G.box, M(0xeadfcd), Math.cos(a)*mid, 0.02, Math.sin(a)*mid, L, 0.04, 0.55, -a); }
+    const tp = CB.userData.track;
+    used.push([...toWorld(0, 0), 1.8]);
+    for (const [lx, lz, r] of [[0, 3.0, 1.5], [0, 6.2, 2.2], [tp[0], tp[1], 2.6], [tp[0] + LX*1.3, tp[1] + LZ*1.3, 1.8], [tp[0] - LX*1.3, tp[1] - LZ*1.3, 1.8]]) used.push([...toWorld(lx, lz), r]);
+    for (const w of wings) for (let k = 0; k <= 7; k++){ const t = k * w.L / 7; used.push([...toWorld(w.ox + w.dx*t, w.oz + w.dz*t), 1.0]); }
+    for (const s of [-1, 1]) for (const zz of [3.0, 5.0, 7.0]) used.push([...toWorld(s * (0.6 + zz * 0.45), zz), 1.0]);
+    // 主要道路接到轉角棟後方
+    { const L = CAMPUS_B - 1.0 - 9.0, mid = 9.0 + L/2; if (L > 0.2) put(d, G.box, M(0xeadfcd), Math.cos(a)*mid, 0.02, Math.sin(a)*mid, L, 0.04, 0.55, -a); }
   }
   { const a = roadA(1), rr = CAMPUS_G, x = Math.cos(a)*rr, z = Math.sin(a)*rr;
     const GT = new THREE.Group(); GT.position.set(x, HUB_TOP, z); GT.rotation.y = Math.PI/2 - a; g.add(GT);   // 本地 +z 朝外
