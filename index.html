@@ -1235,11 +1235,14 @@ const hubPads = [];
   // --- 樹木（點綴） ---
   let trees = 0;
   const inner = hubPts.map(p => p.clone().multiplyScalar(0.9));
-  for (let tries = 0; tries < 3000 && trees < 150; tries++){
-    const a = rnd()*Math.PI*2, rr = 2.9 + rnd() * (HUB_R0*HUB_RMAX - 2.9), x = Math.cos(a)*rr, z = Math.sin(a)*rr, s = 0.9 + rnd()*0.8;
+  // 樹木密集覆蓋（約 70% 空地），面積均勻取樣；避開雲霄飛車軌道帶與道路
+  const RMAX = HUB_R0 * HUB_RMAX;
+  for (let tries = 0; tries < 26000 && trees < 1300; tries++){
+    const a = rnd()*Math.PI*2, rr = Math.sqrt(2.9*2.9 + rnd() * (RMAX*RMAX - 2.9*2.9)), x = Math.cos(a)*rr, z = Math.sin(a)*rr, s = 0.8 + rnd()*0.9;
     if (!insidePoly(inner, x, -z)) continue;            // 島面座標：形狀的 y 對應世界的 -z
-    if (!free(x, z, 0.25*s) || (rr < HUB_R0 && onRoad(x, z, 0.15))) continue;
-    tree(d, x, z, s, (rnd()*3)|0); used.push([x, z, 0.2*s]); trees++;
+    if (rr > 7.4 && rr < 8.9) continue;                 // 雲霄飛車
+    if (!free(x, z, 0.17*s) || (rr < HUB_R0 && onRoad(x, z, 0.12))) continue;
+    tree(d, x, z, s, (rnd()*3)|0); used.push([x, z, 0.17*s]); trees++;
   }
   // 廣場上的樹與長椅
   for (let k = 0; k < 8; k++){ const a = k/8*Math.PI*2 + 0.2; tree(d, Math.cos(a)*2.2, Math.sin(a)*2.2, 1.1, k % 3); }
