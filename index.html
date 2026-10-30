@@ -429,6 +429,8 @@ function bake(group){
     let g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone();
     for (const k of Object.keys(g.attributes)) if (k !== 'position' && k !== 'normal') g.deleteAttribute(k);
     g.applyMatrix4(o.matrixWorld);
+    if (o.matrixWorld.determinant() < 0){ for (const k of ['position', 'normal']){ const at = g.attributes[k]; if (!at) continue; const a = at.array;
+      for (let t = 0; t < a.length; t += 9) for (let c = 0; c < 3; c++){ const tmp = a[t + 3 + c]; a[t + 3 + c] = a[t + 6 + c]; a[t + 6 + c] = tmp; } } }
     if (!buckets.has(o.material)) buckets.set(o.material, []);
     buckets.get(o.material).push(g);
   });
@@ -1042,7 +1044,7 @@ const hubPads = [];
     // --- 禮堂（操場外側，與操場平行；白色磁磚外牆、拱形窗、圓柱塔馬賽克、大樓梯） ---
     { const tp = CB.userData.track, nx = -Math.cos(HALF), nz = -Math.sin(HALF);
       const PX = -LZ, PZ = LX;   // 與操場長軸垂直的方向（往外側）
-      const A = new THREE.Group(); A.position.set(tp[0] - LX * 4.5 + PX * 0.9, 0, tp[1] - LZ * 4.5 + PZ * 0.9); A.rotation.y = Math.atan2(-LX, -LZ); CB.add(A);   // 位於操場後端，長邊與操場垂直，-z 面向操場
+      const A = new THREE.Group(); A.position.set(tp[0] - LX * 4.2 + PX * 1.7, 0, tp[1] - LZ * 4.2 + PZ * 1.7); A.rotation.y = Math.atan2(-LX, -LZ); A.scale.set(-0.85, 0.85, 0.85); CB.add(A);   // 左右鏡射、縮小 15%   // 位於操場後端，長邊與操場垂直，-z 面向操場
       const tileW = M(0xe7e3db), tileW2 = M(0xd6d1c7), trim = M(0xf7f5f0), glassD = M(0x4a5260, {extra:{roughness:0.3}});
       const archGeo = new THREE.CylinderGeometry(1, 1, 1, 16, 1, false, -Math.PI/2, Math.PI);
       const AL = 4.6, AD = 2.3, AH = 1.9;
