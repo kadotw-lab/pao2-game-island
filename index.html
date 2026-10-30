@@ -1028,7 +1028,7 @@ const hubPads = [];
       if (!innerOK(tx, tz)) continue; tree(CB, tx, tz, 1.4 + tr() * 0.9, tr() < 0.3 ? 0 : 1); nt++; }
     // 操場：在左翼外側，與左翼平行
     { const nx = -Math.cos(HALF), nz = -Math.sin(HALF);
-      const T = new THREE.Group(); T.position.set(-BX + LX * 3.5 + nx * 2.85, 0, LZ * 3.5 + nz * 2.85); T.rotation.y = Math.atan2(-LZ, LX); CB.add(T);
+      const T = new THREE.Group(); T.position.set(-BX + LX * 4.0 + nx * 3.3, 0, LZ * 4.0 + nz * 3.3); T.rotation.y = Math.atan2(-LZ, LX); T.scale.setScalar(1.3); CB.add(T);   // 操場放大 1.3 倍（寬度約等於禮堂長度）
       const stadium = (L, R) => { const sh = new THREE.Shape(); sh.moveTo(-L/2, -R); sh.lineTo(L/2, -R); sh.absarc(L/2, 0, R, -Math.PI/2, Math.PI/2, false); sh.lineTo(-L/2, R); sh.absarc(-L/2, 0, R, Math.PI/2, Math.PI*1.5, false); return sh; };
       const outer = stadium(2.9, 1.5), inner = stadium(2.9, 1.1); outer.holes.push(inner);
       const tg = new THREE.ShapeGeometry(outer, 24); tg.rotateX(-Math.PI/2);
@@ -1044,7 +1044,7 @@ const hubPads = [];
     // --- 禮堂（操場外側，與操場平行；白色磁磚外牆、拱形窗、圓柱塔馬賽克、大樓梯） ---
     { const tp = CB.userData.track, nx = -Math.cos(HALF), nz = -Math.sin(HALF);
       const PX = -LZ, PZ = LX;   // 與操場長軸垂直的方向（往外側）
-      const A = new THREE.Group(); A.position.set(tp[0] - LX * 4.2 + PX * 1.7, 0, tp[1] - LZ * 4.2 + PZ * 1.7); A.rotation.y = Math.atan2(-LX, -LZ); A.scale.set(-0.85, 0.85, 0.85); CB.add(A);   // 左右鏡射、縮小 15%   // 位於操場後端，長邊與操場垂直，-z 面向操場
+      const A = new THREE.Group(); A.position.set(tp[0] - LX * 5.25 + PX * 1.25, 0, tp[1] - LZ * 5.25 + PZ * 1.25); A.rotation.y = Math.atan2(-LX, -LZ); A.scale.set(-0.85, 0.85, 0.85); CB.add(A);   // 左右鏡射、縮小 15%   // 位於操場後端，長邊與操場垂直，-z 面向操場
       const tileW = M(0xe7e3db), tileW2 = M(0xd6d1c7), trim = M(0xf7f5f0), glassD = M(0x4a5260, {extra:{roughness:0.3}});
       const archGeo = new THREE.CylinderGeometry(1, 1, 1, 16, 1, false, -Math.PI/2, Math.PI);
       const AL = 4.6, AD = 2.3, AH = 1.9;
@@ -1102,7 +1102,7 @@ const hubPads = [];
     const tp = CB.userData.track;
     for (let k = -2; k <= 2; k++) used.push([...toWorld(k * 1.2, 0), 1.1]);
     { const au = CB.userData.aud; for (const k of [-2, -1, 0, 1, 2, 3]) used.push([...toWorld(au[0] - LZ * k * 0.9, au[1] + LX * k * 0.9), 1.6]); }
-    for (const [lx, lz, r] of [[0, 2.4, 1.5], [0, 5.4, 2.2], [tp[0], tp[1], 2.6], [tp[0] + LX*1.3, tp[1] + LZ*1.3, 1.8], [tp[0] - LX*1.3, tp[1] - LZ*1.3, 1.8]]) used.push([...toWorld(lx, lz), r]);
+    for (const [lx, lz, r] of [[0, 2.4, 1.5], [0, 5.4, 2.2], [tp[0], tp[1], 3.3], [tp[0] + LX*1.8, tp[1] + LZ*1.8, 2.3], [tp[0] - LX*1.8, tp[1] - LZ*1.8, 2.3]]) used.push([...toWorld(lx, lz), r]);
     for (const w of wings) for (let k = 0; k <= 7; k++){ const t = k * w.L / 7; used.push([...toWorld(w.ox + w.dx*t, w.oz + w.dz*t), 1.0]); }
     for (const s of [-1, 1]) for (const zz of [2.0, 3.8, 5.6]) used.push([...toWorld(s * (1.0 + zz * 0.18), zz), 0.9]);
     // 主要道路接到轉角棟後方
@@ -1358,7 +1358,7 @@ function addPerson(parent, kind, opt){
     for (let q = 0; q < 3; q++) park(q % 2 ? 'boy' : 'girl', { mode: 'circle', c: F, r: 1.35, speed: 0.3, ph: q * 2.1 });
     park('girl', { mode: 'idle', c: [C2[0] - 0.4, C2[1]], wave: true, rot: 0 });
     park('boy', { mode: 'idle', c: [C2[0] + 0.4, C2[1] + 0.2], wave: true, rot: 0.3 });
-    for (let q = 0; q < 3; q++) park(q % 2 ? 'girl' : 'boy', { mode: 'ellipse', c: T.c, r: 1.72, r2: 1.3, rot: T.rot, speed: 0.9 + q * 0.12, ph: q * 1.9 });
+    for (let q = 0; q < 3; q++) park(q % 2 ? 'girl' : 'boy', { mode: 'ellipse', c: T.c, r: 2.24, r2: 1.7, rot: T.rot, speed: 0.9 + q * 0.12, ph: q * 1.9 });
     // 老師：黃昭智老師在行政大樓前庭，另一位在鐘塔廣場
     addPerson(hubSign, 'teacherB', { scale: PS * 1.18, y: H0, mode: 'circle', c: [C2[0] + 0.2, C2[1] + 0.6], r: 0.45, speed: 0.12 });
   } else {
