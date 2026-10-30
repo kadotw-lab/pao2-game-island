@@ -567,8 +567,8 @@ const rockMat = M(ROCK, { flat: true, extra: { side: THREE.DoubleSide } });
 const GAP_X = 8;   // 島嶼間距倍率（想再調鬆緊改這裡）
 const specs = DATA.map((isl, i) => {
   const rnd = mulberry((parseInt(isl.id, 10) || i + 1) * 7 + 3);
-  let size = 0.7 + Math.pow(rnd(), 1.3) * 0.85;               // 0.7 ~ 1.55
-  if (isl.games.length >= 3) size = 1.75; else if (isl.games.length === 2) size = Math.max(size, 1.3);
+  let size = 1.4 + Math.pow(rnd(), 1.15) * 2.2;                // 1.4 ~ 3.6（大小差異大）
+  if (isl.games.length >= 3) size = 3.9; else if (isl.games.length === 2) size = Math.max(size, 2.8);
   const kind = SHAPES[(rnd() * SHAPES.length) | 0];
   const pts = outline(kind, rnd);
   const rMax = Math.max(...pts.map(p => p.length())), rMin = Math.min(...pts.map(p => p.length()));
@@ -591,8 +591,10 @@ CLUSTER.forEach((cl, ci) => cl.idx.forEach(i => clusterOf[i] = ci));
 // 所有班級混在一起，環繞中間遊樂園（順序打散）
 const order = DATA.map((d, i) => i); { const r = mulberry(4242); for (let k = order.length - 1; k > 0; k--){ const j = Math.floor(r() * (k + 1)); [order[k], order[j]] = [order[j], order[k]]; } }
 const rank = new Array(DATA.length); order.forEach((i, j) => rank[i] = j);
+const jit = mulberry(777);
 const P = specs.map((s, i) => { const j = rank[i];
-  const a = j * 2.39996 + 0.5, d = HUB_R + 2.2 * GAP_X + 1.75 * GAP_X * 0.95 * Math.sqrt(j + 0.5);
+  const a = j * 2.39996 + 0.5 + (jit() - 0.5) * 1.6;            // 角度隨機偏移，打破螺旋規律
+  const d = HUB_R + 2.2 * GAP_X + 1.75 * GAP_X * 1.15 * Math.sqrt(j + 0.5) * (0.7 + jit() * 0.6);
   return new THREE.Vector2(Math.cos(a) * d, Math.sin(a) * d); });
 function relax(iter, gravity){
   for (let it = 0; it < iter; it++){
@@ -642,7 +644,7 @@ DATA.forEach((isl, i) => {
   const sp = specs[i], s = sp.size;
   const rnd = mulberry(parseInt(isl.id, 10) || i+1);
   const group = new THREE.Group();
-  const baseY = (rnd() - 0.5) * 1.6 + (s - 1) * 0.4;
+  const baseY = (rnd() - 0.5) * 5 + (s - 1) * 0.5;
   group.position.set(P[i].x, baseY, P[i].y);
   world.add(group);
 
@@ -675,21 +677,22 @@ DATA.forEach((isl, i) => {
 
   // 封面看板
   const groundY = TOP_Y * ys;
-  const postLen = 1.6 + (s - 1) * 0.3;
+  const postLen = 1.6 + (s - 1) * 0.2;
   const board = makeBillboard(isl, coverOf(isl, isl.games[0]), postLen);
-  const bh = board.userData.h;
-  board.position.set(0, groundY + postLen + bh/2, -0.05);
+  const bh = board.userData.h, bsc = 0.75 + 0.3 * s;             // 看板跟著島放大
+  board.scale.setScalar(bsc);
+  board.position.set(0, groundY + (postLen + bh/2) * bsc, -0.05);
   group.add(board);
 
   // 點擊判定
-  const hit = new THREE.Mesh(new THREE.CylinderGeometry(sp.R * 1.02, sp.R * 1.02, 4.4, 12), new THREE.MeshBasicMaterial({ visible: false }));
-  hit.position.y = 1.0; hit.userData.idx = i; group.add(hit); pickables.push(hit);
+  const hit = new THREE.Mesh(new THREE.CylinderGeometry(sp.R * 1.02, sp.R * 1.02, 2.5 + (postLen + bh) * bsc + 2, 12), new THREE.MeshBasicMaterial({ visible: false }));
+  hit.position.y = ((postLen + bh) * bsc + groundY) / 2; hit.userData.idx = i; group.add(hit); pickables.push(hit);
 
   const lbl = document.createElement('div'); lbl.className = 'lbl';
   lbl.textContent = isl.name;
   $('#labels').appendChild(lbl);
 
-  islands.push({ data: isl, group, board, baseY, phase: rnd()*6.28, lift: 0, hover: 0, lbl, genre, groundY, R: sp.R, topY: groundY + postLen + bh + 0.15 });
+  islands.push({ data: isl, group, board, baseY, phase: rnd()*6.28, lift: 0, hover: 0, lbl, genre, groundY, R: sp.R, topY: groundY + (postLen + bh) * bsc + 0.15 });
 });
 
 /* 依世界大小調整鏡頭、霧、陰影 */
