@@ -59,6 +59,9 @@ body.hovering #c{cursor:pointer}
 .live .stat span{font-size:11px;color:var(--ink-2);font-weight:700}
 .live .bar{height:8px;border-radius:99px;background:var(--cream);margin-top:10px;overflow:hidden}
 .live .bar div{height:100%;width:0;background:linear-gradient(90deg,var(--mint),var(--mustard));border-radius:99px;transition:width .6s}
+.live .visits{display:flex;align-items:center;gap:4px;margin-top:8px;background:var(--cream);border-radius:12px;padding:6px 10px;font-size:12px;font-weight:700;color:var(--ink-2);white-space:nowrap}
+.live .visits b{font-family:var(--round);font-size:16px;font-weight:600;color:var(--tomato);font-variant-numeric:tabular-nums}
+.live .visits .vi{font-size:14px}.live .visits .vsep{opacity:.5}
 .live .feed{margin-top:8px;font-size:12px;color:var(--ink-2);font-weight:700;height:18px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 
 /* ---------- 底部操作 ---------- */
@@ -196,6 +199,7 @@ body.night .hint{color:#e9e4ff;background:rgba(30,30,60,.5)}
     <div class="stat"><b id="sGame">0</b><span>款遊戲</span></div>
     <div class="stat"><b id="sDone">0</b><span>我玩過</span></div>
   </div>
+  <div class="visits" title="網頁拜訪統計"><span class="vi">👀</span><span>已有 <b id="vPeople">…</b> 人拜訪</span><span class="vsep">・</span><span>累計 <b id="vTotal">…</b> 次</span></div>
   <div class="bar" title="探索進度"><div id="progress"></div></div>
   <div class="feed" id="feed">歡迎登島！</div>
 </aside>
@@ -2371,6 +2375,25 @@ addEventListener('resize', onResize);
 $('#brandSub').textContent = CLASSES.map(c => c.course.replace('跑班資訊科技', '')).join('・') + '跑班資訊科技・個人遊戲作品展';
 countUp($('#sIsland'), DATA.length); countUp($('#sGame'), gameCount);
 refreshStats(); buildClsFilters(); buildFilters(); renderList(); feedRotate();
+/* 網頁拜訪統計（Abacus 免費計數服務）：每個瀏覽器只算一次「人」，每次開啟都算「次」；本機檔案預覽不計數 */
+(async () => {
+  const NS = 'wenxing-game-islands', API = 'https://abacus.jasoncameron.dev';
+  const live = /^https?:$/.test(location.protocol) && !/^(localhost|127\.)/.test(location.hostname);
+  const fmt = n => (typeof n === 'number' ? n.toLocaleString('zh-TW') : '—');
+  const call = async (op, key) => { const c = new AbortController(); const tm = setTimeout(() => c.abort(), 6000);
+    try { const r = await fetch(`${API}/${op}/${NS}/${key}`, { signal: c.signal }); const j = await r.json(); return typeof j.value === 'number' ? j.value : (op === 'get' ? 0 : null); }
+    catch (e) { return null; } finally { clearTimeout(tm); } };
+  let isNew = !store.get('pao2.visited', false);
+  const [people, total] = await Promise.all([
+    call(live && isNew ? 'hit' : 'get', 'visitors'),
+    call(live ? 'hit' : 'get', 'visits')
+  ]);
+  if (live && isNew && people !== null) store.set('pao2.visited', true);
+  const pe = $('#vPeople'), te = $('#vTotal');
+  if (people !== null) countUp(pe, people); else pe.textContent = '—';
+  if (total !== null) countUp(te, total); else te.textContent = '—';
+  if (people === null && total === null) $('.visits').title = '目前無法連線到拜訪統計服務';
+})();
 applySky(taipeiHour());
 frame();
 setTimeout(() => {
